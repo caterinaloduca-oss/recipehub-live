@@ -1,0 +1,2 @@
+- [Oracle EBS Data Gateway](reference_oracle_ebs_gateway.md) — MCP gateway at gateway.dailyfoodsa.com for items_master, inventory, consumption from Oracle EBS
+- [Never reference let/const before definition](feedback_let_hoisting.md) — Critical: let/const in single-file HTML apps kill all JS if referenced before definition
