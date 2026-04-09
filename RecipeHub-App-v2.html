@@ -698,11 +698,11 @@ body { font-family:var(--font-b); background:var(--cream); color:var(--g5); font
   <button class="nav-item" data-page="cost-control" onclick="nav('cost-control')">
     <span class="nav-icon">◎</span> KPI & Goals
   </button>
-
-  <div class="nav-section-label">Settings</div>
   <button class="nav-item" data-page="brands" onclick="nav('brands')">
     <span class="nav-icon">◎</span> Brands
   </button>
+
+  <div class="nav-section-label">Settings</div>
   <button class="nav-item" data-page="users" onclick="nav('users')">
     <span class="nav-icon">◉</span> Users <span class="nav-badge" id="nav-badge-users"></span>
   </button>
@@ -718,7 +718,6 @@ body { font-family:var(--font-b); background:var(--cream); color:var(--g5); font
     <div style="display:flex;gap:6px;margin-top:6px">
       <button onclick="exportBackup()" style="flex:1;padding:5px;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,0.1);background:none;color:rgba(255,255,255,0.4);font-family:var(--font-b);font-size:10px;cursor:pointer" onmouseover="this.style.color='rgba(255,255,255,0.7)'" onmouseout="this.style.color='rgba(255,255,255,0.4)'">📥 Export</button>
       <label style="flex:1;padding:5px;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,0.1);background:none;color:rgba(255,255,255,0.4);font-family:var(--font-b);font-size:10px;cursor:pointer;text-align:center" onmouseover="this.style.color='rgba(255,255,255,0.7)'" onmouseout="this.style.color='rgba(255,255,255,0.4)'">📤 Import<input type="file" accept=".json" style="display:none" onchange="importBackup(this)" /></label>
-      <button onclick="if(confirm('Reset to defaults? This clears saved data and reloads.')){localStorage.removeItem('recipehub_data_v1');localStorage.removeItem('recipehub_savings');location.reload()}" style="flex:1;padding:5px;border-radius:var(--r-sm);border:1px solid rgba(255,100,100,0.2);background:none;color:rgba(255,100,100,0.4);font-family:var(--font-b);font-size:10px;cursor:pointer" onmouseover="this.style.color='rgba(255,100,100,0.7)'" onmouseout="this.style.color='rgba(255,100,100,0.4)'">↺ Reset</button>
     </div>
   </div>
 
@@ -1631,7 +1630,7 @@ body { font-family:var(--font-b); background:var(--cream); color:var(--g5); font
   </div>
 
   <!-- Active team -->
-  <div style="display:grid;grid-template-columns:1fr 320px;gap:20px;align-items:start">
+  <div>
     <div class="card">
       <div class="card-head">
         <span class="card-title">Active Team</span>
@@ -1654,11 +1653,6 @@ body { font-family:var(--font-b); background:var(--cream); color:var(--g5); font
       </div>
     </div>
 
-    <!-- Role permissions panel -->
-    <div class="card">
-      <div class="card-head"><span class="card-title">Role Permissions</span></div>
-      <div style="padding:0" id="role-cards-list"></div>
-    </div>
   </div>
 
   <!-- Invite form -->
@@ -1778,16 +1772,6 @@ body { font-family:var(--font-b); background:var(--cream); color:var(--g5); font
           </div>
           <div class="form-group"><label class="form-label">Job Title <span style="color:var(--red)">*</span></label><input class="form-input" placeholder="e.g. Senior Food Technologist" id="reg-title" /></div>
         </div>
-        <div class="form-grid form-grid-2" style="margin-bottom:16px">
-          <div class="form-group">
-            <label class="form-label">Direct Manager</label>
-            <input class="form-input" placeholder="e.g. Caterina Loduca" />
-          </div>
-          <div class="form-group">
-            <label class="form-label">Reason for Access</label>
-            <input class="form-input" placeholder="Brief description of your role…" />
-          </div>
-        </div>
         <div style="border-top:1px solid var(--g2);padding-top:20px;display:flex;align-items:center;justify-content:space-between;gap:16px">
           <div style="font-size:11px;color:var(--g3)">Your information is only visible to your organisation admin.</div>
           <button class="btn btn-gold" onclick="submitReg()">Submit Request</button>
@@ -1837,7 +1821,7 @@ body { font-family:var(--font-b); background:var(--cream); color:var(--g5); font
 // ──────────── SAVE / LOAD SYSTEM ────────────
 const STORAGE_KEY = 'recipehub_data_v1';
 const AUTH_KEY = 'recipehub_auth_v1';
-const DATA_VERSION = 4; // bump this to push new hardcoded data into existing localStorage
+const DATA_VERSION = 5; // bump this to push new hardcoded data into existing localStorage
 var REJECTED_EMAILS = []; // track rejected pending users so they don't get re-injected
 
 // ──────────── ORACLE EBS ITEMS MASTER (pre-loaded from gateway.dailyfoodsa.com) ────────────
@@ -2996,6 +2980,7 @@ function exportBackup() {
   var data = {
     recipes: RECIPE_DB, ingredients: ING_DATA, users: USERS_DATA, pending: PENDING_DATA,
     builds: BUILDS_DATA, branchSOPs: BRANCH_SOPS, productionRuns: PRODUCTION_RUNS, activityLog: ACTIVITY_LOG,
+    shelfLifeData: SHELF_LIFE_DATA, accessPermissions: ACCESS_PERMISSIONS, rejectedEmails: REJECTED_EMAILS,
     exportedAt: new Date().toISOString(), version: 'RecipeHub-v2',
   };
   var json = JSON.stringify(data, null, 2);
@@ -3023,6 +3008,9 @@ function importBackup(input) {
       if (data.builds) { BUILDS_DATA.length = 0; data.builds.forEach(function(b){BUILDS_DATA.push(b)}); }
       if (data.branchSOPs) { BRANCH_SOPS.length = 0; data.branchSOPs.forEach(function(s){BRANCH_SOPS.push(s)}); }
       if (data.productionRuns) { PRODUCTION_RUNS.length = 0; data.productionRuns.forEach(function(r){PRODUCTION_RUNS.push(r)}); }
+      if (data.shelfLifeData) { SHELF_LIFE_DATA.points = data.shelfLifeData.points || []; SHELF_LIFE_DATA.notes = data.shelfLifeData.notes || ''; }
+      if (data.accessPermissions) { data.accessPermissions.forEach(function(sg){ var m=ACCESS_PERMISSIONS.find(function(g){return g.group===sg.group}); if(m&&sg.items) sg.items.forEach(function(si){ var it=m.items.find(function(i){return i.key===si.key}); if(it) ['admin','npd','qa','factory','purchasing','viewer'].forEach(function(r){if(si[r]!==undefined)it[r]=si[r]}); }); }); }
+      if (Array.isArray(data.rejectedEmails)) REJECTED_EMAILS = data.rejectedEmails;
       // Rebuild all tables
       buildIngTable(); buildRecipesTable(); buildBrandCards(); buildUsersTable();
       buildPendingTable(); buildRoleCards(); buildAccessMatrix(); buildFactorySOPTable();
@@ -3048,6 +3036,7 @@ function saveAllData() {
     productionRuns: PRODUCTION_RUNS,
     branchSOPs: BRANCH_SOPS,
     shelfLifeData: SHELF_LIFE_DATA,
+    accessPermissions: ACCESS_PERMISSIONS,
     rejectedEmails: REJECTED_EMAILS,
     savedAt: new Date().toISOString(),
     dataVersion: DATA_VERSION,
@@ -3102,6 +3091,17 @@ function loadAllData() {
     replaceArray(BRANCH_SOPS, data.branchSOPs);
     if (Array.isArray(data.rejectedEmails)) REJECTED_EMAILS = data.rejectedEmails;
     if (data.shelfLifeData) { SHELF_LIFE_DATA.points = data.shelfLifeData.points || []; SHELF_LIFE_DATA.notes = data.shelfLifeData.notes || ''; }
+    if (Array.isArray(data.accessPermissions)) {
+      data.accessPermissions.forEach(function(savedGroup) {
+        var match = ACCESS_PERMISSIONS.find(function(g){ return g.group === savedGroup.group; });
+        if (match && savedGroup.items) {
+          savedGroup.items.forEach(function(savedItem) {
+            var item = match.items.find(function(i){ return i.key === savedItem.key; });
+            if (item) { ['admin','npd','qa','factory','purchasing','viewer'].forEach(function(r){ if (savedItem[r] !== undefined) item[r] = savedItem[r]; }); }
+          });
+        }
+      });
+    }
 
     // Re-add new hardcoded recipes
     Object.keys(_hardcodedRecipes).forEach(k => { RECIPE_DB[k] = _hardcodedRecipes[k]; });
@@ -3124,12 +3124,37 @@ function loadAllData() {
         var _newEmail = 'caterina.loduca@dailyfoodsa.com';
         USERS_DATA.forEach(function(u) { if ((u.email||'').toLowerCase() === _oldEmail) u.email = _newEmail; });
       }
+      // v5: replace demo users with real team, remove old demo emails
+      if (savedVersion < 5) {
+        var _demoEmails = ['omar.s@dailyfoodsa.com','lina.f@dailyfoodsa.com','tariq.m@dailyfoodsa.com','mona.g@dailyfoodsa.com','rami.k@dailyfoodsa.com','faris.o@dailyfoodsa.com','dana.y@dailyfoodsa.com','khalid.h@dailyfoodsa.com','sara.m@dailyfoodsa.com'];
+        USERS_DATA = USERS_DATA.filter(function(u){ return _demoEmails.indexOf((u.email||'').toLowerCase()) === -1; });
+        // Add real users if not already present
+        var _realDefaults = [
+          {name:'Naresh Kumar',email:'naresh.kumar@dailyfoodsa.com',phone:'—',dept:'QA',title:'QA',role:'qa',brands:'All',last:'—',active:true},
+          {name:'Vikram Bishnoi',email:'vikram.bishnoi@dailyfoodsa.com',phone:'—',dept:'QA',title:'QA',role:'qa',brands:'All',last:'—',active:true},
+          {name:'Subhanshu Tripathi',email:'subhanshu.tripathi@dailyfoodsa.com',phone:'—',dept:'Factory',title:'Factory',role:'factory',brands:'All',last:'—',active:true},
+          {name:'Sita Mosa Al Omran',email:'sita.alomran@dailyfoodsa.com',phone:'—',dept:'Purchasing',title:'Purchasing',role:'purchasing',brands:'All',last:'—',active:true},
+          {name:'James Capper',email:'james.capper@dailyfoodsa.com',phone:'—',dept:'Chef development',title:'Chef development',role:'npd',brands:'All',last:'—',active:true},
+          {name:'Nuha Iesa',email:'nuha.iesa@dailyfoodsa.com',phone:'—',dept:'R&D projects leader',title:'R&D projects leader',role:'npd',brands:'All',last:'—',active:true},
+          {name:'Mauro Fantuzzi',email:'mauro.fantuzzi@dailyfoodsa.com',phone:'—',dept:'dough specialist',title:'dough specialist',role:'npd',brands:'All',last:'—',active:true},
+          {name:'Cristina Roca',email:'cristina.roca@dailyfoodsa.com',phone:'—',dept:'Purchasing',title:'Purchasing',role:'purchasing',brands:'All',last:'—',active:true},
+          {name:'Anurag Malik',email:'anurag.malik@dailyfoodsa.com',phone:'—',dept:'QA',title:'QA',role:'qa',brands:'All',last:'—',active:true},
+          {name:'Khalid Alomran',email:'khalid.alomran@dailyfoodsa.com',phone:'—',dept:'—',title:'Viewer',role:'viewer',brands:'All',last:'—',active:true},
+          {name:'Omar Homsi',email:'omar.homsi@dailyfoodsa.com',phone:'—',dept:'—',title:'Viewer',role:'viewer',brands:'All',last:'—',active:true},
+        ];
+        _realDefaults.forEach(function(u) {
+          if (!USERS_DATA.some(function(x){ return (x.email||'').toLowerCase() === u.email.toLowerCase(); })) USERS_DATA.push(u);
+        });
+        // Also remove these from pending if they were there
+        var _realEmails = _realDefaults.map(function(u){ return u.email.toLowerCase(); });
+        PENDING_DATA = PENDING_DATA.filter(function(p){ return _realEmails.indexOf((p.email||'').toLowerCase()) === -1; });
+      }
       // Save with live data arrays so the new pending users persist
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify({
           recipes: RECIPE_DB, ingredients: ING_DATA, users: USERS_DATA, pending: PENDING_DATA,
           builds: BUILDS_DATA, productionRuns: PRODUCTION_RUNS, branchSOPs: BRANCH_SOPS,
-          shelfLifeData: SHELF_LIFE_DATA, rejectedEmails: REJECTED_EMAILS, savedAt: new Date().toISOString(), dataVersion: DATA_VERSION,
+          shelfLifeData: SHELF_LIFE_DATA, accessPermissions: ACCESS_PERMISSIONS, rejectedEmails: REJECTED_EMAILS, savedAt: new Date().toISOString(), dataVersion: DATA_VERSION,
         }));
       } catch(e) {}
     }
@@ -3149,12 +3174,7 @@ function loadAllData() {
 
 // Default pending users — used by version check to inject new users
 function _getDefaultPending() {
-  return [
-    {name:'Naresh Kumar',        email:'naresh.kumar@dailyfoodsa.com',      phone:'—', dept:'—', title:'—', role:'',  brands:'—', submitted:'Just now'},
-    {name:'Vikram Bishnoi',      email:'vikram.bishnoi@dailyfoodsa.com',    phone:'—', dept:'—', title:'—', role:'',  brands:'—', submitted:'Just now'},
-    {name:'Subhanshu Tripathi',  email:'subhanshu.tripathi@dailyfoodsa.com',phone:'—', dept:'—', title:'—', role:'',  brands:'—', submitted:'Just now'},
-    {name:'Sita Mosa Al Omran',  email:'sita.alomran@dailyfoodsa.com',     phone:'—', dept:'—', title:'—', role:'',  brands:'—', submitted:'Just now'},
-  ];
+  return [];
 }
 
 function showSaveToast(msg, isError) {
@@ -3194,6 +3214,7 @@ window.addEventListener('beforeunload', function() {
       productionRuns: PRODUCTION_RUNS,
       branchSOPs: BRANCH_SOPS,
       shelfLifeData: SHELF_LIFE_DATA,
+      accessPermissions: ACCESS_PERMISSIONS,
       rejectedEmails: REJECTED_EMAILS,
       savedAt: new Date().toISOString(),
       dataVersion: DATA_VERSION,
@@ -4352,7 +4373,7 @@ function viewRecipe(npd) {
         <div style="display:flex;gap:8px;align-items:center">
           <span class="badge ${statusMap[r.status]}" style="font-size:11px">${statusLabel[r.status]}</span>
           <div class="print-dd" id="dd-detail-${r.npd}">
-            <button class="btn btn-sm" style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:none" onclick="toggleDD('dd-detail-${r.npd}')">Print ▾</button>
+            <button class="btn btn-sm" style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:none" onclick="event.stopPropagation();toggleDD('dd-detail-${r.npd}')">Print ▾</button>
             <div class="print-dd-menu">
               <button class="print-dd-item" onclick="openPrint('${r.npd}','kitchen')"><span class="dd-icon">🍳</span> Kitchen Version</button>
               <div class="print-dd-divider"></div>
@@ -4853,6 +4874,7 @@ function viewRecipe(npd) {
 
   PAGES['recipe-detail'].actions = `
     <button class="btn btn-gold btn-sm" onclick="editRecipe('${r.npd}')">✏️ Edit</button>
+    <button class="btn btn-outline btn-sm" onclick="exportToSOP('${r.npd}')">🏭 Factory SOP</button>
     ${_statusBtn}
     <div class="more-dd">
       <button class="btn btn-outline btn-sm" onclick="this.nextElementSibling.classList.toggle('show')">More ▾</button>
@@ -4862,7 +4884,7 @@ function viewRecipe(npd) {
         <button class="more-dd-item" onclick="openPrint('${r.npd}','sop-only')">📋 Print SOP Only</button>
         <button class="more-dd-item" onclick="downloadPDF('${r.npd}','kitchen')">📄 Save PDF</button>
         <div style="border-top:1px solid rgba(0,0,0,0.06);margin:4px 0"></div>
-        <button class="more-dd-item" onclick="updateRecipeCost('${r.npd}');viewRecipe('${r.npd}');showSaveToast('Cost recalculated')">💰 Recalc Cost</button>
+        <button class="more-dd-item" onclick="updateRecipeCost('${r.npd}');saveAllData();viewRecipe('${r.npd}');showSaveToast('Cost recalculated')">💰 Recalc Cost</button>
         <button class="more-dd-item" onclick="editRecipeTags('${r.npd}')">🏷️ Tags</button>
         <button class="more-dd-item" onclick="duplicateRecipe('${r.npd}')">📋 Duplicate</button>
         <button class="more-dd-item" onclick="viewVersionHistory('${r.npd}')">🕐 Version History</button>
@@ -5836,7 +5858,7 @@ function parseRecipeCSVPreview() {
 }
 
 function processRecipeText(text) {
-    var lines = text.split(/\r?\n/);
+    var lines = text.split(/\r\n|\r|\n/);
     var recipes = [];
     var current = null;
 
@@ -5885,6 +5907,12 @@ function processRecipeText(text) {
     }
     if (current) recipes.push(current);
 
+    // Fallback: try DFC Recipe Template format
+    if (!recipes.length) {
+      var isDFC = lines.slice(0,10).some(function(l) { return l.indexOf('Brand Name') > -1 || l.indexOf('DFC Recipe Template') > -1; });
+      if (isDFC) recipes = parseDFCRecipeTemplate(lines);
+    }
+
     if (!recipes.length) { showSaveToast('No recipes found — check the format', true); return; }
 
     _pendingImportRecipes = recipes;
@@ -5919,8 +5947,97 @@ function processRecipeText(text) {
     previewDiv.style.display = 'block';
 
     // Swap buttons
-    var btnRow = previewDiv.parentElement.querySelector('div:last-child');
+    var btnRow = previewDiv.parentElement.querySelector(':scope > div:last-child');
     btnRow.innerHTML = '<button class="btn btn-outline" onclick="closeModal()">Cancel</button> <button class="btn btn-outline" onclick="openImportRecipes()">Back</button> <button class="btn btn-gold" onclick="confirmImportRecipes()">Import Selected</button>';
+}
+
+function parseDFCRecipeTemplate(lines) {
+  var brand = '', name = '', type = '', npdCode = '', storage = '', shelfLife = '';
+  var ingredients = [];
+  var method = [];
+  var inIngredients = false;
+  var inProcess = false;
+  var pctCol = 6;
+
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i].trim();
+    if (!line) continue;
+    var cols = parseCSVLine(line);
+
+    if (cols.some(function(c) { return /DFC Recipe Template/i.test(c); })) continue;
+    if (cols.some(function(c) { return c.trim() === 'Brand Name'; })) continue;
+
+    // Detect ingredient header
+    if (cols.some(function(c) { return c.trim() === 'Ingredient'; })) {
+      inIngredients = true;
+      inProcess = false;
+      for (var j = 0; j < cols.length; j++) {
+        if (/true\s*%/i.test(cols[j])) { pctCol = j; break; }
+      }
+      continue;
+    }
+
+    // Detect PROCESS section
+    if (cols.some(function(c) { return /^PROCESS$/i.test(c.trim()); })) {
+      inIngredients = false;
+      inProcess = true;
+      continue;
+    }
+
+    if (inProcess) {
+      var stepNum = (cols[1] || '').trim();
+      var stepText = (cols[2] || '').trim();
+      if (/^\d+$/.test(stepNum) && stepText) {
+        method.push({ title: 'Step ' + stepNum, text: stepText });
+      }
+      continue;
+    }
+
+    if (inIngredients) {
+      var ingName = (cols[1] || '').trim();
+      if (!ingName || /total\/yield/i.test(ingName)) continue;
+      var pct = parseFloat(cols[pctCol]) || 0;
+      if (ingName) ingredients.push({ name: ingName, pct: pct });
+      continue;
+    }
+
+    // Recipe metadata row (between header and ingredients)
+    var col1 = (cols[1] || '').trim();
+    var col2 = (cols[2] || '').trim();
+    if (col1 && col2 && !name) {
+      brand = col1;
+      name = col2;
+      type = (cols[3] || '').trim();
+      npdCode = (cols[5] || '').trim();
+      storage = (cols[7] || '').trim();
+      shelfLife = (cols[8] || '').trim();
+    }
+  }
+
+  if (!name) return [];
+
+  var validBrands = ['Maestro','Mad','Pinzatta','Tivo','Telliano'];
+  var matchedBrand = validBrands.find(function(b) { return brand.indexOf(b) >= 0; }) || brand;
+
+  if (!npdCode || !/^\d{4}-\d{2,4}$/.test(npdCode)) {
+    var yr = new Date().getFullYear();
+    var existing = Object.keys(RECIPE_DB).filter(function(k) { return k.indexOf(yr + '-') === 0; });
+    var maxNum = 0;
+    existing.forEach(function(k) { var n = parseInt(k.split('-')[1]); if (n > maxNum) maxNum = n; });
+    npdCode = yr + '-' + String(maxNum + 1).padStart(3, '0');
+  }
+
+  return [{
+    name: name,
+    npd: npdCode,
+    brand: matchedBrand,
+    type: type,
+    storage: storage,
+    shelfLife: (shelfLife.trim().toLowerCase() === 'n/a') ? '' : shelfLife.trim(),
+    yield: 0.95,
+    ingredients: ingredients,
+    method: method
+  }];
 }
 
 function confirmImportRecipes() {
@@ -6334,9 +6451,9 @@ function setIngMode(mode) {
   const isPct = mode === 'pct';
   // Toggle button styles
   document.getElementById('er-mode-pct').className = isPct ? 'btn btn-sm' : 'btn btn-outline btn-sm';
-  document.getElementById('er-mode-pct').style.cssText = 'padding:4px 12px;font-size:11px' + (isPct ? ';background:var(--navy);color:white' : '');
+  document.getElementById('er-mode-pct').style.cssText = 'padding:4px 12px;font-size:11px' + (isPct ? ';background:#1B2A4A;color:white' : '');
   document.getElementById('er-mode-g').className = isPct ? 'btn btn-outline btn-sm' : 'btn btn-sm';
-  document.getElementById('er-mode-g').style.cssText = 'padding:4px 12px;font-size:11px' + (!isPct ? ';background:var(--navy);color:white' : '');
+  document.getElementById('er-mode-g').style.cssText = 'padding:4px 12px;font-size:11px' + (!isPct ? ';background:#1B2A4A;color:white' : '');
   // Show/hide batch size
   document.getElementById('er-batch-wrap').style.display = isPct ? 'none' : 'flex';
   // Toggle fields
@@ -6801,7 +6918,7 @@ function statusBadge(s) {
 
 function renderBrandDetail(id) {
   document.querySelectorAll('#brand-cards-row .brand-card').forEach(c => {
-    c.style.outline = c.dataset.id === id ? '2.5px solid var(--navy)' : 'none';
+    c.style.outline = c.dataset.id === id ? '2.5px solid #1B2A4A' : 'none';
     c.style.outlineOffset = '2px';
   });
   const b = BRANDS.find(x => x.id === id);
@@ -6930,24 +7047,21 @@ const ROLE_META = {
 };
 
 let USERS_DATA = [
-  {name:'Caterina Loduca', email:'caterina.loduca@dailyfoodsa.com',    phone:'+966 50 000 0001', dept:'Management',               title:'Admin — Full Access', role:'admin',   brands:'All',                    last:'Now',        active:true},
-  {name:'Omar Saleh',      email:'omar.s@dailyfoodsa.com',    phone:'+966 50 111 2233', dept:'NPD',                      title:'Senior Food Technologist',    role:'npd',     brands:'Maestro, Mad',           last:'2h ago',     active:true},
-  {name:'Lina Farid',      email:'lina.f@dailyfoodsa.com',    phone:'+966 55 222 3344', dept:'NPD',                      title:'Food Technologist',           role:'npd',     brands:'Pinzatta, Telliano',     last:'Yesterday',  active:true},
-  {name:'Tariq Mansour',   email:'tariq.m@dailyfoodsa.com',   phone:'+966 56 333 4455', dept:'NPD',                      title:'Junior Food Technologist',    role:'npd',     brands:'Tivo',                   last:'3 days ago', active:true},
-  {name:'Mona Al-Ghamdi',  email:'mona.g@dailyfoodsa.com',    phone:'+966 50 444 5566', dept:'Quality Assurance',        title:'QA Manager',                  role:'qa',      brands:'All',                    last:'Today',      active:true},
-  {name:'Rami Khoury',     email:'rami.k@dailyfoodsa.com',    phone:'+966 55 555 6677', dept:'Production / Factory',     title:'Production Supervisor',       role:'factory', brands:'Maestro, Mad, Pinzatta', last:'Today',      active:true},
-  {name:'Faris Al-Otaibi', email:'faris.o@dailyfoodsa.com',   phone:'+966 56 666 7788', dept:'Production / Factory',     title:'Factory Operator',            role:'factory', brands:'Tivo, Telliano',         last:'1 week ago', active:true},
-  {name:'Dana Yousef',     email:'dana.y@dailyfoodsa.com',    phone:'+966 50 777 8899', dept:'Production / Factory',     title:'Factory Operator',            role:'factory', brands:'All',                    last:'2 days ago', active:false},
-  {name:'Khalid Al-Harbi', email:'khalid.h@dailyfoodsa.com',  phone:'+966 50 888 9900', dept:'Purchasing',               title:'Purchasing Manager',          role:'purchasing', brands:'All',                  last:'Today',      active:true},
-  {name:'Sara Al-Mutairi', email:'sara.m@dailyfoodsa.com',    phone:'+966 55 999 0011', dept:'Purchasing',               title:'Procurement Officer',         role:'purchasing', brands:'All',                  last:'Yesterday',  active:true},
+  {name:'Caterina Loduca',      email:'caterina.loduca@dailyfoodsa.com',    phone:'+966 50 000 0001', dept:'Management',           title:'Admin — Full Access',  role:'admin',      brands:'All', last:'Now',   active:true},
+  {name:'Naresh Kumar',         email:'naresh.kumar@dailyfoodsa.com',       phone:'—', dept:'QA',                    title:'QA',                   role:'qa',         brands:'All', last:'—',    active:true},
+  {name:'Vikram Bishnoi',       email:'vikram.bishnoi@dailyfoodsa.com',     phone:'—', dept:'QA',                    title:'QA',                   role:'qa',         brands:'All', last:'—',    active:true},
+  {name:'Subhanshu Tripathi',   email:'subhanshu.tripathi@dailyfoodsa.com', phone:'—', dept:'Factory',               title:'Factory',              role:'factory',    brands:'All', last:'—',    active:true},
+  {name:'Sita Mosa Al Omran',   email:'sita.alomran@dailyfoodsa.com',       phone:'—', dept:'Purchasing',            title:'Purchasing',           role:'purchasing', brands:'All', last:'—',    active:true},
+  {name:'James Capper',         email:'james.capper@dailyfoodsa.com',       phone:'—', dept:'Chef development',      title:'Chef development',     role:'npd',        brands:'All', last:'—',    active:true},
+  {name:'Nuha Iesa',            email:'nuha.iesa@dailyfoodsa.com',          phone:'—', dept:'R&D projects leader',   title:'R&D projects leader',  role:'npd',        brands:'All', last:'—',    active:true},
+  {name:'Mauro Fantuzzi',       email:'mauro.fantuzzi@dailyfoodsa.com',     phone:'—', dept:'dough specialist',      title:'dough specialist',     role:'npd',        brands:'All', last:'—',    active:true},
+  {name:'Cristina Roca',        email:'cristina.roca@dailyfoodsa.com',      phone:'—', dept:'Purchasing',            title:'Purchasing',           role:'purchasing', brands:'All', last:'—',    active:true},
+  {name:'Anurag Malik',         email:'anurag.malik@dailyfoodsa.com',       phone:'—', dept:'QA',                    title:'QA',                   role:'qa',         brands:'All', last:'—',    active:true},
+  {name:'Khalid Alomran',       email:'khalid.alomran@dailyfoodsa.com',     phone:'—', dept:'—',                    title:'Viewer',               role:'viewer',     brands:'All', last:'—',    active:true},
+  {name:'Omar Homsi',           email:'omar.homsi@dailyfoodsa.com',         phone:'—', dept:'—',                    title:'Viewer',               role:'viewer',     brands:'All', last:'—',    active:true},
 ];
 
-let PENDING_DATA = [
-  {name:'Naresh Kumar',        email:'naresh.kumar@dailyfoodsa.com',      phone:'—', dept:'—', title:'—', role:'',  brands:'—', submitted:'Just now'},
-  {name:'Vikram Bishnoi',      email:'vikram.bishnoi@dailyfoodsa.com',    phone:'—', dept:'—', title:'—', role:'',  brands:'—', submitted:'Just now'},
-  {name:'Subhanshu Tripathi',  email:'subhanshu.tripathi@dailyfoodsa.com',phone:'—', dept:'—', title:'—', role:'',  brands:'—', submitted:'Just now'},
-  {name:'Sita Mosa Al Omran',  email:'sita.alomran@dailyfoodsa.com',     phone:'—', dept:'—', title:'—', role:'',  brands:'—', submitted:'Just now'},
-];
+let PENDING_DATA = [];
 
 function buildUsersTable() {
   const tbody = document.getElementById('users-tbody');
@@ -7017,7 +7131,7 @@ function buildRoleCards() {
   Object.entries(ROLE_META).forEach(([key, rm]) => {
     const count = USERS_DATA.filter(u => u.role === key).length;
     const div = document.createElement('div');
-    div.style.cssText = 'padding:14px 18px;border-bottom:1px solid var(--g2)';
+    div.style.cssText = 'padding:14px 18px;border-bottom:1px solid #E8E6E1';
     div.innerHTML = `
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
         <span style="font-size:12px;font-weight:500;padding:3px 12px;border-radius:40px;background:${rm.bg};color:${rm.color};border:1px solid ${rm.border}">${rm.label}</span>
@@ -7115,7 +7229,7 @@ function toggleAccess(el) {
     label.querySelector('span').textContent = '✓';
   } else {
     label.style.background = '#F5F4F2';
-    label.style.border = '1px solid var(--g2)';
+    label.style.border = '1px solid #E8E6E1';
     label.querySelector('span').textContent = '';
   }
   // Update data
@@ -7124,9 +7238,11 @@ function toggleAccess(el) {
       if (p.key === key) p[role] = checked;
     });
   });
+  saveAllData();
 }
 
 function saveAccessControl() {
+  saveAllData();
   showSaveToast('Access control saved');
 }
 
@@ -7255,7 +7371,7 @@ function sendInvite() {
   const role  = document.getElementById('inv-role').value;
   if (!email || !role) {
     if (!email) document.getElementById('inv-email').style.borderColor = '#C0392B';
-    if (!role)  document.getElementById('inv-role').style.borderColor  = 'var(--red)';
+    if (!role)  document.getElementById('inv-role').style.borderColor  = '#C0392B';
     return;
   }
   // Gather selected brands
@@ -7413,7 +7529,7 @@ function toggleNutritionEdit(npd) {
   var isDisabled = firstInput && firstInput.disabled;
   fields.forEach(function(f) {
     var el = document.getElementById('rd-nut-'+f+'-'+npd);
-    if (el) { el.disabled = !isDisabled; el.style.background = isDisabled ? 'white' : ''; el.style.borderColor = isDisabled ? 'var(--navy)' : ''; }
+    if (el) { el.disabled = !isDisabled; el.style.background = isDisabled ? 'white' : ''; el.style.borderColor = isDisabled ? '#1B2A4A' : ''; }
   });
   var saveBtn = document.getElementById('rd-nut-save-'+npd);
   if (saveBtn) saveBtn.style.display = isDisabled ? 'block' : 'none';
@@ -7448,7 +7564,7 @@ function calcNutDV() {
     if (isNaN(val) || !DAILY_VALUES[f]) { dvEl.textContent = '—'; return; }
     var pct = Math.round((val / DAILY_VALUES[f]) * 100);
     dvEl.textContent = pct + '%';
-    dvEl.style.color = pct > 20 ? 'var(--red)' : pct > 10 ? 'var(--amber)' : 'var(--g3)';
+    dvEl.style.color = pct > 20 ? '#C0392B' : pct > 10 ? '#D4700A' : '#C0BDB5';
   });
   // Energy doesn't use DV same way
   var energyEl = document.getElementById('qa-nut-energy');
@@ -7571,9 +7687,10 @@ function printQALabReport() {
   w.document.write('</div>');
   w.document.write('<div style="margin-top:12px;font-size:7pt;color:#999;display:flex;justify-content:space-between"><span>RecipeHub · '+r.brand+' · CONFIDENTIAL</span><span>'+r.npd+' · '+r.version+' · QA Lab Report</span></div>');
 
+  w.document.write('<div style="text-align:center;margin-top:16px" class="no-print"><button onclick="window.print()" style="padding:8px 24px;font-size:12px;border:1px solid #ccc;border-radius:6px;background:white;cursor:pointer">🖨️ Print</button></div>');
+  w.document.write('<style>@media print{.no-print{display:none!important}}</style>');
   w.document.write('</body></html>');
   w.document.close();
-  setTimeout(function(){ w.print(); }, 500);
 }
 
 function printCOA() {
@@ -7660,9 +7777,10 @@ function printCOA() {
   // Footer
   w.document.write('<div style="margin-top:20px;padding-top:8px;border-top:1px solid #ddd;font-size:7pt;color:#999;display:flex;justify-content:space-between"><span>Daily Food SA · '+r.brand+' · CONFIDENTIAL</span><span>COA-'+r.npd+' · '+date+'</span></div>');
 
+  w.document.write('<div style="text-align:center;margin-top:16px" class="no-print"><button onclick="window.print()" style="padding:8px 24px;font-size:12px;border:1px solid #ccc;border-radius:6px;background:white;cursor:pointer">🖨️ Print</button></div>');
+  w.document.write('<style>@media print{.no-print{display:none!important}}</style>');
   w.document.write('</body></html>');
   w.document.close();
-  setTimeout(function(){ w.print(); }, 500);
 }
 
 function saveNutrition() {
@@ -8058,7 +8176,7 @@ function toggleQAEdit(btn) {
     showSaveToast('Changes saved');
   } else {
     // Edit — highlight section and focus first input
-    card.style.outline = '2px solid var(--navy)';
+    card.style.outline = '2px solid #1B2A4A';
     card.style.outlineOffset = '2px';
     inputs.forEach(function(inp) { inp.style.background = 'white'; });
     btn.textContent = 'Done';
@@ -9108,11 +9226,6 @@ function setRunStatus(id, status) {
   saveAllData();
 }
 
-function startProductionRun(id) {
-  var run = PRODUCTION_RUNS.find(function(r){return r.id===id});
-  if (run) { run.status='in-progress'; buildProductionTable(); logActivity('production','🏭','Started: '+run.recipe); showSaveToast('Run started'); }
-  saveAllData();
-}
 
 function completeProductionRun(id) {
   var run = PRODUCTION_RUNS.find(function(r){return r.id===id});
@@ -10405,7 +10518,7 @@ function addBranchSOPStep() {
   var num = list.querySelectorAll('.bsop-edit-row').length + 1;
   var row = document.createElement('div');
   row.className = 'bsop-edit-row';
-  row.style.cssText = 'display:flex;gap:8px;align-items:flex-start;margin-bottom:10px;padding:10px;background:var(--g1);border-radius:var(--r-sm)';
+  row.style.cssText = 'display:flex;gap:8px;align-items:flex-start;margin-bottom:10px;padding:10px;background:#F5F4F2;border-radius:6px';
   row.innerHTML =
     '<div style="width:28px;height:28px;border-radius:50%;background:var(--navy);color:white;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0">'+num+'</div>' +
     '<div style="flex:1">' +
