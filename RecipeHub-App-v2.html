@@ -8762,6 +8762,48 @@ function viewBuild(id) {
     </div>
     ` : ''}
 
+    <!-- Allergens & Nutrition -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px">
+      <div class="card">
+        <div class="card-head"><span class="card-title">⚠ Allergens</span></div>
+        <div class="card-body" style="padding:14px 18px">
+          ${renderAllergenBadges(getBuildAllergens(b))}
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">🥗 Nutrition (per 100g)</span>
+          <button class="btn btn-outline btn-sm" onclick="toggleBuildNutritionEdit('${b.id}')">Edit</button>
+        </div>
+        <div class="card-body" style="padding:0">
+          <table class="data-table" style="font-size:12px">
+            <thead><tr><th>Nutrient</th><th style="text-align:right">Value</th><th>Nutrient</th><th style="text-align:right">Value</th></tr></thead>
+            <tbody>
+              <tr>
+                <td style="font-weight:500">Energy</td><td style="text-align:right"><input class="form-input" id="bld-nut-energy-${b.id}" value="${(b.nutrition&&b.nutrition.energy)||''}" style="text-align:right;font-family:var(--font-m);padding:2px 6px;font-size:12px;width:60px" disabled /> kcal</td>
+                <td style="font-weight:500">Protein</td><td style="text-align:right"><input class="form-input" id="bld-nut-protein-${b.id}" value="${(b.nutrition&&b.nutrition.protein)||''}" style="text-align:right;font-family:var(--font-m);padding:2px 6px;font-size:12px;width:60px" disabled /> g</td>
+              </tr>
+              <tr>
+                <td style="font-weight:500">Total Fat</td><td style="text-align:right"><input class="form-input" id="bld-nut-fat-${b.id}" value="${(b.nutrition&&b.nutrition.fat)||''}" style="text-align:right;font-family:var(--font-m);padding:2px 6px;font-size:12px;width:60px" disabled /> g</td>
+                <td style="color:var(--g4);padding-left:16px">Sat. Fat</td><td style="text-align:right"><input class="form-input" id="bld-nut-satfat-${b.id}" value="${(b.nutrition&&b.nutrition.satfat)||''}" style="text-align:right;font-family:var(--font-m);padding:2px 6px;font-size:12px;width:60px" disabled /> g</td>
+              </tr>
+              <tr>
+                <td style="font-weight:500">Carbs</td><td style="text-align:right"><input class="form-input" id="bld-nut-carbs-${b.id}" value="${(b.nutrition&&b.nutrition.carbs)||''}" style="text-align:right;font-family:var(--font-m);padding:2px 6px;font-size:12px;width:60px" disabled /> g</td>
+                <td style="color:var(--g4);padding-left:16px">Sugars</td><td style="text-align:right"><input class="form-input" id="bld-nut-sugars-${b.id}" value="${(b.nutrition&&b.nutrition.sugars)||''}" style="text-align:right;font-family:var(--font-m);padding:2px 6px;font-size:12px;width:60px" disabled /> g</td>
+              </tr>
+              <tr>
+                <td style="font-weight:500">Fibre</td><td style="text-align:right"><input class="form-input" id="bld-nut-fibre-${b.id}" value="${(b.nutrition&&b.nutrition.fibre)||''}" style="text-align:right;font-family:var(--font-m);padding:2px 6px;font-size:12px;width:60px" disabled /> g</td>
+                <td style="font-weight:500">Sodium</td><td style="text-align:right"><input class="form-input" id="bld-nut-sodium-${b.id}" value="${(b.nutrition&&b.nutrition.sodium)||''}" style="text-align:right;font-family:var(--font-m);padding:2px 6px;font-size:12px;width:60px" disabled /> mg</td>
+              </tr>
+            </tbody>
+          </table>
+          <div id="bld-nut-save-${b.id}" style="display:none;padding:8px 16px;text-align:right">
+            <button class="btn btn-sage btn-sm" onclick="saveBuildNutrition('${b.id}')">Save Nutrition</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Build Photo -->
     <div class="card" style="margin-bottom:20px">
       <div class="card-head"><span class="card-title">Product Photo</span></div>
@@ -8789,6 +8831,44 @@ function viewBuild(id) {
       <button class="btn btn-primary btn-sm" onclick="createSOPFromBuild('${b.id}')">📋 Create Branch SOP</button>
     </div>
   `;
+}
+
+function getBuildAllergens(b) {
+  var allergens = [];
+  if (b.components) {
+    b.components.forEach(function(c) {
+      detectAllergens(c.item).forEach(function(a) { if (allergens.indexOf(a) === -1) allergens.push(a); });
+      if (c.ref && RECIPE_DB[c.ref]) {
+        getRecipeAllergens(c.ref).forEach(function(a) { if (allergens.indexOf(a) === -1) allergens.push(a); });
+      }
+    });
+  }
+  return allergens;
+}
+
+function toggleBuildNutritionEdit(id) {
+  var fields = ['energy','protein','fat','satfat','carbs','sugars','fibre','sodium'];
+  var saveDiv = document.getElementById('bld-nut-save-' + id);
+  fields.forEach(function(f) {
+    var el = document.getElementById('bld-nut-' + f + '-' + id);
+    if (el) el.disabled = !el.disabled;
+  });
+  if (saveDiv) saveDiv.style.display = saveDiv.style.display === 'none' ? 'block' : 'none';
+}
+
+function saveBuildNutrition(id) {
+  var b = BUILDS_DATA.find(function(x) { return x.id === id; });
+  if (!b) return;
+  if (!b.nutrition) b.nutrition = {};
+  var fields = ['energy','protein','fat','satfat','carbs','sugars','fibre','sodium'];
+  fields.forEach(function(f) {
+    var el = document.getElementById('bld-nut-' + f + '-' + id);
+    if (el) b.nutrition[f] = el.value;
+  });
+  toggleBuildNutritionEdit(id);
+  showSaveToast('Nutrition saved');
+  logActivity('builds', '🥗', 'Nutrition updated for ' + b.name);
+  saveAllData();
 }
 
 function editBuildTags(id) {
@@ -10382,36 +10462,9 @@ function getBranchSOPAllergenNutritionData(sop) {
   var allergens = [];
   var mainNutrition = null;
   var build = sop.buildRef ? BUILDS_DATA.find(function(b){ return b.id === sop.buildRef; }) : null;
-  if (build && build.components) {
-    build.components.forEach(function(c) {
-      // Try direct ref first, then match component item name to recipe name
-      var recipe = null;
-      if (c.ref && RECIPE_DB[c.ref]) {
-        recipe = RECIPE_DB[c.ref];
-      } else if (c.item) {
-        var itemLower = c.item.toLowerCase();
-        recipe = Object.values(RECIPE_DB).find(function(r) {
-          return r.name && r.name.toLowerCase() === itemLower;
-        });
-      }
-      if (recipe) {
-        getRecipeAllergens(recipe.npd).forEach(function(a) { if (allergens.indexOf(a) === -1) allergens.push(a); });
-        if (recipe.nutrition && !mainNutrition) mainNutrition = recipe.nutrition;
-      }
-      detectAllergens(c.item).forEach(function(a) { if (allergens.indexOf(a) === -1) allergens.push(a); });
-    });
-  }
-  if (sop.allergenOverrides) {
-    (sop.allergenOverrides.contains || []).forEach(function(a) { if (allergens.indexOf(a) === -1) allergens.push(a); });
-  }
-  if (!build) {
-    var matchedRecipe = Object.values(RECIPE_DB).find(function(r) {
-      return r.name && sop.name && r.name.toLowerCase() === sop.name.toLowerCase();
-    });
-    if (matchedRecipe) {
-      allergens = getRecipeAllergens(matchedRecipe.npd);
-      if (matchedRecipe.nutrition) mainNutrition = matchedRecipe.nutrition;
-    }
+  if (build) {
+    allergens = getBuildAllergens(build);
+    if (build.nutrition) mainNutrition = build.nutrition;
   }
   return { allergens: allergens, nutrition: mainNutrition };
 }
