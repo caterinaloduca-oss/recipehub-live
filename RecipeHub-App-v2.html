@@ -3843,6 +3843,8 @@ let RECIPE_DB = {
 };
 
 // Add QA history and batch logs to existing recipes for demo
+RECIPE_DB['2025-009'].nutrition = {energy:'142',protein:'1.8',fat:'9.2',satfat:'1.1',carbs:'12.5',sugars:'2.3',fibre:'1.6',sodium:'680'};
+RECIPE_DB['2025-021'].nutrition = {energy:'198',protein:'2.4',fat:'6.8',satfat:'0.9',carbs:'32.1',sugars:'24.5',fibre:'0.8',sodium:'920'};
 RECIPE_DB['2025-009'].trialQA = {
   signed:true, signedBy:'Lina Fakhouri', signedAt:'12 Feb 2026',
   tpc:'2.1×10³', ym:'<10', col:'<10', ecoli:'ND', sal:'ND',
@@ -10299,6 +10301,20 @@ var BRANCH_SOPS = [
       {img:null, text:'Cut as per Pizza cutting standard & transfer in pizza box', portions:''},
       {img:null, text:'Add Ranch Sauce Swirls', portions:'S-3, M-4 & L-4'},
       {img:null, text:'Transfer in pizza box and served to customer', portions:''},
+    ],
+  },
+  {
+    id:'M-PS-125', name:'BBQ Chicken Pizza', brand:'Maestro', version:'V-01', date:'10/04/2026', status:'approved',
+    buildRef:'BLD-002',
+    steps:[
+      {img:null, text:'Take a Maestro Classic Dough and stretch to 35cm', portions:'1 pc (280g)'},
+      {img:null, text:'Spread Smoky BBQ Base with 4 Oz. ladle', portions:'S-1/3, M-2/3 & L-1'},
+      {img:null, text:'Add Mozzarella / Cheddar Blend with 1/2 Oz. scooper', portions:'S-1, M-2 & L-3'},
+      {img:null, text:'Add Grilled Chicken Strips with 1/4 Oz. scooper', portions:'S-1, M-1.5 & L-2.5'},
+      {img:null, text:'Add Red Onion Rings (~30 pcs) and Jalapeno Slices (~10 pcs)', portions:'As per picture'},
+      {img:null, text:'Full pass through the Oven at 465°F for 4.5 min', portions:''},
+      {img:null, text:'Remove burnt edges and cut as per pizza cutting standard', portions:''},
+      {img:null, text:'Transfer to pizza box and serve to customer', portions:''},
     ],
   },
   {
