@@ -10384,9 +10384,17 @@ function getBranchSOPAllergenNutritionData(sop) {
   var build = sop.buildRef ? BUILDS_DATA.find(function(b){ return b.id === sop.buildRef; }) : null;
   if (build && build.components) {
     build.components.forEach(function(c) {
+      // Try direct ref first, then match component item name to recipe name
+      var recipe = null;
       if (c.ref && RECIPE_DB[c.ref]) {
-        var recipe = RECIPE_DB[c.ref];
-        getRecipeAllergens(c.ref).forEach(function(a) { if (allergens.indexOf(a) === -1) allergens.push(a); });
+        recipe = RECIPE_DB[c.ref];
+      } else if (c.source === 'recipe' || c.type === 'Sauce') {
+        recipe = Object.values(RECIPE_DB).find(function(r) {
+          return r.name && c.item && r.name.toLowerCase() === c.item.toLowerCase();
+        });
+      }
+      if (recipe) {
+        getRecipeAllergens(recipe.npd).forEach(function(a) { if (allergens.indexOf(a) === -1) allergens.push(a); });
         if (recipe.nutrition && !mainNutrition) mainNutrition = recipe.nutrition;
       }
       detectAllergens(c.item).forEach(function(a) { if (allergens.indexOf(a) === -1) allergens.push(a); });
