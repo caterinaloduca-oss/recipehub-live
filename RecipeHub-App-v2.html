@@ -3041,7 +3041,7 @@ function saveAllData() {
     branchSOPs: BRANCH_SOPS,
     brands: BRANDS,
     brandRecipes: BRAND_RECIPES,
-    activityLog: ACTIVITY_LOG,
+    activityLog: ACTIVITY_LOG.slice(-200),
     savingsGoal: SAVINGS_GOAL,
     savingsProjects: SAVINGS_PROJECTS,
     qaAllergenOverrides: _qaAllergenOverrides,
@@ -3067,7 +3067,9 @@ function saveAllData() {
       showSaveToast('⚠️ Storage nearly full (' + sizeKB + ' KB) — export a backup', true);
     }
   } catch (e) {
-    showSaveToast('❌ Save failed — storage full! Export backup and reset.', true);
+    console.error('Save failed:', e);
+    showSaveToast('❌ Save failed — storage full! Export backup and clear old data.', true);
+    alert('⚠️ SAVE FAILED — localStorage is full.\n\nYour last change was NOT saved.\nGo to Admin Settings → Export Backup, then clear old data.');
   }
 }
 
