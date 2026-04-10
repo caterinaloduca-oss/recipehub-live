@@ -880,7 +880,8 @@ body { font-family:var(--font-b); background:var(--cream); color:var(--g5); font
       <input class="search-input" placeholder="Search recipes, NPD codes, ingredients…" id="recipe-search" oninput="filterRecipes()" />
     </div>
     <select class="filter-select" id="recipe-filter-brand" onchange="filterRecipes()"><option>All Brands</option><option>Maestro</option><option>Mad</option><option>Pinzatta</option><option>Tivo</option><option>Telliano</option></select>
-    <select class="filter-select" id="recipe-filter-status" onchange="filterRecipes()"><option>All Statuses</option><option>Draft</option><option>In Review</option><option>Factory Trial</option><option>Production Trial</option><option>Approved</option></select>
+    <select class="filter-select" id="recipe-filter-status" onchange="filterRecipes()"><option>All Statuses</option><option>Draft</option><option>In Review</option><option>Factory Trial</option><option>Production Trial</option><option>Approved</option><option>Archived</option></select>
+    <button class="btn btn-outline btn-sm" id="recipe-archive-toggle" onclick="toggleArchivedRecipes()" style="white-space:nowrap">Show Archived</button>
     <select class="filter-select" id="recipe-filter-type" onchange="filterRecipes()"><option>All Types</option><option>Marinade</option><option>Dip</option><option>Sauce</option><option>Blend</option><option>Seasoning</option><option>Spread</option><option>Dessert</option><option>Meat</option><option>Dough</option><option>Coating</option><option>Brine</option><option>Garnish</option></select>
     <select class="filter-select" id="recipe-filter-tag" onchange="filterRecipes()"><option>All Tags</option><option>LTO</option><option>Vegetarian</option><option>Gluten Free</option><option>Discontinued</option><option>Best Seller</option></select>
   </div>
@@ -3926,19 +3927,34 @@ RECIPE_DB['2026-101'] = {
 };
 
 // ──────────── BUILD RECIPES TABLE ────────────
+var _showArchivedRecipes = false;
+function toggleArchivedRecipes() {
+  _showArchivedRecipes = !_showArchivedRecipes;
+  var btn = document.getElementById('recipe-archive-toggle');
+  var count = Object.values(RECIPE_DB).filter(function(r){return r.archived}).length;
+  if (btn) btn.textContent = (_showArchivedRecipes ? 'Hide Archived' : 'Show Archived') + (count ? ' (' + count + ')' : '');
+  buildRecipesTable();
+  filterRecipes();
+}
 function buildRecipesTable() {
   const tbody = document.getElementById('recipes-tbody');
   if (!tbody) return;
   tbody.innerHTML = '';
   const userRole = getCurrentUserRole();
+  var archivedCount = 0;
   Object.values(RECIPE_DB).forEach(r => {
+    if (r.archived) archivedCount++;
+    // Hide archived unless toggle is on
+    if (r.archived && !_showArchivedRecipes) return;
     // Draft recipes only visible to NPD and Admin
     if (r.status === 'draft' && userRole !== 'admin' && userRole !== 'npd') return;
     // Viewers only see approved recipes
     if (userRole === 'viewer' && r.status !== 'approved') return;
     const tr = document.createElement('tr');
     tr.style.cursor = 'pointer';
+    if (r.archived) tr.style.opacity = '0.5';
     tr.onclick = function() { viewRecipe(r.npd); };
+    var statusBadge = r.archived ? '<span class="badge badge-draft">Archived</span>' : `<span class="badge badge-${r.status==='approved'?'approved':r.status==='prod-trial'?'prod-trial':r.status==='trial'?'trial':r.status==='review'?'review':'draft'}">${r.status==='approved'?'Approved':r.status==='prod-trial'?'Production Trial':r.status==='trial'?'Factory Trial':r.status==='review'?'In Review':'Draft'}</span>`;
     tr.innerHTML = `
       <td><strong>${r.name}</strong>${(r.tags&&r.tags.length)?'<div style="margin-top:3px">'+renderTagBadges(r.tags)+'</div>':''}</td>
       <td style="font-family:var(--font-m);font-size:12px;color:var(--g3)">${r.npd}</td>
@@ -3947,7 +3963,7 @@ function buildRecipesTable() {
       <td><span class="badge badge-navy">${r.version}</span></td>
       <td style="font-family:var(--font-m);color:${r.costKg ? 'var(--sage);font-weight:500' : 'var(--g3)'}">${r.costKg || '—'}</td>
       <td style="color:var(--g3);font-size:12px">${r.updated}</td>
-      <td><span class="badge badge-${r.status==='approved'?'approved':r.status==='prod-trial'?'prod-trial':r.status==='trial'?'trial':r.status==='review'?'review':'draft'}">${r.status==='approved'?'Approved':r.status==='prod-trial'?'Production Trial':r.status==='trial'?'Factory Trial':r.status==='review'?'In Review':'Draft'}</span></td>
+      <td>${statusBadge}</td>
       <td onclick="event.stopPropagation()">
         <div style="display:flex;gap:4px">
           <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();viewRecipe('${r.npd}')">View</button>
@@ -3966,6 +3982,8 @@ function buildRecipesTable() {
     `;
     tbody.appendChild(tr);
   });
+  var archBtn = document.getElementById('recipe-archive-toggle');
+  if (archBtn) archBtn.textContent = (_showArchivedRecipes ? 'Hide Archived' : 'Show Archived') + (archivedCount ? ' (' + archivedCount + ')' : '');
 }
 
 function toggleDD(id) {
@@ -4871,6 +4889,8 @@ function viewRecipe(npd) {
   if (r.status==='review') _statusBtn = `<button class="btn btn-sm" style="background:#0C6BA8;color:white" onclick="setRecipeStatus('${r.npd}','trial')">🏭 Factory Trial</button>`;
   if (r.status==='trial') _statusBtn = `<button class="btn btn-sm" style="background:${(r.trialQA && r.trialQA.signed)?'#6B2FA0':'var(--g3)'};color:white" onclick="setRecipeStatus('${r.npd}','prod-trial')">🔬 Prod Trial${(r.trialQA && r.trialQA.signed)?'':' (QA)'}</button>`;
   if (r.status==='prod-trial') _statusBtn = `<button class="btn btn-sm" style="background:${(r['prod-trialQA'] && r['prod-trialQA'].signed)?'var(--sage)':'var(--g3)'};color:white" onclick="setRecipeStatus('${r.npd}','approved')">✓ Approve${(r['prod-trialQA'] && r['prod-trialQA'].signed)?'':' (QA)'}</button>`;
+  if (r.status==='approved' && !r.archived) _statusBtn = `<button class="btn btn-sm" style="background:var(--g3);color:white" onclick="archiveRecipe('${r.npd}')">📦 Archive</button>`;
+  if (r.archived) _statusBtn = `<button class="btn btn-sm" style="background:var(--amber);color:white" onclick="unarchiveRecipe('${r.npd}')">♻️ Restore</button>`;
 
   PAGES['recipe-detail'].actions = `
     <button class="btn btn-gold btn-sm" onclick="editRecipe('${r.npd}')">✏️ Edit</button>
@@ -5021,6 +5041,40 @@ function getCurrentUserRole() {
     }
   } catch(e) {}
   return 'admin';
+}
+
+// ──────────── ARCHIVE RECIPE ────────────
+function archiveRecipe(npd) {
+  var r = RECIPE_DB[npd];
+  if (!r) return;
+  if (r.status !== 'approved') { showSaveToast('Only approved recipes can be archived', true); return; }
+  r.archived = true;
+  r.updated = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+  if (!r.changeLog) r.changeLog = [];
+  r.changeLog.push({date:new Date().toISOString(), by:'Caterina Loduca', changes:'Recipe archived'});
+  logActivity('status', '📦', r.name + ' archived', 'By Caterina Loduca');
+  buildRecipesTable();
+  updateDashboardStats();
+  updateSidebarBadges();
+  viewRecipe(npd);
+  showSaveToast('Recipe archived');
+  saveAllData();
+}
+
+function unarchiveRecipe(npd) {
+  var r = RECIPE_DB[npd];
+  if (!r) return;
+  r.archived = false;
+  r.updated = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+  if (!r.changeLog) r.changeLog = [];
+  r.changeLog.push({date:new Date().toISOString(), by:'Caterina Loduca', changes:'Recipe restored from archive'});
+  logActivity('status', '♻️', r.name + ' restored from archive', 'By Caterina Loduca');
+  buildRecipesTable();
+  updateDashboardStats();
+  updateSidebarBadges();
+  viewRecipe(npd);
+  showSaveToast('Recipe restored');
+  saveAllData();
 }
 
 // ──────────── EXPORT TO FACTORY SOP ────────────
@@ -5652,6 +5706,8 @@ function filterRecipes() {
   const status = document.getElementById('recipe-filter-status').value;
   const type = document.getElementById('recipe-filter-type').value;
   const tag = document.getElementById('recipe-filter-tag').value;
+  // Auto-show archived when "Archived" filter is selected
+  if (status === 'Archived' && !_showArchivedRecipes) { _showArchivedRecipes = true; buildRecipesTable(); }
   const rows = document.getElementById('recipes-tbody').querySelectorAll('tr');
   rows.forEach(row => {
     const text = row.textContent.toLowerCase();
