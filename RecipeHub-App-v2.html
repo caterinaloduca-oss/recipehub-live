@@ -1584,6 +1584,7 @@ body { font-family:var(--font-b); background:var(--cream); color:var(--g5); font
     <select class="filter-select" id="build-filter-brand" onchange="filterBuilds()"><option>All Brands</option><option>Maestro</option><option>Mad</option><option>Pinzatta</option><option>Tivo</option><option>Telliano</option></select>
     <select class="filter-select" id="build-filter-type" onchange="filterBuilds()"><option>All Types</option><option>Pizza</option><option>Sandwich</option><option>Pasta</option><option>Salad</option><option>Wrap</option><option>Dessert</option><option>Side Dish</option></select>
     <select class="filter-select" id="build-filter-size" onchange="filterBuilds()"><option>All Sizes</option><option>Small</option><option>Medium</option><option>Large</option><option>Piano</option></select>
+    <select class="filter-select" id="build-filter-active" onchange="filterBuilds()"><option>All</option><option>Active</option><option>Discontinued</option></select>
   </div>
 
   <div class="card">
@@ -1593,7 +1594,7 @@ body { font-family:var(--font-b); background:var(--cream); color:var(--g5); font
     </div>
     <div class="card-body" style="padding:0">
       <table class="data-table">
-        <thead><tr><th>Build Name</th><th>Code</th><th>Brand</th><th>Type</th><th>Size</th><th>Components</th><th>Build Cost</th><th>Status</th><th></th></tr></thead>
+        <thead><tr><th>Build Name</th><th>Code</th><th>Brand</th><th>Type</th><th>Size</th><th>Components</th><th>Build Cost</th><th>Status</th><th>Active</th><th></th></tr></thead>
         <tbody id="builds-tbody"></tbody>
       </table>
     </div>
@@ -8615,6 +8616,7 @@ function buildBuildsTable() {
       <td style="font-size:12px;color:var(--g4)">${b.components.length} items</td>
       <td style="font-family:var(--font-m);color:var(--sage);font-weight:500">SAR ${totalCost.toFixed(2)}</td>
       <td><span class="badge ${statusMap[b.status]}">${statusLabel[b.status]}</span></td>
+      <td><span style="display:inline-block;padding:2px 8px;border-radius:40px;font-size:10px;font-weight:600;background:${b.active===false?'var(--red)':'var(--sage)'};color:white">${b.active===false?'Discontinued':'Active'}</span></td>
       <td onclick="event.stopPropagation()">
         <div style="display:flex;gap:4px">
           <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();viewBuild('${b.id}')">View</button>
@@ -8627,7 +8629,7 @@ function buildBuildsTable() {
     tbody.appendChild(tr);
   });
   if (!BUILDS_DATA.length) {
-    tbody.innerHTML = '<tr><td colspan="9" style="padding:40px;text-align:center;color:var(--g3);font-size:13px">No product builds yet. Click <strong>+ New Build</strong> to create one.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" style="padding:40px;text-align:center;color:var(--g3);font-size:13px">No product builds yet. Click <strong>+ New Build</strong> to create one.</td></tr>';
   }
   // Update stats
   const el = id => document.getElementById(id);
@@ -8644,6 +8646,7 @@ function filterBuilds() {
   const brand = document.getElementById('build-filter-brand').value;
   const type = document.getElementById('build-filter-type').value;
   const size = document.getElementById('build-filter-size').value;
+  const active = document.getElementById('build-filter-active').value;
   const rows = document.getElementById('builds-tbody').querySelectorAll('tr');
   rows.forEach(row => {
     const text = row.textContent.toLowerCase();
@@ -8651,7 +8654,8 @@ function filterBuilds() {
     const matchBrand = brand === 'All Brands' || text.includes(brand.toLowerCase());
     const matchType = type === 'All Types' || text.includes(type.toLowerCase());
     const matchSize = size === 'All Sizes' || text.includes(size.toLowerCase());
-    row.style.display = (matchQ && matchBrand && matchType && matchSize) ? '' : 'none';
+    const matchActive = active === 'All' || text.includes(active.toLowerCase());
+    row.style.display = (matchQ && matchBrand && matchType && matchSize && matchActive) ? '' : 'none';
   });
 }
 
@@ -10542,11 +10546,14 @@ function buildBranchSOPTable() {
   const statusMap = {approved:'badge-approved',review:'badge-review',draft:'badge-draft'};
   const statusLabel = {approved:'Approved',review:'In Review',draft:'Draft'};
   BRANCH_SOPS.forEach(sop => {
+    var linkedBuild = sop.buildRef ? BUILDS_DATA.find(function(x){return x.id===sop.buildRef}) : null;
+    var buildDiscontinued = linkedBuild && linkedBuild.active === false;
     const tr = document.createElement('tr');
     tr.style.cursor = 'pointer';
+    if (buildDiscontinued) tr.style.opacity = '0.5';
     tr.onclick = function(){ viewBranchSOP(sop.id); };
     tr.innerHTML = `
-      <td><strong>${sop.name}</strong></td>
+      <td><strong>${sop.name}</strong>${buildDiscontinued ? ' <span style="font-size:10px;color:var(--red);font-weight:500">DISCONTINUED</span>' : ''}</td>
       <td style="font-family:var(--font-m);font-size:12px;color:var(--g3)">${sop.id}</td>
       <td>${sop.brand}</td>
       <td style="font-size:12px;color:var(--g4)">${sop.version}</td>
@@ -10592,7 +10599,8 @@ function viewBranchSOP(id) {
 
   content.innerHTML = `
     <button class="btn btn-outline btn-sm" onclick="document.getElementById('bsop-detail').style.display='none'" style="margin-bottom:14px">← Back to List</button>
-    <div style="background:white;border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--sh-md);margin-bottom:20px">
+    ${(function(){ var lb = sop.buildRef ? BUILDS_DATA.find(function(x){return x.id===sop.buildRef}) : null; return lb && lb.active===false ? '<div style="background:var(--red);color:white;padding:10px 20px;border-radius:var(--r-lg) var(--r-lg) 0 0;font-size:12px;font-weight:600;display:flex;align-items:center;gap:8px"><span style="font-size:16px">⚠</span> This product has been discontinued — the linked build ('+sop.buildRef+') is no longer active</div>' : ''; })()}
+    <div style="background:white;border-radius:${(function(){ var lb = sop.buildRef ? BUILDS_DATA.find(function(x){return x.id===sop.buildRef}) : null; return lb && lb.active===false ? '0 0 var(--r-lg) var(--r-lg)' : 'var(--r-lg)'; })()};overflow:hidden;box-shadow:var(--sh-md);margin-bottom:20px">
       <!-- Header banner -->
       <div style="background:${brandColor};padding:20px 28px;display:flex;align-items:center;gap:20px">
         <div style="background:white;border-radius:var(--r-md);padding:8px 14px;font-family:var(--font-d);font-size:14px;font-weight:700;color:${brandColor}">${sop.brand}</div>
