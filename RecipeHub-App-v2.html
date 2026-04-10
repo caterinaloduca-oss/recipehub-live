@@ -264,11 +264,7 @@ body { font-family:var(--font-b); background:var(--cream); color:var(--g5); font
 
 .brand-dot { display:inline-flex; align-items:center; font-size:12px; font-weight:500; padding:3px 10px; border-radius:40px; }
 .brand-dot::before { content:''; width:8px; height:8px; border-radius:50%; margin-right:6px; flex-shrink:0; }
-.brand-dot.maestro { background:#E8EDF5; color:#1B2A4A; } .brand-dot.maestro::before { background:#1B2A4A; }
-.brand-dot.mad     { background:#FDE8E6; color:#C0392B; } .brand-dot.mad::before { background:#C0392B; }
-.brand-dot.pinzatta{ background:#FEF3E2; color:#B8820A; } .brand-dot.pinzatta::before { background:#B8820A; }
-.brand-dot.tivo    { background:#EBF5EE; color:#2D6A4F; } .brand-dot.tivo::before { background:#2D6A4F; }
-.brand-dot.telliano{ background:#F5EEFA; color:#6B2FA0; } .brand-dot.telliano::before { background:#6B2FA0; }
+/* brand-dot styles are injected dynamically by populateBrandDotCSS() */
 .brand-card { border-radius:var(--r-lg); padding:20px; border:1px solid; cursor:pointer; transition:all 0.15s; }
 .brand-card:hover { transform:translateY(-2px); box-shadow:var(--sh-md); }
 .bsb-active { outline:2.5px solid var(--navy) !important; outline-offset:2px; }
@@ -879,7 +875,7 @@ body { font-family:var(--font-b); background:var(--cream); color:var(--g5); font
       <span class="search-icon">⌕</span>
       <input class="search-input" placeholder="Search recipes, NPD codes, ingredients…" id="recipe-search" oninput="filterRecipes()" />
     </div>
-    <select class="filter-select" id="recipe-filter-brand" onchange="filterRecipes()"><option>All Brands</option><option>Maestro</option><option>Mad</option><option>Pinzatta</option><option>Tivo</option><option>Telliano</option></select>
+    <select class="filter-select" id="recipe-filter-brand" onchange="filterRecipes()"><option>All Brands</option></select>
     <select class="filter-select" id="recipe-filter-status" onchange="filterRecipes()"><option>All Statuses</option><option>Draft</option><option>In Review</option><option>Factory Trial</option><option>Production Trial</option><option>Approved</option><option>Archived</option></select>
     <button class="btn btn-outline btn-sm" id="recipe-archive-toggle" onclick="toggleArchivedRecipes()" style="white-space:nowrap">Show Archived</button>
     <select class="filter-select" id="recipe-filter-type" onchange="filterRecipes()"><option>All Types</option><option>Marinade</option><option>Dip</option><option>Sauce</option><option>Blend</option><option>Seasoning</option><option>Spread</option><option>Dessert</option><option>Meat</option><option>Dough</option><option>Coating</option><option>Brine</option><option>Garnish</option></select>
@@ -1100,7 +1096,7 @@ body { font-family:var(--font-b); background:var(--cream); color:var(--g5); font
         <span class="search-icon">⌕</span>
         <input class="search-input" placeholder="Search factory SOPs…" id="fsop-search" oninput="filterFactorySOPs()" />
       </div>
-      <select class="filter-select" id="fsop-filter-brand" onchange="filterFactorySOPs()"><option>All Brands</option><option>Maestro</option><option>Mad</option><option>Pinzatta</option><option>Tivo</option><option>Telliano</option></select>
+      <select class="filter-select" id="fsop-filter-brand" onchange="filterFactorySOPs()"><option>All Brands</option></select>
       <select class="filter-select" id="fsop-filter-status" onchange="filterFactorySOPs()"><option>All Statuses</option><option>Draft</option><option>Pending</option><option>Approved</option></select>
     </div>
     <div class="card">
@@ -1333,7 +1329,7 @@ body { font-family:var(--font-b); background:var(--cream); color:var(--g5); font
       <span class="search-icon">⌕</span>
       <input class="search-input" placeholder="Search branch SOPs…" id="bsop-search" oninput="filterBranchSOPs()" />
     </div>
-    <select class="filter-select" id="bsop-filter-brand" onchange="filterBranchSOPs()"><option>All Brands</option><option>Maestro</option><option>Mad</option><option>Pinzatta</option><option>Tivo</option><option>Telliano</option></select>
+    <select class="filter-select" id="bsop-filter-brand" onchange="filterBranchSOPs()"><option>All Brands</option></select>
   </div>
 
   <div class="card">
@@ -1534,16 +1530,17 @@ body { font-family:var(--font-b); background:var(--cream); color:var(--g5); font
 <!-- PRODUCTION PLAN PAGE -->
 <div id="page-production" class="page-hidden">
   <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
-    <div class="stat-card"><div class="stat-label">Scheduled</div><div class="stat-value" id="prod-scheduled">0</div><div class="stat-sub">Upcoming runs</div></div>
-    <div class="stat-card"><div class="stat-label">In Progress</div><div class="stat-value" style="color:var(--amber)" id="prod-inprogress">0</div><div class="stat-sub">Active today</div></div>
-    <div class="stat-card"><div class="stat-label">Completed</div><div class="stat-value" style="color:var(--sage)" id="prod-completed">0</div><div class="stat-sub">This week</div></div>
-    <div class="stat-card"><div class="stat-label">Total Waste</div><div class="stat-value" style="color:var(--red)" id="prod-waste">0%</div><div class="stat-sub">Avg loss rate</div></div>
+    <div class="stat-card"><div class="stat-label">Scheduled</div><div class="stat-value" id="prod-scheduled">0</div><div class="stat-sub" id="prod-scheduled-sub">—</div></div>
+    <div class="stat-card"><div class="stat-label">In Progress</div><div class="stat-value" style="color:var(--amber)" id="prod-inprogress">0</div><div class="stat-sub" id="prod-inprogress-sub">—</div></div>
+    <div class="stat-card"><div class="stat-label">Completed</div><div class="stat-value" style="color:var(--sage)" id="prod-completed">0</div><div class="stat-sub" id="prod-completed-sub">—</div></div>
+    <div class="stat-card"><div class="stat-label">Avg Waste</div><div class="stat-value" style="color:var(--red)" id="prod-waste">0%</div><div class="stat-sub" id="prod-waste-sub">—</div></div>
   </div>
 
   <div class="card" style="margin-bottom:20px">
     <div class="card-head">
       <span class="card-title">Production Schedule</span>
       <div style="display:flex;gap:8px;align-items:center">
+        <select class="filter-select" id="prod-filter-brand" onchange="filterProductionRuns()"><option>All Brands</option></select>
         <select class="filter-select" id="prod-filter-status" onchange="filterProductionRuns()"><option>All</option><option>Scheduled</option><option>In Progress</option><option>Completed</option></select>
         <button class="btn btn-outline btn-sm" id="prod-archive-toggle" onclick="toggleArchivedRuns()" style="white-space:nowrap">Show Archived</button>
       </div>
@@ -1575,13 +1572,7 @@ body { font-family:var(--font-b); background:var(--cream); color:var(--g5); font
       <div style="width:1px;height:36px;background:rgba(255,255,255,0.15)"></div>
       <div style="text-align:center"><div style="font-size:32px;font-weight:700;color:rgba(255,255,255,0.6);font-family:var(--font-d)" id="builds-total-count">0</div><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.4)">Total</div></div>
     </div>
-    <div style="display:flex;gap:10px;align-items:center">
-      <div style="text-align:center;padding:0 10px"><div style="font-size:20px;font-weight:600;color:white;font-family:var(--font-d)" id="builds-maestro">0</div><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.4)">Maestro</div></div>
-      <div style="text-align:center;padding:0 10px"><div style="font-size:20px;font-weight:600;color:#F5B5B0;font-family:var(--font-d)" id="builds-mad">0</div><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.4)">Mad</div></div>
-      <div style="text-align:center;padding:0 10px"><div style="font-size:20px;font-weight:600;color:var(--gold-mid);font-family:var(--font-d)" id="builds-pinzatta">0</div><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.4)">Pinzatta</div></div>
-      <div style="text-align:center;padding:0 10px"><div style="font-size:20px;font-weight:600;color:var(--sage-mid);font-family:var(--font-d)" id="builds-tivo">0</div><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.4)">Tivo</div></div>
-      <div style="text-align:center;padding:0 10px"><div style="font-size:20px;font-weight:600;color:#D4B5F0;font-family:var(--font-d)" id="builds-telliano">0</div><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.4)">Telliano</div></div>
-    </div>
+    <div style="display:flex;gap:10px;align-items:center" id="builds-brand-stats"></div>
   </div>
 
   <div class="filter-bar">
@@ -1589,7 +1580,7 @@ body { font-family:var(--font-b); background:var(--cream); color:var(--g5); font
       <span class="search-icon">⌕</span>
       <input class="search-input" placeholder="Search builds — pizzas, sandwiches, wraps…" id="build-search" oninput="filterBuilds()" />
     </div>
-    <select class="filter-select" id="build-filter-brand" onchange="filterBuilds()"><option>All Brands</option><option>Maestro</option><option>Mad</option><option>Pinzatta</option><option>Tivo</option><option>Telliano</option></select>
+    <select class="filter-select" id="build-filter-brand" onchange="filterBuilds()"><option>All Brands</option></select>
     <select class="filter-select" id="build-filter-type" onchange="filterBuilds()"><option>All Types</option><option>Pizza</option><option>Sandwich</option><option>Pasta</option><option>Salad</option><option>Wrap</option><option>Dessert</option><option>Side Dish</option></select>
     <select class="filter-select" id="build-filter-size" onchange="filterBuilds()"><option>All Sizes</option><option>Small</option><option>Medium</option><option>Large</option><option>Piano</option></select>
     <select class="filter-select" id="build-filter-active" onchange="filterBuilds()"><option>All</option><option>Active</option><option>Discontinued</option></select>
@@ -1696,13 +1687,7 @@ body { font-family:var(--font-b); background:var(--cream); color:var(--g5); font
         </div>
         <div class="form-group" style="margin-bottom:20px">
           <label class="form-label">Brand Access</label>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px" id="inv-brands">
-            <label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer;padding:7px 14px;border-radius:var(--r-sm);border:1px solid var(--g2);background:var(--g1)"><input type="checkbox" value="maestro" id="cb-maestro"> <span style="width:8px;height:8px;border-radius:50%;background:#1B2A4A;display:inline-block"></span> Maestro</label>
-            <label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer;padding:7px 14px;border-radius:var(--r-sm);border:1px solid var(--g2);background:var(--g1)"><input type="checkbox" value="mad" id="cb-mad"> <span style="width:8px;height:8px;border-radius:50%;background:#C0392B;display:inline-block"></span> Mad</label>
-            <label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer;padding:7px 14px;border-radius:var(--r-sm);border:1px solid var(--g2);background:var(--g1)"><input type="checkbox" value="pinzatta" id="cb-pinzatta"> <span style="width:8px;height:8px;border-radius:50%;background:#B8820A;display:inline-block"></span> Pinzatta</label>
-            <label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer;padding:7px 14px;border-radius:var(--r-sm);border:1px solid var(--g2);background:var(--g1)"><input type="checkbox" value="tivo" id="cb-tivo"> <span style="width:8px;height:8px;border-radius:50%;background:#2D6A4F;display:inline-block"></span> Tivo</label>
-            <label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer;padding:7px 14px;border-radius:var(--r-sm);border:1px solid var(--g2);background:var(--g1)"><input type="checkbox" value="telliano" id="cb-telliano"> <span style="width:8px;height:8px;border-radius:50%;background:#6B2FA0;display:inline-block"></span> Telliano</label>
-          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px" id="inv-brands"></div>
           <div style="font-size:11px;color:var(--g3);margin-top:6px" id="inv-brand-note">Select which brands this user can access.</div>
         </div>
         <div style="display:flex;gap:10px;justify-content:flex-end">
@@ -3024,6 +3009,7 @@ function importBackup(input) {
       if (data.accessPermissions) { data.accessPermissions.forEach(function(sg){ var m=ACCESS_PERMISSIONS.find(function(g){return g.group===sg.group}); if(m&&sg.items) sg.items.forEach(function(si){ var it=m.items.find(function(i){return i.key===si.key}); if(it) ['admin','npd','qa','factory','purchasing','viewer'].forEach(function(r){if(si[r]!==undefined)it[r]=si[r]}); }); }); }
       if (Array.isArray(data.rejectedEmails)) REJECTED_EMAILS = data.rejectedEmails;
       // Rebuild all tables
+      populateBrandUI();
       buildIngTable(); buildRecipesTable(); buildBrandCards(); buildUsersTable();
       buildPendingTable(); buildRoleCards(); buildAccessMatrix(); buildFactorySOPTable();
       buildBuildsTable(); buildBranchSOPTable(); buildProductionTable(); updateDashboardStats(); updateSidebarBadges();
@@ -5783,7 +5769,7 @@ function openRecipeForm() {
         <div class="form-group"><label class="form-label">Recipe Name <span style="color:var(--red)">*</span></label><input class="form-input" id="nr-name" placeholder="e.g. Truffle Mayo" /></div>
       </div>
       <div class="form-grid form-grid-3" style="margin-bottom:16px">
-        <div class="form-group"><label class="form-label">Brand</label><select class="form-select" id="nr-brand"><option>Maestro</option><option>Mad</option><option>Pinzatta</option><option>Tivo</option><option>Telliano</option></select></div>
+        <div class="form-group"><label class="form-label">Brand</label><select class="form-select" id="nr-brand"></select></div>
         <div class="form-group"><label class="form-label">Type</label><select class="form-select" id="nr-type"><option>Marinade</option><option>Dip</option><option>Sauce</option><option>Blend</option><option>Seasoning</option><option>Spread</option><option>Dessert</option><option>Meat</option><option>Dough</option><option>Coating</option><option>Brine</option><option>Garnish</option></select></div>
         <div class="form-group"><label class="form-label">Storage</label><select class="form-select" id="nr-storage"><option>Ambient</option><option>Chilled 4°C</option><option>Frozen −18°C</option></select></div>
       </div>
@@ -5793,6 +5779,7 @@ function openRecipeForm() {
       </div>
     </div>
   `);
+  document.getElementById('nr-brand').innerHTML = brandOptionsHTML();
 }
 
 function generateNPDCode() {
@@ -5849,7 +5836,7 @@ Ingredient Name, Percentage%
 METHOD: Step title | Step description
 
 (blank line = next recipe)"></textarea>
-        <p style="font-size:11px;color:var(--g3);margin-top:6px">Brand: Maestro / Mad / Pinzatta / Tivo / Telliano &nbsp;|&nbsp; Type: Marinade / Dip / Sauce / Blend / Seasoning / Spread / Dessert / Meat / Dough / Coating / Brine / Garnish</p>
+        <p style="font-size:11px;color:var(--g3);margin-top:6px">Brand: ${BRANDS.map(b=>b.name).join(' / ')} &nbsp;|&nbsp; Type: Marinade / Dip / Sauce / Blend / Seasoning / Spread / Dessert / Meat / Dough / Coating / Brine / Garnish</p>
       </div>
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
         <div style="flex:1;height:1px;background:var(--g2)"></div>
@@ -5953,7 +5940,7 @@ function processRecipeText(text) {
         current = {
           name: cols[0].trim(),
           npd: cols[1].trim(),
-          brand: cols[2] ? cols[2].trim() : 'Maestro',
+          brand: cols[2] ? cols[2].trim() : BRANDS[0].name,
           type: cols[3] ? cols[3].trim() : 'Sauce',
           storage: cols[4] ? cols[4].trim() : 'Ambient',
           shelfLife: cols[5] ? cols[5].trim() : '12 Months',
@@ -6081,7 +6068,7 @@ function parseDFCRecipeTemplate(lines) {
 
   if (!name) return [];
 
-  var validBrands = ['Maestro','Mad','Pinzatta','Tivo','Telliano'];
+  var validBrands = BRANDS.map(function(b){ return b.name; });
   var matchedBrand = validBrands.find(function(b) { return brand.indexOf(b) >= 0; }) || brand;
 
   if (!npdCode || !/^\d{4}-\d{2,4}$/.test(npdCode)) {
@@ -6409,7 +6396,7 @@ function editRecipe(npd) {
     return;
   }
 
-  const brandOpts = ['Maestro','Mad','Pinzatta','Tivo','Telliano'].map(b => `<option ${r.brand===b?'selected':''}>${b}</option>`).join('');
+  const brandOpts = brandOptionsHTML(r.brand);
   const typeOpts = ['Marinade','Dip','Sauce','Blend','Seasoning','Spread','Dessert','Meat','Dough','Coating','Brine','Garnish'].map(t => `<option ${r.type===t?'selected':''}>${t}</option>`).join('');
   const storageOpts = ['Ambient','Chilled 4°C','Frozen −18°C'].map(s => `<option ${r.storage===s?'selected':''}>${s}</option>`).join('');
 
@@ -6866,7 +6853,7 @@ function editUser(btn) {
       </div>
       <div class="form-group" style="margin-bottom:16px">
         <label class="form-label">Brand Access</label>
-        <input class="form-input" id="eu-brands" value="${u.brands || 'All'}" placeholder="All or Maestro, Mad…" />
+        <input class="form-input" id="eu-brands" value="${u.brands || 'All'}" placeholder="All or ${BRANDS.slice(0,2).map(b=>b.name).join(', ')}…" />
       </div>
       <div style="display:flex;gap:10px;justify-content:flex-end">
         <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
@@ -7079,6 +7066,71 @@ function calcFC(input, costKg, npd) {
   nEl.style.color = col;
 }
 
+// ──────────── DYNAMIC BRAND UI ────────────
+// Keeps dropdowns, CSS, and checkboxes in sync with the BRANDS array
+function populateBrandUI() {
+  populateBrandDotCSS();
+  populateBrandDropdowns();
+  populateBrandCheckboxes();
+  populateBuildsBrandStats();
+}
+
+function populateBuildsBrandStats() {
+  var container = document.getElementById('builds-brand-stats');
+  if (!container) return;
+  container.innerHTML = BRANDS.map(function(b) {
+    return '<div style="text-align:center;padding:0 10px"><div style="font-size:20px;font-weight:600;color:' + b.text + ';font-family:var(--font-d)" id="builds-' + b.id + '">0</div><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.4)">' + b.name + '</div></div>';
+  }).join('');
+}
+
+function populateBrandDotCSS() {
+  var styleId = 'brand-dot-dynamic';
+  var el = document.getElementById(styleId);
+  if (!el) { el = document.createElement('style'); el.id = styleId; document.head.appendChild(el); }
+  el.textContent = BRANDS.map(function(b) {
+    return '.brand-dot.' + b.id + ' { background:' + b.bg + '; color:' + b.text + '; } .brand-dot.' + b.id + '::before { background:' + b.text + '; }';
+  }).join('\n');
+}
+
+function populateBrandDropdowns() {
+  var ids = ['recipe-filter-brand','fsop-filter-brand','bsop-filter-brand','build-filter-brand','prod-filter-brand'];
+  ids.forEach(function(id) {
+    var sel = document.getElementById(id);
+    if (!sel) return;
+    var current = sel.value;
+    while (sel.options.length > 1) sel.remove(1);
+    BRANDS.forEach(function(b) {
+      var opt = document.createElement('option');
+      opt.textContent = b.name;
+      sel.appendChild(opt);
+    });
+    if (current && current !== 'All Brands') sel.value = current;
+  });
+}
+
+function brandOptionsHTML(selected) {
+  return BRANDS.map(function(b) {
+    return '<option' + (b.name === selected ? ' selected' : '') + '>' + b.name + '</option>';
+  }).join('');
+}
+
+function getBrandColors() {
+  var map = {};
+  BRANDS.forEach(function(b) { map[b.name] = b.text; });
+  return map;
+}
+
+function populateBrandCheckboxes() {
+  var container = document.getElementById('inv-brands');
+  if (!container) return;
+  container.innerHTML = BRANDS.map(function(b) {
+    return '<label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer;padding:7px 14px;border-radius:var(--r-sm);border:1px solid var(--g2);background:var(--g1)">' +
+      '<input type="checkbox" value="' + b.id + '" id="cb-' + b.id + '"> ' +
+      '<span style="width:8px;height:8px;border-radius:50%;background:' + b.text + ';display:inline-block"></span> ' + b.name +
+    '</label>';
+  }).join('');
+}
+
 function buildBrandCards() {
   const row = document.getElementById('brand-cards-row');
   if (!row) return;
@@ -7102,7 +7154,7 @@ function buildBrandCards() {
     `;
     row.appendChild(div);
   });
-  renderBrandDetail('maestro');
+  if (BRANDS.length) renderBrandDetail(BRANDS[0].id);
 }
 
 // ── USERS ──────────────────────────────────────────
@@ -7344,7 +7396,7 @@ function approveUser(btn) {
     '</div>' +
     '<div class="form-grid form-grid-2" style="margin-bottom:16px">' +
       '<div class="form-group"><label class="form-label">Job Title</label><input class="form-input" id="approve-title" value="' + ((pending && pending.title !== '—' ? pending.title : '')) + '" placeholder="e.g. Food Technologist" /></div>' +
-      '<div class="form-group"><label class="form-label">Brands</label><input class="form-input" id="approve-brands" value="' + ((pending && pending.brands !== '—' ? pending.brands : 'All')) + '" placeholder="All or Maestro, Mad…" /></div>' +
+      '<div class="form-group"><label class="form-label">Brands</label><input class="form-input" id="approve-brands" value="' + ((pending && pending.brands !== '—' ? pending.brands : 'All')) + '" placeholder="All or ' + BRANDS.slice(0,2).map(function(b){return b.name}).join(', ') + '…" /></div>' +
     '</div>' +
     '<div style="display:flex;gap:10px;justify-content:flex-end">' +
       '<button class="btn btn-outline" onclick="closeModal()">Cancel</button>' +
@@ -7445,7 +7497,7 @@ function sendInvite() {
   }
   // Gather selected brands
   const brandCbs = document.querySelectorAll('#inv-brands input[type=checkbox]:checked');
-  const brands = brandCbs.length === 5 ? 'All' : Array.from(brandCbs).map(cb => cb.value.charAt(0).toUpperCase() + cb.value.slice(1)).join(', ') || 'None';
+  const brands = brandCbs.length === BRANDS.length ? 'All' : Array.from(brandCbs).map(cb => cb.value.charAt(0).toUpperCase() + cb.value.slice(1)).join(', ') || 'None';
   // Derive a name from email (e.g. omar.s@ → Omar S)
   const local = email.split('@')[0];
   const nameParts = local.split('.').map(p => p.charAt(0).toUpperCase() + p.slice(1));
@@ -7930,6 +7982,7 @@ function saveEditBrand(id) {
   b.border = 'rgba('+r2+','+g2+','+b2+',0.25)';
   b.costRange = document.getElementById('eb-cost').value || b.costRange;
   b.types = (document.getElementById('eb-types').value || '').split(',').map(function(t){return t.trim()}).filter(Boolean);
+  populateBrandUI();
   document.getElementById('brand-cards-row').innerHTML = '';
   buildBrandCards();
   renderBrandDetail(id);
@@ -7962,6 +8015,7 @@ function confirmDeleteBrand(id) {
   var idx = BRANDS.findIndex(function(x){return x.id===id});
   if (idx >= 0) BRANDS.splice(idx, 1);
   delete BRAND_RECIPES[id];
+  populateBrandUI();
   document.getElementById('brand-cards-row').innerHTML = '';
   buildBrandCards();
   document.getElementById('brand-detail-panel').innerHTML = '<div style="padding:50px;text-align:center;color:var(--g3);font-size:13px">Select a brand above</div>';
@@ -8298,6 +8352,7 @@ function saveNewBrand() {
   BRANDS.push({id:id, name:name, concept:concept, recipes:0, approved:0, review:0, draft:0, bg:bg, border:bdr, text:color, types:types, costRange:costRange});
   BRAND_RECIPES[id] = [];
 
+  populateBrandUI();
   document.getElementById('brand-cards-row').innerHTML = '';
   buildBrandCards();
   closeModal();
@@ -8649,9 +8704,9 @@ function buildBuildsTable() {
   if (el('builds-discontinued-count')) el('builds-discontinued-count').textContent = discontinuedCount;
   if (el('builds-total-count')) el('builds-total-count').textContent = BUILDS_DATA.length;
   if (el('builds-count-label')) el('builds-count-label').textContent = BUILDS_DATA.length + ' builds';
-  ['maestro','mad','pinzatta','tivo','telliano'].forEach(brand => {
-    const count = BUILDS_DATA.filter(b => b.brand.toLowerCase() === brand).length;
-    if (el('builds-' + brand)) el('builds-' + brand).textContent = count;
+  BRANDS.forEach(function(brand) {
+    var count = BUILDS_DATA.filter(function(b){ return b.brand === brand.name; }).length;
+    if (el('builds-' + brand.id)) el('builds-' + brand.id).textContent = count;
   });
 }
 
@@ -9004,7 +9059,7 @@ function openBuildForm() {
         '<div class="form-group"><label class="form-label">Build Code</label><input class="form-input" id="nb-build-id" value="'+defaultId+'" /></div>' +
       '</div>' +
       '<div class="form-grid form-grid-2" style="margin-bottom:16px">' +
-        '<div class="form-group"><label class="form-label">Brand</label><select class="form-select" id="nb-build-brand"><option>Maestro</option><option>Mad</option><option>Pinzatta</option><option>Tivo</option><option>Telliano</option></select></div>' +
+        '<div class="form-group"><label class="form-label">Brand</label><select class="form-select" id="nb-build-brand">' + brandOptionsHTML() + '</select></div>' +
         '<div class="form-group"><label class="form-label">Type</label><select class="form-select" id="nb-build-type"><option>Pizza</option><option>Sandwich</option><option>Pasta</option><option>Salad</option><option>Wrap</option><option>Dessert</option><option>Side Dish</option></select></div>' +
       '</div>' +
       '<div class="form-grid form-grid-3" style="margin-bottom:16px">' +
@@ -9070,7 +9125,7 @@ function editBuild(id) {
     '<div class="card-body" style="padding:24px">' +
       '<div class="form-grid form-grid-2" style="margin-bottom:16px">' +
         '<div class="form-group"><label class="form-label">Build Name</label><input class="form-input" id="eb-build-name" value="'+b.name+'" /></div>' +
-        '<div class="form-group"><label class="form-label">Brand</label><select class="form-select" id="eb-build-brand"><option '+(b.brand==='Maestro'?'selected':'')+'>Maestro</option><option '+(b.brand==='Mad'?'selected':'')+'>Mad</option><option '+(b.brand==='Pinzatta'?'selected':'')+'>Pinzatta</option><option '+(b.brand==='Tivo'?'selected':'')+'>Tivo</option><option '+(b.brand==='Telliano'?'selected':'')+'>Telliano</option></select></div>' +
+        '<div class="form-group"><label class="form-label">Brand</label><select class="form-select" id="eb-build-brand">' + brandOptionsHTML(b.brand) + '</select></div>' +
       '</div>' +
       '<div class="form-grid form-grid-3" style="margin-bottom:16px">' +
         '<div class="form-group"><label class="form-label">Size</label><select class="form-select" id="eb-build-size"><option '+(b.size==='Small'?'selected':'')+'>Small</option><option '+(b.size==='Medium'?'selected':'')+'>Medium</option><option '+(b.size==='Large'?'selected':'')+'>Large</option><option '+(b.size==='Piano'?'selected':'')+'>Piano</option></select></div>' +
@@ -9323,11 +9378,22 @@ function buildProductionTable() {
 
   // Stats count only active (non-archived) runs
   var el = function(id){return document.getElementById(id)};
-  if (el('prod-scheduled')) el('prod-scheduled').textContent = activeRuns.filter(function(r){return r.status==='scheduled'}).length;
-  if (el('prod-inprogress')) el('prod-inprogress').textContent = activeRuns.filter(function(r){return r.status==='in-progress'}).length;
-  if (el('prod-completed')) el('prod-completed').textContent = activeRuns.filter(function(r){return r.status==='completed'}).length;
+  var scheduledRuns = activeRuns.filter(function(r){return r.status==='scheduled'});
+  var inProgressRuns = activeRuns.filter(function(r){return r.status==='in-progress'});
+  var completedRuns = activeRuns.filter(function(r){return r.status==='completed'});
   var wastes = activeRuns.filter(function(r){return r.waste}).map(function(r){return parseFloat(r.waste)||0});
-  if (el('prod-waste')) el('prod-waste').textContent = wastes.length ? (wastes.reduce(function(s,w){return s+w},0)/wastes.length).toFixed(1)+'%' : '0%';
+
+  if (el('prod-scheduled')) el('prod-scheduled').textContent = scheduledRuns.length;
+  if (el('prod-inprogress')) el('prod-inprogress').textContent = inProgressRuns.length;
+  if (el('prod-completed')) el('prod-completed').textContent = completedRuns.length;
+  if (el('prod-waste')) el('prod-waste').textContent = wastes.length ? (wastes.reduce(function(s,w){return s+w},0)/wastes.length).toFixed(1)+'%' : '—';
+
+  // Dynamic sub-labels
+  var nextRun = scheduledRuns.sort(function(a,b){return (a.date||'').localeCompare(b.date||'')})[0];
+  if (el('prod-scheduled-sub')) el('prod-scheduled-sub').textContent = nextRun ? 'Next: ' + (nextRun.date ? nextRun.date.split('-').reverse().join('/') : '—') : 'None scheduled';
+  if (el('prod-inprogress-sub')) el('prod-inprogress-sub').textContent = inProgressRuns.length ? inProgressRuns.map(function(r){return r.recipe}).join(', ') : 'No active runs';
+  if (el('prod-completed-sub')) el('prod-completed-sub').textContent = completedRuns.length + ' of ' + activeRuns.length + ' total runs';
+  if (el('prod-waste-sub')) el('prod-waste-sub').textContent = wastes.length ? 'From ' + wastes.length + ' completed runs' : 'No waste data yet';
 
   // Show archived count on toggle button
   var archBtn = document.getElementById('prod-archive-toggle');
@@ -9337,10 +9403,12 @@ function buildProductionTable() {
 
 function filterProductionRuns() {
   var status = document.getElementById('prod-filter-status').value;
+  var brand = document.getElementById('prod-filter-brand').value;
   document.getElementById('prod-tbody').querySelectorAll('tr').forEach(function(row) {
-    if (status === 'All') { row.style.display = ''; return; }
     var text = row.textContent.toLowerCase();
-    row.style.display = text.includes(status.toLowerCase()) ? '' : 'none';
+    var showStatus = status === 'All' || text.includes(status.toLowerCase());
+    var showBrand = brand === 'All Brands' || text.includes(brand.toLowerCase());
+    row.style.display = (showStatus && showBrand) ? '' : 'none';
   });
 }
 
@@ -9597,7 +9665,7 @@ function buildReports() {
   try {
   var recipes = Object.values(RECIPE_DB);
   var el = function(id){ return document.getElementById(id); };
-  var brandColors = {Maestro:'#1B2A4A',Mad:'#C0392B',Pinzatta:'#D4700A',Tivo:'#2D6A4F',Telliano:'#6B2FA0'};
+  var brandColors = getBrandColors();
 
   // ── Shared data ──
   var total = recipes.length;
@@ -10454,6 +10522,7 @@ loadAllData();
 })();
 
 // Build all tables after data is loaded
+populateBrandUI();
 buildIngTable();
 buildRecipesTable();
 buildBrandCards();
@@ -10608,7 +10677,7 @@ function viewBranchSOP(id) {
   detail.style.display = 'block';
 
   // Brand colors
-  const brandColors = {Maestro:'#2D6A4F',Mad:'#C0392B',Pinzatta:'#B8820A',Tivo:'#2D6A4F',Telliano:'#6B2FA0'};
+  const brandColors = getBrandColors();
   const brandColor = brandColors[sop.brand] || '#1B2A4A';
 
   content.innerHTML = `
@@ -10673,7 +10742,7 @@ function uploadBranchSOPPhoto(sopId, stepIdx, input) {
 function openBranchSOPForm() {
   // Get builds to link from
   var buildOpts = BUILDS_DATA.map(b => '<option value="'+b.id+'">'+b.name+' ('+b.id+')</option>').join('');
-  var brandOpts = '<option>Maestro</option><option>Mad</option><option>Pinzatta</option><option>Tivo</option><option>Telliano</option>';
+  var brandOpts = brandOptionsHTML();
   var nextNum = BRANCH_SOPS.length + 1;
   var defaultCode = 'M-PS-' + String(100 + nextNum);
 
@@ -10857,7 +10926,7 @@ function deleteBranchSOP(id) {
 function printBranchSOP(id) {
   var sop = BRANCH_SOPS.find(s => s.id === id);
   if (!sop) return;
-  var brandColors = {Maestro:'#2D6A4F',Mad:'#C0392B',Pinzatta:'#B8820A',Tivo:'#2D6A4F',Telliano:'#6B2FA0'};
+  var brandColors = getBrandColors();
   var bc = brandColors[sop.brand] || '#1B2A4A';
   var stepsHTML = sop.steps.map(function(step,i) {
     return '<div style="border:2px solid '+bc+';background:white;overflow:hidden">' +
@@ -11051,7 +11120,7 @@ function importDFCFormat(lines) {
   var build = {
     id: id,
     name: (brand ? brand + ' ' : '') + buildName,
-    brand: brand.replace(/\s*KSA\s*/i,'').trim() || 'Maestro',
+    brand: brand.replace(/\s*KSA\s*/i,'').trim() || BRANDS[0].name,
     type: type || 'Pizza',
     size: size || 'Medium',
     status: 'draft',
@@ -11082,7 +11151,7 @@ function importSimpleFormat(lines) {
       current = {
         id: cols[1] || ('BLD-' + String(BUILDS_DATA.length + builds.length + 1).padStart(3,'0')),
         name: buildName,
-        brand: cols[2] || 'Maestro',
+        brand: cols[2] || BRANDS[0].name,
         type: cols[3] || 'Pizza',
         size: cols[4] || 'Medium',
         bakeTemp: cols[5] || '—',
