@@ -1567,13 +1567,21 @@ body { font-family:var(--font-b); background:var(--cream); color:var(--g5); font
 
 <!-- PIZZA BUILDS PAGE -->
 <div id="page-builds" class="page-hidden">
-  <div class="stats-row" id="builds-stats">
-    <div class="stat-card"><div class="stat-label">Total Builds</div><div class="stat-value" id="builds-total">0</div><div class="stat-sub">Assembly recipes</div></div>
-    <div class="stat-card"><div class="stat-label">Maestro</div><div class="stat-value" style="color:var(--navy)" id="builds-maestro">0</div><div class="stat-sub">QSR pizza</div></div>
-    <div class="stat-card"><div class="stat-label">Mad</div><div class="stat-value" style="color:var(--red)" id="builds-mad">0</div><div class="stat-sub">Detroit style</div></div>
-    <div class="stat-card"><div class="stat-label">Pinzatta</div><div class="stat-value" style="color:var(--amber)" id="builds-pinzatta">0</div><div class="stat-sub">Italian pinsa</div></div>
-    <div class="stat-card"><div class="stat-label">Tivo</div><div class="stat-value" style="color:var(--sage)" id="builds-tivo">0</div><div class="stat-sub">Sandwiches</div></div>
-    <div class="stat-card"><div class="stat-label">Telliano</div><div class="stat-value" style="color:#6B2FA0" id="builds-telliano">0</div><div class="stat-sub">Premium Italian</div></div>
+  <div style="display:flex;gap:14px;align-items:stretch;padding:16px 20px;background:var(--navy);border-radius:var(--r-lg);margin-bottom:16px" id="builds-banner">
+    <div style="flex:1;display:flex;align-items:center;gap:14px">
+      <div style="text-align:center"><div style="font-size:32px;font-weight:700;color:white;font-family:var(--font-d)" id="builds-active-count">0</div><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--sage)">Active</div></div>
+      <div style="width:1px;height:36px;background:rgba(255,255,255,0.15)"></div>
+      <div style="text-align:center"><div style="font-size:32px;font-weight:700;color:rgba(255,255,255,0.4);font-family:var(--font-d)" id="builds-discontinued-count">0</div><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--red)">Discontinued</div></div>
+      <div style="width:1px;height:36px;background:rgba(255,255,255,0.15)"></div>
+      <div style="text-align:center"><div style="font-size:32px;font-weight:700;color:rgba(255,255,255,0.6);font-family:var(--font-d)" id="builds-total-count">0</div><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.4)">Total</div></div>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <div style="text-align:center;padding:0 10px"><div style="font-size:20px;font-weight:600;color:white;font-family:var(--font-d)" id="builds-maestro">0</div><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.4)">Maestro</div></div>
+      <div style="text-align:center;padding:0 10px"><div style="font-size:20px;font-weight:600;color:#F5B5B0;font-family:var(--font-d)" id="builds-mad">0</div><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.4)">Mad</div></div>
+      <div style="text-align:center;padding:0 10px"><div style="font-size:20px;font-weight:600;color:var(--gold-mid);font-family:var(--font-d)" id="builds-pinzatta">0</div><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.4)">Pinzatta</div></div>
+      <div style="text-align:center;padding:0 10px"><div style="font-size:20px;font-weight:600;color:var(--sage-mid);font-family:var(--font-d)" id="builds-tivo">0</div><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.4)">Tivo</div></div>
+      <div style="text-align:center;padding:0 10px"><div style="font-size:20px;font-weight:600;color:#D4B5F0;font-family:var(--font-d)" id="builds-telliano">0</div><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.4)">Telliano</div></div>
+    </div>
   </div>
 
   <div class="filter-bar">
@@ -8635,7 +8643,11 @@ function buildBuildsTable() {
   }
   // Update stats
   const el = id => document.getElementById(id);
-  if (el('builds-total')) el('builds-total').textContent = BUILDS_DATA.length;
+  var activeCount = BUILDS_DATA.filter(function(b){ return b.active !== false; }).length;
+  var discontinuedCount = BUILDS_DATA.filter(function(b){ return b.active === false; }).length;
+  if (el('builds-active-count')) el('builds-active-count').textContent = activeCount;
+  if (el('builds-discontinued-count')) el('builds-discontinued-count').textContent = discontinuedCount;
+  if (el('builds-total-count')) el('builds-total-count').textContent = BUILDS_DATA.length;
   if (el('builds-count-label')) el('builds-count-label').textContent = BUILDS_DATA.length + ' builds';
   ['maestro','mad','pinzatta','tivo','telliano'].forEach(brand => {
     const count = BUILDS_DATA.filter(b => b.brand.toLowerCase() === brand).length;
@@ -8677,7 +8689,7 @@ function viewBuild(id) {
   const detail = document.getElementById('build-detail');
   const content = document.getElementById('build-detail-content');
   // Hide the list sections and show detail
-  document.getElementById('builds-stats').style.display = 'none';
+  document.getElementById('builds-banner').style.display = 'none';
   var buildFilterBar = document.querySelector('#page-builds .filter-bar');
   if (buildFilterBar) buildFilterBar.style.display = 'none';
   var buildCard = document.querySelector('#page-builds > .card');
@@ -9149,7 +9161,7 @@ function deleteBuild(id) {
 
 function closeBuildDetail() {
   document.getElementById('build-detail').style.display = 'none';
-  document.getElementById('builds-stats').style.display = '';
+  document.getElementById('builds-banner').style.display = '';
   var buildFilterBar = document.querySelector('#page-builds .filter-bar');
   if (buildFilterBar) buildFilterBar.style.display = '';
   var buildCard = document.querySelector('#page-builds > .card');
