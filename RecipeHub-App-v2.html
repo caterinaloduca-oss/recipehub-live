@@ -962,7 +962,7 @@ body { font-family:var(--font-b); background:var(--cream); color:var(--g5); font
       <div class="card-head">
         <span class="card-title">Physical & Chemical</span>
         <div style="display:flex;gap:8px;align-items:center">
-          <span class="badge badge-approved" id="phychem-status">4/4 Pass</span>
+          <span class="badge badge-draft" id="phychem-status">0/7</span>
           <button class="btn btn-outline btn-sm" onclick="toggleQAEdit(this)">Edit</button>
         </div>
       </div>
@@ -970,10 +970,13 @@ body { font-family:var(--font-b); background:var(--cream); color:var(--g5); font
         <table class="data-table">
           <thead><tr><th>Parameter</th><th style="text-align:right">Spec Min</th><th style="text-align:right">Spec Max</th><th style="text-align:right">Result</th><th>Status</th></tr></thead>
           <tbody>
-            <tr><td>pH</td><td style="text-align:right;font-family:var(--font-m)">3.8</td><td style="text-align:right;font-family:var(--font-m)">4.4</td><td><input class="form-input" value="4.1" style="text-align:right;font-family:var(--font-m);padding:4px 8px;font-size:13px" oninput="evalResult(this,3.8,4.4,'ph-status')" /></td><td><span class="badge badge-pass" id="ph-status">Pass</span></td></tr>
-            <tr><td>Water Activity (Aw)</td><td style="text-align:right;font-family:var(--font-m)">—</td><td style="text-align:right;font-family:var(--font-m)">0.92</td><td><input class="form-input" value="0.88" style="text-align:right;font-family:var(--font-m);padding:4px 8px;font-size:13px" oninput="evalResultMax(this,0.92,'aw-status')" /></td><td><span class="badge badge-pass" id="aw-status">Pass</span></td></tr>
-            <tr><td>Brix (°Bx)</td><td style="text-align:right;font-family:var(--font-m)">18</td><td style="text-align:right;font-family:var(--font-m)">22</td><td><input class="form-input" value="20.5" style="text-align:right;font-family:var(--font-m);padding:4px 8px;font-size:13px" oninput="evalResult(this,18,22,'brix-status')" /></td><td><span class="badge badge-pass" id="brix-status">Pass</span></td></tr>
-            <tr><td>Viscosity (cP)</td><td style="text-align:right;font-family:var(--font-m)">800</td><td style="text-align:right;font-family:var(--font-m)">1200</td><td><input class="form-input" value="1050" style="text-align:right;font-family:var(--font-m);padding:4px 8px;font-size:13px" oninput="evalResult(this,800,1200,'visc-status')" /></td><td><span class="badge badge-pass" id="visc-status">Pass</span></td></tr>
+            <tr><td>pH</td><td style="text-align:right;font-family:var(--font-m)">3.8</td><td style="text-align:right;font-family:var(--font-m)">4.4</td><td><input class="form-input" value="" style="text-align:right;font-family:var(--font-m);padding:4px 8px;font-size:13px" placeholder="—" oninput="evalResult(this,3.8,4.4,'ph-status')" /></td><td><span class="badge badge-draft" id="ph-status">—</span></td></tr>
+            <tr><td>Water Activity (Aw)</td><td style="text-align:right;font-family:var(--font-m)">—</td><td style="text-align:right;font-family:var(--font-m)">0.92</td><td><input class="form-input" value="" style="text-align:right;font-family:var(--font-m);padding:4px 8px;font-size:13px" placeholder="—" oninput="evalResultMax(this,0.92,'aw-status')" /></td><td><span class="badge badge-draft" id="aw-status">—</span></td></tr>
+            <tr><td>Moisture (%)</td><td style="text-align:right;font-family:var(--font-m)">—</td><td style="text-align:right;font-family:var(--font-m)">—</td><td><input class="form-input" value="" style="text-align:right;font-family:var(--font-m);padding:4px 8px;font-size:13px" placeholder="—" /></td><td><span class="badge badge-draft">—</span></td></tr>
+            <tr><td>Titratable Acidity (%)</td><td style="text-align:right;font-family:var(--font-m)">—</td><td style="text-align:right;font-family:var(--font-m)">—</td><td><input class="form-input" value="" style="text-align:right;font-family:var(--font-m);padding:4px 8px;font-size:13px" placeholder="—" /></td><td><span class="badge badge-draft">—</span></td></tr>
+            <tr><td>Salt / NaCl (%)</td><td style="text-align:right;font-family:var(--font-m)">—</td><td style="text-align:right;font-family:var(--font-m)">—</td><td><input class="form-input" value="" style="text-align:right;font-family:var(--font-m);padding:4px 8px;font-size:13px" placeholder="—" /></td><td><span class="badge badge-draft">—</span></td></tr>
+            <tr><td>Brix (°Bx)</td><td style="text-align:right;font-family:var(--font-m)">18</td><td style="text-align:right;font-family:var(--font-m)">22</td><td><input class="form-input" value="" style="text-align:right;font-family:var(--font-m);padding:4px 8px;font-size:13px" placeholder="—" oninput="evalResult(this,18,22,'brix-status')" /></td><td><span class="badge badge-draft" id="brix-status">—</span></td></tr>
+            <tr><td>Viscosity (cP)</td><td style="text-align:right;font-family:var(--font-m)">800</td><td style="text-align:right;font-family:var(--font-m)">1200</td><td><input class="form-input" value="" style="text-align:right;font-family:var(--font-m);padding:4px 8px;font-size:13px" placeholder="—" oninput="evalResult(this,800,1200,'visc-status')" /></td><td><span class="badge badge-draft" id="visc-status">—</span></td></tr>
           </tbody>
         </table>
       </div>
