@@ -3169,11 +3169,7 @@ function loadAllData() {
       }
       // Save with live data arrays so the new pending users persist
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({
-          recipes: RECIPE_DB, ingredients: ING_DATA, users: USERS_DATA, pending: PENDING_DATA,
-          builds: BUILDS_DATA, productionRuns: PRODUCTION_RUNS, branchSOPs: BRANCH_SOPS,
-          shelfLifeData: SHELF_LIFE_DATA, accessPermissions: ACCESS_PERMISSIONS, rejectedEmails: REJECTED_EMAILS, savedAt: new Date().toISOString(), dataVersion: DATA_VERSION,
-        }));
+        saveAllData();
       } catch(e) {}
     }
 
@@ -3220,24 +3216,10 @@ document.addEventListener('keydown', function(e) {
   }
 });
 
-// Save before page unload — must match saveAllData() payload exactly
+// Save before page unload
 window.addEventListener('beforeunload', function() {
   if (typeof RECIPE_DB !== 'undefined') {
-    const data = {
-      recipes: RECIPE_DB,
-      ingredients: ING_DATA,
-      users: USERS_DATA,
-      pending: PENDING_DATA,
-      builds: BUILDS_DATA,
-      productionRuns: PRODUCTION_RUNS,
-      branchSOPs: BRANCH_SOPS,
-      shelfLifeData: SHELF_LIFE_DATA,
-      accessPermissions: ACCESS_PERMISSIONS,
-      rejectedEmails: REJECTED_EMAILS,
-      savedAt: new Date().toISOString(),
-      dataVersion: DATA_VERSION,
-    };
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch(e) {}
+    try { saveAllData(); } catch(e) {}
   }
 });
 
