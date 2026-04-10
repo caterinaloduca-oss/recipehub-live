@@ -941,19 +941,15 @@ body { font-family:var(--font-b); background:var(--cream); color:var(--g5); font
       <div class="form-grid form-grid-3" style="align-items:end">
         <div class="form-group">
           <label class="form-label">Recipe</label>
-          <select class="form-select" onchange="updateQARecipe(this.value)">
-            <option value="hasawi">Hasawi Marinade — 2025-009</option>
-            <option value="ranch">Clean Label Ranch Dip — 2025-014</option>
-            <option value="marinara">Shaqra Marinara — 2025-018</option>
-          </select>
+          <select class="form-select" id="qa-recipe-select" onchange="updateQARecipe(this.value)"></select>
         </div>
         <div class="form-group">
           <label class="form-label">Production Batch No.</label>
-          <input class="form-input" value="PB-2025-009-01" />
+          <input class="form-input" id="qa-batch" placeholder="e.g. PB-2025-009-01" />
         </div>
         <div class="form-group">
           <label class="form-label">Production Date</label>
-          <input class="form-input" type="date" value="2025-03-15" />
+          <input class="form-input" type="date" id="qa-date" />
         </div>
       </div>
     </div>
@@ -3271,7 +3267,7 @@ function nav(id) {
     else if (id === 'builds') { buildBuildsTable(); }
     else if (id === 'production') { buildProductionTable(); }
     else if (id === 'branch-sop') { buildBranchSOPTable(); }
-    else if (id === 'qa') { buildShelfLifeUI(); }
+    else if (id === 'qa') { populateQARecipeDropdown(); buildShelfLifeUI(); }
     updateSidebarBadges();
     addEmptyStates();
   } catch(e) {}
@@ -7564,22 +7560,26 @@ function copyInviteMessage(msg) {
 }
 
 // ──────────── QA RECIPE SWITCHER ────────────
-var _qaCurrentRecipe = 'hasawi';
+var _qaCurrentNPD = '';
 var _qaAllergenOverrides = {}; // {npd: {contains:[], mayContain:[]}}
 
-function updateQARecipe(val) {
-  _qaCurrentRecipe = val;
-  const batchEl = document.querySelector('#page-qa .form-input[value^="PB-"]') || document.querySelectorAll('#page-qa .form-input')[0];
-  const dateEl = document.querySelector('#page-qa input[type="date"]');
-  const map = {
-    hasawi:   { batch:'PB-2025-009-01', date:'2025-03-15', npd:'2025-009' },
-    ranch:    { batch:'PB-2025-014-01', date:'2025-04-02', npd:'2025-014' },
-    marinara: { batch:'PB-2025-018-01', date:'2025-04-10', npd:'2025-018' },
-  };
-  const d = map[val];
-  if (d && batchEl) batchEl.value = d.batch;
-  if (d && dateEl) dateEl.value = d.date;
-  updateQAAllergenDisplay(d ? d.npd : null);
+function populateQARecipeDropdown() {
+  var sel = document.getElementById('qa-recipe-select');
+  if (!sel) return;
+  var recipes = Object.values(RECIPE_DB);
+  sel.innerHTML = recipes.map(function(r) {
+    return '<option value="' + r.npd + '">' + r.name + ' — ' + r.npd + '</option>';
+  }).join('') || '<option value="">No recipes</option>';
+  if (recipes.length) updateQARecipe(recipes[0].npd);
+}
+
+function updateQARecipe(npd) {
+  _qaCurrentNPD = npd;
+  var batchEl = document.getElementById('qa-batch');
+  var dateEl = document.getElementById('qa-date');
+  if (batchEl) batchEl.value = '';
+  if (dateEl) dateEl.value = '';
+  updateQAAllergenDisplay(npd);
   // Clear and reload nutrition
   ['energy','fat','satfat','transfat','carbs','sugars','fibre','protein','sodium'].forEach(function(f) {
     var el = document.getElementById('qa-nut-'+f);
@@ -7587,7 +7587,7 @@ function updateQARecipe(val) {
     var dv = document.getElementById('qa-nut-'+f+'-dv');
     if (dv) dv.textContent = '—';
   });
-  if (d) loadNutrition(d.npd);
+  if (npd) loadNutrition(npd);
 }
 
 function updateQAAllergenDisplay(npd) {
@@ -7610,8 +7610,7 @@ function updateQAAllergenDisplay(npd) {
 }
 
 function editQAAllergens() {
-  var recipeMap = {hasawi:'2025-009', ranch:'2025-014', marinara:'2025-018'};
-  var npd = recipeMap[_qaCurrentRecipe] || '';
+  var npd = _qaCurrentNPD || '';
   var detected = npd ? getRecipeAllergens(npd) : [];
   var overrides = _qaAllergenOverrides[npd] || {contains: detected.slice(), mayContain: []};
 
@@ -7698,8 +7697,7 @@ function calcNutDV() {
 
 // ──────────── QA PRINT FUNCTIONS ────────────
 function getQACurrentNPD() {
-  var map = {hasawi:'2025-009', ranch:'2025-014', marinara:'2025-018'};
-  return map[_qaCurrentRecipe] || '2025-009';
+  return _qaCurrentNPD || '';
 }
 
 function getQAFieldValues() {
@@ -7905,8 +7903,7 @@ function printCOA() {
 }
 
 function saveNutrition() {
-  var recipeMap = {hasawi:'2025-009', ranch:'2025-014', marinara:'2025-018'};
-  var npd = recipeMap[_qaCurrentRecipe] || '';
+  var npd = _qaCurrentNPD || '';
   var r = RECIPE_DB[npd];
   if (!r) { showSaveToast('Select a recipe first', true); return; }
   r.nutrition = {};
@@ -10527,6 +10524,7 @@ buildFactorySOPTable();
 buildBuildsTable();
 buildProductionTable();
 buildBranchSOPTable();
+populateQARecipeDropdown();
 try { buildReports(); } catch(e) { console.error('buildReports init error:', e); }
 try { renderSavingsTracker(); } catch(e) { console.error('renderSavingsTracker init error:', e); }
 updateDashboardStats();
