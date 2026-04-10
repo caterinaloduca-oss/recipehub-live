@@ -2982,7 +2982,8 @@ function exportBackup() {
   var data = {
     recipes: RECIPE_DB, ingredients: ING_DATA, users: USERS_DATA, pending: PENDING_DATA,
     builds: BUILDS_DATA, branchSOPs: BRANCH_SOPS, productionRuns: PRODUCTION_RUNS, activityLog: ACTIVITY_LOG,
-    brands: BRANDS, brandRecipes: BRAND_RECIPES,
+    brands: BRANDS, brandRecipes: BRAND_RECIPES, savingsGoal: SAVINGS_GOAL, savingsProjects: SAVINGS_PROJECTS,
+    qaAllergenOverrides: _qaAllergenOverrides,
     shelfLifeData: SHELF_LIFE_DATA, accessPermissions: ACCESS_PERMISSIONS, rejectedEmails: REJECTED_EMAILS,
     exportedAt: new Date().toISOString(), version: 'RecipeHub-v2',
   };
@@ -3040,6 +3041,10 @@ function saveAllData() {
     branchSOPs: BRANCH_SOPS,
     brands: BRANDS,
     brandRecipes: BRAND_RECIPES,
+    activityLog: ACTIVITY_LOG,
+    savingsGoal: SAVINGS_GOAL,
+    savingsProjects: SAVINGS_PROJECTS,
+    qaAllergenOverrides: _qaAllergenOverrides,
     shelfLifeData: SHELF_LIFE_DATA,
     accessPermissions: ACCESS_PERMISSIONS,
     rejectedEmails: REJECTED_EMAILS,
@@ -3096,6 +3101,10 @@ function loadAllData() {
     if (data.branchSOPs) { var _savedIds2 = data.branchSOPs.map(function(s){return s.id}); var _newHC2 = BRANCH_SOPS.filter(function(s){return _savedIds2.indexOf(s.id)===-1}); replaceArray(BRANCH_SOPS, data.branchSOPs); _newHC2.forEach(function(s){BRANCH_SOPS.push(s)}); } else { replaceArray(BRANCH_SOPS, data.branchSOPs); }
     if (data.brands) { var _savedBrandIds = data.brands.map(function(b){return b.id}); var _newBrands = BRANDS.filter(function(b){return _savedBrandIds.indexOf(b.id)===-1}); replaceArray(BRANDS, data.brands); _newBrands.forEach(function(b){BRANDS.push(b)}); }
     if (data.brandRecipes) { Object.keys(data.brandRecipes).forEach(function(k){ BRAND_RECIPES[k] = data.brandRecipes[k]; }); }
+    if (Array.isArray(data.activityLog)) { ACTIVITY_LOG.length = 0; data.activityLog.forEach(function(a){ACTIVITY_LOG.push(a)}); }
+    if (data.savingsGoal !== undefined) SAVINGS_GOAL = data.savingsGoal;
+    if (Array.isArray(data.savingsProjects)) { SAVINGS_PROJECTS.length = 0; data.savingsProjects.forEach(function(p){SAVINGS_PROJECTS.push(p)}); }
+    if (data.qaAllergenOverrides) { Object.keys(data.qaAllergenOverrides).forEach(function(k){ _qaAllergenOverrides[k] = data.qaAllergenOverrides[k]; }); }
     if (Array.isArray(data.rejectedEmails)) REJECTED_EMAILS = data.rejectedEmails;
     if (data.shelfLifeData) { SHELF_LIFE_DATA.points = data.shelfLifeData.points || []; SHELF_LIFE_DATA.notes = data.shelfLifeData.notes || ''; }
     if (Array.isArray(data.accessPermissions)) {
