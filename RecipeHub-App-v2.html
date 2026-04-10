@@ -6997,10 +6997,10 @@ function renderBrandDetail(id) {
         <button class="btn btn-danger-sm" style="padding:5px 10px" onclick="deleteBrand('${b.id}')">Delete</button>
       </div>
       <div style="display:flex;gap:20px;text-align:center">
-        <div><div style="font-size:26px;font-weight:500;font-family:var(--font-d);color:var(--navy)">${b.recipes}</div><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3)">Total</div></div>
+        <div><div style="font-size:26px;font-weight:500;font-family:var(--font-d);color:var(--navy)">${b.recipes}</div><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3)">Recipes</div></div>
         <div><div style="font-size:26px;font-weight:500;font-family:var(--font-d);color:var(--sage)">${b.approved}</div><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3)">Approved</div></div>
-        <div><div style="font-size:26px;font-weight:500;font-family:var(--font-d);color:var(--amber)">${b.review}</div><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3)">In Review</div></div>
-        <div><div style="font-size:26px;font-weight:500;font-family:var(--font-d);color:var(--g3)">${b.draft}</div><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3)">Draft</div></div>
+        <div style="border-left:1px solid var(--g2);padding-left:20px"><div style="font-size:26px;font-weight:500;font-family:var(--font-d);color:var(--navy)">${BUILDS_DATA.filter(function(x){return x.brand===b.name&&x.active!==false}).length}<span style="font-size:14px;color:var(--g3)">/${BUILDS_DATA.filter(function(x){return x.brand===b.name}).length}</span></div><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3)">Active Builds</div></div>
+        <div><div style="font-size:26px;font-weight:500;font-family:var(--font-d);color:var(--navy)">${BRANCH_SOPS.filter(function(x){return x.brand===b.name}).length}</div><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3)">Branch SOPs</div></div>
       </div>
     </div>
 
@@ -7082,12 +7082,16 @@ function buildBrandCards() {
     div.dataset.id = b.id;
     div.style.cssText = `background:${b.bg};border-color:${b.border};cursor:pointer`;
     div.onclick = () => renderBrandDetail(b.id);
+    var activeBuilds = BUILDS_DATA.filter(function(x){ return x.brand === b.name && x.active !== false; }).length;
+    var totalBuilds = BUILDS_DATA.filter(function(x){ return x.brand === b.name; }).length;
+    var activeSOPs = BRANCH_SOPS.filter(function(x){ return x.brand === b.name; }).length;
     div.innerHTML = `
       <div style="font-family:var(--font-d);font-size:19px;font-weight:600;color:${b.text}">${b.name}</div>
       <div style="font-size:11px;color:${b.text};opacity:0.55;margin-top:2px;margin-bottom:12px">${b.concept}</div>
       <div style="display:flex;gap:16px">
         <div><div style="font-size:22px;font-weight:500;font-family:var(--font-d);color:${b.text}">${b.recipes}</div><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:${b.text};opacity:0.45">Recipes</div></div>
-        <div><div style="font-size:22px;font-weight:500;font-family:var(--font-d);color:${b.text}">${b.approved}</div><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:${b.text};opacity:0.45">Approved</div></div>
+        <div><div style="font-size:22px;font-weight:500;font-family:var(--font-d);color:${b.text}">${activeBuilds}</div><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:${b.text};opacity:0.45">Builds</div></div>
+        <div><div style="font-size:22px;font-weight:500;font-family:var(--font-d);color:${b.text}">${activeSOPs}</div><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:${b.text};opacity:0.45">SOPs</div></div>
       </div>
     `;
     row.appendChild(div);
