@@ -984,7 +984,7 @@ body { font-family:var(--font-b); background:var(--cream); color:var(--g5); font
       <div class="card-head">
         <span class="card-title">Microbiology</span>
         <div style="display:flex;gap:8px;align-items:center">
-          <span class="badge badge-approved">3/3 Pass</span>
+          <span class="badge badge-draft" id="micro-status">0/9</span>
           <button class="btn btn-outline btn-sm" onclick="toggleQAEdit(this)">Edit</button>
         </div>
       </div>
@@ -992,10 +992,15 @@ body { font-family:var(--font-b); background:var(--cream); color:var(--g5); font
         <table class="data-table">
           <thead><tr><th>Organism</th><th style="text-align:right">Spec Limit</th><th style="text-align:right">Result</th><th>Unit</th><th>Status</th></tr></thead>
           <tbody>
-            <tr><td>Total Plate Count</td><td style="text-align:right;font-family:var(--font-m)">&lt;1000</td><td><input class="form-input" value="120" style="text-align:right;font-family:var(--font-m);padding:4px 8px;font-size:13px" /></td><td style="color:var(--g3);font-size:12px">CFU/g</td><td><span class="badge badge-pass">Pass</span></td></tr>
-            <tr><td>Yeast & Mould</td><td style="text-align:right;font-family:var(--font-m)">&lt;100</td><td><input class="form-input" value="&lt;10" style="text-align:right;font-family:var(--font-m);padding:4px 8px;font-size:13px" /></td><td style="color:var(--g3);font-size:12px">CFU/g</td><td><span class="badge badge-pass">Pass</span></td></tr>
-            <tr><td>E. coli</td><td style="text-align:right;font-family:var(--font-m)">Absent</td><td><input class="form-input" value="Absent" style="text-align:right;font-family:var(--font-m);padding:4px 8px;font-size:13px" /></td><td style="color:var(--g3);font-size:12px">in 10g</td><td><span class="badge badge-pass">Pass</span></td></tr>
-            <tr><td>Salmonella</td><td style="text-align:right;font-family:var(--font-m)">Absent</td><td><input class="form-input" value="Absent" style="text-align:right;font-family:var(--font-m);padding:4px 8px;font-size:13px" /></td><td style="color:var(--g3);font-size:12px">in 25g</td><td><span class="badge badge-pass">Pass</span></td></tr>
+            <tr><td>Aerobic Plate Count</td><td style="text-align:right;font-family:var(--font-m)">&lt;100,000</td><td><input class="form-input" value="" style="text-align:right;font-family:var(--font-m);padding:4px 8px;font-size:13px" placeholder="—" /></td><td style="color:var(--g3);font-size:12px">CFU/g</td><td><span class="badge badge-draft">—</span></td></tr>
+            <tr><td>E. coli</td><td style="text-align:right;font-family:var(--font-m)">NA</td><td><input class="form-input" value="" style="text-align:right;font-family:var(--font-m);padding:4px 8px;font-size:13px" placeholder="—" /></td><td style="color:var(--g3);font-size:12px">CFU/g</td><td><span class="badge badge-draft">—</span></td></tr>
+            <tr><td>Coliform</td><td style="text-align:right;font-family:var(--font-m)">NA</td><td><input class="form-input" value="" style="text-align:right;font-family:var(--font-m);padding:4px 8px;font-size:13px" placeholder="—" /></td><td style="color:var(--g3);font-size:12px">CFU/g</td><td><span class="badge badge-draft">—</span></td></tr>
+            <tr><td>Enterobacteriaceae</td><td style="text-align:right;font-family:var(--font-m)">NA</td><td><input class="form-input" value="" style="text-align:right;font-family:var(--font-m);padding:4px 8px;font-size:13px" placeholder="—" /></td><td style="color:var(--g3);font-size:12px">CFU/g</td><td><span class="badge badge-draft">—</span></td></tr>
+            <tr><td>Staphylococcus aureus</td><td style="text-align:right;font-family:var(--font-m)">&lt;10,000</td><td><input class="form-input" value="" style="text-align:right;font-family:var(--font-m);padding:4px 8px;font-size:13px" placeholder="—" /></td><td style="color:var(--g3);font-size:12px">CFU/g</td><td><span class="badge badge-draft">—</span></td></tr>
+            <tr><td>Yeasts &amp; Moulds</td><td style="text-align:right;font-family:var(--font-m)">NA</td><td><input class="form-input" value="" style="text-align:right;font-family:var(--font-m);padding:4px 8px;font-size:13px" placeholder="—" /></td><td style="color:var(--g3);font-size:12px">CFU/g</td><td><span class="badge badge-draft">—</span></td></tr>
+            <tr><td>Salmonella</td><td style="text-align:right;font-family:var(--font-m)">Absent</td><td><input class="form-input" value="" style="text-align:right;font-family:var(--font-m);padding:4px 8px;font-size:13px" placeholder="—" /></td><td style="color:var(--g3);font-size:12px">in 25g</td><td><span class="badge badge-draft">—</span></td></tr>
+            <tr><td>E. coli O157</td><td style="text-align:right;font-family:var(--font-m)">Absent</td><td><input class="form-input" value="" style="text-align:right;font-family:var(--font-m);padding:4px 8px;font-size:13px" placeholder="—" /></td><td style="color:var(--g3);font-size:12px">in 25g</td><td><span class="badge badge-draft">—</span></td></tr>
+            <tr><td>Listeria monocytogenes</td><td style="text-align:right;font-family:var(--font-m)">Absent</td><td><input class="form-input" value="" style="text-align:right;font-family:var(--font-m);padding:4px 8px;font-size:13px" placeholder="—" /></td><td style="color:var(--g3);font-size:12px">in 25g</td><td><span class="badge badge-draft">—</span></td></tr>
           </tbody>
         </table>
       </div>
