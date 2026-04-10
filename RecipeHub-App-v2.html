@@ -10388,9 +10388,10 @@ function getBranchSOPAllergenNutritionData(sop) {
       var recipe = null;
       if (c.ref && RECIPE_DB[c.ref]) {
         recipe = RECIPE_DB[c.ref];
-      } else if (c.source === 'recipe' || c.type === 'Sauce') {
+      } else if (c.item) {
+        var itemLower = c.item.toLowerCase();
         recipe = Object.values(RECIPE_DB).find(function(r) {
-          return r.name && c.item && r.name.toLowerCase() === c.item.toLowerCase();
+          return r.name && r.name.toLowerCase() === itemLower;
         });
       }
       if (recipe) {
