@@ -9309,14 +9309,7 @@ function duplicateBuild(id) {
 // buildBuildsTable() moved to after loadAllData()
 
 // ──────────── PRODUCTION PLANNING + WASTE ────────────
-var PRODUCTION_RUNS = [
-  {id:'PR-001', date:'2026-04-07', recipe:'Hasawi Marinade', npd:'2025-009', brand:'Maestro', runType:'Production', batchSize:'400 kg', operator:'Rami Khoury', status:'scheduled', yield:'', waste:'', notes:''},
-  {id:'PR-002', date:'2026-04-05', recipe:'Clean Label Ranch Dip', npd:'2025-014', brand:'Telliano', runType:'Production', batchSize:'200 kg', operator:'Faris Al-Otaibi', status:'in-progress', yield:'93%', waste:'7%', notes:'Running now'},
-  {id:'PR-003', date:'2026-04-03', recipe:'Smoky BBQ Base', npd:'2025-021', brand:'Mad', runType:'Production', batchSize:'300 kg', operator:'Dana Yousef', status:'completed', yield:'91%', waste:'9%', notes:'Slight over-seasoning'},
-  {id:'PR-004', date:'2026-04-01', recipe:'Hasawi Marinade', npd:'2025-009', brand:'Maestro', runType:'Factory Trial', batchSize:'400 kg', operator:'Rami Khoury', status:'completed', yield:'94%', waste:'6%', notes:'Clean run'},
-  {id:'PR-005', date:'2026-04-08', recipe:'Tivo Garlic Herb Mayo', npd:'2025-026', brand:'Tivo', runType:'Production Trial', batchSize:'300 kg', operator:'Dana Yousef', status:'scheduled', yield:'', waste:'', notes:'Production trial batch 2'},
-  {id:'PR-006', date:'2026-04-10', recipe:'Shaqra Marinara', npd:'2025-018', brand:'Pinzatta', runType:'Production', batchSize:'250 kg', operator:'Faris Al-Otaibi', status:'scheduled', yield:'', waste:'', notes:'Pending NPD approval first'},
-];
+var PRODUCTION_RUNS = [];
 
 var _showArchived = false;
 
