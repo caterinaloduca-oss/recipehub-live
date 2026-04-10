@@ -2982,6 +2982,7 @@ function exportBackup() {
   var data = {
     recipes: RECIPE_DB, ingredients: ING_DATA, users: USERS_DATA, pending: PENDING_DATA,
     builds: BUILDS_DATA, branchSOPs: BRANCH_SOPS, productionRuns: PRODUCTION_RUNS, activityLog: ACTIVITY_LOG,
+    brands: BRANDS, brandRecipes: BRAND_RECIPES,
     shelfLifeData: SHELF_LIFE_DATA, accessPermissions: ACCESS_PERMISSIONS, rejectedEmails: REJECTED_EMAILS,
     exportedAt: new Date().toISOString(), version: 'RecipeHub-v2',
   };
@@ -3037,6 +3038,8 @@ function saveAllData() {
     builds: BUILDS_DATA,
     productionRuns: PRODUCTION_RUNS,
     branchSOPs: BRANCH_SOPS,
+    brands: BRANDS,
+    brandRecipes: BRAND_RECIPES,
     shelfLifeData: SHELF_LIFE_DATA,
     accessPermissions: ACCESS_PERMISSIONS,
     rejectedEmails: REJECTED_EMAILS,
@@ -3091,6 +3094,8 @@ function loadAllData() {
     replaceArray(BUILDS_DATA, data.builds);
     replaceArray(PRODUCTION_RUNS, data.productionRuns);
     if (data.branchSOPs) { var _savedIds2 = data.branchSOPs.map(function(s){return s.id}); var _newHC2 = BRANCH_SOPS.filter(function(s){return _savedIds2.indexOf(s.id)===-1}); replaceArray(BRANCH_SOPS, data.branchSOPs); _newHC2.forEach(function(s){BRANCH_SOPS.push(s)}); } else { replaceArray(BRANCH_SOPS, data.branchSOPs); }
+    if (data.brands) { var _savedBrandIds = data.brands.map(function(b){return b.id}); var _newBrands = BRANDS.filter(function(b){return _savedBrandIds.indexOf(b.id)===-1}); replaceArray(BRANDS, data.brands); _newBrands.forEach(function(b){BRANDS.push(b)}); }
+    if (data.brandRecipes) { Object.keys(data.brandRecipes).forEach(function(k){ BRAND_RECIPES[k] = data.brandRecipes[k]; }); }
     if (Array.isArray(data.rejectedEmails)) REJECTED_EMAILS = data.rejectedEmails;
     if (data.shelfLifeData) { SHELF_LIFE_DATA.points = data.shelfLifeData.points || []; SHELF_LIFE_DATA.notes = data.shelfLifeData.notes || ''; }
     if (Array.isArray(data.accessPermissions)) {
