@@ -2802,7 +2802,7 @@ function ssoSignIn(email, displayName) {
   var found = USERS_DATA.find(function(u){ return (u.email||'').toLowerCase() === emailLc && u.active; });
   if (found) {
     var rm = ROLE_META[found.role] || {label:'Unassigned'};
-    var user = { name:found.name, email:emailLc, role:rm.label + ' — ' + found.title, method:'sso' };
+    var user = { name:found.name, email:emailLc, role:rm.label, method:'sso' };
     setAuthUser(user);
     showApp();
     return;
@@ -2852,7 +2852,7 @@ function emailSignIn() {
 
   errEl.style.display = 'none';
   var rm = ROLE_META[found.role];
-  var user = { name:found.name, email:email, role: rm ? rm.label + ' — ' + found.title : found.title, method:'email' };
+  var user = { name:found.name, email:email, role: rm ? rm.label : found.title, method:'email' };
   setAuthUser(user);
   showApp();
 }
