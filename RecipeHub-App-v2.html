@@ -8678,6 +8678,7 @@ function viewBuild(id) {
   window.scrollTo(0, 0);
 
   content.innerHTML = `
+    <button class="btn btn-outline btn-sm" onclick="closeBuildDetail()" style="margin-bottom:14px">← Back to List</button>
     <div class="card" style="overflow:hidden;margin-bottom:20px">
       <div style="background:var(--navy);padding:24px 28px;display:flex;justify-content:space-between;align-items:flex-start">
         <div>
@@ -10588,6 +10589,7 @@ function viewBranchSOP(id) {
   const brandColor = brandColors[sop.brand] || '#1B2A4A';
 
   content.innerHTML = `
+    <button class="btn btn-outline btn-sm" onclick="document.getElementById('bsop-detail').style.display='none'" style="margin-bottom:14px">← Back to List</button>
     <div style="background:white;border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--sh-md);margin-bottom:20px">
       <!-- Header banner -->
       <div style="background:${brandColor};padding:20px 28px;display:flex;align-items:center;gap:20px">
