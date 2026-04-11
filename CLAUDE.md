@@ -10,7 +10,7 @@ Hosted at `recipehub.dailyfoodsa.com`. Internal tool for `@dailyfoodsa.com` empl
 
 ## Architecture
 
-Single-file HTML application (`RecipeHub-App-v2.html`, ~11.9K lines). All CSS, HTML, and JavaScript live in one file. No build step — the HTML file is the entire app.
+Single-file HTML application (`RecipeHub-App-v2.html`, ~12K lines). All CSS, HTML, and JavaScript live in one file. No build step — the HTML file is the entire app.
 
 - **State**: All data persisted to `localStorage` via `saveAllData()` / `loadAllData()`
 - **UI**: Vanilla JS with DOM manipulation. Sidebar navigation switches between pages
@@ -41,6 +41,7 @@ Draft → In Review → Factory Trial → Production Trial → Approved
 - **Factory Trial → Prod Trial** requires QA sign-off
 - **Prod Trial → Approved** requires QA sign-off + costing + allergens + nutrition filled
 - Sensory evaluation is tracked outside RecipeHub; R&D confirms before approving
+- Moving to Factory Trial or Prod Trial auto-creates a Production Run as Pending
 
 ## Production Run Lifecycle
 
@@ -48,45 +49,33 @@ Draft → In Review → Factory Trial → Production Trial → Approved
 Pending → Scheduled → Completed → Archive
 ```
 
-- **Pending**: Auto-created when R&D sends recipe to trial. No date yet. `createdAt` timestamp starts the "days without date" counter.
-- **Scheduled**: Factory sets a date (auto-promotes from Pending on edit). Date change log tracks every reschedule with `dateLog` array.
-- **Completed**: Factory marks done. `completedAt` timestamp recorded. Yield/waste captured.
-- **On Hold**: Available from Pending or Scheduled states.
+- **Pending**: Auto-created when R&D sends recipe to trial. No date. `createdAt` starts "days without date" counter.
+- **Scheduled**: Factory sets a date (auto-promotes from Pending on edit). `dateLog` array tracks every reschedule.
+- **Completed**: Factory marks done. `completedAt` stamped. Yield/waste captured.
+- **On Hold**: Available from Pending or Scheduled. Not from Completed.
+- Completed runs show only Archive button (no Status/Edit).
 
 ## Role-Based Access Control
 
-All 6 roles can **view every page** (except Users & Access = admin only). Editing is restricted:
+All 6 roles can **view every page** (except Users & Access = admin only). Editing is restricted per role:
 
 | Role | Can Edit |
 |---|---|
 | **Admin** | Everything + user management |
-| **R&D (npd)** | Recipes, builds, SOPs, branch SOPs, ingredients, brands |
+| **R&D (npd)** | Recipes, builds, SOPs (factory + branch), ingredients, brands |
 | **QA** | QA results, QA sign-off, builds, branch SOPs |
 | **Factory** | Production plan only (schedule/edit/complete runs) |
 | **Purchasing** | Ingredients only (add/edit, supplier pricing) |
 | **Viewer** | Nothing — read-only everywhere |
 
-Enforcement: `applyRoleRestrictions()` runs after every page render. `viewRecipe()` gates topbar actions via `_isRD`. "View as" dropdown in sidebar lets admin preview any role.
+### Enforcement
 
-## Critical Rules
-
-### Variable Hoisting
-**Never reference `let`/`const` variables before their definition line.** A reference-before-definition error kills ALL JavaScript, making the entire app appear empty.
-
-### Single Save Function
-**All localStorage writes must go through `saveAllData()`.** Never create a second save path with its own field list — this caused a data loss bug.
-
-### Dynamic Brand System
-**All brand-dependent UI is generated from the `BRANDS` array.** Never hardcode brand names. Use:
-- `brandOptionsHTML(selected)` — `<option>` HTML for `<select>`
-- `getBrandColors()` — `{brandName: color}` map
-- `populateBrandUI()` — master sync for all brand UI
-
-### No Hardcoded Seed Data
-**Data arrays persisted to localStorage should start empty** (e.g. `PRODUCTION_RUNS = []`). Exceptions: `RECIPE_DB`, `BRANDS`, `BUILDS_DATA`, and `BRANCH_SOPS` use smart merge logic.
-
-### Production Run Migration
-On load, old statuses are migrated: `in-progress` → `scheduled` (if has date) or `pending` (if no date). Runs without `createdAt` get it backfilled.
+- `applyRoleRestrictions()` runs after every page render and dynamic detail view
+- `stripPageActions(pageId)` hides buttons only on pages the role CANNOT edit — allowed pages are left untouched
+- `viewRecipe()` gates topbar actions (Edit/SOP/More) via `_isRD` check
+- `viewBuild()`, `viewBranchSOP()`, `viewFactorySOP()` all call `applyRoleRestrictions()` after rendering
+- Access matrix checkboxes are read-only for non-admin
+- "View as" dropdown in sidebar lets admin preview any role (preview banner + Exit button)
 
 ## Activity Log
 
@@ -95,7 +84,32 @@ On load, old statuses are migrated: `in-progress` → `scheduled` (if has date) 
 - `ts` — ISO timestamp
 - 200 entry limit
 
-Rendered on dashboard and in notifications panel.
+Rendered on dashboard and in notifications panel. Shows user name, date, time per entry.
+
+## Dashboard
+
+- **Stat cards**: Total Recipes, In Development, Approved, Ingredients DB, Team, Pending QA
+- **Pending Actions**: aggregates reviews, QA sign-offs, draft SOPs, unscheduled runs, pending users
+- **Recent Recipes**: last 6 recipes
+- **Upcoming Trials & Production**: scheduled/in-progress runs sorted by date, days-waiting counter
+- **Activity Log**: recent actions with user attribution
+
+## Critical Rules
+
+### Variable Hoisting
+**Never reference `let`/`const` variables before their definition line.** A reference-before-definition error kills ALL JavaScript, making the entire app blank.
+
+### Single Save Function
+**All localStorage writes must go through `saveAllData()`.** Never create a second save path — this caused a data loss bug.
+
+### Dynamic Brand System
+**All brand-dependent UI is generated from the `BRANDS` array.** Never hardcode brand names. Use `brandOptionsHTML()`, `getBrandColors()`, `populateBrandUI()`.
+
+### No Hardcoded Seed Data
+**Data arrays persisted to localStorage should start empty** (e.g. `PRODUCTION_RUNS = []`). Exceptions: `RECIPE_DB`, `BRANDS`, `BUILDS_DATA`, `BRANCH_SOPS` use smart merge logic.
+
+### Production Run Migration
+On load, old statuses are migrated: `in-progress` → `scheduled` (if has date) or `pending` (if no date). Runs without `createdAt` get it backfilled. Also migrates on-the-fly when opening the status modal.
 
 ## QA Page
 
@@ -105,15 +119,24 @@ Recipe dropdown is **dynamically populated from `RECIPE_DB`** via `populateQARec
 
 **Microbiology** (9 organisms): Aerobic Plate Count (TPC), E. coli, Coliform, Enterobacteriaceae, Staphylococcus aureus, Yeasts & Moulds, Salmonella, E. coli O157, Listeria monocytogenes.
 
+## Stress Testing
+
+Embedded stress test in the app (admin sidebar buttons):
+- **Stress**: generates 100 recipes, 50 builds, 30 runs, 20 SOPs
+- **Cleanup**: removes all test data (ST- prefix)
+- **Report**: shows localStorage usage (KB, MB, % of 5MB)
+- Custom: `stressTest.generate({recipes:200, builds:100})` in console
+
 ## Session Startup
 
 1. The app is a single HTML file — no install or build needed. Just edit and push.
-2. See `RECIPEHUB-MAP.md` for a line-by-line section map.
+2. See `RECIPEHUB-MAP.md` for a line-by-line section map (~12K lines).
 3. The Oracle EBS MCP gateway may not auto-connect. Fall back to `curl` if needed.
 
 ## Known Pain Points
 
 - **localStorage only**: ~5MB limit. Data differs between devices/browsers. App alerts on save failure.
-- **File size**: ~11.9K lines. Use `RECIPEHUB-MAP.md` to jump to sections. Read only what you need.
-- **No tests**: Changes deploy without automated verification. Be careful with refactors.
+- **File size**: ~12K lines. Use `RECIPEHUB-MAP.md` to jump to sections. Read only what you need.
+- **No tests**: Changes deploy without automated verification. Use the embedded stress test for manual QA.
 - **GitHub Actions deploy can fail**: VPS SSH sometimes times out. Deploy manually with `scp` if needed.
+- **Role enforcement is UI-only**: `stripPageActions` hides buttons but doesn't block API calls. This is fine for an internal tool with trusted users.
