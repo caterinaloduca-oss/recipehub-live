@@ -1800,6 +1800,113 @@ body { font-family:var(--font-b); background:var(--cream); color:var(--g5); font
       </div>
     </div>
 
+    <!-- Divider -->
+    <div style="border-top:2px solid var(--g1);margin:40px 0;position:relative">
+      <span style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--bg);padding:0 16px;font-size:11px;color:var(--g3);text-transform:uppercase;letter-spacing:0.1em;font-weight:500">Product Builds & Branch SOPs</span>
+    </div>
+
+    <!-- Product Build Flow -->
+    <div style="text-align:center;margin-bottom:32px">
+      <h2 style="font-family:var(--font-d);font-size:24px;color:var(--navy);margin:0 0 6px">Product Build Lifecycle</h2>
+      <p style="font-size:13px;color:var(--g3);margin:0">How a product build goes from creation to branch rollout</p>
+    </div>
+
+    <div style="display:flex;align-items:flex-start;gap:0;justify-content:center;margin-bottom:40px;flex-wrap:wrap">
+
+      <!-- Create Build -->
+      <div style="text-align:center;width:160px">
+        <div style="width:64px;height:64px;border-radius:50%;background:#FEF3E2;border:2px solid #F5D5A0;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;font-size:24px">🍕</div>
+        <div style="font-family:var(--font-d);font-size:14px;font-weight:600;color:var(--navy)">Create Build</div>
+        <div style="font-size:11px;color:var(--g3);margin-top:4px;line-height:1.4">R&D defines product — components, assembly, portions, costing</div>
+        <div style="margin-top:6px"><span class="badge badge-gold">R&D</span></div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;align-items:center;padding-top:24px;width:60px">
+        <div style="width:40px;height:2px;background:var(--g2)"></div>
+      </div>
+
+      <!-- Add Costing & Allergens -->
+      <div style="text-align:center;width:160px">
+        <div style="width:64px;height:64px;border-radius:50%;background:var(--sage-lt);border:2px solid var(--sage-mid);display:flex;align-items:center;justify-content:center;margin:0 auto 8px;font-size:24px">💰</div>
+        <div style="font-family:var(--font-d);font-size:14px;font-weight:600;color:var(--navy)">Cost & Comply</div>
+        <div style="font-size:11px;color:var(--g3);margin-top:4px;line-height:1.4">Costing, allergens, nutrition calculated from components</div>
+        <div style="margin-top:6px"><span class="badge badge-gold">R&D</span> <span class="badge badge-navy">QA</span></div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;align-items:center;padding-top:24px;width:60px">
+        <div style="width:40px;height:2px;background:var(--g2)"></div>
+      </div>
+
+      <!-- Active -->
+      <div style="text-align:center;width:160px">
+        <div style="width:64px;height:64px;border-radius:50%;background:var(--sage-lt);border:2px solid var(--sage-mid);display:flex;align-items:center;justify-content:center;margin:0 auto 8px;font-size:24px">✅</div>
+        <div style="font-family:var(--font-d);font-size:14px;font-weight:600;color:var(--navy)">Active</div>
+        <div style="font-size:11px;color:var(--g3);margin-top:4px;line-height:1.4">Build is live. Can be linked to Branch SOPs for rollout</div>
+        <div style="margin-top:6px"><span class="badge badge-approved">ACTIVE</span></div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;align-items:center;padding-top:24px;width:60px">
+        <div style="width:40px;height:2px;background:var(--g2)"></div>
+      </div>
+
+      <!-- Discontinued -->
+      <div style="text-align:center;width:160px">
+        <div style="width:64px;height:64px;border-radius:50%;background:var(--red-lt);border:2px solid #F5B5B0;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;font-size:24px">⛔</div>
+        <div style="font-family:var(--font-d);font-size:14px;font-weight:600;color:var(--navy)">Discontinued</div>
+        <div style="font-size:11px;color:var(--g3);margin-top:4px;line-height:1.4">Product removed from menu. Linked Branch SOPs show warning</div>
+        <div style="margin-top:6px"><span class="badge badge-red">DISCONTINUED</span></div>
+      </div>
+
+    </div>
+
+    <!-- Branch SOP Flow -->
+    <div class="card" style="margin-bottom:32px">
+      <div class="card-head">
+        <span class="card-title">Branch SOP Lifecycle</span>
+      </div>
+      <div class="card-body" style="padding:24px">
+        <div style="display:flex;align-items:center;justify-content:center;gap:0;flex-wrap:wrap">
+
+          <div style="text-align:center;width:160px">
+            <div style="font-size:20px;margin-bottom:4px">📋</div>
+            <div style="font-family:var(--font-d);font-size:13px;font-weight:600;color:var(--navy)">Draft</div>
+            <div style="font-size:11px;color:var(--g3);margin-top:2px">Create SOP from a build. Add step photos, portions, instructions</div>
+            <div style="margin-top:6px"><span class="badge badge-draft">DRAFT</span></div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;align-items:center;width:80px">
+            <div style="width:50px;height:2px;background:var(--g2)"></div>
+            <div style="font-size:9px;color:var(--g3);margin-top:4px;text-align:center;font-weight:500">R&D reviews</div>
+          </div>
+
+          <div style="text-align:center;width:160px">
+            <div style="font-size:20px;margin-bottom:4px">👁️</div>
+            <div style="font-family:var(--font-d);font-size:13px;font-weight:600;color:var(--navy)">In Review</div>
+            <div style="font-size:11px;color:var(--g3);margin-top:2px">Team checks accuracy of photos, steps, and portions</div>
+            <div style="margin-top:6px"><span class="badge badge-review">IN REVIEW</span></div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;align-items:center;width:80px">
+            <div style="width:50px;height:2px;background:var(--g2)"></div>
+            <div style="font-size:9px;color:var(--g3);margin-top:4px;text-align:center;font-weight:500">Approved</div>
+          </div>
+
+          <div style="text-align:center;width:160px">
+            <div style="font-size:20px;margin-bottom:4px">✅</div>
+            <div style="font-family:var(--font-d);font-size:13px;font-weight:600;color:var(--navy)">Approved</div>
+            <div style="font-size:11px;color:var(--g3);margin-top:2px">Printed and sent to branches. Allergens & nutrition pulled from linked build</div>
+            <div style="margin-top:6px"><span class="badge badge-approved">APPROVED</span></div>
+          </div>
+
+        </div>
+
+        <div style="margin-top:20px;padding:12px;border-radius:8px;background:#E6F1FB;border:1px solid #B3D4F0;font-size:12px;color:#0C6BA8;display:flex;align-items:center;gap:8px">
+          <span style="font-size:16px">🔗</span>
+          <span>Branch SOPs are linked to Product Builds. Allergens, nutrition, and costing are inherited automatically. If the build is discontinued, the SOP shows a warning banner.</span>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 
