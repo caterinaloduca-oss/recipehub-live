@@ -2994,7 +2994,13 @@ function importBackup(input) {
       if (data.pending) { PENDING_DATA.length = 0; data.pending.forEach(function(p){PENDING_DATA.push(p)}); }
       if (data.builds) { BUILDS_DATA.length = 0; data.builds.forEach(function(b){BUILDS_DATA.push(b)}); }
       if (data.branchSOPs) { var savedIds = data.branchSOPs.map(function(s){return s.id}); var newHardcoded = BRANCH_SOPS.filter(function(s){return savedIds.indexOf(s.id)===-1}); BRANCH_SOPS.length = 0; data.branchSOPs.forEach(function(s){BRANCH_SOPS.push(s)}); newHardcoded.forEach(function(s){BRANCH_SOPS.push(s)}); }
-      if (data.productionRuns) { PRODUCTION_RUNS.length = 0; data.productionRuns.forEach(function(r){PRODUCTION_RUNS.push(r)}); }
+      if (data.productionRuns) { PRODUCTION_RUNS.length = 0; data.productionRuns.forEach(function(r){
+        // Migrate old statuses to new flow
+        if (r.status === 'in-progress') r.status = r.date ? 'scheduled' : 'pending';
+        if (r.status === 'scheduled' && !r.date) r.status = 'pending';
+        if (!r.createdAt) r.createdAt = new Date().toISOString();
+        PRODUCTION_RUNS.push(r);
+      }); }
       if (data.shelfLifeData) { SHELF_LIFE_DATA.points = data.shelfLifeData.points || []; SHELF_LIFE_DATA.notes = data.shelfLifeData.notes || ''; }
       if (data.accessPermissions) { data.accessPermissions.forEach(function(sg){ var m=ACCESS_PERMISSIONS.find(function(g){return g.group===sg.group}); if(m&&sg.items) sg.items.forEach(function(si){ var it=m.items.find(function(i){return i.key===si.key}); if(it) ['admin','npd','qa','factory','purchasing','viewer'].forEach(function(r){if(si[r]!==undefined)it[r]=si[r]}); }); }); }
       if (Array.isArray(data.rejectedEmails)) REJECTED_EMAILS = data.rejectedEmails;
@@ -3084,6 +3090,11 @@ function loadAllData() {
     replaceArray(PENDING_DATA, data.pending);
     replaceArray(BUILDS_DATA, data.builds);
     replaceArray(PRODUCTION_RUNS, data.productionRuns);
+    PRODUCTION_RUNS.forEach(function(r){
+      if (r.status === 'in-progress') r.status = r.date ? 'scheduled' : 'pending';
+      if (r.status === 'scheduled' && !r.date) r.status = 'pending';
+      if (!r.createdAt) r.createdAt = new Date().toISOString();
+    });
     if (data.branchSOPs) { var _savedIds2 = data.branchSOPs.map(function(s){return s.id}); var _newHC2 = BRANCH_SOPS.filter(function(s){return _savedIds2.indexOf(s.id)===-1}); replaceArray(BRANCH_SOPS, data.branchSOPs); _newHC2.forEach(function(s){BRANCH_SOPS.push(s)}); } else { replaceArray(BRANCH_SOPS, data.branchSOPs); }
     if (data.brands) { var _savedBrandIds = data.brands.map(function(b){return b.id}); var _newBrands = BRANDS.filter(function(b){return _savedBrandIds.indexOf(b.id)===-1}); replaceArray(BRANDS, data.brands); _newBrands.forEach(function(b){BRANDS.push(b)}); }
     if (data.brandRecipes) { Object.keys(data.brandRecipes).forEach(function(k){ BRAND_RECIPES[k] = data.brandRecipes[k]; }); }
