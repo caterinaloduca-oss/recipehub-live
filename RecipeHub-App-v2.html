@@ -3653,11 +3653,33 @@ function showPage(id) {
   window.scrollTo(0,0);
 }
 
+function canAccessPage(pageId) {
+  var role = getCurrentUserRole();
+  if (role === 'admin') return true;
+  // Map sidebar page IDs to ACCESS_PERMISSIONS keys
+  var keyMap = {dashboard:'page_dashboard', recipes:'page_recipes', ingredients:'page_ingredients', qa:'page_qa', sop:'page_sop', 'branch-sop':'page_branch_sop', production:'page_production', builds:'page_builds', brands:'page_brands', users:'page_users', reports:'page_recipes', 'builds-costing':'page_builds', 'cost-control':'page_recipes', workflow:'page_dashboard'};
+  var permKey = keyMap[pageId];
+  if (!permKey) return true;
+  var pages = ACCESS_PERMISSIONS.find(function(g){return g.group==='Pages'});
+  if (!pages) return true;
+  var perm = pages.items.find(function(i){return i.key===permKey});
+  return perm ? perm[role] !== false : true;
+}
+
+function applySidebarPermissions() {
+  document.querySelectorAll('.nav-item[data-page]').forEach(function(btn) {
+    var pageId = btn.getAttribute('data-page');
+    btn.style.display = canAccessPage(pageId) ? '' : 'none';
+  });
+}
+
 function nav(id) {
+  if (!canAccessPage(id)) { showSaveToast('Access denied for this role', true); return; }
   if (_currentPage !== id) _navHistory.push(_currentPage);
   if (_navHistory.length > 20) _navHistory = _navHistory.slice(-20);
   if (id === 'sop') { backToSOPList(); }
   if (id === 'reports' || id === 'builds-costing' || id === 'cost-control') { buildReports(); renderSavingsTracker(); }
+  applySidebarPermissions();
   showPage(id);
   // Rebuild the target page with fresh data
   try {
@@ -5481,8 +5503,10 @@ function previewAs(role) {
     var banner = document.getElementById('preview-banner');
     if (banner) { banner.style.display = 'flex'; banner.querySelector('span').textContent = 'Viewing as ' + {admin:'Admin',npd:'R&D',qa:'QA',factory:'Factory',purchasing:'Purchasing',viewer:'Viewer'}[role]; }
   }
-  // Refresh current page to apply role
-  if (_currentPage) nav(_currentPage);
+  applySidebarPermissions();
+  // If current page isn't accessible, go to dashboard
+  var target = (_currentPage && canAccessPage(_currentPage)) ? _currentPage : 'dashboard';
+  nav(target);
 }
 
 // ──────────── ARCHIVE RECIPE ────────────
@@ -11092,6 +11116,7 @@ try { buildReports(); } catch(e) { console.error('buildReports init error:', e);
 try { renderSavingsTracker(); } catch(e) { console.error('renderSavingsTracker init error:', e); }
 updateDashboardStats();
 updateSidebarBadges();
+applySidebarPermissions();
 
 function getBranchSOPAllergenNutritionPrintHTML(sop) {
   var info = getBranchSOPAllergenNutritionData(sop);
