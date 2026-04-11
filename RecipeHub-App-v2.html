@@ -11917,24 +11917,69 @@ function addEmptyStates() {
 addEmptyStates();
 buildShelfLifeUI();
 
-// ── Stress Test Loader ──
-function loadStressTest(action) {
-  if (typeof stressTest !== 'undefined') {
-    if (action === 'generate') { stressTest.generate(); showSaveToast('Stress test data generated — check console'); }
-    else if (action === 'cleanup') { stressTest.cleanup(); showSaveToast('Stress test data cleaned up'); }
-    else if (action === 'report') { stressTest.report(); showSaveToast('Report printed to console'); }
-    return;
+// ── Stress Test (embedded) ──
+var stressTest = (function() {
+  var _brands = ['Maestro','Mad','Pinzatta','Tivo','Telliano'];
+  var _types = ['Pizza Sauce','Marinade','Dressing','Seasoning','Dip','Mayo','Pesto','Glaze','Rub','Brine'];
+  var _statuses = ['draft','review','trial','prod-trial','approved'];
+  var _ings = ['Water','Salt','Sugar','Vinegar','Sunflower Oil','Olive Oil','Garlic Powder','Onion Powder','Paprika','Black Pepper','Cumin','Oregano','Basil','Thyme','Tomato Paste','Citric Acid','Xanthan Gum','Mustard Powder','Chilli Flakes','Lemon Juice','Soy Sauce','Honey','Corn Starch','Milk Powder','Cream Cheese'];
+  var _adj = ['Classic','Smoky','Spicy','Tangy','Creamy','Bold','Golden','Zesty','Rustic','Premium','Signature','Artisan','Gourmet','Traditional','Heritage','Fire-Roasted','Sun-Dried','Wild','Aged','Double'];
+  var _nouns = ['Blend','Mix','Base','Finish','Drizzle','Glaze','Rub','Marinade','Sauce','Dressing','Dip','Spread','Paste','Reduction','Infusion','Emulsion'];
+  function pk(a){return a[Math.floor(Math.random()*a.length)]}
+  function rb(a,b){return Math.floor(Math.random()*(b-a+1))+a}
+  function rf(a,b){return parseFloat((Math.random()*(b-a)+a).toFixed(2))}
+  function pd(n){return String(n).padStart(3,'0')}
+  function rd(d){var x=new Date();x.setDate(x.getDate()-Math.floor(Math.random()*d));return x.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}
+  function ri(d){var x=new Date();x.setDate(x.getDate()-Math.floor(Math.random()*d));return x.toISOString()}
+  function fd(d){var x=new Date();x.setDate(x.getDate()+Math.floor(Math.random()*d));return x.toISOString().split('T')[0]}
+  function mki(){var c=rb(5,10),u={},l=[],r=100;for(var i=0;i<c;i++){var n;do{n=pk(_ings)}while(u[n]);u[n]=true;var p=(i===c-1)?parseFloat(r.toFixed(2)):parseFloat((Math.random()*(r/(c-i)*1.5)).toFixed(2));if(p<=0)p=0.1;r-=p;if(r<0){p+=r;r=0}l.push({name:n,pct:parseFloat(p.toFixed(2))})}return l}
+  function mkm(){var s=rb(4,7),l=[];for(var i=0;i<s;i++)l.push({title:'Step '+(i+1),text:'Process description for step '+(i+1)+'.'});return l}
+
+  function generate(o){
+    o=o||{};var nr=o.recipes||100,nb=o.builds||50,np=o.runs||30,ns=o.sops||20;
+    console.log('Generating '+nr+' recipes, '+nb+' builds, '+np+' runs, '+ns+' SOPs...');
+    var t0=performance.now();
+    for(var i=0;i<nr;i++){var npd='ST-'+pd(i+1),st=pk(_statuses),br=pk(_brands);var r={name:pk(_adj)+' '+pk(_nouns)+' #'+(i+1),npd:npd,brand:br,type:pk(_types),version:'v1.'+rb(0,5),costKg:st==='approved'||Math.random()>0.3?'SAR '+rf(5,35):null,status:st,updated:rd(60),catClass:'cat-general',storage:pk(['Ambient','Chilled 2-8°C','Frozen −18°C']),shelfLife:pk(['3 Months','6 Months','12 Months']),yield:rf(0.85,0.98),packaging:[{name:'Bucket 5kg',code:'PK-ST-'+pd(i),unitCost:rf(1,4),units:'per bucket'}],media:[],ingredients:mki(),method:mkm(),sopSteps:[],allergens:Math.random()>0.3?[pk(['Gluten','Milk','Egg','Soy','Mustard'])]:[],nutrition:Math.random()>0.3?{energy:rb(100,400),fat:rf(2,25),saturated:rf(0.5,10),carbs:rf(5,50),sugars:rf(1,15),fibre:rf(0,5),protein:rf(2,20),salt:rf(0.3,3)}:null,tags:[pk(['new','priority','seasonal'])],changeLog:[{date:ri(30),by:'Stress Test',changes:'Auto-generated'}]};if(st==='trial'||st==='prod-trial'){r[st+'QA']={signed:Math.random()>0.5,signedBy:Math.random()>0.5?'QA Tester':'',signedAt:rd(10),tpc:'<10000',ym:'<100',col:'<10',ecoli:'ND',sal:'ND/25g',files:[]}}RECIPE_DB[npd]=r}
+    console.log('  + '+nr+' recipes ('+Object.keys(RECIPE_DB).length+' total)');
+    for(var j=0;j<nb;j++){BUILDS_DATA.push({id:'ST-BLD-'+pd(j+1),name:pk(_adj)+' '+pk(['Margherita','Pepperoni','BBQ Chicken','Veggie','Hawaiian','Meat Feast','Diavola','Four Cheese'])+' #'+(j+1),brand:pk(_brands),type:pk(['Pizza','Sandwich','Pasta','Wrap']),size:pk(['Small','Medium','Large']),status:'approved',active:Math.random()>0.15,components:[{type:'Dough',item:'Test Dough',source:'sfg',weight:rb(180,300)+'g',tool:'',toolQty:'1 pc',cost:rf(1.5,3)},{type:'Sauce',item:'Test Sauce',source:'recipe',ref:'ST-001',weight:rb(60,120)+'g',tool:'Ladle',toolQty:'4 oz',cost:rf(0.5,2)},{type:'Cheese',item:'Test Cheese',source:'ingredient',weight:rb(100,200)+'g',tool:'Scooper',toolQty:'2',cost:rf(2,5)}],instructions:'Test build instructions.',bakeTemp:'465°F',bakeTime:rb(3,6)+' min',updated:rd(30)})}
+    console.log('  + '+nb+' builds ('+BUILDS_DATA.length+' total)');
+    for(var k=0;k<np;k++){var rs=pk(['pending','scheduled','completed','on-hold']),hd=rs!=='pending';PRODUCTION_RUNS.push({id:'ST-PR-'+pd(k+1),date:hd?fd(30):'',recipe:pk(_adj)+' '+pk(_nouns)+' #'+(k+1),npd:'ST-'+pd(rb(1,nr)),brand:pk(_brands),batchSize:pk(['150 kg','300 kg','400 kg']),operator:pk(['Dana Yousef','Subhanshu Tripathi','']),status:rs,runType:pk(['Factory Trial','Production Trial','Production']),yield:rs==='completed'?rb(88,98)+'%':'',waste:rs==='completed'?rb(2,12)+'%':'',notes:'Stress test #'+(k+1),createdAt:ri(20),completedAt:rs==='completed'?ri(5):undefined,dateLog:Math.random()>0.6?[{from:fd(30),to:fd(30),at:ri(15)}]:undefined})}
+    console.log('  + '+np+' runs ('+PRODUCTION_RUNS.length+' total)');
+    for(var m=0;m<ns;m++){var st2=[];for(var s=0;s<rb(5,8);s++)st2.push({img:null,text:'Step '+(s+1)+': Assembly instruction.',portions:rb(1,3)+' scoops'});BRANCH_SOPS.push({id:'ST-SOP-'+pd(m+1),name:pk(_adj)+' '+pk(['Ranch','BBQ','Classic','Supreme','Deluxe'])+' #'+(m+1),brand:pk(_brands),version:'V-0'+rb(1,5),date:rd(60),status:pk(['draft','review','approved']),buildRef:m<nb?'ST-BLD-'+pd(m+1):'',steps:st2})}
+    console.log('  + '+ns+' SOPs ('+BRANCH_SOPS.length+' total)');
+    var t1=performance.now();console.log('  Generated in '+Math.round(t1-t0)+'ms');
+    try{saveAllData();console.log('  saveAllData() OK')}catch(e){console.error('  saveAllData() FAILED:',e.message)}
+    report();
+    try{buildRecipesTable();buildBuildsTable();buildProductionTable();buildBranchSOPTable();updateDashboardStats();updateSidebarBadges();renderActivityLog();console.log('  UI refreshed')}catch(e){console.error('  UI refresh error:',e.message)}
+    console.log('Done. Navigate around to check.');
   }
-  var s = document.createElement('script');
-  s.src = 'stress-test.js';
-  s.onload = function() {
-    showSaveToast('Stress test loaded');
-    if (action === 'generate') { stressTest.generate(); showSaveToast('Stress test data generated — check console'); }
-    else if (action === 'cleanup') { stressTest.cleanup(); showSaveToast('Stress test data cleaned up'); }
-    else if (action === 'report') { stressTest.report(); showSaveToast('Report printed to console'); }
-  };
-  s.onerror = function() { showSaveToast('Failed to load stress-test.js', true); };
-  document.head.appendChild(s);
+
+  function report(){
+    var raw=localStorage.getItem('recipehub_data_v1');var b=raw?new Blob([raw]).size:0;
+    var kb=(b/1024).toFixed(1),mb=(b/1048576).toFixed(2),pct=(b/5242880*100).toFixed(1);
+    console.log('--- Storage: '+kb+' KB ('+mb+' MB) — '+pct+'% of 5 MB ---');
+    console.log('Recipes: '+Object.keys(RECIPE_DB).length+' | Builds: '+BUILDS_DATA.length+' | Runs: '+PRODUCTION_RUNS.length+' | SOPs: '+BRANCH_SOPS.length);
+    if(parseFloat(pct)>80)console.warn('Above 80% — approaching limit!');
+    showSaveToast('Storage: '+kb+' KB ('+pct+'% of 5MB)');
+    return{kb:parseFloat(kb),mb:parseFloat(mb),pct:parseFloat(pct)};
+  }
+
+  function cleanup(){
+    console.log('Cleaning up...');var r=0;Object.keys(RECIPE_DB).forEach(function(k){if(k.indexOf('ST-')===0){delete RECIPE_DB[k];r++}});console.log('  - '+r+' recipes');
+    for(var i=BUILDS_DATA.length-1;i>=0;i--)if(BUILDS_DATA[i].id.indexOf('ST-')===0)BUILDS_DATA.splice(i,1);
+    for(var j=PRODUCTION_RUNS.length-1;j>=0;j--)if(PRODUCTION_RUNS[j].id.indexOf('ST-')===0)PRODUCTION_RUNS.splice(j,1);
+    for(var k=BRANCH_SOPS.length-1;k>=0;k--)if(BRANCH_SOPS[k].id.indexOf('ST-')===0)BRANCH_SOPS.splice(k,1);
+    saveAllData();buildRecipesTable();buildBuildsTable();buildProductionTable();buildBranchSOPTable();updateDashboardStats();updateSidebarBadges();
+    report();console.log('Cleanup done.');
+  }
+
+  return{generate:generate,report:report,cleanup:cleanup};
+})();
+
+function loadStressTest(action) {
+  if (action === 'generate') { stressTest.generate(); showSaveToast('Stress test data generated — check console'); }
+  else if (action === 'cleanup') { stressTest.cleanup(); showSaveToast('Test data cleaned up'); }
+  else if (action === 'report') { stressTest.report(); }
 }
 
 </script>
