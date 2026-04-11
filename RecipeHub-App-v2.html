@@ -5384,26 +5384,30 @@ function viewRecipe(npd) {
   if (r.status==='approved' && !r.archived) _statusBtn = `<button class="btn btn-sm" style="background:var(--g3);color:white" onclick="archiveRecipe('${r.npd}')">📦 Archive</button>`;
   if (r.archived) _statusBtn = `<button class="btn btn-sm" style="background:var(--amber);color:white" onclick="unarchiveRecipe('${r.npd}')">♻️ Restore</button>`;
 
-  PAGES['recipe-detail'].actions = `
-    <button class="btn btn-gold btn-sm" onclick="editRecipe('${r.npd}')">✏️ Edit</button>
-    <button class="btn btn-outline btn-sm" onclick="exportToSOP('${r.npd}')">🏭 Factory SOP</button>
-    ${_statusBtn}
-    <div class="more-dd">
-      <button class="btn btn-outline btn-sm" onclick="this.nextElementSibling.classList.toggle('show')">More ▾</button>
-      <div class="more-dd-menu" onclick="this.classList.remove('show')">
-        <button class="more-dd-item" onclick="openPrint('${r.npd}','kitchen')">🍳 Print Kitchen Version</button>
-        <button class="more-dd-item" onclick="openPrint('${r.npd}','factory')">🏭 Print Factory Version</button>
-        <button class="more-dd-item" onclick="openPrint('${r.npd}','sop-only')">📋 Print SOP Only</button>
-        <button class="more-dd-item" onclick="downloadPDF('${r.npd}','kitchen')">📄 Save PDF</button>
-        <div style="border-top:1px solid rgba(0,0,0,0.06);margin:4px 0"></div>
-        <button class="more-dd-item" onclick="updateRecipeCost('${r.npd}');saveAllData();viewRecipe('${r.npd}');showSaveToast('Cost recalculated')">💰 Recalc Cost</button>
-        <button class="more-dd-item" onclick="editRecipeTags('${r.npd}')">🏷️ Tags</button>
-        <button class="more-dd-item" onclick="duplicateRecipe('${r.npd}')">📋 Duplicate</button>
-        <button class="more-dd-item" onclick="viewVersionHistory('${r.npd}')">🕐 Version History</button>
-        <button class="more-dd-item" onclick="exportToSOP('${r.npd}')">🏭 Export to Factory SOP</button>
+  var _detailActions = '';
+  if (_isRD) {
+    _detailActions = `
+      <button class="btn btn-gold btn-sm" onclick="editRecipe('${r.npd}')">✏️ Edit</button>
+      <button class="btn btn-outline btn-sm" onclick="exportToSOP('${r.npd}')">🏭 Factory SOP</button>
+      ${_statusBtn}
+      <div class="more-dd">
+        <button class="btn btn-outline btn-sm" onclick="this.nextElementSibling.classList.toggle('show')">More ▾</button>
+        <div class="more-dd-menu" onclick="this.classList.remove('show')">
+          <button class="more-dd-item" onclick="openPrint('${r.npd}','kitchen')">🍳 Print Kitchen Version</button>
+          <button class="more-dd-item" onclick="openPrint('${r.npd}','factory')">🏭 Print Factory Version</button>
+          <button class="more-dd-item" onclick="openPrint('${r.npd}','sop-only')">📋 Print SOP Only</button>
+          <button class="more-dd-item" onclick="downloadPDF('${r.npd}','kitchen')">📄 Save PDF</button>
+          <div style="border-top:1px solid rgba(0,0,0,0.06);margin:4px 0"></div>
+          <button class="more-dd-item" onclick="updateRecipeCost('${r.npd}');saveAllData();viewRecipe('${r.npd}');showSaveToast('Cost recalculated')">💰 Recalc Cost</button>
+          <button class="more-dd-item" onclick="editRecipeTags('${r.npd}')">🏷️ Tags</button>
+          <button class="more-dd-item" onclick="duplicateRecipe('${r.npd}')">📋 Duplicate</button>
+          <button class="more-dd-item" onclick="viewVersionHistory('${r.npd}')">🕐 Version History</button>
+          <button class="more-dd-item" onclick="exportToSOP('${r.npd}')">🏭 Export to Factory SOP</button>
+        </div>
       </div>
-    </div>
-  `;
+    `;
+  }
+  PAGES['recipe-detail'].actions = _detailActions;
   showPage('recipe-detail');
 }
 
