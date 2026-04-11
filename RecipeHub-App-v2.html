@@ -3688,7 +3688,9 @@ function applyRoleRestrictions() {
   }
 
   // Strip inline action buttons from all non-editable pages
-  var allPages = ['page-dashboard','page-recipes','page-recipe-detail','page-ingredients','page-qa','page-sop','page-branch-sop','page-production','page-builds','page-brands','page-users','page-builds-costing','page-cost-control','page-reports'];
+  // Always strip Users page for non-admin (even if somehow visible)
+  stripActions('page-users');
+  var allPages = ['page-dashboard','page-recipes','page-recipe-detail','page-ingredients','page-qa','page-sop','page-branch-sop','page-production','page-builds','page-brands','page-builds-costing','page-cost-control','page-reports'];
   allPages.forEach(function(pid) {
     var pageId = pid.replace('page-','');
     if (allowed.indexOf(pageId) === -1) stripActions(pid);
@@ -7835,6 +7837,8 @@ function buildAccessMatrix() {
   if (!tbody) return;
   tbody.innerHTML = '';
   const roles = ['admin','npd','qa','factory','purchasing','viewer'];
+  const _currentRole = getCurrentUserRole();
+  const _readOnly = _currentRole !== 'admin';
   ACCESS_PERMISSIONS.forEach(group => {
     // Group header row
     const headerRow = document.createElement('tr');
@@ -7847,7 +7851,7 @@ function buildAccessMatrix() {
         <td style="padding-left:24px;font-size:12px;color:var(--g5)">${perm.label}</td>
         ${roles.map(role => {
           const checked = perm[role];
-          const isAdmin = role === 'admin';
+          const isAdmin = role === 'admin' || _readOnly;
           return `<td style="text-align:center">
             <label style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:4px;cursor:${isAdmin?'not-allowed':'pointer'};${checked ? (isAdmin ? 'background:var(--navy);' : 'background:var(--sage);') : 'background:var(--g1);border:1px solid var(--g2);'}">
               <input type="checkbox" ${checked?'checked':''} ${isAdmin?'disabled':''} data-key="${perm.key}" data-role="${role}" onchange="toggleAccess(this)" style="display:none" />
