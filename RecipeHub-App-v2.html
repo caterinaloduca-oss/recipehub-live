@@ -9374,11 +9374,13 @@ function buildProductionTable() {
     var displayStatus = isArchived ? 'archived' : run.status;
     var _fmtDate = '—';
     if (run.date) { var _dp = run.date.split('-'); _fmtDate = _dp.length===3 ? _dp[2]+'/'+_dp[1]+'/'+_dp[0] : run.date; }
+    var _dateChanges = (run.dateLog && run.dateLog.length) ? run.dateLog.length : 0;
+    var _dateChangeTag = _dateChanges ? ' <span title="Date changed '+_dateChanges+' time'+(_dateChanges>1?'s':'')+'" style="font-size:9px;color:var(--amber);font-weight:600;cursor:help" onclick="event.stopPropagation();showDateLog(\''+run.id+'\')">'+_dateChanges+'x</span>' : '';
     var _runTypeColor = run.runType==='Factory Trial'?'#0C6BA8':run.runType==='Production Trial'?'#6B2FA0':'#2D6A4F';
     var _runTypeBg = run.runType==='Factory Trial'?'#E6F1FB':run.runType==='Production Trial'?'#F3E8FD':'#EBF5EE';
     var _runTypeBorder = run.runType==='Factory Trial'?'#B3D4F0':run.runType==='Production Trial'?'#D5C0EB':'#C3E6CB';
     var _runTypeLabel = run.runType || 'Production';
-    tr.innerHTML = '<td style="font-family:var(--font-m);font-size:12px">'+_fmtDate+'</td><td><strong>'+run.recipe+'</strong></td><td style="font-size:12px">'+run.brand+'</td><td><span style="display:inline-block;padding:2px 8px;border-radius:40px;font-size:10px;font-weight:500;white-space:nowrap;background:'+_runTypeBg+';color:'+_runTypeColor+';border:1px solid '+_runTypeBorder+'">'+_runTypeLabel+'</span></td><td style="font-family:var(--font-m);font-size:12px">'+run.batchSize+'</td><td style="font-size:12px;color:var(--g4)">'+run.operator+'</td><td><span class="badge '+(statusMap[displayStatus]||'badge-draft')+'">'+(statusLabel[displayStatus]||displayStatus)+'</span></td><td style="font-family:var(--font-m);font-size:12px;color:var(--sage)">'+(run.yield||'—')+'</td><td style="font-family:var(--font-m);font-size:12px;color:'+(parseFloat(run.waste)>8?'var(--red)':'var(--g4)')+'">'+(run.waste||'—')+'</td><td><div style="display:flex;gap:4px;white-space:nowrap">'+actions+'</div></td>';
+    tr.innerHTML = '<td style="font-family:var(--font-m);font-size:12px">'+_fmtDate+_dateChangeTag+'</td><td><strong>'+run.recipe+'</strong></td><td style="font-size:12px">'+run.brand+'</td><td><span style="display:inline-block;padding:2px 8px;border-radius:40px;font-size:10px;font-weight:500;white-space:nowrap;background:'+_runTypeBg+';color:'+_runTypeColor+';border:1px solid '+_runTypeBorder+'">'+_runTypeLabel+'</span></td><td style="font-family:var(--font-m);font-size:12px">'+run.batchSize+'</td><td style="font-size:12px;color:var(--g4)">'+run.operator+'</td><td><span class="badge '+(statusMap[displayStatus]||'badge-draft')+'">'+(statusLabel[displayStatus]||displayStatus)+'</span></td><td style="font-family:var(--font-m);font-size:12px;color:var(--sage)">'+(run.yield||'—')+'</td><td style="font-family:var(--font-m);font-size:12px;color:'+(parseFloat(run.waste)>8?'var(--red)':'var(--g4)')+'">'+(run.waste||'—')+'</td><td><div style="display:flex;gap:4px;white-space:nowrap">'+actions+'</div></td>';
     tbody.appendChild(tr);
   });
 
@@ -9499,9 +9501,31 @@ function editProductionRun(id) {
 function saveEditRun(id) {
   var run = PRODUCTION_RUNS.find(function(r){return r.id===id});
   if (!run) return;
-  run.date=document.getElementById('ep-date').value; run.batchSize=document.getElementById('ep-batch').value; run.operator=document.getElementById('ep-operator').value; run.notes=document.getElementById('ep-notes').value;
+  var newDate = document.getElementById('ep-date').value;
+  if (newDate !== run.date) {
+    if (!run.dateLog) run.dateLog = [];
+    run.dateLog.push({from: run.date || '(none)', to: newDate || '(none)', at: new Date().toISOString()});
+    logActivity('production', '📅', run.recipe + ': date changed' + (run.date ? ' from ' + run.date : '') + ' → ' + (newDate || 'unset'));
+  }
+  run.date=newDate; run.batchSize=document.getElementById('ep-batch').value; run.operator=document.getElementById('ep-operator').value; run.notes=document.getElementById('ep-notes').value;
   closeModal(); buildProductionTable(); showSaveToast('Updated');
   saveAllData();
+}
+
+function showDateLog(id) {
+  var run = PRODUCTION_RUNS.find(function(r){return r.id===id});
+  if (!run || !run.dateLog || !run.dateLog.length) return;
+  var rows = run.dateLog.map(function(e, i) {
+    var d = new Date(e.at);
+    var when = d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) + ' ' + d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+    var fromFmt = e.from === '(none)' ? '—' : e.from;
+    var toFmt = e.to === '(none)' ? '—' : e.to;
+    return '<tr><td style="font-size:12px;color:var(--g3);white-space:nowrap">' + when + '</td><td style="font-size:12px;font-family:var(--font-m)">' + fromFmt + '</td><td style="font-size:12px;color:var(--g3)">→</td><td style="font-size:12px;font-family:var(--font-m);font-weight:500">' + toFmt + '</td></tr>';
+  }).join('');
+  openModal(
+    '<div class="card-head" style="background:var(--navy);border-radius:16px 16px 0 0"><span class="card-title" style="color:white">Date History — ' + run.recipe + '</span><button class="btn btn-sm" style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:none" onclick="closeModal()">✕</button></div>' +
+    '<div class="card-body" style="padding:16px"><div style="font-size:11px;color:var(--g3);margin-bottom:8px">' + run.dateLog.length + ' change' + (run.dateLog.length > 1 ? 's' : '') + '</div><table class="data-table"><thead><tr><th>When</th><th>From</th><th></th><th>To</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
+  );
 }
 
 // buildProductionTable() moved to after loadAllData()
