@@ -1535,8 +1535,9 @@ body { font-family:var(--font-b); background:var(--cream); color:var(--g5); font
       </div>
     </div>
     <div class="card-body" style="padding:0">
-      <table class="data-table">
-        <thead><tr><th>Date</th><th>Recipe</th><th>Brand</th><th>Run Type</th><th>Batch Size</th><th>Responsible</th><th>Status</th><th>Yield</th><th>Waste</th><th></th></tr></thead>
+      <table class="data-table" style="table-layout:fixed;width:100%">
+        <colgroup><col style="width:110px"><col><col style="width:110px"><col style="width:90px"><col style="width:120px"><col style="width:100px"><col style="width:140px"></colgroup>
+        <thead><tr><th>Date</th><th>Recipe</th><th>Type</th><th>Batch</th><th>Responsible</th><th>Status</th><th></th></tr></thead>
         <tbody id="prod-tbody"></tbody>
       </table>
     </div>
@@ -9384,15 +9385,24 @@ function buildProductionTable() {
     }
     var _dateChanges = (run.dateLog && run.dateLog.length) ? run.dateLog.length : 0;
     var _dateChangeTag = _dateChanges ? ' <span title="Date changed '+_dateChanges+' time'+(_dateChanges>1?'s':'')+'" style="font-size:9px;color:var(--amber);font-weight:600;cursor:help" onclick="event.stopPropagation();showDateLog(\''+run.id+'\')">'+_dateChanges+'x</span>' : '';
-    var _runTypeColor = run.runType==='Factory Trial'?'#0C6BA8':run.runType==='Production Trial'?'#6B2FA0':'#2D6A4F';
-    var _runTypeBg = run.runType==='Factory Trial'?'#E6F1FB':run.runType==='Production Trial'?'#F3E8FD':'#EBF5EE';
-    var _runTypeBorder = run.runType==='Factory Trial'?'#B3D4F0':run.runType==='Production Trial'?'#D5C0EB':'#C3E6CB';
+    var _rtc = {
+      'Factory Trial':  {bg:'#E6F1FB',color:'#0C6BA8',border:'#B3D4F0'},
+      'Production Trial':{bg:'#F3E8FD',color:'#6B2FA0',border:'#D5C0EB'}
+    };
+    var _tc = _rtc[run.runType] || {bg:'#EBF5EE',color:'#2D6A4F',border:'#C3E6CB'};
     var _runTypeLabel = run.runType || 'Production';
-    tr.innerHTML = '<td style="font-family:var(--font-m);font-size:12px">'+_fmtDate+_dateChangeTag+_daysWaiting+'</td><td><strong>'+run.recipe+'</strong></td><td style="font-size:12px">'+run.brand+'</td><td><span style="display:inline-block;padding:2px 8px;border-radius:40px;font-size:10px;font-weight:500;white-space:nowrap;background:'+_runTypeBg+';color:'+_runTypeColor+';border:1px solid '+_runTypeBorder+'">'+_runTypeLabel+'</span></td><td style="font-family:var(--font-m);font-size:12px">'+run.batchSize+'</td><td style="font-size:12px;color:var(--g4)">'+run.operator+'</td><td><span class="badge '+(statusMap[displayStatus]||'badge-draft')+'">'+(statusLabel[displayStatus]||displayStatus)+'</span></td><td style="font-family:var(--font-m);font-size:12px;color:var(--sage)">'+(run.yield||'—')+'</td><td style="font-family:var(--font-m);font-size:12px;color:'+(parseFloat(run.waste)>8?'var(--red)':'var(--g4)')+'">'+(run.waste||'—')+'</td><td><div style="display:flex;gap:4px;white-space:nowrap">'+actions+'</div></td>';
+    tr.innerHTML =
+      '<td style="font-family:var(--font-m);font-size:12px">' + _fmtDate + _dateChangeTag + _daysWaiting + '</td>' +
+      '<td><strong>' + run.recipe + '</strong><br><span style="font-size:11px;color:var(--g3)">' + (run.brand || '') + '</span></td>' +
+      '<td><span style="display:inline-block;padding:2px 8px;border-radius:40px;font-size:10px;font-weight:500;white-space:nowrap;background:' + _tc.bg + ';color:' + _tc.color + ';border:1px solid ' + _tc.border + '">' + _runTypeLabel + '</span></td>' +
+      '<td style="font-family:var(--font-m);font-size:12px">' + run.batchSize + '</td>' +
+      '<td style="font-size:12px;color:var(--g4)">' + run.operator + '</td>' +
+      '<td><span class="badge ' + (statusMap[displayStatus] || 'badge-draft') + '">' + (statusLabel[displayStatus] || displayStatus) + '</span></td>' +
+      '<td><div style="display:flex;gap:4px;white-space:nowrap">' + actions + '</div></td>';
     tbody.appendChild(tr);
   });
 
-  if (!visibleRuns.length) tbody.innerHTML = '<tr><td colspan="10" style="padding:40px;text-align:center;color:var(--g3);font-size:13px">'+(_showArchived ? 'No runs found.' : 'No runs scheduled yet.')+'</td></tr>';
+  if (!visibleRuns.length) tbody.innerHTML = '<tr><td colspan="7" style="padding:40px;text-align:center;color:var(--g3);font-size:13px">'+(_showArchived ? 'No runs found.' : 'No runs scheduled yet.')+'</td></tr>';
 
   // Stats count only active (non-archived) runs
   var el = function(id){return document.getElementById(id)};
