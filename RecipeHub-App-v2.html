@@ -9494,6 +9494,7 @@ function viewBuild(id) {
       ${b.active===false ? `<button class="btn btn-sm" style="background:var(--sage);color:white" onclick="toggleBuildActive('${b.id}')">✓ Reactivate</button>` : `<button class="btn btn-sm" style="background:var(--red);color:white" onclick="toggleBuildActive('${b.id}')">✕ Discontinue</button>`}
     </div>
   `;
+  applyRoleRestrictions();
 }
 
 function toggleBuildActive(id) {
@@ -11367,6 +11368,7 @@ function viewBranchSOP(id) {
       <button class="btn btn-outline btn-sm" onclick="printBranchSOP('${sop.id}')">🖨️ Print</button>
     </div>
   `;
+  applyRoleRestrictions();
 }
 
 function uploadBranchSOPPhoto(sopId, stepIdx, input) {
