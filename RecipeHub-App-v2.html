@@ -732,6 +732,17 @@ body { font-family:var(--font-b); background:var(--cream); color:var(--g5); font
         <div class="user-role" id="sidebar-role">Admin — Full Access</div>
       </div>
     </div>
+    <div style="margin-bottom:6px">
+      <select id="preview-role-select" onchange="previewAs(this.value)" style="width:100%;padding:5px 8px;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.5);font-family:var(--font-b);font-size:10px;cursor:pointer;appearance:auto">
+        <option value="">View as…</option>
+        <option value="admin">Admin</option>
+        <option value="npd">R&D</option>
+        <option value="qa">QA</option>
+        <option value="factory">Factory</option>
+        <option value="purchasing">Purchasing</option>
+        <option value="viewer">Viewer</option>
+      </select>
+    </div>
     <div style="display:flex;gap:6px">
       <button onclick="openProfileModal()" style="flex:1;padding:6px;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,0.1);background:none;color:rgba(255,255,255,0.4);font-family:var(--font-b);font-size:11px;cursor:pointer;transition:all 0.15s" onmouseover="this.style.background='rgba(255,255,255,0.08)';this.style.color='rgba(255,255,255,0.7)'" onmouseout="this.style.background='none';this.style.color='rgba(255,255,255,0.4)'">Edit Profile</button>
       <button onclick="signOut()" style="flex:1;padding:6px;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,0.1);background:none;color:rgba(255,255,255,0.4);font-family:var(--font-b);font-size:11px;cursor:pointer;transition:all 0.15s" onmouseover="this.style.background='rgba(255,255,255,0.08)';this.style.color='rgba(255,255,255,0.7)'" onmouseout="this.style.background='none';this.style.color='rgba(255,255,255,0.4)'">Sign Out</button>
@@ -744,6 +755,10 @@ body { font-family:var(--font-b); background:var(--cream); color:var(--g5); font
 
 <!-- ── TOPBAR (dynamic) ── -->
 <div style="background:linear-gradient(90deg,#B8820A,#D4A84A);color:white;text-align:center;padding:6px 16px;font-family:var(--font-d);font-size:12px;font-weight:600;letter-spacing:0.05em">DEMO MODE — All data is local to your browser. Nothing is saved to any server.</div>
+<div id="preview-banner" style="display:none;background:var(--navy);color:white;padding:8px 20px;font-family:var(--font-d);font-size:12px;font-weight:500;align-items:center;justify-content:center;gap:12px">
+  <span>Viewing as Viewer</span>
+  <button onclick="previewAs('exit')" style="background:rgba(255,255,255,0.15);border:none;color:white;padding:3px 12px;border-radius:40px;font-family:var(--font-b);font-size:11px;cursor:pointer;font-weight:500">Exit Preview</button>
+</div>
 <div class="topbar" onclick="if(event.target.closest('.topbar')&&window.innerWidth<=768&&event.offsetX<50){document.getElementById('app-sidebar').classList.toggle('mobile-open')}">
   <div class="topbar-left">
     <button class="btn-back" id="topbar-back" onclick="goBack()">&#8592;</button>
@@ -5439,7 +5454,10 @@ function removeTrialQAMedia(npd, stage, idx) {
 }
 
 // Get current user role from auth
+var _previewRole = null;
+
 function getCurrentUserRole() {
+  if (_previewRole) return _previewRole;
   try {
     var raw = sessionStorage.getItem(AUTH_KEY);
     if (raw) {
@@ -5449,6 +5467,22 @@ function getCurrentUserRole() {
     }
   } catch(e) {}
   return 'admin';
+}
+
+function previewAs(role) {
+  if (role === 'exit' || !role) {
+    _previewRole = null;
+    var banner = document.getElementById('preview-banner');
+    if (banner) banner.style.display = 'none';
+    var sel = document.getElementById('preview-role-select');
+    if (sel) sel.value = '';
+  } else {
+    _previewRole = role;
+    var banner = document.getElementById('preview-banner');
+    if (banner) { banner.style.display = 'flex'; banner.querySelector('span').textContent = 'Viewing as ' + {admin:'Admin',npd:'R&D',qa:'QA',factory:'Factory',purchasing:'Purchasing',viewer:'Viewer'}[role]; }
+  }
+  // Refresh current page to apply role
+  if (_currentPage) nav(_currentPage);
 }
 
 // ──────────── ARCHIVE RECIPE ────────────
