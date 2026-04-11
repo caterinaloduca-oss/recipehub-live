@@ -789,6 +789,18 @@ body { font-family:var(--font-b); background:var(--cream); color:var(--g5); font
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
     <div class="card">
       <div class="card-head">
+        <span class="card-title">Pending Actions</span>
+        <span style="font-size:11px;color:var(--g3);font-weight:500" id="dash-pending-count"></span>
+      </div>
+      <div class="card-body" style="padding:0;max-height:360px;overflow-y:auto">
+        <div id="dash-pending-list" style="padding:0">
+          <div style="padding:20px;text-align:center;color:var(--g3);font-size:13px">Nothing pending</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
         <span class="card-title">Recent Recipes</span>
         <button class="btn btn-outline btn-sm" onclick="nav('recipes')">View all</button>
       </div>
@@ -799,43 +811,18 @@ body { font-family:var(--font-b); background:var(--cream); color:var(--g5); font
         </table>
       </div>
     </div>
-
-    <div class="card">
-      <div class="card-head">
-        <span class="card-title">QA Pending</span>
-        <button class="btn btn-outline btn-sm" onclick="nav('qa')">View all</button>
-      </div>
-      <div class="card-body" style="padding:0">
-        <table class="data-table">
-          <thead><tr><th>Recipe</th><th>Stage</th><th>QA Status</th></tr></thead>
-          <tbody id="dash-qa-tbody"></tbody>
-        </table>
-      </div>
-    </div>
   </div>
 
-  <!-- Shelf Life Tracker -->
+  <!-- Upcoming Trials & Production -->
   <div class="card" style="margin-top:20px">
     <div class="card-head">
-      <span class="card-title">Shelf Life Tracker</span>
+      <span class="card-title">Upcoming Trials & Production</span>
+      <button class="btn btn-outline btn-sm" onclick="nav('production')">View all</button>
     </div>
     <div class="card-body" style="padding:0">
       <table class="data-table">
-        <thead><tr><th>Recipe</th><th>Brand</th><th>Shelf Life</th><th>Storage</th><th>Status</th></tr></thead>
-        <tbody id="dash-shelf-tbody"></tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- Cost Summary -->
-  <div class="card" style="margin-top:20px">
-    <div class="card-head">
-      <span class="card-title">Cost Summary by Brand</span>
-    </div>
-    <div class="card-body" style="padding:0">
-      <table class="data-table">
-        <thead><tr><th>Brand</th><th style="text-align:right">Recipes</th><th style="text-align:right">Avg Cost/kg</th><th style="text-align:right">Min</th><th style="text-align:right">Max</th></tr></thead>
-        <tbody id="dash-cost-tbody"></tbody>
+        <thead><tr><th>Date</th><th>Recipe</th><th>Brand</th><th>Type</th><th>Batch</th><th>Status</th></tr></thead>
+        <tbody id="dash-trials-tbody"></tbody>
       </table>
     </div>
   </div>
@@ -8411,9 +8398,58 @@ function updateDashboardStats() {
   if (el('dash-users-sub')) el('dash-users-sub').textContent = PENDING_DATA.length + ' pending approval';
   if (el('dash-pending-qa')) el('dash-pending-qa').textContent = pendingQA;
 
-  // Dynamic recent recipes table (last 5 by updated)
   const statusMap = {approved:'badge-approved','prod-trial':'badge-prod-trial',trial:'badge-trial',review:'badge-review',draft:'badge-draft'};
   const statusLabel = {approved:'Approved','prod-trial':'Production Trial',trial:'Factory Trial',review:'In Review',draft:'Draft'};
+
+  // ── Pending Actions ──
+  const pendingList = el('dash-pending-list');
+  if (pendingList) {
+    var items = [];
+    // Recipes awaiting review
+    recipes.filter(r => r.status === 'review').forEach(r => {
+      items.push({icon:'📤', text:r.name, detail:'Awaiting review sign-off', badge:'In Review', badgeClass:'badge-review', action:"viewRecipe('"+r.npd+"')"});
+    });
+    // QA sign-offs needed
+    recipes.filter(r => r.status === 'trial' && !(r.trialQA && r.trialQA.signed)).forEach(r => {
+      items.push({icon:'🔬', text:r.name, detail:'Factory Trial — QA not signed off', badge:'QA Pending', badgeClass:'badge-pending', action:"viewRecipe('"+r.npd+"')"});
+    });
+    recipes.filter(r => r.status === 'prod-trial' && !(r['prod-trialQA'] && r['prod-trialQA'].signed)).forEach(r => {
+      items.push({icon:'🔬', text:r.name, detail:'Production Trial — QA not signed off', badge:'QA Pending', badgeClass:'badge-pending', action:"viewRecipe('"+r.npd+"')"});
+    });
+    // Factory SOPs in draft or pending
+    recipes.filter(r => r.sop && r.sop.length && r.sopStatus && r.sopStatus !== 'approved').forEach(r => {
+      var sopLbl = r.sopStatus === 'pending' ? 'Pending Approval' : 'Draft';
+      var sopCls = r.sopStatus === 'pending' ? 'badge-review' : 'badge-draft';
+      items.push({icon:'📋', text:r.name + ' SOP', detail:'Factory SOP — ' + sopLbl.toLowerCase(), badge:sopLbl, badgeClass:sopCls, action:"viewRecipe('"+r.npd+"')"});
+    });
+    // Production runs without a date
+    PRODUCTION_RUNS.filter(r => !r.archived && !r.date && r.status === 'scheduled').forEach(r => {
+      items.push({icon:'📅', text:r.recipe, detail:r.runType + ' — no date set', badge:'Needs Date', badgeClass:'badge-pending', action:"nav('production')"});
+    });
+    // Pending user approvals
+    PENDING_DATA.forEach(p => {
+      items.push({icon:'👤', text:p.name || p.email, detail:'Pending access approval', badge:'User', badgeClass:'badge-draft', action:"nav('users')"});
+    });
+
+    if (el('dash-pending-count')) el('dash-pending-count').textContent = items.length ? items.length + ' items' : '';
+
+    if (items.length) {
+      pendingList.innerHTML = items.map(it => `
+        <div onclick="${it.action}" style="display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;border-bottom:1px solid var(--g1);transition:background 0.15s" onmouseover="this.style.background='var(--g05)'" onmouseout="this.style.background='transparent'">
+          <span style="font-size:16px;flex-shrink:0">${it.icon}</span>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:500;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${it.text}</div>
+            <div style="font-size:11px;color:var(--g3)">${it.detail}</div>
+          </div>
+          <span class="badge ${it.badgeClass}" style="flex-shrink:0;font-size:10px">${it.badge}</span>
+        </div>
+      `).join('');
+    } else {
+      pendingList.innerHTML = '<div style="padding:40px 20px;text-align:center;color:var(--sage);font-size:13px;font-weight:500">All clear — nothing pending</div>';
+    }
+  }
+
+  // ── Recent Recipes ──
   const recentTbody = el('dash-recent-tbody');
   if (recentTbody) {
     recentTbody.innerHTML = recipes.slice(0,6).map(r => `
@@ -8426,58 +8462,34 @@ function updateDashboardStats() {
     `).join('') || '<tr><td colspan="4" style="padding:20px;text-align:center;color:var(--g3);font-size:13px">No recipes yet</td></tr>';
   }
 
-  // Dynamic QA pending table (recipes in trial stages needing QA)
-  const qaTbody = el('dash-qa-tbody');
-  if (qaTbody) {
-    const qaItems = recipes.filter(r => r.status === 'trial' || r.status === 'prod-trial');
-    // Shelf life tracker
-    const shelfTbody = el('dash-shelf-tbody');
-    if (shelfTbody) {
-      const approved = recipes.filter(r => r.status === 'approved');
-      shelfTbody.innerHTML = approved.slice(0,6).map(r => {
-        const shelfMonths = parseInt(r.shelfLife) || 0;
-        const isShort = shelfMonths > 0 && shelfMonths <= 6;
-        return `<tr onclick="viewRecipe('${r.npd}')" style="cursor:pointer">
-          <td><strong>${r.name}</strong></td>
-          <td style="font-size:12px">${r.brand}</td>
-          <td style="font-size:12px;font-weight:500;color:${isShort ? 'var(--amber)' : 'var(--g4)'}">${r.shelfLife}</td>
-          <td style="font-size:12px;color:var(--g4)">${r.storage}</td>
-          <td><span class="badge ${r.batchLog && r.batchLog.length ? 'badge-approved' : 'badge-draft'}">${r.batchLog && r.batchLog.length ? r.batchLog.length + ' batches' : 'No batches'}</span></td>
-        </tr>`;
-      }).join('') || '<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--g3);font-size:13px">No approved recipes yet</td></tr>';
-    }
-
-    // Cost summary by brand
-    const costTbody = el('dash-cost-tbody');
-    if (costTbody) {
-      const brands = {};
-      recipes.forEach(r => {
-        if (!r.costKg) return;
-        var cost = parseFloat(String(r.costKg).replace(/[^0-9.]/g,''));
-        if (isNaN(cost)) return;
-        if (!brands[r.brand]) brands[r.brand] = {costs:[], count:0};
-        brands[r.brand].costs.push(cost);
-        brands[r.brand].count++;
-      });
-      costTbody.innerHTML = Object.keys(brands).map(b => {
-        var d = brands[b];
-        var avg = d.costs.reduce((s,c)=>s+c,0)/d.costs.length;
-        var min = Math.min(...d.costs);
-        var max = Math.max(...d.costs);
-        return `<tr><td><strong>${b}</strong></td><td style="text-align:right">${d.count}</td><td style="text-align:right;font-family:var(--font-m);color:var(--sage);font-weight:500">SAR ${avg.toFixed(2)}</td><td style="text-align:right;font-family:var(--font-m);font-size:12px;color:var(--g4)">SAR ${min.toFixed(2)}</td><td style="text-align:right;font-family:var(--font-m);font-size:12px;color:var(--g4)">SAR ${max.toFixed(2)}</td></tr>`;
-      }).join('') || '<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--g3);font-size:13px">No costed recipes yet — use Calc Cost on recipes</td></tr>';
-    }
-
-    qaTbody.innerHTML = qaItems.map(r => {
-      const stage = r.status === 'trial' ? 'Factory Trial' : 'Production Trial';
-      const qa = r[r.status + 'QA'];
-      const signed = qa && qa.signed;
-      return `<tr onclick="viewRecipe('${r.npd}')" style="cursor:pointer">
-        <td><strong>${r.name}</strong></td>
-        <td style="font-size:12px;color:var(--g4)">${stage}</td>
-        <td><span class="badge ${signed ? 'badge-approved' : 'badge-pending'}">${signed ? 'Signed Off' : 'Pending QA'}</span></td>
+  // ── Upcoming Trials & Production ──
+  const trialsTbody = el('dash-trials-tbody');
+  if (trialsTbody) {
+    var activeRuns = PRODUCTION_RUNS.filter(r => !r.archived && r.status !== 'completed');
+    // Sort: runs with dates first (ascending), then runs without dates
+    activeRuns.sort(function(a, b) {
+      if (a.date && b.date) return a.date.localeCompare(b.date);
+      if (a.date && !b.date) return -1;
+      if (!a.date && b.date) return 1;
+      return 0;
+    });
+    var runStatusMap = {scheduled:'badge-review','in-progress':'badge-trial','on-hold':'badge-pending'};
+    var runStatusLabel = {scheduled:'Scheduled','in-progress':'In Progress','on-hold':'On Hold'};
+    var runTypeColors = {'Factory Trial':{bg:'#E6F1FB',color:'#0C6BA8',border:'#B3D4F0'},'Production Trial':{bg:'#F3E8FD',color:'#6B2FA0',border:'#D5C0EB'}};
+    trialsTbody.innerHTML = activeRuns.slice(0,8).map(run => {
+      var fmtDate = '—';
+      var noDate = !run.date;
+      if (run.date) { var dp = run.date.split('-'); fmtDate = dp.length===3 ? dp[2]+'/'+dp[1]+'/'+dp[0] : run.date; }
+      var tc = runTypeColors[run.runType] || {bg:'#EBF5EE',color:'#2D6A4F',border:'#C3E6CB'};
+      return `<tr style="cursor:pointer" onclick="nav('production')">
+        <td style="font-family:var(--font-m);font-size:12px;${noDate?'color:var(--amber);font-weight:500':'color:var(--g4)'}">${noDate ? 'No date set' : fmtDate}</td>
+        <td><strong>${run.recipe}</strong></td>
+        <td style="font-size:12px">${run.brand}</td>
+        <td><span style="display:inline-block;padding:2px 8px;border-radius:40px;font-size:10px;font-weight:500;background:${tc.bg};color:${tc.color};border:1px solid ${tc.border}">${run.runType || 'Production'}</span></td>
+        <td style="font-family:var(--font-m);font-size:12px">${run.batchSize}</td>
+        <td><span class="badge ${runStatusMap[run.status]||'badge-draft'}">${runStatusLabel[run.status]||run.status}</span></td>
       </tr>`;
-    }).join('') || '<tr><td colspan="3" style="padding:20px;text-align:center;color:var(--g3);font-size:13px">No QA pending — all clear</td></tr>';
+    }).join('') || '<tr><td colspan="6" style="padding:20px;text-align:center;color:var(--g3);font-size:13px">No upcoming trials or production runs</td></tr>';
   }
 }
 
