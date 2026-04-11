@@ -722,6 +722,11 @@ body { font-family:var(--font-b); background:var(--cream); color:var(--g5); font
       <button onclick="exportBackup()" style="flex:1;padding:5px;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,0.1);background:none;color:rgba(255,255,255,0.4);font-family:var(--font-b);font-size:10px;cursor:pointer" onmouseover="this.style.color='rgba(255,255,255,0.7)'" onmouseout="this.style.color='rgba(255,255,255,0.4)'">📥 Export</button>
       <label style="flex:1;padding:5px;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,0.1);background:none;color:rgba(255,255,255,0.4);font-family:var(--font-b);font-size:10px;cursor:pointer;text-align:center" onmouseover="this.style.color='rgba(255,255,255,0.7)'" onmouseout="this.style.color='rgba(255,255,255,0.4)'">📤 Import<input type="file" accept=".json" style="display:none" onchange="importBackup(this)" /></label>
     </div>
+    <div id="stress-test-btns" style="display:flex;gap:6px;margin-top:4px">
+      <button onclick="loadStressTest('generate')" style="flex:1;padding:5px;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,0.08);background:none;color:rgba(255,255,255,0.25);font-family:var(--font-b);font-size:9px;cursor:pointer" onmouseover="this.style.color='rgba(255,255,255,0.6)'" onmouseout="this.style.color='rgba(255,255,255,0.25)'">🧪 Stress</button>
+      <button onclick="loadStressTest('cleanup')" style="flex:1;padding:5px;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,0.08);background:none;color:rgba(255,255,255,0.25);font-family:var(--font-b);font-size:9px;cursor:pointer" onmouseover="this.style.color='rgba(255,255,255,0.6)'" onmouseout="this.style.color='rgba(255,255,255,0.25)'">🧹 Cleanup</button>
+      <button onclick="loadStressTest('report')" style="flex:1;padding:5px;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,0.08);background:none;color:rgba(255,255,255,0.25);font-family:var(--font-b);font-size:9px;cursor:pointer" onmouseover="this.style.color='rgba(255,255,255,0.6)'" onmouseout="this.style.color='rgba(255,255,255,0.25)'">📊 Report</button>
+    </div>
   </div>
 
   <div class="sidebar-footer">
@@ -11911,6 +11916,26 @@ function addEmptyStates() {
 }
 addEmptyStates();
 buildShelfLifeUI();
+
+// ── Stress Test Loader ──
+function loadStressTest(action) {
+  if (typeof stressTest !== 'undefined') {
+    if (action === 'generate') { stressTest.generate(); showSaveToast('Stress test data generated — check console'); }
+    else if (action === 'cleanup') { stressTest.cleanup(); showSaveToast('Stress test data cleaned up'); }
+    else if (action === 'report') { stressTest.report(); showSaveToast('Report printed to console'); }
+    return;
+  }
+  var s = document.createElement('script');
+  s.src = 'stress-test.js';
+  s.onload = function() {
+    showSaveToast('Stress test loaded');
+    if (action === 'generate') { stressTest.generate(); showSaveToast('Stress test data generated — check console'); }
+    else if (action === 'cleanup') { stressTest.cleanup(); showSaveToast('Stress test data cleaned up'); }
+    else if (action === 'report') { stressTest.report(); showSaveToast('Report printed to console'); }
+  };
+  s.onerror = function() { showSaveToast('Failed to load stress-test.js', true); };
+  document.head.appendChild(s);
+}
 
 </script>
 </body>
