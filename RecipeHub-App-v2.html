@@ -4941,6 +4941,7 @@ function setRecipeStatus(npd, newStatus) {
         yield: '',
         waste: '',
         notes: runType + ' — auto-scheduled from recipe workflow',
+        createdAt: new Date().toISOString(),
       });
       logActivity('production', '📅', runType + ' scheduled for ' + r.name, 'Auto-created from recipe status change');
     }
@@ -8480,9 +8481,11 @@ function updateDashboardStats() {
       var fmtDate = '—';
       var noDate = !run.date;
       if (run.date) { var dp = run.date.split('-'); fmtDate = dp.length===3 ? dp[2]+'/'+dp[1]+'/'+dp[0] : run.date; }
+      var daysWait = '';
+      if (noDate && run.createdAt) { var dd = Math.floor((Date.now() - new Date(run.createdAt).getTime()) / 86400000); if (dd > 0) daysWait = '<div style="font-size:10px;color:var(--red);font-weight:500">' + dd + 'd waiting</div>'; }
       var tc = runTypeColors[run.runType] || {bg:'#EBF5EE',color:'#2D6A4F',border:'#C3E6CB'};
       return `<tr style="cursor:pointer" onclick="nav('production')">
-        <td style="font-family:var(--font-m);font-size:12px;${noDate?'color:var(--amber);font-weight:500':'color:var(--g4)'}">${noDate ? 'No date set' : fmtDate}</td>
+        <td style="font-family:var(--font-m);font-size:12px;${noDate?'color:var(--amber);font-weight:500':'color:var(--g4)'}">${noDate ? 'No date set' : fmtDate}${daysWait}</td>
         <td><strong>${run.recipe}</strong></td>
         <td style="font-size:12px">${run.brand}</td>
         <td><span style="display:inline-block;padding:2px 8px;border-radius:40px;font-size:10px;font-weight:500;background:${tc.bg};color:${tc.color};border:1px solid ${tc.border}">${run.runType || 'Production'}</span></td>
@@ -9373,14 +9376,19 @@ function buildProductionTable() {
     }
     var displayStatus = isArchived ? 'archived' : run.status;
     var _fmtDate = '—';
+    var _daysWaiting = '';
     if (run.date) { var _dp = run.date.split('-'); _fmtDate = _dp.length===3 ? _dp[2]+'/'+_dp[1]+'/'+_dp[0] : run.date; }
+    else if (run.createdAt) {
+      var _daysDiff = Math.floor((Date.now() - new Date(run.createdAt).getTime()) / 86400000);
+      if (_daysDiff > 0) _daysWaiting = '<div style="font-size:10px;color:var(--red);font-weight:500;margin-top:2px">' + _daysDiff + 'd without date</div>';
+    }
     var _dateChanges = (run.dateLog && run.dateLog.length) ? run.dateLog.length : 0;
     var _dateChangeTag = _dateChanges ? ' <span title="Date changed '+_dateChanges+' time'+(_dateChanges>1?'s':'')+'" style="font-size:9px;color:var(--amber);font-weight:600;cursor:help" onclick="event.stopPropagation();showDateLog(\''+run.id+'\')">'+_dateChanges+'x</span>' : '';
     var _runTypeColor = run.runType==='Factory Trial'?'#0C6BA8':run.runType==='Production Trial'?'#6B2FA0':'#2D6A4F';
     var _runTypeBg = run.runType==='Factory Trial'?'#E6F1FB':run.runType==='Production Trial'?'#F3E8FD':'#EBF5EE';
     var _runTypeBorder = run.runType==='Factory Trial'?'#B3D4F0':run.runType==='Production Trial'?'#D5C0EB':'#C3E6CB';
     var _runTypeLabel = run.runType || 'Production';
-    tr.innerHTML = '<td style="font-family:var(--font-m);font-size:12px">'+_fmtDate+_dateChangeTag+'</td><td><strong>'+run.recipe+'</strong></td><td style="font-size:12px">'+run.brand+'</td><td><span style="display:inline-block;padding:2px 8px;border-radius:40px;font-size:10px;font-weight:500;white-space:nowrap;background:'+_runTypeBg+';color:'+_runTypeColor+';border:1px solid '+_runTypeBorder+'">'+_runTypeLabel+'</span></td><td style="font-family:var(--font-m);font-size:12px">'+run.batchSize+'</td><td style="font-size:12px;color:var(--g4)">'+run.operator+'</td><td><span class="badge '+(statusMap[displayStatus]||'badge-draft')+'">'+(statusLabel[displayStatus]||displayStatus)+'</span></td><td style="font-family:var(--font-m);font-size:12px;color:var(--sage)">'+(run.yield||'—')+'</td><td style="font-family:var(--font-m);font-size:12px;color:'+(parseFloat(run.waste)>8?'var(--red)':'var(--g4)')+'">'+(run.waste||'—')+'</td><td><div style="display:flex;gap:4px;white-space:nowrap">'+actions+'</div></td>';
+    tr.innerHTML = '<td style="font-family:var(--font-m);font-size:12px">'+_fmtDate+_dateChangeTag+_daysWaiting+'</td><td><strong>'+run.recipe+'</strong></td><td style="font-size:12px">'+run.brand+'</td><td><span style="display:inline-block;padding:2px 8px;border-radius:40px;font-size:10px;font-weight:500;white-space:nowrap;background:'+_runTypeBg+';color:'+_runTypeColor+';border:1px solid '+_runTypeBorder+'">'+_runTypeLabel+'</span></td><td style="font-family:var(--font-m);font-size:12px">'+run.batchSize+'</td><td style="font-size:12px;color:var(--g4)">'+run.operator+'</td><td><span class="badge '+(statusMap[displayStatus]||'badge-draft')+'">'+(statusLabel[displayStatus]||displayStatus)+'</span></td><td style="font-family:var(--font-m);font-size:12px;color:var(--sage)">'+(run.yield||'—')+'</td><td style="font-family:var(--font-m);font-size:12px;color:'+(parseFloat(run.waste)>8?'var(--red)':'var(--g4)')+'">'+(run.waste||'—')+'</td><td><div style="display:flex;gap:4px;white-space:nowrap">'+actions+'</div></td>';
     tbody.appendChild(tr);
   });
 
@@ -9431,7 +9439,7 @@ function openProductionRun() {
 function saveProductionRun() {
   var npd = document.getElementById('np-recipe').value;
   var r = RECIPE_DB[npd];
-  PRODUCTION_RUNS.push({id:'PR-'+String(PRODUCTION_RUNS.length+1).padStart(3,'0'), date:document.getElementById('np-date').value, recipe:r?r.name:npd, npd:npd, brand:r?r.brand:'', runType:document.getElementById('np-runtype').value, batchSize:document.getElementById('np-batch').value+' kg', operator:document.getElementById('np-operator').value, status:'scheduled', yield:'', waste:'', notes:document.getElementById('np-notes').value});
+  PRODUCTION_RUNS.push({id:'PR-'+String(PRODUCTION_RUNS.length+1).padStart(3,'0'), date:document.getElementById('np-date').value, recipe:r?r.name:npd, npd:npd, brand:r?r.brand:'', runType:document.getElementById('np-runtype').value, batchSize:document.getElementById('np-batch').value+' kg', operator:document.getElementById('np-operator').value, status:'scheduled', yield:'', waste:'', notes:document.getElementById('np-notes').value, createdAt:new Date().toISOString()});
   closeModal(); buildProductionTable(); logActivity('production','📅','Run scheduled: '+(r?r.name:npd)); showSaveToast('Run scheduled');
   saveAllData();
 }
