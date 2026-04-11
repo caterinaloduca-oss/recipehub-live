@@ -1519,8 +1519,8 @@ body { font-family:var(--font-b); background:var(--cream); color:var(--g5); font
 <!-- PRODUCTION PLAN PAGE -->
 <div id="page-production" class="page-hidden">
   <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+    <div class="stat-card"><div class="stat-label">Pending</div><div class="stat-value" style="color:var(--amber)" id="prod-pending">0</div><div class="stat-sub" id="prod-pending-sub">—</div></div>
     <div class="stat-card"><div class="stat-label">Scheduled</div><div class="stat-value" id="prod-scheduled">0</div><div class="stat-sub" id="prod-scheduled-sub">—</div></div>
-    <div class="stat-card"><div class="stat-label">In Progress</div><div class="stat-value" style="color:var(--amber)" id="prod-inprogress">0</div><div class="stat-sub" id="prod-inprogress-sub">—</div></div>
     <div class="stat-card"><div class="stat-label">Completed</div><div class="stat-value" style="color:var(--sage)" id="prod-completed">0</div><div class="stat-sub" id="prod-completed-sub">—</div></div>
     <div class="stat-card"><div class="stat-label">Avg Waste</div><div class="stat-value" style="color:var(--red)" id="prod-waste">0%</div><div class="stat-sub" id="prod-waste-sub">—</div></div>
   </div>
@@ -1530,7 +1530,7 @@ body { font-family:var(--font-b); background:var(--cream); color:var(--g5); font
       <span class="card-title">Production Schedule</span>
       <div style="display:flex;gap:8px;align-items:center">
         <select class="filter-select" id="prod-filter-brand" onchange="filterProductionRuns()"><option>All Brands</option></select>
-        <select class="filter-select" id="prod-filter-status" onchange="filterProductionRuns()"><option>All</option><option>Scheduled</option><option>In Progress</option><option>Completed</option></select>
+        <select class="filter-select" id="prod-filter-status" onchange="filterProductionRuns()"><option>All</option><option>Pending</option><option>Scheduled</option><option>Completed</option><option>On Hold</option></select>
         <button class="btn btn-outline btn-sm" id="prod-archive-toggle" onclick="toggleArchivedRuns()" style="white-space:nowrap">Show Archived</button>
       </div>
     </div>
@@ -4937,7 +4937,7 @@ function setRecipeStatus(npd, newStatus) {
         brand: r.brand || '',
         batchSize: newStatus === 'trial' ? '150 kg' : '400 kg',
         operator: '',
-        status: 'scheduled',
+        status: 'pending',
         runType: runType,
         yield: '',
         waste: '',
@@ -9353,8 +9353,8 @@ function buildProductionTable() {
   var tbody = document.getElementById('prod-tbody');
   if (!tbody) return;
   tbody.innerHTML = '';
-  var statusMap = {scheduled:'badge-review','in-progress':'badge-trial',completed:'badge-approved',archived:'badge-draft','on-hold':'badge-pending'};
-  var statusLabel = {scheduled:'Scheduled','in-progress':'In Progress',completed:'Completed',archived:'Archived','on-hold':'On Hold'};
+  var statusMap = {pending:'badge-pending',scheduled:'badge-review',completed:'badge-approved',archived:'badge-draft','on-hold':'badge-draft'};
+  var statusLabel = {pending:'Pending',scheduled:'Scheduled',completed:'Completed',archived:'Archived','on-hold':'On Hold'};
   var activeRuns = PRODUCTION_RUNS.filter(function(r){return !r.archived});
   var archivedRuns = PRODUCTION_RUNS.filter(function(r){return r.archived});
   var visibleRuns = _showArchived ? PRODUCTION_RUNS : activeRuns;
@@ -9367,7 +9367,7 @@ function buildProductionTable() {
     var _canEdit = (_role === 'factory' || _role === 'admin');
     var actions = '';
     if (!isArchived) {
-      if (_canEdit) {
+      if (_canEdit && run.status !== 'completed') {
         actions += '<button class="btn btn-outline btn-sm" onclick="changeRunStatus(\''+run.id+'\')">Status ▾</button>';
         actions += '<button class="btn btn-outline btn-sm" onclick="editProductionRun(\''+run.id+'\')">Edit</button>';
       }
@@ -9406,20 +9406,20 @@ function buildProductionTable() {
 
   // Stats count only active (non-archived) runs
   var el = function(id){return document.getElementById(id)};
+  var pendingRuns = activeRuns.filter(function(r){return r.status==='pending'});
   var scheduledRuns = activeRuns.filter(function(r){return r.status==='scheduled'});
-  var inProgressRuns = activeRuns.filter(function(r){return r.status==='in-progress'});
   var completedRuns = activeRuns.filter(function(r){return r.status==='completed'});
   var wastes = activeRuns.filter(function(r){return r.waste}).map(function(r){return parseFloat(r.waste)||0});
 
+  if (el('prod-pending')) el('prod-pending').textContent = pendingRuns.length;
   if (el('prod-scheduled')) el('prod-scheduled').textContent = scheduledRuns.length;
-  if (el('prod-inprogress')) el('prod-inprogress').textContent = inProgressRuns.length;
   if (el('prod-completed')) el('prod-completed').textContent = completedRuns.length;
   if (el('prod-waste')) el('prod-waste').textContent = wastes.length ? (wastes.reduce(function(s,w){return s+w},0)/wastes.length).toFixed(1)+'%' : '—';
 
   // Dynamic sub-labels
+  if (el('prod-pending-sub')) el('prod-pending-sub').textContent = pendingRuns.length ? pendingRuns.length + ' awaiting date' : 'All runs scheduled';
   var nextRun = scheduledRuns.sort(function(a,b){return (a.date||'').localeCompare(b.date||'')})[0];
   if (el('prod-scheduled-sub')) el('prod-scheduled-sub').textContent = nextRun ? 'Next: ' + (nextRun.date ? nextRun.date.split('-').reverse().join('/') : '—') : 'None scheduled';
-  if (el('prod-inprogress-sub')) el('prod-inprogress-sub').textContent = inProgressRuns.length ? inProgressRuns.map(function(r){return r.recipe}).join(', ') : 'No active runs';
   if (el('prod-completed-sub')) el('prod-completed-sub').textContent = completedRuns.length + ' of ' + activeRuns.length + ' total runs';
   if (el('prod-waste-sub')) el('prod-waste-sub').textContent = wastes.length ? 'From ' + wastes.length + ' completed runs' : 'No waste data yet';
 
@@ -9449,7 +9449,8 @@ function openProductionRun() {
 function saveProductionRun() {
   var npd = document.getElementById('np-recipe').value;
   var r = RECIPE_DB[npd];
-  PRODUCTION_RUNS.push({id:'PR-'+String(PRODUCTION_RUNS.length+1).padStart(3,'0'), date:document.getElementById('np-date').value, recipe:r?r.name:npd, npd:npd, brand:r?r.brand:'', runType:document.getElementById('np-runtype').value, batchSize:document.getElementById('np-batch').value+' kg', operator:document.getElementById('np-operator').value, status:'scheduled', yield:'', waste:'', notes:document.getElementById('np-notes').value, createdAt:new Date().toISOString()});
+  var _newDate = document.getElementById('np-date').value;
+  PRODUCTION_RUNS.push({id:'PR-'+String(PRODUCTION_RUNS.length+1).padStart(3,'0'), date:_newDate, recipe:r?r.name:npd, npd:npd, brand:r?r.brand:'', runType:document.getElementById('np-runtype').value, batchSize:document.getElementById('np-batch').value+' kg', operator:document.getElementById('np-operator').value, status:_newDate ? 'scheduled' : 'pending', yield:'', waste:'', notes:document.getElementById('np-notes').value, createdAt:new Date().toISOString()});
   closeModal(); buildProductionTable(); logActivity('production','📅','Run scheduled: '+(r?r.name:npd)); showSaveToast('Run scheduled');
   saveAllData();
 }
@@ -9457,14 +9458,26 @@ function saveProductionRun() {
 function changeRunStatus(id) {
   var run = PRODUCTION_RUNS.find(function(r){return r.id===id});
   if (!run) return;
-  var statuses = ['scheduled','in-progress','completed','on-hold'];
-  var labels = {scheduled:'Scheduled','in-progress':'In Progress',completed:'Completed','on-hold':'On Hold'};
-  var colors = {scheduled:'#B8820A', 'in-progress':'#1A5FA5', completed:'#2D6A4F', 'on-hold':'#D4700A'};
-  var colorsBg = {scheduled:'#FDF3DC', 'in-progress':'#E6F1FB', completed:'#EBF5EE', 'on-hold':'#FEF3E2'};
-  var icons  = {scheduled:'📋', 'in-progress':'🏭', completed:'✅', 'on-hold':'⏸'};
-  var btns = statuses.map(function(s) {
+  var allStatuses = ['pending','scheduled','completed','on-hold'];
+  var labels = {pending:'Pending',scheduled:'Scheduled',completed:'Completed','on-hold':'On Hold'};
+  var colors = {pending:'#D4700A', scheduled:'#B8820A', completed:'#2D6A4F', 'on-hold':'#6B7280'};
+  var colorsBg = {pending:'#FEF3E2', scheduled:'#FDF3DC', completed:'#EBF5EE', 'on-hold':'#F3F4F6'};
+  var icons  = {pending:'⏳', scheduled:'📋', completed:'✅', 'on-hold':'⏸'};
+  var hints = {pending:'', scheduled:'Requires a date', completed:'Records completion date', 'on-hold':''};
+  // Determine which statuses are available from current state
+  var allowed = {};
+  if (run.status === 'pending') { allowed = {scheduled:true, 'on-hold':true}; }
+  else if (run.status === 'scheduled') { allowed = {completed:true, 'on-hold':true, pending:true}; }
+  else if (run.status === 'on-hold') { allowed = {pending:true, scheduled:true}; }
+  // completed: no transitions (archive instead)
+
+  var btns = allStatuses.map(function(s) {
     var isCurrent = run.status === s;
-    return '<button style="display:flex;align-items:center;gap:10px;width:100%;padding:12px 16px;border:1.5px solid '+(isCurrent ? colors[s] : '#E8E6E1')+';border-radius:6px;background:'+(isCurrent ? colors[s] : 'white')+';color:'+(isCurrent ? 'white' : '#3A3835')+';font-family:var(--font-b);font-size:13px;cursor:'+(isCurrent ? 'default' : 'pointer')+';transition:all 0.15s" '+(isCurrent ? 'disabled' : 'onclick="setRunStatus(\''+id+'\',\''+s+'\')"')+' '+(isCurrent ? '' : 'onmouseover="this.style.borderColor=\''+colors[s]+'\';this.style.background=\''+colorsBg[s]+'\'" onmouseout="this.style.borderColor=\'#E8E6E1\';this.style.background=\'white\'"')+'><span style="font-size:18px">'+icons[s]+'</span><span><strong>'+labels[s]+'</strong>'+(isCurrent ? ' <span style="font-size:11px;opacity:0.8">(current)</span>' : '')+'</span></button>';
+    var isAllowed = allowed[s];
+    var isDisabled = isCurrent || !isAllowed;
+    var hint = !isCurrent && hints[s] ? '<br><span style="font-size:11px;opacity:0.6;font-weight:400">'+hints[s]+'</span>' : '';
+    var currentTag = isCurrent ? ' <span style="font-size:11px;opacity:0.8">(current)</span>' : '';
+    return '<button style="display:flex;align-items:center;gap:10px;width:100%;padding:12px 16px;border:1.5px solid '+(isCurrent ? colors[s] : isAllowed ? '#E8E6E1' : '#F0EFED')+';border-radius:6px;background:'+(isCurrent ? colors[s] : 'white')+';color:'+(isCurrent ? 'white' : isAllowed ? '#3A3835' : '#C4C0BA')+';font-family:var(--font-b);font-size:13px;cursor:'+(isDisabled ? 'default' : 'pointer')+';transition:all 0.15s;opacity:'+(isDisabled && !isCurrent ? '0.5' : '1')+'" '+(isDisabled ? 'disabled' : 'onclick="setRunStatus(\''+id+'\',\''+s+'\')"')+' '+(isDisabled ? '' : 'onmouseover="this.style.borderColor=\''+colors[s]+'\';this.style.background=\''+colorsBg[s]+'\'" onmouseout="this.style.borderColor=\'#E8E6E1\';this.style.background=\'white\'"')+'><span style="font-size:18px">'+icons[s]+'</span><span><strong>'+labels[s]+'</strong>'+currentTag+hint+'</span></button>';
   }).join('');
   openModal(
     '<div class="card-head" style="background:var(--navy);border-radius:16px 16px 0 0">' +
@@ -9480,6 +9493,15 @@ function changeRunStatus(id) {
 function setRunStatus(id, status) {
   var run = PRODUCTION_RUNS.find(function(r){return r.id===id});
   if (!run) return;
+  var labels = {pending:'Pending',scheduled:'Scheduled',completed:'Completed','on-hold':'On Hold'};
+  // Gate: Pending → Scheduled requires a date
+  if (status === 'scheduled' && !run.date) {
+    closeModal();
+    showSaveToast('Set a date first before scheduling', true);
+    editProductionRun(id);
+    return;
+  }
+  // Gate: Scheduled → Completed opens completion form
   if (status === 'completed') {
     closeModal();
     completeProductionRun(id);
@@ -9487,7 +9509,6 @@ function setRunStatus(id, status) {
   }
   var oldStatus = run.status;
   run.status = status;
-  var labels = {scheduled:'Scheduled','in-progress':'In Progress',completed:'Completed','on-hold':'On Hold'};
   closeModal();
   buildProductionTable();
   logActivity('production', '🔄', run.recipe + ': ' + labels[oldStatus] + ' → ' + labels[status]);
@@ -9505,7 +9526,7 @@ function completeProductionRun(id) {
 function saveCompleteRun(id) {
   var run = PRODUCTION_RUNS.find(function(r){return r.id===id});
   if (!run) return;
-  run.status='completed'; run.yield=document.getElementById('cp-yield').value+'%'; run.waste=document.getElementById('cp-waste').value+'%'; run.notes=document.getElementById('cp-notes').value;
+  run.status='completed'; run.completedAt=new Date().toISOString(); run.yield=document.getElementById('cp-yield').value+'%'; run.waste=document.getElementById('cp-waste').value+'%'; run.notes=document.getElementById('cp-notes').value;
   closeModal(); buildProductionTable(); logActivity('production','✅','Completed: '+run.recipe,'Yield: '+run.yield+' · Waste: '+run.waste); showSaveToast('Run completed');
   saveAllData();
 }
@@ -9526,6 +9547,11 @@ function saveEditRun(id) {
     logActivity('production', '📅', run.recipe + ': date changed' + (run.date ? ' from ' + run.date : '') + ' → ' + (newDate || 'unset'));
   }
   run.date=newDate; run.batchSize=document.getElementById('ep-batch').value; run.operator=document.getElementById('ep-operator').value; run.notes=document.getElementById('ep-notes').value;
+  // Auto-promote pending → scheduled when date is set
+  if (run.status === 'pending' && newDate) {
+    run.status = 'scheduled';
+    logActivity('production', '📋', run.recipe + ': Pending → Scheduled', 'Date set to ' + newDate);
+  }
   closeModal(); buildProductionTable(); showSaveToast('Updated');
   saveAllData();
 }
