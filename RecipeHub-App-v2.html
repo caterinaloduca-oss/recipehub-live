@@ -3673,7 +3673,7 @@ function applyRoleRestrictions() {
     // Hide any button with onclick containing delete/edit/save/remove/add/create/new (broad catch)
     el.querySelectorAll('button[onclick]').forEach(function(b) {
       var oc = (b.getAttribute('onclick') || '').toLowerCase();
-      if (oc.indexOf('delete') > -1 || oc.indexOf('remove') > -1 || oc.indexOf('save') > -1 || oc.indexOf('edit') > -1 || oc.indexOf('add') > -1 || oc.indexOf('create') > -1 || oc.indexOf('open') > -1 || oc.indexOf('toggle') > -1 || oc.indexOf('new') > -1) {
+      if (oc.indexOf('delete') > -1 || oc.indexOf('remove') > -1 || oc.indexOf('save') > -1 || oc.indexOf('edit') > -1 || oc.indexOf('add') > -1 || oc.indexOf('create') > -1 || oc.indexOf('open') > -1 || oc.indexOf('toggle') > -1 || oc.indexOf('new') > -1 || oc.indexOf('duplicate') > -1 || oc.indexOf('submit') > -1 || oc.indexOf('approve') > -1 || oc.indexOf('upload') > -1) {
         // Don't hide nav/view/print/filter buttons
         var keep = oc.indexOf('nav(') > -1 || oc.indexOf('view') > -1 || oc.indexOf('print') > -1 || oc.indexOf('filter') > -1 || oc.indexOf('search') > -1 || oc.indexOf('toggle(') > -1 || oc.indexOf('toggledd') > -1 || oc.indexOf('togglenotif') > -1 || oc.indexOf('togglearchived') > -1;
         if (!keep) b.style.display = 'none';
@@ -5980,6 +5980,7 @@ function exportToSOP(npd) {
   document.getElementById('sop-landing').style.display = 'none';
   document.getElementById('sop-content').style.display = 'block';
   showPage('sop');
+  applyRoleRestrictions();
 }
 
 function renderEditableSOPStep(s, idx, npd) {
