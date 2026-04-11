@@ -169,6 +169,10 @@ body { font-family:var(--font-b); background:var(--cream); color:var(--g5); font
 .badge-pass     { background:var(--sage-lt); color:var(--sage); }
 .badge-fail     { background:var(--red-lt); color:var(--red); }
 .badge-pending  { background:var(--amber-lt); color:var(--amber); }
+.badge-pending-prod { background:#FEE8E7; color:#C53030; border:1px solid #FBB6B3; }
+.badge-factory-trial { background:#E6F1FB; color:#0C6BA8; border:1px solid #B3D4F0; }
+.badge-prod-trial-run { background:#F3E8FD; color:#6B2FA0; border:1px solid #D5C0EB; }
+.badge-production { background:#EBF5EE; color:#2D6A4F; border:1px solid #C3E6CB; }
 
 /* ──────────── SEARCH / FILTER BAR ──────────── */
 .filter-bar { display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap; }
@@ -8486,21 +8490,20 @@ function updateDashboardStats() {
       if (!a.date && b.date) return 1;
       return 0;
     });
-    var runStatusMap = {scheduled:'badge-review','in-progress':'badge-trial','on-hold':'badge-pending'};
-    var runStatusLabel = {scheduled:'Scheduled','in-progress':'In Progress','on-hold':'On Hold'};
-    var runTypeColors = {'Factory Trial':{bg:'#E6F1FB',color:'#0C6BA8',border:'#B3D4F0'},'Production Trial':{bg:'#F3E8FD',color:'#6B2FA0',border:'#D5C0EB'}};
+    var runStatusMap = {pending:'badge-pending-prod',scheduled:'badge-review','on-hold':'badge-draft'};
+    var runStatusLabel = {pending:'Pending',scheduled:'Scheduled','on-hold':'On Hold'};
+    var runTypeBadge = {'Factory Trial':'badge-factory-trial','Production Trial':'badge-prod-trial-run'};
     trialsTbody.innerHTML = activeRuns.slice(0,8).map(run => {
       var fmtDate = '—';
       var noDate = !run.date;
       if (run.date) { var dp = run.date.split('-'); fmtDate = dp.length===3 ? dp[2]+'/'+dp[1]+'/'+dp[0] : run.date; }
       var daysWait = '';
       if (noDate && run.createdAt) { var dd = Math.floor((Date.now() - new Date(run.createdAt).getTime()) / 86400000); if (dd > 0) daysWait = '<div style="font-size:10px;color:var(--red);font-weight:500">' + dd + 'd waiting</div>'; }
-      var tc = runTypeColors[run.runType] || {bg:'#EBF5EE',color:'#2D6A4F',border:'#C3E6CB'};
       return `<tr style="cursor:pointer" onclick="nav('production')">
         <td style="font-family:var(--font-m);font-size:12px;${noDate?'color:var(--amber);font-weight:500':'color:var(--g4)'}">${noDate ? 'No date set' : fmtDate}${daysWait}</td>
         <td><strong>${run.recipe}</strong></td>
         <td style="font-size:12px">${run.brand}</td>
-        <td><span style="display:inline-block;padding:2px 8px;border-radius:40px;font-size:10px;font-weight:500;background:${tc.bg};color:${tc.color};border:1px solid ${tc.border}">${run.runType || 'Production'}</span></td>
+        <td><span class="badge ${runTypeBadge[run.runType] || 'badge-production'}">${run.runType || 'Production'}</span></td>
         <td style="font-family:var(--font-m);font-size:12px">${run.batchSize}</td>
         <td><span class="badge ${runStatusMap[run.status]||'badge-draft'}">${runStatusLabel[run.status]||run.status}</span></td>
       </tr>`;
@@ -9364,7 +9367,7 @@ function buildProductionTable() {
   var tbody = document.getElementById('prod-tbody');
   if (!tbody) return;
   tbody.innerHTML = '';
-  var statusMap = {pending:'badge-pending',scheduled:'badge-review',completed:'badge-approved',archived:'badge-draft','on-hold':'badge-draft'};
+  var statusMap = {pending:'badge-pending-prod',scheduled:'badge-review',completed:'badge-approved',archived:'badge-draft','on-hold':'badge-draft'};
   var statusLabel = {pending:'Pending',scheduled:'Scheduled',completed:'Completed',archived:'Archived','on-hold':'On Hold'};
   var activeRuns = PRODUCTION_RUNS.filter(function(r){return !r.archived});
   var archivedRuns = PRODUCTION_RUNS.filter(function(r){return r.archived});
@@ -9396,16 +9399,12 @@ function buildProductionTable() {
     }
     var _dateChanges = (run.dateLog && run.dateLog.length) ? run.dateLog.length : 0;
     var _dateChangeTag = _dateChanges ? ' <span title="Date changed '+_dateChanges+' time'+(_dateChanges>1?'s':'')+'" style="font-size:9px;color:var(--amber);font-weight:600;cursor:help" onclick="event.stopPropagation();showDateLog(\''+run.id+'\')">'+_dateChanges+'x</span>' : '';
-    var _rtc = {
-      'Factory Trial':  {bg:'#E6F1FB',color:'#0C6BA8',border:'#B3D4F0'},
-      'Production Trial':{bg:'#F3E8FD',color:'#6B2FA0',border:'#D5C0EB'}
-    };
-    var _tc = _rtc[run.runType] || {bg:'#EBF5EE',color:'#2D6A4F',border:'#C3E6CB'};
+    var _runTypeBadge = {'Factory Trial':'badge-factory-trial','Production Trial':'badge-prod-trial-run'};
     var _runTypeLabel = run.runType || 'Production';
     tr.innerHTML =
       '<td style="font-family:var(--font-m);font-size:12px">' + _fmtDate + _dateChangeTag + _daysWaiting + '</td>' +
       '<td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><strong title="' + run.recipe + '">' + run.recipe + '</strong><br><span style="font-size:11px;color:var(--g3)">' + (run.brand || '') + '</span></td>' +
-      '<td><span style="display:inline-block;padding:2px 8px;border-radius:40px;font-size:10px;font-weight:500;white-space:nowrap;background:' + _tc.bg + ';color:' + _tc.color + ';border:1px solid ' + _tc.border + '">' + _runTypeLabel + '</span></td>' +
+      '<td><span class="badge ' + (_runTypeBadge[run.runType] || 'badge-production') + '">' + _runTypeLabel + '</span></td>' +
       '<td style="font-family:var(--font-m);font-size:12px">' + run.batchSize + '</td>' +
       '<td style="font-size:12px;color:var(--g4)">' + run.operator + '</td>' +
       '<td><span class="badge ' + (statusMap[displayStatus] || 'badge-draft') + '">' + (statusLabel[displayStatus] || displayStatus) + '</span></td>' +
