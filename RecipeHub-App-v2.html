@@ -9474,12 +9474,14 @@ function changeRunStatus(id) {
   var colorsBg = {pending:'#FEF3E2', scheduled:'#FDF3DC', completed:'#EBF5EE', 'on-hold':'#F3F4F6'};
   var icons  = {pending:'⏳', scheduled:'📋', completed:'✅', 'on-hold':'⏸'};
   var hints = {pending:'', scheduled:'Requires a date', completed:'Records completion date', 'on-hold':''};
+  // Migrate any legacy status before showing options
+  if (run.status === 'in-progress') { run.status = run.date ? 'scheduled' : 'pending'; saveAllData(); }
   // Determine which statuses are available from current state
   var allowed = {};
   if (run.status === 'pending') { allowed = {scheduled:true, 'on-hold':true}; }
   else if (run.status === 'scheduled') { allowed = {completed:true, 'on-hold':true, pending:true}; }
   else if (run.status === 'on-hold') { allowed = {pending:true, scheduled:true}; }
-  // completed: no transitions (archive instead)
+  else { allowed = {pending:true, scheduled:true, 'on-hold':true}; }
 
   var btns = allStatuses.map(function(s) {
     var isCurrent = run.status === s;
@@ -9521,6 +9523,7 @@ function setRunStatus(id, status) {
   run.status = status;
   closeModal();
   buildProductionTable();
+  updateDashboardStats();
   logActivity('production', '🔄', run.recipe + ': ' + labels[oldStatus] + ' → ' + labels[status]);
   showSaveToast('Status changed to ' + labels[status]);
   saveAllData();
