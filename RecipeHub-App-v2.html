@@ -4885,10 +4885,23 @@ function viewRecipe(npd) {
 
   PAGES['recipe-detail'].title = r.name;
   var _statusBtn = '';
-  if (r.status==='draft') _statusBtn = `<button class="btn btn-sm" style="background:var(--amber);color:white" onclick="setRecipeStatus('${r.npd}','review')">📤 Submit for Review</button>`;
-  if (r.status==='review') _statusBtn = `<button class="btn btn-sm" style="background:#0C6BA8;color:white" onclick="setRecipeStatus('${r.npd}','trial')">🏭 Factory Trial</button>`;
-  if (r.status==='trial') _statusBtn = `<button class="btn btn-sm" style="background:${(r.trialQA && r.trialQA.signed)?'#6B2FA0':'var(--g3)'};color:white" onclick="setRecipeStatus('${r.npd}','prod-trial')">🔬 Prod Trial${(r.trialQA && r.trialQA.signed)?'':' (QA)'}</button>`;
-  if (r.status==='prod-trial') _statusBtn = `<button class="btn btn-sm" style="background:${(r['prod-trialQA'] && r['prod-trialQA'].signed)?'var(--sage)':'var(--g3)'};color:white" onclick="setRecipeStatus('${r.npd}','approved')">✓ Approve${(r['prod-trialQA'] && r['prod-trialQA'].signed)?'':' (QA)'}</button>`;
+  var _curRole = getCurrentUserRole();
+  var _isRD = (_curRole === 'admin' || _curRole === 'npd');
+  if (r.status==='draft' && _isRD) _statusBtn = `<button class="btn btn-sm" style="background:var(--amber);color:white" onclick="setRecipeStatus('${r.npd}','review')">📤 Submit for Review</button>`;
+  if (r.status==='review' && _isRD) _statusBtn = `<button class="btn btn-sm" style="background:#0C6BA8;color:white" onclick="setRecipeStatus('${r.npd}','trial')">🏭 Factory Trial</button>`;
+  if (r.status==='trial' && _isRD) _statusBtn = `<button class="btn btn-sm" style="background:${(r.trialQA && r.trialQA.signed)?'#6B2FA0':'var(--g3)'};color:white" onclick="setRecipeStatus('${r.npd}','prod-trial')">🔬 Prod Trial${(r.trialQA && r.trialQA.signed)?'':' (QA)'}</button>`;
+  if (r.status==='prod-trial' && _isRD) {
+    var _qaOk = r['prod-trialQA'] && r['prod-trialQA'].signed;
+    var _dataOk = r.costKg && r.ingredients && r.ingredients.length && r.allergens && r.allergens.length && r.nutrition;
+    var _canApprove = _qaOk && _dataOk;
+    var _missingParts = [];
+    if (!_qaOk) _missingParts.push('QA');
+    if (!r.costKg) _missingParts.push('Cost');
+    if (!r.allergens || !r.allergens.length) _missingParts.push('Allergens');
+    if (!r.nutrition) _missingParts.push('Nutrition');
+    var _missingLabel = _missingParts.length ? ' (' + _missingParts.join(', ') + ')' : '';
+    _statusBtn = `<button class="btn btn-sm" style="background:${_canApprove?'var(--sage)':'var(--g3)'};color:white" onclick="setRecipeStatus('${r.npd}','approved')">✓ Approve${_missingLabel}</button>`;
+  }
   if (r.status==='approved' && !r.archived) _statusBtn = `<button class="btn btn-sm" style="background:var(--g3);color:white" onclick="archiveRecipe('${r.npd}')">📦 Archive</button>`;
   if (r.archived) _statusBtn = `<button class="btn btn-sm" style="background:var(--amber);color:white" onclick="unarchiveRecipe('${r.npd}')">♻️ Restore</button>`;
 
@@ -4921,15 +4934,32 @@ function setRecipeStatus(npd, newStatus) {
   if (!r) return;
   const labels = {review:'In Review',trial:'Factory Trial','prod-trial':'Production Trial',approved:'Approved'};
 
+  // Role gate: only R&D (npd) and admin can change recipe status
+  var _role = getCurrentUserRole();
+  if (_role !== 'admin' && _role !== 'npd') {
+    showSaveToast('Only R&D can change recipe status', true);
+    return;
+  }
+
   // QA gate: Factory Trial → Production Trial requires QA sign-off
   if (newStatus === 'prod-trial' && !(r.trialQA && r.trialQA.signed)) {
     showSaveToast('QA must sign off Factory Trial results first', true);
     return;
   }
-  // QA gate: Production Trial → Approved requires QA sign-off
-  if (newStatus === 'approved' && !(r['prod-trialQA'] && r['prod-trialQA'].signed)) {
-    showSaveToast('QA must sign off Production Trial results first', true);
-    return;
+  // Approval gate: Production Trial → Approved requires QA + all data
+  if (newStatus === 'approved') {
+    if (!(r['prod-trialQA'] && r['prod-trialQA'].signed)) {
+      showSaveToast('QA must sign off Production Trial results first', true);
+      return;
+    }
+    var _missing = [];
+    if (!r.costKg) _missing.push('costing');
+    if (!r.allergens || !r.allergens.length) _missing.push('allergens');
+    if (!r.nutrition) _missing.push('nutrition');
+    if (_missing.length) {
+      showSaveToast('Missing data: ' + _missing.join(', ') + ' — complete before approving', true);
+      return;
+    }
   }
 
   r.status = newStatus;
