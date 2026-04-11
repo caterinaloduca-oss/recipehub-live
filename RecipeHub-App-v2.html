@@ -3653,6 +3653,70 @@ function showPage(id) {
   window.scrollTo(0,0);
 }
 
+function applyRoleRestrictions() {
+  var role = getCurrentUserRole();
+  if (role === 'admin') return;
+  // Which roles can use topbar create actions per page
+  var topbarAllowed = {
+    dashboard:  ['npd'],
+    recipes:    ['npd'],
+    ingredients:['npd','purchasing'],
+    qa:         ['qa'],
+    builds:     ['npd','qa'],
+    'branch-sop':['npd','qa'],
+    production: ['factory'],
+    brands:     ['npd'],
+    users:      [],
+    sop:        ['npd'],
+  };
+  var page = _currentPage || 'dashboard';
+  var allowed = topbarAllowed[page];
+  if (allowed && allowed.indexOf(role) === -1) {
+    var ta = document.getElementById('topbar-actions');
+    if (ta) ta.innerHTML = '';
+  }
+  // Which roles can see edit/create/delete actions within pages
+  var canEdit = (role === 'npd' || role === 'qa' || role === 'factory');
+  var isReadOnly = (role === 'viewer' || role === 'purchasing');
+  if (isReadOnly) {
+    // Hide all action buttons inside the current page
+    var pageEl = document.getElementById('page-' + page);
+    if (pageEl) {
+      pageEl.querySelectorAll('.btn-gold, .btn-sage, .btn-danger-sm, .btn-primary').forEach(function(b) {
+        if (b.closest('.topbar-actions')) return;
+        b.style.display = 'none';
+      });
+      // Hide edit/delete buttons in tables
+      pageEl.querySelectorAll('.btn-outline').forEach(function(b) {
+        var text = b.textContent.trim().toLowerCase();
+        if (text === 'edit' || text === 'delete' || text.indexOf('status') > -1 || text === 'archive' || text === 'restore') {
+          b.style.display = 'none';
+        }
+      });
+    }
+  }
+  // Factory: only edit production runs and SOPs
+  if (role === 'factory') {
+    ['page-recipes','page-ingredients','page-builds','page-branch-sop','page-brands'].forEach(function(pid) {
+      var el = document.getElementById(pid);
+      if (el) el.querySelectorAll('.btn-gold, .btn-sage, .btn-danger-sm').forEach(function(b){ b.style.display = 'none'; });
+    });
+  }
+  // QA: can only edit QA-related things, not recipes or production
+  if (role === 'qa') {
+    ['page-recipes','page-production'].forEach(function(pid) {
+      var el = document.getElementById(pid);
+      if (el) {
+        el.querySelectorAll('.btn-gold, .btn-sage, .btn-danger-sm').forEach(function(b){ b.style.display = 'none'; });
+        el.querySelectorAll('.btn-outline').forEach(function(b) {
+          var text = b.textContent.trim().toLowerCase();
+          if (text === 'edit' || text === 'delete' || text.indexOf('status') > -1) b.style.display = 'none';
+        });
+      }
+    });
+  }
+}
+
 function canAccessPage(pageId) {
   var role = getCurrentUserRole();
   if (role === 'admin') return true;
@@ -3694,6 +3758,7 @@ function nav(id) {
     updateSidebarBadges();
     addEmptyStates();
   } catch(e) {}
+  applyRoleRestrictions();
   // Close sidebar on mobile after navigation
   document.getElementById('app-sidebar').classList.remove('mobile-open');
 }
