@@ -1534,9 +1534,9 @@ body { font-family:var(--font-b); background:var(--cream); color:var(--g5); font
         <button class="btn btn-outline btn-sm" id="prod-archive-toggle" onclick="toggleArchivedRuns()" style="white-space:nowrap">Show Archived</button>
       </div>
     </div>
-    <div class="card-body" style="padding:0">
-      <table class="data-table" style="table-layout:fixed;width:100%">
-        <colgroup><col style="width:90px"><col style="width:24%"><col style="width:110px"><col style="width:70px"><col style="width:12%"><col style="width:95px"><col style="width:180px"></colgroup>
+    <div class="card-body" style="padding:0;overflow-x:auto">
+      <table class="data-table" style="min-width:820px">
+        <colgroup><col style="width:90px"><col><col style="width:110px"><col style="width:70px"><col style="width:110px"><col style="width:95px"><col style="width:180px"></colgroup>
         <thead><tr><th>Date</th><th>Recipe</th><th>Type</th><th>Batch</th><th>Responsible</th><th>Status</th><th></th></tr></thead>
         <tbody id="prod-tbody"></tbody>
       </table>
