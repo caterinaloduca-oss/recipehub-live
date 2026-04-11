@@ -1849,10 +1849,10 @@ body { font-family:var(--font-b); background:var(--cream); color:var(--g5); font
             <tr><td style="font-size:12px;padding-left:20px">Edit supplier pricing</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td></tr>
 
             <tr><td colspan="7" style="background:var(--g1);font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--navy);padding:8px 16px">Builds & Branch SOPs</td></tr>
-            <tr><td style="font-size:12px;padding-left:20px">Create / edit builds</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td></tr>
+            <tr><td style="font-size:12px;padding-left:20px">Create / edit builds</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td></tr>
             <tr><td style="font-size:12px;padding-left:20px">Discontinue builds</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td></tr>
             <tr><td style="font-size:12px;padding-left:20px">Edit build nutrition</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td></tr>
-            <tr><td style="font-size:12px;padding-left:20px">Create / edit Branch SOPs</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td></tr>
+            <tr><td style="font-size:12px;padding-left:20px">Create / edit Branch SOPs</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td></tr>
             <tr><td style="font-size:12px;padding-left:20px">Approve Branch SOPs</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td></tr>
 
             <tr><td colspan="7" style="background:var(--g1);font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--navy);padding:8px 16px">Factory SOPs & Production</td></tr>
@@ -7709,10 +7709,10 @@ const ACCESS_PERMISSIONS = [
     { key:'data_batch_ticket', label:'Print batch tickets',    admin:true, npd:true,  qa:false, factory:true,  purchasing:false, viewer:false },
   ]},
   { group:'Builds & Branch SOPs', items:[
-    { key:'build_create',      label:'Create / edit builds',   admin:true, npd:true,  qa:false, factory:false, purchasing:false, viewer:false },
+    { key:'build_create',      label:'Create / edit builds',   admin:true, npd:true,  qa:true,  factory:false, purchasing:false, viewer:false },
     { key:'build_discontinue', label:'Discontinue builds',     admin:true, npd:true,  qa:false, factory:false, purchasing:false, viewer:false },
     { key:'build_nutrition',   label:'Edit build nutrition',   admin:true, npd:true,  qa:true,  factory:false, purchasing:false, viewer:false },
-    { key:'branch_sop_create', label:'Create / edit Branch SOPs', admin:true, npd:true, qa:false, factory:false, purchasing:false, viewer:false },
+    { key:'branch_sop_create', label:'Create / edit Branch SOPs', admin:true, npd:true, qa:true,  factory:false, purchasing:false, viewer:false },
     { key:'branch_sop_approve',label:'Approve Branch SOPs',    admin:true, npd:true,  qa:true,  factory:false, purchasing:false, viewer:false },
   ]},
   { group:'Factory SOPs & Production', items:[
@@ -8931,16 +8931,26 @@ function updateDashboardStats() {
 // ──────────── ACTIVITY LOG & NOTIFICATIONS ────────────
 let ACTIVITY_LOG = [];
 
+function getCurrentUserName() {
+  try {
+    var raw = sessionStorage.getItem(AUTH_KEY);
+    if (raw) { var u = JSON.parse(raw); return u.name || u.email || 'Unknown'; }
+  } catch(e) {}
+  return 'Unknown';
+}
+
 function logActivity(type, icon, message, detail, forRole) {
   const entry = {
     type, icon, message, detail: detail || '',
+    user: getCurrentUserName(),
     time: new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}),
     date: new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short'}),
+    ts: new Date().toISOString(),
     read: false,
     forRole: forRole || 'all',
   };
   ACTIVITY_LOG.unshift(entry);
-  if (ACTIVITY_LOG.length > 50) ACTIVITY_LOG.pop();
+  if (ACTIVITY_LOG.length > 200) ACTIVITY_LOG.pop();
   renderActivityLog();
   renderNotifications();
   updateSidebarBadges();
@@ -8962,7 +8972,10 @@ function renderActivityLog() {
         <div style="font-size:12px;color:var(--g5)">${a.message}</div>
         ${a.detail ? `<div style="font-size:11px;color:var(--g3);margin-top:2px">${a.detail}</div>` : ''}
       </div>
-      <span style="font-size:10px;color:var(--g3);white-space:nowrap;flex-shrink:0">${a.time}</span>
+      <div style="text-align:right;flex-shrink:0">
+        ${a.user ? `<div style="font-size:10px;color:var(--navy);font-weight:500">${a.user}</div>` : ''}
+        <div style="font-size:10px;color:var(--g3)">${a.date} ${a.time}</div>
+      </div>
     </div>
   `).join('');
 }
