@@ -3659,36 +3659,7 @@ function applyRoleRestrictions() {
   if (role === 'admin') return;
   var page = _currentPage || 'dashboard';
 
-  // Helper: hide all action buttons inside a page element
-  function stripActions(pageId) {
-    var el = document.getElementById(pageId);
-    if (!el) return;
-    // Hide styled action buttons
-    el.querySelectorAll('.btn-gold, .btn-sage, .btn-danger-sm, .btn-primary').forEach(function(b) { b.style.display = 'none'; });
-    // Hide edit/delete/status outline buttons
-    el.querySelectorAll('.btn-outline').forEach(function(b) {
-      var t = b.textContent.trim().toLowerCase();
-      if (t === 'edit' || t === 'delete' || t.indexOf('status') > -1 || t === 'archive' || t === 'restore') b.style.display = 'none';
-    });
-    // Hide any button with onclick containing delete/edit/save/remove/add/create/new (broad catch)
-    el.querySelectorAll('button[onclick]').forEach(function(b) {
-      var oc = (b.getAttribute('onclick') || '').toLowerCase();
-      if (oc.indexOf('delete') > -1 || oc.indexOf('remove') > -1 || oc.indexOf('save') > -1 || oc.indexOf('edit') > -1 || oc.indexOf('add') > -1 || oc.indexOf('create') > -1 || oc.indexOf('open') > -1 || oc.indexOf('toggle') > -1 || oc.indexOf('new') > -1 || oc.indexOf('duplicate') > -1 || oc.indexOf('submit') > -1 || oc.indexOf('approve') > -1 || oc.indexOf('upload') > -1) {
-        // Don't hide nav/view/print/filter buttons
-        var keep = oc.indexOf('nav(') > -1 || oc.indexOf('view') > -1 || oc.indexOf('print') > -1 || oc.indexOf('filter') > -1 || oc.indexOf('search') > -1 || oc.indexOf('toggle(') > -1 || oc.indexOf('toggledd') > -1 || oc.indexOf('togglenotif') > -1 || oc.indexOf('togglearchived') > -1;
-        if (!keep) b.style.display = 'none';
-      }
-    });
-    // Hide standalone red X / delete buttons (often styled inline, not with btn class)
-    el.querySelectorAll('button').forEach(function(b) {
-      var t = b.textContent.trim();
-      if (t === '✕' || t === '×' || t === 'X' || t === 'Delete' || t === 'Remove') {
-        if (!b.closest('.topbar') && !b.closest('#notif-panel')) b.style.display = 'none';
-      }
-    });
-  }
-
-  // Pages where this role can edit (topbar + inline buttons allowed)
+  // Pages where this role can edit (topbar + inline buttons stay visible)
   var editablePages = {
     viewer:     [],
     purchasing: ['ingredients'],
@@ -3705,13 +3676,39 @@ function applyRoleRestrictions() {
     if (ta) ta.innerHTML = '';
   }
 
-  // Strip inline action buttons from all non-editable pages
-  // Always strip Users page for non-admin (even if somehow visible)
-  stripActions('page-users');
+  // Strip action buttons from pages this role CANNOT edit
+  stripPageActions('page-users');
   var allPages = ['page-dashboard','page-recipes','page-recipe-detail','page-ingredients','page-qa','page-sop','page-branch-sop','page-production','page-builds','page-brands','page-builds-costing','page-cost-control','page-reports'];
   allPages.forEach(function(pid) {
     var pageId = pid.replace('page-','');
-    if (allowed.indexOf(pageId) === -1) stripActions(pid);
+    if (allowed.indexOf(pageId) === -1) stripPageActions(pid);
+  });
+}
+
+function stripPageActions(pageId) {
+  var el = document.getElementById(pageId);
+  if (!el) return;
+  // Hide styled action buttons
+  el.querySelectorAll('.btn-gold, .btn-sage, .btn-danger-sm, .btn-primary').forEach(function(b) { b.style.display = 'none'; });
+  // Hide edit/delete/status outline buttons by label
+  el.querySelectorAll('.btn-outline, .btn').forEach(function(b) {
+    var t = b.textContent.trim().toLowerCase();
+    if (t === 'edit' || t === 'delete' || t.indexOf('status') > -1 || t === 'archive' || t === 'restore' || t === 'duplicate' || t === 'discontinue' || t === 'reactivate') b.style.display = 'none';
+  });
+  // Hide buttons by onclick keyword (for buttons without standard classes)
+  el.querySelectorAll('button[onclick]').forEach(function(b) {
+    var oc = (b.getAttribute('onclick') || '').toLowerCase();
+    // Skip nav/view/print/filter/search/toggle-UI buttons
+    if (oc.indexOf('nav(') > -1 || oc.indexOf('view') > -1 || oc.indexOf('print') > -1 || oc.indexOf('filter') > -1 || oc.indexOf('search') > -1 || oc.indexOf('toggledd') > -1 || oc.indexOf('togglenotif') > -1 || oc.indexOf('togglearchived') > -1 || oc.indexOf('goback') > -1 || oc.indexOf('closebuild') > -1 || oc.indexOf("display='none'") > -1) return;
+    // Hide action buttons
+    if (oc.indexOf('delete') > -1 || oc.indexOf('remove') > -1 || oc.indexOf('save') > -1 || oc.indexOf('edit') > -1 || oc.indexOf('add') > -1 || oc.indexOf('create') > -1 || oc.indexOf('open') > -1 || oc.indexOf('duplicate') > -1 || oc.indexOf('submit') > -1 || oc.indexOf('approve') > -1 || oc.indexOf('upload') > -1) {
+      b.style.display = 'none';
+    }
+  });
+  // Hide standalone X / delete buttons
+  el.querySelectorAll('button').forEach(function(b) {
+    var t = b.textContent.trim();
+    if ((t === '✕' || t === '×' || t === 'X') && !b.closest('.topbar') && !b.closest('#notif-panel') && !b.closest('.modal')) b.style.display = 'none';
   });
 }
 
