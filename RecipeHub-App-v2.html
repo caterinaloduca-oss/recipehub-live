@@ -374,8 +374,9 @@ body { font-family:var(--font-b); background:var(--cream); color:var(--g5); font
 .print-dd-divider { height:1px; background:var(--g2); margin:0; }
 
 /* ──────────── PRINT OVERLAY ──────────── */
-.print-overlay { display:none; position:fixed; inset:0; z-index:500; background:rgba(27,42,74,0.5); overflow-y:auto; }
+.print-overlay { display:none; position:fixed; inset:0; z-index:500; background:#1B2A4A; overflow-y:auto; }
 .print-overlay.active { display:flex; justify-content:center; padding:40px 20px; }
+body.print-active .sidebar, body.print-active .main { visibility:hidden !important; }
 .print-sheet { background:white; width:297mm; min-height:210mm; padding:12mm 14mm; font-family:'DM Sans',system-ui,sans-serif; font-size:9pt; color:#1a1a1a; line-height:1.45; position:relative; box-shadow:0 8px 40px rgba(0,0,0,0.2); }
 .print-close { position:fixed; top:20px; right:20px; z-index:600; background:white; border:none; width:40px; height:40px; border-radius:50%; font-size:20px; cursor:pointer; box-shadow:0 2px 12px rgba(0,0,0,0.2); display:flex; align-items:center; justify-content:center; }
 .print-close:hover { background:#f0f0f0; }
@@ -415,7 +416,7 @@ body { font-family:var(--font-b); background:var(--cream); color:var(--g5); font
 .ps-signoff-item label { font-size:6.5pt; font-weight:600; text-transform:uppercase; letter-spacing:0.1em; color:#999; display:block; margin-bottom:3px; }
 .ps-signoff-item .sign-line { border-bottom:1px solid #ccc; height:22px; }
 .ps-batch-check { width:13px; height:13px; border:1.5px solid #999; border-radius:2px; display:inline-block; vertical-align:middle; margin-right:3px; }
-.ps-footer { margin-top:auto; padding-top:10px; border-top:1px solid #ddd; font-size:7pt; color:#999; display:flex; justify-content:space-between; position:absolute; bottom:12mm; left:14mm; right:14mm; }
+.ps-footer { margin-top:20px; padding-top:10px; border-top:1px solid #ddd; font-size:7pt; color:#999; display:flex; justify-content:space-between; }
 .ps-batch-size-bar { background:#f5f5f5; border:1px solid #ddd; border-radius:6px; padding:8px 12px; display:flex; align-items:center; gap:8px; margin-bottom:10px; }
 .ps-batch-size-bar label { font-size:7.5pt; font-weight:600; text-transform:uppercase; letter-spacing:0.08em; color:#666; }
 .ps-batch-size-bar input { width:80px; font-size:10pt; font-weight:600; border:1.5px solid #ccc; border-radius:4px; padding:3px 6px; text-align:right; font-family:'DM Mono',monospace; outline:none; }
@@ -717,7 +718,7 @@ body { font-family:var(--font-b); background:var(--cream); color:var(--g5); font
       <span id="save-icon">💾</span> Save All Data
     </button>
     <div id="save-status" style="font-size:9px;color:rgba(255,255,255,0.3);text-align:center;margin-top:4px"></div>
-    <div style="font-size:8px;color:rgba(255,255,255,0.2);text-align:center;margin-top:2px;font-family:var(--font-m)">v2.1.0 · build 20260407</div>
+    <div style="font-size:8px;text-align:center;margin-top:2px;font-family:var(--font-m)"><span style="color:rgba(255,255,255,0.2)">v2.2.0 · build 20260412</span> · <span id="sync-status" style="color:rgba(255,255,255,0.3)">...</span></div>
     <div style="display:flex;gap:6px;margin-top:6px">
       <button onclick="exportBackup()" style="flex:1;padding:5px;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,0.1);background:none;color:rgba(255,255,255,0.4);font-family:var(--font-b);font-size:10px;cursor:pointer" onmouseover="this.style.color='rgba(255,255,255,0.7)'" onmouseout="this.style.color='rgba(255,255,255,0.4)'">📥 Export</button>
       <label style="flex:1;padding:5px;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,0.1);background:none;color:rgba(255,255,255,0.4);font-family:var(--font-b);font-size:10px;cursor:pointer;text-align:center" onmouseover="this.style.color='rgba(255,255,255,0.7)'" onmouseout="this.style.color='rgba(255,255,255,0.4)'">📤 Import<input type="file" accept=".json" style="display:none" onchange="importBackup(this)" /></label>
@@ -1025,10 +1026,10 @@ body { font-family:var(--font-b); background:var(--cream); color:var(--g5); font
   </div>
 
   <!-- Allergen Declaration + Nutritional Information (side by side) -->
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;align-items:start">
 
     <!-- Allergen Declaration -->
-    <div class="card" style="border:1.5px solid var(--amber)">
+    <div class="card" style="border:1.5px solid var(--amber);overflow:hidden">
       <div class="card-head" style="background:var(--amber-lt)">
         <span class="card-title" style="color:var(--amber)">⚠ Allergens</span>
         <button class="btn btn-outline btn-sm" onclick="editQAAllergens()">Edit</button>
@@ -1048,7 +1049,7 @@ body { font-family:var(--font-b); background:var(--cream); color:var(--g5); font
     </div>
 
     <!-- Nutritional Information -->
-    <div class="card" style="border:1.5px solid var(--sage)">
+    <div class="card" style="border:1.5px solid var(--sage);overflow:hidden">
       <div class="card-head" style="background:var(--sage-lt)">
         <span class="card-title" style="color:var(--sage)">Nutrition — per 100g</span>
         <div style="display:flex;gap:6px;align-items:center">
@@ -2203,6 +2204,15 @@ body { font-family:var(--font-b); background:var(--cream); color:var(--g5); font
 const STORAGE_KEY = 'recipehub_data_v1';
 const AUTH_KEY = 'recipehub_auth_v1';
 const DATA_VERSION = 5; // bump this to push new hardcoded data into existing localStorage
+
+// ── Server sync ──
+const API_BASE = (location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.protocol === 'file:')
+  ? 'http://localhost:3001' : '';
+const API_KEY = 'Q6LuvWGdHgETdfv4kFSHnzcxthg0_LTGhGytrwn35uY';
+var _lastServerSave = 0;
+var _pendingServerSave = null;
+var _localDirty = false;
+var _savingToServer = false;
 var REJECTED_EMAILS = []; // track rejected pending users so they don't get re-injected
 
 // ──────────── ORACLE EBS ITEMS MASTER (pre-loaded from gateway.dailyfoodsa.com) ────────────
@@ -3416,8 +3426,8 @@ function importBackup(input) {
   input.value = '';
 }
 
-function saveAllData() {
-  const data = {
+function _buildDataBlob() {
+  return {
     recipes: RECIPE_DB,
     ingredients: ING_DATA,
     users: USERS_DATA,
@@ -3434,9 +3444,42 @@ function saveAllData() {
     shelfLifeData: SHELF_LIFE_DATA,
     accessPermissions: ACCESS_PERMISSIONS,
     rejectedEmails: REJECTED_EMAILS,
+    deletedRecipeIds: _deletedRecipeIds,
     savedAt: new Date().toISOString(),
     dataVersion: DATA_VERSION,
   };
+}
+
+function _saveToServer(data) {
+  var now = Date.now();
+  if (_pendingServerSave) { clearTimeout(_pendingServerSave); _pendingServerSave = null; }
+  if (now - _lastServerSave < 3000) {
+    _pendingServerSave = setTimeout(function() { _pendingServerSave = null; _saveToServer(data); }, 3000 - (now - _lastServerSave));
+    return;
+  }
+  _lastServerSave = now;
+  _savingToServer = true;
+  fetch(API_BASE + '/api/data', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + API_KEY },
+    body: JSON.stringify(data),
+  }).then(function(r) {
+    if (!r.ok) throw new Error('Server returned ' + r.status);
+    _savingToServer = false;
+    _localDirty = false;
+    var syncEl = document.getElementById('sync-status');
+    if (syncEl) { syncEl.textContent = 'Synced'; syncEl.style.color = 'var(--sage)'; }
+  }).catch(function(err) {
+    _savingToServer = false;
+    console.warn('Server save failed:', err.message);
+    var syncEl = document.getElementById('sync-status');
+    if (syncEl) { syncEl.textContent = 'Offline'; syncEl.style.color = 'var(--amber)'; }
+  });
+}
+
+function saveAllData() {
+  const data = _buildDataBlob();
+  _localDirty = true;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     // Update sidebar status
@@ -3445,8 +3488,6 @@ function saveAllData() {
     // Flash save icon
     const iconEl = document.getElementById('save-icon');
     if (iconEl) { iconEl.textContent = '✅'; setTimeout(() => { iconEl.textContent = '💾'; }, 1500); }
-    // Show toast
-    showSaveToast('💾 All data saved successfully');
     // Warn if storage is getting large (over 4MB of 5MB limit)
     var sizeKB = Math.round(JSON.stringify(data).length / 1024);
     if (sizeKB > 4000) {
@@ -3455,8 +3496,9 @@ function saveAllData() {
   } catch (e) {
     console.error('Save failed:', e);
     showSaveToast('❌ Save failed — storage full! Export backup and clear old data.', true);
-    alert('⚠️ SAVE FAILED — localStorage is full.\n\nYour last change was NOT saved.\nGo to Admin Settings → Export Backup, then clear old data.');
   }
+  // Also save to server (async, fire-and-forget)
+  _saveToServer(data);
 }
 
 function loadAllData() {
@@ -3466,13 +3508,19 @@ function loadAllData() {
     const data = JSON.parse(raw);
     var savedVersion = data.dataVersion || 0;
 
-    // Merge recipes: saved data wins, but keep hardcoded ones that aren't in saved
+    // Load deleted recipe IDs first
+    if (Array.isArray(data.deletedRecipeIds)) { _deletedRecipeIds = data.deletedRecipeIds; }
+    // Merge recipes: saved data wins, add new hardcoded recipes, skip deleted ones
     if (data.recipes) {
+      // Snapshot hardcoded recipes before clearing
+      var _hardcoded = {};
+      Object.keys(RECIPE_DB).forEach(k => { _hardcoded[k] = RECIPE_DB[k]; });
+      // Clear and reload from saved
+      Object.keys(RECIPE_DB).forEach(k => { delete RECIPE_DB[k]; });
       Object.keys(data.recipes).forEach(k => { RECIPE_DB[k] = data.recipes[k]; });
+      // Re-add hardcoded recipes that are new (not in saved and not deleted)
+      Object.keys(_hardcoded).forEach(k => { if (!data.recipes[k] && _deletedRecipeIds.indexOf(k) === -1) RECIPE_DB[k] = _hardcoded[k]; });
     }
-    // Also add any new hardcoded recipes not in saved data
-    var _hardcodedRecipes = {};
-    Object.keys(RECIPE_DB).forEach(k => { if (!data.recipes || !data.recipes[k]) _hardcodedRecipes[k] = RECIPE_DB[k]; });
 
     // Replace arrays with saved data
     function replaceArray(target, saved) {
@@ -3607,12 +3655,105 @@ document.addEventListener('keydown', function(e) {
   }
 });
 
-// Save before page unload
+// Save before page unload (use sendBeacon for reliability)
 window.addEventListener('beforeunload', function() {
   if (typeof RECIPE_DB !== 'undefined') {
-    try { saveAllData(); } catch(e) {}
+    try {
+      var data = _buildDataBlob();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      navigator.sendBeacon(API_BASE + '/api/data?key=' + API_KEY, new Blob([JSON.stringify(data)], { type: 'application/json' }));
+    } catch(e) {}
   }
 });
+
+// Sync from server — pulls latest shared data if newer than local
+function syncFromServer() {
+  // Don't pull from server while local changes are unsaved or a save is in flight
+  if (_localDirty || _savingToServer || _pendingServerSave) {
+    return;
+  }
+  var syncEl = document.getElementById('sync-status');
+  if (syncEl) { syncEl.textContent = 'Syncing...'; syncEl.style.color = 'var(--g3)'; }
+  fetch(API_BASE + '/api/data', { headers: { 'Authorization': 'Bearer ' + API_KEY } }).then(function(r) {
+    if (!r.ok) throw new Error('Server returned ' + r.status);
+    return r.json();
+  }).then(function(result) {
+    if (!result.data) {
+      // Server is empty — seed it with local data
+      if (syncEl) { syncEl.textContent = 'Synced'; syncEl.style.color = 'var(--sage)'; }
+      _saveToServer(_buildDataBlob());
+      return;
+    }
+    var serverData = result.data;
+    var localRaw = localStorage.getItem(STORAGE_KEY);
+    var localSavedAt = localRaw ? (JSON.parse(localRaw).savedAt || '') : '';
+    var serverSavedAt = serverData.savedAt || result.savedAt || '';
+    // If server is newer, hydrate
+    if (serverSavedAt > localSavedAt) {
+      _hydrateFromData(serverData);
+      // Save to localStorage so it's in sync
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(serverData));
+      // Refresh all UI
+      try {
+        populateBrandUI(); buildIngTable(); buildRecipesTable(); buildBrandCards();
+        buildUsersTable(); buildPendingTable(); buildRoleCards(); buildAccessMatrix();
+        buildFactorySOPTable(); buildBuildsTable(); buildBranchSOPTable();
+        buildProductionTable(); populateQARecipeDropdown(); updateDashboardStats();
+        updateSidebarBadges();
+      } catch(e) { console.error('UI refresh after sync error:', e); }
+      if (syncEl) { syncEl.textContent = 'Synced'; syncEl.style.color = 'var(--sage)'; }
+    } else {
+      if (syncEl) { syncEl.textContent = 'Synced'; syncEl.style.color = 'var(--sage)'; }
+    }
+  }).catch(function(err) {
+    console.warn('Server sync failed:', err.message);
+    if (syncEl) { syncEl.textContent = 'Offline'; syncEl.style.color = 'var(--amber)'; }
+  });
+}
+
+// Hydrate all in-memory arrays from a data blob (same logic as loadAllData)
+function _hydrateFromData(data) {
+  function replaceArray(target, saved) {
+    if (!Array.isArray(saved)) return;
+    target.length = 0;
+    saved.forEach(function(item) { target.push(item); });
+  }
+  if (Array.isArray(data.deletedRecipeIds)) { _deletedRecipeIds = data.deletedRecipeIds; }
+  if (data.recipes) {
+    var _hc = {}; Object.keys(RECIPE_DB).forEach(function(k) { _hc[k] = RECIPE_DB[k]; });
+    Object.keys(RECIPE_DB).forEach(function(k) { delete RECIPE_DB[k]; });
+    Object.keys(data.recipes).forEach(function(k) { RECIPE_DB[k] = data.recipes[k]; });
+    Object.keys(_hc).forEach(function(k) { if (!data.recipes[k] && _deletedRecipeIds.indexOf(k) === -1) RECIPE_DB[k] = _hc[k]; });
+  }
+  replaceArray(ING_DATA, data.ingredients);
+  replaceArray(USERS_DATA, data.users);
+  replaceArray(PENDING_DATA, data.pending);
+  replaceArray(BUILDS_DATA, data.builds);
+  replaceArray(PRODUCTION_RUNS, data.productionRuns);
+  PRODUCTION_RUNS.forEach(function(r) {
+    if (r.status === 'in-progress') r.status = r.date ? 'scheduled' : 'pending';
+    if (r.status === 'scheduled' && !r.date) r.status = 'pending';
+    if (!r.createdAt) r.createdAt = new Date().toISOString();
+  });
+  if (data.branchSOPs) { var _si = data.branchSOPs.map(function(s){return s.id}); var _nh = BRANCH_SOPS.filter(function(s){return _si.indexOf(s.id)===-1}); replaceArray(BRANCH_SOPS, data.branchSOPs); _nh.forEach(function(s){BRANCH_SOPS.push(s)}); }
+  if (data.brands) { var _sbi = data.brands.map(function(b){return b.id}); var _nb = BRANDS.filter(function(b){return _sbi.indexOf(b.id)===-1}); replaceArray(BRANDS, data.brands); _nb.forEach(function(b){BRANDS.push(b)}); }
+  if (data.brandRecipes) { Object.keys(data.brandRecipes).forEach(function(k){ BRAND_RECIPES[k] = data.brandRecipes[k]; }); }
+  if (Array.isArray(data.activityLog)) { ACTIVITY_LOG.length = 0; data.activityLog.forEach(function(a){ACTIVITY_LOG.push(a)}); }
+  if (data.savingsGoal !== undefined) SAVINGS_GOAL = data.savingsGoal;
+  if (Array.isArray(data.savingsProjects)) { SAVINGS_PROJECTS.length = 0; data.savingsProjects.forEach(function(p){SAVINGS_PROJECTS.push(p)}); }
+  if (data.qaAllergenOverrides) { Object.keys(data.qaAllergenOverrides).forEach(function(k){ _qaAllergenOverrides[k] = data.qaAllergenOverrides[k]; }); }
+  if (Array.isArray(data.rejectedEmails)) REJECTED_EMAILS = data.rejectedEmails;
+  if (data.shelfLifeData) { SHELF_LIFE_DATA.points = data.shelfLifeData.points || []; SHELF_LIFE_DATA.notes = data.shelfLifeData.notes || ''; }
+  if (Array.isArray(data.accessPermissions)) {
+    data.accessPermissions.forEach(function(sg) {
+      var m = ACCESS_PERMISSIONS.find(function(g){ return g.group === sg.group; });
+      if (m && sg.items) sg.items.forEach(function(si) {
+        var it = m.items.find(function(i){ return i.key === si.key; });
+        if (it) ['admin','npd','qa','factory','purchasing','viewer'].forEach(function(r){ if(si[r]!==undefined) it[r]=si[r]; });
+      });
+    });
+  }
+}
 
 const PAGES = {
   dashboard:      { title:'Dashboard',           actions:`<button class="btn btn-primary btn-sm" onclick="openRecipeForm()">+ New Recipe</button>` },
@@ -4309,6 +4450,8 @@ let RECIPE_DB = {
   },
 };
 
+var _deletedRecipeIds = [];
+
 // Add QA history and batch logs to existing recipes for demo
 RECIPE_DB['2025-009'].nutrition = {energy:'142',protein:'1.8',fat:'9.2',satfat:'1.1',carbs:'12.5',sugars:'2.3',fibre:'1.6',sodium:'680'};
 RECIPE_DB['2025-021'].nutrition = {energy:'198',protein:'2.4',fat:'6.8',satfat:'0.9',carbs:'32.1',sugars:'24.5',fibre:'0.8',sodium:'920'};
@@ -4411,7 +4554,10 @@ function buildRecipesTable() {
   tbody.innerHTML = '';
   const userRole = getCurrentUserRole();
   var archivedCount = 0;
-  Object.values(RECIPE_DB).forEach(r => {
+  var _recipes = Object.values(RECIPE_DB).sort(function(a, b) {
+    return (b.npd || '').localeCompare(a.npd || '');
+  });
+  _recipes.forEach(r => {
     if (r.archived) archivedCount++;
     // Hide archived unless toggle is on
     if (r.archived && !_showArchivedRecipes) return;
@@ -4527,6 +4673,7 @@ function renderMediaGrid(npd) {
 // ──────────── PRINT FUNCTIONS ────────────
 function closePrint() {
   document.getElementById('print-overlay').classList.remove('active');
+  document.body.classList.remove('print-active');
   document.body.style.overflow = '';
 }
 
@@ -4544,6 +4691,7 @@ function openPrint(npd, mode) {
     sheet.innerHTML = renderFactory(r, 400);
   }
   document.getElementById('print-overlay').classList.add('active');
+  document.body.classList.add('print-active');
   document.body.style.overflow = 'hidden';
 }
 
@@ -4575,7 +4723,6 @@ function renderKitchen(r, batchKg) {
         <div><span class="ps-meta-label">Type</span>${r.type}</div>
         <div><span class="ps-meta-label">Storage</span>${r.storage}</div>
         <div><span class="ps-meta-label">Shelf Life</span>${r.shelfLife}</div>
-        <div><span class="ps-meta-label">Yield</span>${(r.yield * 100).toFixed(0)}%</div>
         <div><span class="ps-meta-label">Printed</span>${new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div>
       </div>
     </div>
@@ -4801,6 +4948,132 @@ function updateRecipeCost(npd) {
   }
 }
 
+// Get effective price per kg for an ingredient (override > DB lookup)
+function _getIngPrice(i) {
+  if (i.costPerKg != null) return i.costPerKg;
+  var n = i.name.toLowerCase().replace(/[^a-z0-9]/g,'');
+  var fd = ING_DATA.find(function(row){ var dn=row[1].toLowerCase().replace(/[^a-z0-9]/g,''); return dn.includes(n)||n.includes(dn); });
+  if (fd) { var p = parseFloat(String(fd[5]).replace(/[^0-9.]/g,'')); if (!isNaN(p)) return p; }
+  return null;
+}
+
+// Calculate total ingredient cost for a recipe (uses overrides + DB fallback)
+// Returns theoretical cost per kg (before yield). Use _calcActualCostPerKg for yield-adjusted.
+function _calcIngCostTotal(r) {
+  if (!r || !r.ingredients || !r.ingredients.length) return null;
+  var totalPct = r.ingredients.reduce(function(s,i){return s+i.pct},0);
+  if (totalPct === 0) return null;
+  var total = 0; var matched = 0;
+  r.ingredients.forEach(function(i) {
+    var frac = i.pct / totalPct;
+    var price = null;
+    if (i.costPerKg != null) { price = i.costPerKg; }
+    else {
+      var n = i.name.toLowerCase().replace(/[^a-z0-9]/g,'');
+      var fd = ING_DATA.find(function(row){ var dn=row[1].toLowerCase().replace(/[^a-z0-9]/g,''); return dn.includes(n)||n.includes(dn); });
+      if (fd) { var p = parseFloat(String(fd[5]).replace(/[^0-9.]/g,'')); if (!isNaN(p)) price = p; }
+    }
+    if (price !== null) { total += frac * price; matched++; }
+  });
+  return matched > 0 ? total : null;
+}
+
+// Actual cost per kg after yield loss (theoretical / yield)
+function _calcActualCostPerKg(r) {
+  var theoretical = _calcIngCostTotal(r);
+  if (theoretical === null) return null;
+  var yld = r.yield && r.yield > 0 ? r.yield : 1;
+  return theoretical / yld;
+}
+
+// Edit ingredient cost — click on cost cell to enter manual price per kg
+function editIngCost(npd, idx) {
+  var r = RECIPE_DB[npd];
+  if (!r || !r.ingredients[idx]) return;
+  var ing = r.ingredients[idx];
+  // Get current effective price
+  var currentPrice = '';
+  if (ing.costPerKg != null) { currentPrice = ing.costPerKg; }
+  else {
+    var n = ing.name.toLowerCase().replace(/[^a-z0-9]/g,'');
+    var fd = ING_DATA.find(function(row){ var dn=row[1].toLowerCase().replace(/[^a-z0-9]/g,''); return dn.includes(n)||n.includes(dn); });
+    if (fd) { var p = parseFloat(String(fd[5]).replace(/[^0-9.]/g,'')); if (!isNaN(p)) currentPrice = p; }
+  }
+  var input = prompt('Cost per kg (SAR) for "' + ing.name + '":\n\nLeave empty to use database price, or enter a number to override.', currentPrice);
+  if (input === null) return; // cancelled
+  if (input.trim() === '') {
+    delete ing.costPerKg; // remove override, fall back to DB
+  } else {
+    var val = parseFloat(input.replace(/[^0-9.]/g,''));
+    if (isNaN(val)) { alert('Invalid number'); return; }
+    ing.costPerKg = val;
+  }
+  // Update recipe total cost
+  var total = _calcIngCostTotal(r);
+  if (total !== null) { r.costKg = 'SAR ' + total.toFixed(2); }
+  saveAllData();
+  viewRecipe(npd); // re-render
+}
+
+// Update food cost section live as user types (debounced save)
+var _fcSaveTimer = null;
+function updateFoodCost(npd) {
+  var r = RECIPE_DB[npd];
+  if (!r) return;
+  var portionInput = document.getElementById('portion-size-' + npd);
+  var priceInput = document.getElementById('selling-price-' + npd);
+  var yieldInput = document.getElementById('yield-input-' + npd);
+  var portionEl = document.getElementById('fc-portion-' + npd);
+  var marginEl = document.getElementById('fc-margin-' + npd);
+  var pctEl = document.getElementById('fc-pct-' + npd);
+  var grams = portionInput ? parseFloat(portionInput.value) : NaN;
+  var sellPrice = priceInput ? parseFloat(priceInput.value) : NaN;
+  var yieldPct = yieldInput ? parseFloat(yieldInput.value) : NaN;
+
+  // Save values — only update if input exists and has a value, never delete existing data from empty fields
+  if (grams > 0) r.portionSize = grams;
+  if (sellPrice > 0) r.sellingPrice = sellPrice;
+  if (yieldPct > 0 && yieldPct <= 100) r.yield = yieldPct / 100;
+
+  // Use yield-adjusted cost
+  var costPerKg = _calcActualCostPerKg(r);
+
+  // Portion cost (use saved portionSize if input is empty)
+  var effectiveGrams = (grams > 0) ? grams : (r.portionSize || 0);
+  var effectivePrice = (sellPrice > 0) ? sellPrice : (r.sellingPrice || 0);
+  var portionCost = (costPerKg !== null && effectiveGrams > 0) ? costPerKg * effectiveGrams / 1000 : null;
+  if (portionEl) {
+    portionEl.textContent = portionCost !== null ? 'SAR ' + portionCost.toFixed(3) : '—';
+    portionEl.style.color = portionCost !== null ? 'var(--sage)' : 'var(--g3)';
+  }
+
+  // Margin
+  if (marginEl) {
+    if (portionCost !== null && effectivePrice > 0) {
+      marginEl.textContent = 'SAR ' + (effectivePrice - portionCost).toFixed(2) + ' margin';
+      marginEl.style.color = 'var(--sage)';
+    } else {
+      marginEl.textContent = '—';
+      marginEl.style.color = 'var(--g3)';
+    }
+  }
+
+  // Food cost %
+  if (pctEl) {
+    if (portionCost !== null && effectivePrice > 0) {
+      var pct = (portionCost / effectivePrice) * 100;
+      var color = pct <= 30 ? 'var(--sage)' : pct <= 35 ? 'var(--amber)' : 'var(--red)';
+      pctEl.innerHTML = '<span style="color:' + color + '">' + pct.toFixed(1) + '%</span>';
+    } else {
+      pctEl.innerHTML = '<span style="color:var(--g3)">—</span>';
+    }
+  }
+
+  // Debounced save — wait 1 second after user stops typing
+  if (_fcSaveTimer) clearTimeout(_fcSaveTimer);
+  _fcSaveTimer = setTimeout(function() { saveAllData(); }, 1000);
+}
+
 // ──────────── RECIPE DETAIL VIEW ────────────
 var _bakerPctOn = {};
 function toggleBakerPct(npd) {
@@ -4821,18 +5094,26 @@ function toggleBakerPct(npd) {
     });
     if (!flourPct) { _bakerPctOn[npd] = false; return; }
     var totalBaker = r.ingredients.reduce(function(s,i){return s+(i.pct/flourPct*100)},0);
-    tbody.innerHTML = r.ingredients.map(function(i) {
+    tbody.innerHTML = r.ingredients.map(function(i, idx) {
       var bp = (i.pct / flourPct * 100);
       var isFlour = /flour|dough/i.test(i.name) && i.pct === flourPct;
-      return '<tr' + (isFlour ? ' style="background:var(--gold-lt)"' : '') + '><td>' + i.name + (isFlour ? ' <span style="font-size:9px;color:var(--gold);font-weight:600">BASE</span>' : '') + '</td><td style="text-align:right;font-family:var(--font-m);font-size:12px">' + ((i.pct/totalPct)*1000).toFixed(1) + ' g</td><td style="text-align:right;font-family:var(--font-m);font-size:12px;color:var(--gold);font-weight:500">' + bp.toFixed(1) + '%</td></tr>';
-    }).join('') + '<tr style="background:var(--navy)"><td style="color:white;font-weight:500">Total</td><td style="text-align:right;color:var(--gold-mid);font-weight:500;font-family:var(--font-m);font-size:12px">1000.0 g</td><td style="text-align:right;color:var(--gold-mid);font-weight:500;font-family:var(--font-m);font-size:12px">' + totalBaker.toFixed(1) + '%</td></tr>';
-    table.querySelector('thead tr').innerHTML = '<th>Ingredient</th><th style="text-align:right">g / kg</th><th style="text-align:right">Baker\'s %</th>';
+      var _frac = i.pct / totalPct;
+      var _usePrice = _getIngPrice(i);
+      var _co = _usePrice !== null ? (_frac * _usePrice) : null;
+      var _isOvr = i.costPerKg != null;
+      return '<tr' + (isFlour ? ' style="background:var(--gold-lt)"' : '') + '><td>' + i.name + (isFlour ? ' <span style="font-size:9px;color:var(--gold);font-weight:600">BASE</span>' : '') + '</td><td style="text-align:right;font-family:var(--font-m);font-size:12px">' + (_frac*1000).toFixed(1) + ' g</td><td style="text-align:right;font-family:var(--font-m);font-size:12px;color:var(--gold);font-weight:500">' + bp.toFixed(1) + '%</td><td style="text-align:right;font-family:var(--font-m);font-size:12px;cursor:pointer" onclick="editIngCost(\'' + npd + '\',' + idx + ')"><span style="color:' + (_co !== null ? (_isOvr ? 'var(--blue)' : 'var(--sage)') : 'var(--g3)') + '">' + (_co !== null ? 'SAR ' + _co.toFixed(2) : '+ add') + '</span>' + (_isOvr ? '<span style="font-size:8px;color:var(--blue);margin-left:3px">✎</span>' : '') + '</td></tr>';
+    }).join('') + (function(){ var _tc = _calcIngCostTotal(r); var _tv = _tc !== null ? 'SAR ' + _tc.toFixed(2) : '—'; return '<tr style="background:var(--navy)"><td style="color:white;font-weight:500">Total</td><td style="text-align:right;color:var(--gold-mid);font-weight:500;font-family:var(--font-m);font-size:12px">1000.0 g</td><td style="text-align:right;color:var(--gold-mid);font-weight:500;font-family:var(--font-m);font-size:12px">' + totalBaker.toFixed(1) + '%</td><td style="text-align:right;color:var(--gold-mid);font-weight:500;font-family:var(--font-m);font-size:12px">' + _tv + '</td></tr>'; })();
+    table.querySelector('thead tr').innerHTML = '<th>Ingredient</th><th style="text-align:right">g / kg</th><th style="text-align:right">Baker\'s %</th><th style="text-align:right">Cost / kg</th>';
     if (btn) { btn.style.background = '#B8820A'; btn.style.color = 'white'; btn.style.borderColor = '#B8820A'; btn.textContent = 'Formula %'; }
   } else {
-    tbody.innerHTML = r.ingredients.map(function(i) {
-      return '<tr><td>' + i.name + '</td><td style="text-align:right;font-family:var(--font-m);font-size:12px">' + ((i.pct/totalPct)*1000).toFixed(1) + ' g</td><td style="text-align:right;font-family:var(--font-m);font-size:12px;color:var(--g3)">' + i.pct.toFixed(1) + '%</td></tr>';
-    }).join('') + '<tr style="background:var(--navy)"><td style="color:white;font-weight:500">Total</td><td style="text-align:right;color:var(--gold-mid);font-weight:500;font-family:var(--font-m);font-size:12px">1000.0 g</td><td style="text-align:right;color:var(--gold-mid);font-weight:500;font-family:var(--font-m);font-size:12px">100%</td></tr>';
-    table.querySelector('thead tr').innerHTML = '<th>Ingredient</th><th style="text-align:right">g / kg</th><th style="text-align:right">%</th>';
+    tbody.innerHTML = r.ingredients.map(function(i, idx) {
+      var _frac = i.pct / totalPct;
+      var _usePrice = _getIngPrice(i);
+      var _co = _usePrice !== null ? (_frac * _usePrice) : null;
+      var _isOvr = i.costPerKg != null;
+      return '<tr><td>' + i.name + '</td><td style="text-align:right;font-family:var(--font-m);font-size:12px">' + (_frac*1000).toFixed(1) + ' g</td><td style="text-align:right;font-family:var(--font-m);font-size:12px;color:var(--g3)">' + i.pct.toFixed(1) + '%</td><td style="text-align:right;font-family:var(--font-m);font-size:12px;cursor:pointer" onclick="editIngCost(\'' + npd + '\',' + idx + ')"><span style="color:' + (_co !== null ? (_isOvr ? 'var(--blue)' : 'var(--sage)') : 'var(--g3)') + '">' + (_co !== null ? 'SAR ' + _co.toFixed(2) : '+ add') + '</span>' + (_isOvr ? '<span style="font-size:8px;color:var(--blue);margin-left:3px">✎</span>' : '') + '</td></tr>';
+    }).join('') + (function(){ var _tc = _calcIngCostTotal(r); var _tv = _tc !== null ? 'SAR ' + _tc.toFixed(2) : '—'; return '<tr style="background:var(--navy)"><td style="color:white;font-weight:500">Total</td><td style="text-align:right;color:var(--gold-mid);font-weight:500;font-family:var(--font-m);font-size:12px">1000.0 g</td><td style="text-align:right;color:var(--gold-mid);font-weight:500;font-family:var(--font-m);font-size:12px">100%</td><td style="text-align:right;color:var(--gold-mid);font-weight:500;font-family:var(--font-m);font-size:12px">' + _tv + '</td></tr>'; })();
+    table.querySelector('thead tr').innerHTML = '<th>Ingredient</th><th style="text-align:right">g / kg</th><th style="text-align:right">%</th><th style="text-align:right">Cost / kg</th>';
     if (btn) { btn.style.background = ''; btn.style.color = ''; btn.style.borderColor = ''; btn.textContent = "Baker's %"; }
   }
 }
@@ -4889,10 +5170,20 @@ function viewRecipe(npd) {
         </div>
         <div class="card-body" style="padding:0">
           <table class="data-table" id="ing-table-${r.npd}">
-            <thead><tr><th>Ingredient</th><th style="text-align:right">g / kg</th><th style="text-align:right">%</th></tr></thead>
+            <thead><tr><th>Ingredient</th><th style="text-align:right">g / kg</th><th style="text-align:right">%</th><th style="text-align:right">Cost / kg</th></tr></thead>
             <tbody>
-              ${r.ingredients.map(i => `<tr><td>${i.name}</td><td style="text-align:right;font-family:var(--font-m);font-size:12px">${((i.pct/totalPct)*1000).toFixed(1)} g</td><td style="text-align:right;font-family:var(--font-m);font-size:12px;color:var(--g3)">${i.pct.toFixed(1)}%</td></tr>`).join('')}
-              <tr style="background:var(--navy)"><td style="color:white;font-weight:500">Total</td><td style="text-align:right;color:var(--gold-mid);font-weight:500;font-family:var(--font-m);font-size:12px">1000.0 g</td><td style="text-align:right;color:var(--gold-mid);font-weight:500;font-family:var(--font-m);font-size:12px">100%</td></tr>
+              ${r.ingredients.map((i, idx) => {
+                var _frac = i.pct / totalPct;
+                var _ingName = i.name.toLowerCase().replace(/[^a-z0-9]/g,'');
+                var _found = ING_DATA.find(function(row){ var dn=row[1].toLowerCase().replace(/[^a-z0-9]/g,''); return dn.includes(_ingName)||_ingName.includes(dn); });
+                var _dbPrice = _found ? parseFloat(String(_found[5]).replace(/[^0-9.]/g,'')) : NaN;
+                var _usePrice = i.costPerKg != null ? i.costPerKg : (!isNaN(_dbPrice) ? _dbPrice : null);
+                var _cost = _usePrice !== null ? (_frac * _usePrice) : null;
+                var _isOverride = i.costPerKg != null;
+                var _isDb = !_isOverride && !isNaN(_dbPrice);
+                return `<tr><td>${i.name}</td><td style="text-align:right;font-family:var(--font-m);font-size:12px">${(_frac*1000).toFixed(1)} g</td><td style="text-align:right;font-family:var(--font-m);font-size:12px;color:var(--g3)">${i.pct.toFixed(1)}%</td><td style="text-align:right;font-family:var(--font-m);font-size:12px;cursor:pointer" onclick="editIngCost('${r.npd}',${idx})" title="Click to edit cost"><span style="color:${_cost !== null ? (_isOverride ? 'var(--blue)' : 'var(--sage)') : 'var(--g3)'}">${_cost !== null ? 'SAR ' + _cost.toFixed(2) : '+ add'}</span>${_isOverride ? '<span style="font-size:8px;color:var(--blue);margin-left:3px" title="Manual override">✎</span>' : ''}</td></tr>`;
+              }).join('')}
+              <tr style="background:var(--navy)" id="ing-cost-total-${r.npd}"><td style="color:white;font-weight:500">Total</td><td style="text-align:right;color:var(--gold-mid);font-weight:500;font-family:var(--font-m);font-size:12px">1000.0 g</td><td style="text-align:right;color:var(--gold-mid);font-weight:500;font-family:var(--font-m);font-size:12px">100%</td><td style="text-align:right;color:var(--gold-mid);font-weight:500;font-family:var(--font-m);font-size:12px">${(function(){ var _tc = _calcIngCostTotal(r); return _tc !== null ? 'SAR ' + _tc.toFixed(2) : '—'; })()}</td></tr>
             </tbody>
           </table>
         </div>
@@ -4914,6 +5205,64 @@ function viewRecipe(npd) {
         </div>
       </div>
     </div>
+
+    <!-- Food Cost -->
+    ${(function(){
+      var _theo = _calcIngCostTotal(r);
+      var _actual = _calcActualCostPerKg(r);
+      var _yld = r.yield && r.yield > 0 ? r.yield : null;
+      var _yldPct = _yld ? (_yld * 100).toFixed(0) : null;
+      var _lossPct = _yld ? ((1 - _yld) * 100).toFixed(1) : null;
+      var _ps = r.portionSize;
+      var _sp = r.sellingPrice;
+      var _portionCost = (_actual !== null && _ps) ? _actual * _ps / 1000 : null;
+      var _margin = (_portionCost !== null && _sp) ? _sp - _portionCost : null;
+      var _fcPct = (_portionCost !== null && _sp && _sp > 0) ? (_portionCost / _sp) * 100 : null;
+      return '<div class="card" style="margin-bottom:20px;overflow:hidden">' +
+        '<div class="card-head">' +
+          '<span class="card-title">Food Cost</span>' +
+          '<span class="badge ' + (_actual !== null ? 'badge-approved' : 'badge-draft') + '">' + (_actual !== null ? 'Costed' : 'Pending') + '</span>' +
+        '</div>' +
+        '<div class="card-body" style="padding:0">' +
+          '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:0">' +
+            '<div style="padding:16px 20px;border-right:1px solid var(--g2);text-align:center">' +
+              '<div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3);margin-bottom:6px">Cost / kg</div>' +
+              '<div style="font-family:var(--font-m);font-size:22px;font-weight:700;color:var(--navy)">' + (_actual !== null ? 'SAR ' + _actual.toFixed(2) : '—') + '</div>' +
+              (_yld && _theo !== null ? '<div style="font-size:10px;color:var(--g3);margin-top:2px">after ' + _yldPct + '% yield <span style="color:var(--amber)">(' + _lossPct + '% loss)</span></div><div style="font-size:9px;color:var(--g3)">theoretical: SAR ' + _theo.toFixed(2) + '</div>' : '<div style="font-size:10px;color:var(--g3);margin-top:2px">no yield set</div>') +
+            '</div>' +
+            '<div style="padding:16px 20px;border-right:1px solid var(--g2);text-align:center">' +
+              '<div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3);margin-bottom:6px">Portion Cost</div>' +
+              '<div style="display:flex;align-items:center;justify-content:center;gap:4px;margin-bottom:4px">' +
+                '<input type="number" id="portion-size-' + r.npd + '" value="' + (r.portionSize || '') + '" placeholder="g" min="1" max="5000" style="width:55px;padding:4px 6px;border:1px solid var(--g2);border-radius:var(--r-sm);font-family:var(--font-m);font-size:12px;text-align:right" oninput="updateFoodCost(\'' + r.npd + '\')" />' +
+                '<span style="font-size:11px;color:var(--g3)">g</span>' +
+              '</div>' +
+              '<div id="fc-portion-' + r.npd + '" style="font-family:var(--font-m);font-size:18px;font-weight:700;color:' + (_portionCost !== null ? 'var(--sage)' : 'var(--g3)') + '">' + (_portionCost !== null ? 'SAR ' + _portionCost.toFixed(3) : '—') + '</div>' +
+            '</div>' +
+            '<div style="padding:16px 20px;border-right:1px solid var(--g2);text-align:center">' +
+              '<div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3);margin-bottom:6px">Selling Price</div>' +
+              '<div style="display:flex;align-items:center;justify-content:center;gap:4px;margin-bottom:4px">' +
+                '<span style="font-size:11px;color:var(--g3)">SAR</span>' +
+                '<input type="number" id="selling-price-' + r.npd + '" value="' + (r.sellingPrice || '') + '" placeholder="0.00" min="0" step="0.01" style="width:65px;padding:4px 6px;border:1px solid var(--g2);border-radius:var(--r-sm);font-family:var(--font-m);font-size:12px;text-align:right" oninput="updateFoodCost(\'' + r.npd + '\')" />' +
+              '</div>' +
+              '<div id="fc-margin-' + r.npd + '" style="font-family:var(--font-m);font-size:14px;font-weight:600;color:' + (_margin !== null ? 'var(--sage)' : 'var(--g3)') + '">' + (_margin !== null ? 'SAR ' + _margin.toFixed(2) + ' margin' : '—') + '</div>' +
+            '</div>' +
+            '<div style="padding:16px 20px;border-right:1px solid var(--g2);text-align:center">' +
+              '<div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3);margin-bottom:6px">Food Cost %</div>' +
+              '<div id="fc-pct-' + r.npd + '" style="font-family:var(--font-m);font-size:28px;font-weight:700">' + (_fcPct !== null ? '<span style="color:' + (_fcPct <= 30 ? 'var(--sage)' : _fcPct <= 35 ? 'var(--amber)' : 'var(--red)') + '">' + _fcPct.toFixed(1) + '%</span>' : '<span style="color:var(--g3)">—</span>') + '</div>' +
+              '<div style="font-size:9px;color:var(--g3);margin-top:2px">target &lt; 30%</div>' +
+            '</div>' +
+            '<div style="padding:16px 20px;text-align:center">' +
+              '<div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3);margin-bottom:6px">Yield</div>' +
+              '<div style="display:flex;align-items:center;justify-content:center;gap:4px;margin-bottom:4px">' +
+                '<input type="number" id="yield-input-' + r.npd + '" value="' + (_yld ? (_yld * 100).toFixed(0) : '') + '" placeholder="%" min="1" max="100" style="width:50px;padding:4px 6px;border:1px solid var(--g2);border-radius:var(--r-sm);font-family:var(--font-m);font-size:12px;text-align:right" oninput="updateFoodCost(\'' + r.npd + '\')" />' +
+                '<span style="font-size:11px;color:var(--g3)">%</span>' +
+              '</div>' +
+              '<div style="font-size:10px;color:var(--g3)">' + (_yld ? _lossPct + '% loss' : 'enter yield') + '</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    })()}
 
     <!-- Photos & Videos -->
     <div class="card" style="margin-bottom:20px">
@@ -6351,99 +6700,128 @@ function saveNewRecipe() {
 }
 
 // ──────────── IMPORT EXTERNAL RECIPES ────────────
+var _importStep = 1;
+
+function _importStepIndicator(step) {
+  var steps = [{n:1,label:'Upload'},{n:2,label:'Preview'},{n:3,label:'Import'}];
+  var html = '<div style="display:flex;align-items:center;justify-content:center;gap:0;margin-bottom:20px">';
+  steps.forEach(function(s, i) {
+    var active = s.n === step;
+    var done = s.n < step;
+    var dotBg = active ? 'var(--gold-mid)' : done ? 'var(--sage)' : 'var(--g2)';
+    var dotColor = active ? 'var(--navy)' : done ? 'white' : 'var(--g3)';
+    var labelColor = active ? 'var(--navy)' : done ? 'var(--sage)' : 'var(--g3)';
+    var labelWeight = active ? '600' : '400';
+    html += '<div style="display:flex;flex-direction:column;align-items:center;min-width:70px">';
+    html += '<div style="width:28px;height:28px;border-radius:50%;background:' + dotBg + ';color:' + dotColor + ';display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600">' + (done ? '&#10003;' : s.n) + '</div>';
+    html += '<span style="font-size:11px;color:' + labelColor + ';font-weight:' + labelWeight + ';margin-top:4px">' + s.label + '</span>';
+    html += '</div>';
+    if (i < steps.length - 1) {
+      var lineBg = s.n < step ? 'var(--sage)' : 'var(--g2)';
+      html += '<div style="flex:1;height:2px;background:' + lineBg + ';margin:0 4px;margin-bottom:18px"></div>';
+    }
+  });
+  html += '</div>';
+  return html;
+}
+
 function openImportRecipes() {
+  _importStep = 1;
+  _pendingImportRecipes = [];
   openModal(`
     <div class="card-head" style="background:var(--navy);border-radius:16px 16px 0 0">
-      <span class="card-title" style="color:white">Import External Recipes</span>
-      <button class="btn btn-sm" style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:none" onclick="closeModal()">✕</button>
+      <span class="card-title" style="color:white">Import Recipes</span>
+      <button class="btn btn-sm" style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:none" onclick="closeModal()">&#10005;</button>
     </div>
-    <div class="card-body" style="padding:24px">
-      <p style="margin-bottom:16px;color:var(--g4)">Paste your recipe data below, or upload a CSV file. Use the format shown in the placeholder.</p>
-      <div class="form-group" style="margin-bottom:16px">
-        <label class="form-label">Paste Recipe Data</label>
-        <textarea class="form-textarea" id="import-recipe-paste" style="min-height:200px;font-family:var(--font-m);font-size:12px;line-height:1.8;margin-top:6px" placeholder="Recipe Name, NPD Code, Brand, Type, Storage, Shelf Life, Yield%
-Ingredient Name, Percentage%
-Ingredient Name, Percentage%
-METHOD: Step title | Step description
-
-(blank line = next recipe)"></textarea>
-        <p style="font-size:11px;color:var(--g3);margin-top:6px">Brand: ${BRANDS.map(b=>b.name).join(' / ')} &nbsp;|&nbsp; Type: Marinade / Dip / Sauce / Blend / Seasoning / Spread / Dessert / Meat / Dough / Coating / Brine / Garnish</p>
+    <div class="card-body" style="padding:24px" id="import-wizard-body">
+      ${_importStepIndicator(1)}
+      <div id="import-validation-msg" style="display:none;padding:10px 14px;border-radius:var(--r-md);font-size:12px;margin-bottom:14px"></div>
+      <div style="display:flex;gap:16px;margin-bottom:16px">
+        <label style="flex:1;display:flex;align-items:center;gap:8px;padding:12px 16px;border:2px solid var(--gold-mid);border-radius:var(--r-md);cursor:pointer;background:var(--gold-lt)">
+          <input type="radio" name="import-method" value="paste" checked onchange="document.getElementById('import-paste-section').style.display='';document.getElementById('import-file-section').style.display='none'" />
+          <div><span style="font-weight:600;font-size:13px">Paste Data</span><br><span style="font-size:11px;color:var(--g3)">Copy & paste from spreadsheet</span></div>
+        </label>
+        <label style="flex:1;display:flex;align-items:center;gap:8px;padding:12px 16px;border:2px solid var(--g2);border-radius:var(--r-md);cursor:pointer" onclick="this.style.borderColor='var(--gold-mid)';this.style.background='var(--gold-lt)';var o=this.previousElementSibling;o.style.borderColor='var(--g2)';o.style.background=''">
+          <input type="radio" name="import-method" value="file" onchange="document.getElementById('import-paste-section').style.display='none';document.getElementById('import-file-section').style.display=''" />
+          <div><span style="font-weight:600;font-size:13px">Upload CSV</span><br><span style="font-size:11px;color:var(--g3)">Select a .csv or .txt file</span></div>
+        </label>
       </div>
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
-        <div style="flex:1;height:1px;background:var(--g2)"></div>
-        <span style="font-size:11px;color:var(--g3);font-weight:500">OR</span>
-        <div style="flex:1;height:1px;background:var(--g2)"></div>
+      <div id="import-paste-section">
+        <textarea class="form-textarea" id="import-recipe-paste" style="min-height:180px;font-family:var(--font-m);font-size:12px;line-height:1.8;border:2px solid var(--g2);border-radius:var(--r-md)" placeholder="Recipe Name, NPD Code, Brand, Type, Storage, Shelf Life, Yield%&#10;Ingredient Name, Percentage%&#10;Ingredient Name, Percentage%&#10;METHOD: Step title | Step description&#10;&#10;(blank line = next recipe)"></textarea>
+        <p style="font-size:11px;color:var(--g3);margin-top:6px">Accepts: RecipeHub CSV format, DFC Recipe Template, or plain text. Format is auto-detected.</p>
       </div>
-      <div class="form-group" style="margin-bottom:16px">
-        <label class="form-label">Upload CSV File</label>
-        <input type="file" accept=".csv,.txt" id="import-recipe-file" class="form-input" style="padding:8px" />
+      <div id="import-file-section" style="display:none">
+        <div style="border:2px dashed var(--g2);border-radius:var(--r-md);padding:32px;text-align:center;cursor:pointer;transition:border-color 0.2s" id="import-drop-zone" onclick="document.getElementById('import-recipe-file').click()" ondragover="event.preventDefault();this.style.borderColor='var(--gold-mid)'" ondragleave="this.style.borderColor='var(--g2)'" ondrop="event.preventDefault();this.style.borderColor='var(--g2)';var f=event.dataTransfer.files[0];if(f){document.getElementById('import-recipe-file').files=event.dataTransfer.files;document.getElementById('import-file-name').textContent=f.name;document.getElementById('import-file-name').style.display=''}">
+          <div style="font-size:24px;margin-bottom:8px;opacity:0.4">&#128196;</div>
+          <p style="font-size:13px;color:var(--g4);margin-bottom:4px">Drop your CSV file here or <span style="color:var(--gold-mid);font-weight:600;text-decoration:underline">browse</span></p>
+          <p style="font-size:11px;color:var(--g3)">Supports .csv and .txt files</p>
+        </div>
+        <input type="file" accept=".csv,.txt" id="import-recipe-file" style="display:none" onchange="if(this.files[0]){document.getElementById('import-file-name').textContent=this.files[0].name;document.getElementById('import-file-name').style.display=''}" />
+        <div id="import-file-name" style="display:none;margin-top:8px;padding:8px 12px;background:var(--gold-lt);border-radius:var(--r-md);font-size:12px;font-weight:500;color:var(--navy)"></div>
       </div>
-      <div id="import-recipe-preview" style="display:none;margin-bottom:16px"></div>
-      <div style="display:flex;gap:10px;justify-content:flex-end">
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px">
         <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
-        <button class="btn btn-gold" onclick="parseRecipeCSVPreview()">Preview Import</button>
+        <button class="btn btn-gold" onclick="importStepValidateAndPreview()">Next: Preview</button>
       </div>
     </div>
   `);
 }
 
-function downloadRecipeCSVTemplate() {
-  var csv = 'Hasawi Marinade,2025-009,Maestro,Marinade,Ambient,12 Months,93\n';
-  csv += 'Cumin Ground,15\n';
-  csv += 'Black Pepper,10\n';
-  csv += 'Garlic Powder,12\n';
-  csv += 'Olive Oil,30\n';
-  csv += 'Lemon Juice,20\n';
-  csv += 'Salt,8\n';
-  csv += 'Paprika,5\n';
-  csv += 'METHOD: Combine dry spices | Mix cumin, black pepper, garlic powder, salt and paprika in a large bowl\n';
-  csv += 'METHOD: Add wet ingredients | Pour olive oil and lemon juice into the dry mix and blend until smooth\n';
-  csv += '\n';
-  csv += 'Truffle Mayo,2025-032,Telliano,Spread,Chilled 4°C,6 Months,96\n';
-  csv += 'Mayonnaise Base,70\n';
-  csv += 'Truffle Oil,8\n';
-  csv += 'Black Truffle Paste,5\n';
-  csv += 'Lemon Juice,3\n';
-  csv += 'Garlic Powder,2\n';
-  csv += 'Salt,1.5\n';
-  csv += 'White Pepper,0.5\n';
-  csv += 'Dijon Mustard,5\n';
-  csv += 'Egg Yolk Powder,5\n';
-  csv += 'METHOD: Prepare base | Combine mayonnaise base with egg yolk powder and mix until smooth\n';
-  csv += 'METHOD: Add truffle flavour | Fold in truffle oil and black truffle paste gently\n';
-  csv += 'METHOD: Season and finish | Add lemon juice, garlic powder, dijon mustard, salt and white pepper then mix to combine\n';
-  var blob = new Blob([csv], {type:'text/csv'});
-  var url = URL.createObjectURL(blob);
-  var a = document.createElement('a');
-  a.href = url;
-  a.download = 'RecipeHub_Import_Template.csv';
-  a.click();
-  URL.revokeObjectURL(url);
+function _showImportMsg(text, type) {
+  var el = document.getElementById('import-validation-msg');
+  if (!el) return;
+  el.style.display = 'block';
+  if (type === 'error') { el.style.background = '#FDE8E6'; el.style.color = '#C0392B'; el.style.border = '1px solid #F5B5B0'; }
+  else if (type === 'warning') { el.style.background = '#FEF3E2'; el.style.color = '#D4700A'; el.style.border = '1px solid #F5D5A0'; }
+  else { el.style.background = '#EBF5EE'; el.style.color = '#2D6A4F'; el.style.border = '1px solid #C3E6CB'; }
+  el.textContent = text;
+}
+
+function importStepValidateAndPreview() {
+  var methodEl = document.querySelector('input[name="import-method"]:checked');
+  var method = methodEl ? methodEl.value : 'paste';
+  if (method === 'paste') {
+    var pasteText = (document.getElementById('import-recipe-paste').value || '').trim();
+    if (!pasteText) { _showImportMsg('Paste your recipe data to continue.', 'error'); return; }
+    _importStep = 2;
+    processRecipeText(pasteText, 'Pasted Recipe');
+  } else {
+    var fileInput = document.getElementById('import-recipe-file');
+    if (!fileInput || !fileInput.files[0]) { _showImportMsg('Select a CSV file to continue.', 'error'); return; }
+    var fileName = fileInput.files[0].name.replace(/\.(csv|txt)$/i, '').replace(/[_-]/g, ' ').trim();
+    var reader = new FileReader();
+    reader.onload = function(e) { _importStep = 2; processRecipeText(e.target.result, fileName); };
+    reader.readAsText(fileInput.files[0]);
+  }
 }
 
 var _pendingImportRecipes = [];
 
-function parseRecipeCSVPreview() {
-  var pasteText = (document.getElementById('import-recipe-paste').value || '').trim();
-  var fileInput = document.getElementById('import-recipe-file');
-
-  if (pasteText) {
-    processRecipeText(pasteText);
-    return;
-  }
-
-  if (!fileInput.files[0]) { showSaveToast('Paste recipe data or select a CSV file', true); return; }
-  var reader = new FileReader();
-  reader.onload = function(e) {
-    processRecipeText(e.target.result);
-  };
-  reader.readAsText(fileInput.files[0]);
+function _autoNPDCode() {
+  var yr = new Date().getFullYear();
+  var maxNum = 0;
+  Object.keys(RECIPE_DB).forEach(function(k) {
+    if (k.indexOf(yr + '-') === 0) { var n = parseInt(k.split('-')[1]); if (n > maxNum) maxNum = n; }
+  });
+  // Also check pending imports to avoid collisions
+  _pendingImportRecipes.forEach(function(r) {
+    if (r.npd && r.npd.indexOf(yr + '-') === 0) { var n = parseInt(r.npd.split('-')[1]); if (n > maxNum) maxNum = n; }
+  });
+  return yr + '-' + String(maxNum + 1).padStart(3, '0');
 }
 
-function processRecipeText(text) {
-    var lines = text.split(/\r\n|\r|\n/);
+function processRecipeText(text, fallbackName) {
+    try {
+    var lines = text.replace(/^\uFEFF/, '').split(/\r\n|\r|\n/);
     var recipes = [];
     var current = null;
+
+    // Known values for auto-detection
+    var knownBrands = BRANDS.map(function(b){ return b.name.toLowerCase(); });
+    var knownTypes = ['marinade','dip','sauce','blend','seasoning','spread','dessert','meat','dough','coating','brine','garnish'];
+
+    // Skip common CSV header rows
+    var headerPatterns = /^(recipe\s*name|name|product|item|#|header|ingredient|description|qty|quantity|amount|percentage)/i;
 
     for (var i = 0; i < lines.length; i++) {
       var line = lines[i].trim();
@@ -6451,12 +6829,15 @@ function processRecipeText(text) {
         if (current) { recipes.push(current); current = null; }
         continue;
       }
+      // Skip header rows (first 3 lines only)
+      if (i < 3 && headerPatterns.test(line)) continue;
+
       var cols = parseCSVLine(line);
 
-      // METHOD line
-      if (cols[0] && cols[0].toUpperCase().indexOf('METHOD:') === 0) {
+      // METHOD / STEP / PROCESS line
+      if (cols[0] && /^(METHOD|STEP|PROCESS)\s*:/i.test(cols[0])) {
         if (!current) continue;
-        var rest = cols[0].substring(7).trim();
+        var rest = cols[0].replace(/^(METHOD|STEP|PROCESS)\s*:\s*/i, '');
         var full = rest + (cols.length > 1 ? ',' + cols.slice(1).join(',') : '');
         var parts = full.split('|');
         var title = (parts[0] || '').trim();
@@ -6465,8 +6846,8 @@ function processRecipeText(text) {
         continue;
       }
 
-      // If 5+ columns and second column looks like an NPD code => recipe header
-      if (cols.length >= 5 && /^\d{4}-\d{2,4}$/.test(cols[1].trim())) {
+      // Format A: 5+ columns with NPD code in col 2 (RecipeHub standard)
+      if (cols.length >= 5 && /^\d{4}-\d{2,4}$/.test((cols[1]||'').trim())) {
         if (current) recipes.push(current);
         current = {
           name: cols[0].trim(),
@@ -6482,10 +6863,78 @@ function processRecipeText(text) {
         continue;
       }
 
-      // Otherwise treat as ingredient row (name, %)
-      if (current && cols[0]) {
-        var pct = parseFloat(cols[1]) || 0;
-        current.ingredients.push({name: cols[0].trim(), pct: pct});
+      // Format B: multi-column line with recognizable brand or type
+      if (!current && cols.length >= 2 && cols[0] && !/^\d+(\.\d+)?%?$/.test(cols[0].trim())) {
+        var lowerCols = cols.map(function(c){ return (c||'').trim().toLowerCase(); });
+        var hasBrand = lowerCols.some(function(c){ return knownBrands.indexOf(c) > -1; });
+        var hasType = lowerCols.some(function(c){ return knownTypes.indexOf(c) > -1; });
+        if (hasBrand || hasType) {
+          if (current) recipes.push(current);
+          var detectedBrand = BRANDS[0].name;
+          var detectedType = 'Sauce';
+          var detectedStorage = 'Ambient';
+          var detectedShelf = '12 Months';
+          var detectedYield = 0.95;
+          cols.forEach(function(c) {
+            var cl = (c||'').trim().toLowerCase();
+            if (knownBrands.indexOf(cl) > -1) detectedBrand = BRANDS.find(function(b){ return b.name.toLowerCase() === cl; }).name;
+            else if (knownTypes.indexOf(cl) > -1) detectedType = c.trim().charAt(0).toUpperCase() + c.trim().slice(1).toLowerCase();
+            else if (/ambient|chilled|frozen/i.test(cl)) detectedStorage = c.trim();
+            else if (/^\d+\s*months?$/i.test(c.trim())) detectedShelf = c.trim();
+          });
+          current = {
+            name: cols[0].trim(),
+            npd: _autoNPDCode(),
+            brand: detectedBrand,
+            type: detectedType,
+            storage: detectedStorage,
+            shelfLife: detectedShelf,
+            yield: detectedYield,
+            ingredients: [],
+            method: []
+          };
+          continue;
+        }
+      }
+
+      // Is this line an ingredient? (has a name and a number)
+      var col1Num = cols[1] ? parseFloat((cols[1]||'').toString().replace('%','').trim()) : NaN;
+      var looksLikeIngredient = cols.length >= 2 && cols[0] && !isNaN(col1Num);
+
+      // Format C: if no current recipe and this looks like ingredient data, create recipe from fallback name
+      if (!current && looksLikeIngredient) {
+        current = {
+          name: fallbackName || 'Imported Recipe',
+          npd: _autoNPDCode(),
+          brand: BRANDS[0].name,
+          type: 'Sauce',
+          storage: 'Ambient',
+          shelfLife: '12 Months',
+          yield: 0.95,
+          ingredients: [],
+          method: []
+        };
+      }
+
+      // Format D: single-column recipe name line followed by ingredients
+      if (!current && !looksLikeIngredient && cols[0] && cols[0].trim().length > 2 && !/^\d/.test(cols[0].trim())) {
+        current = {
+          name: cols[0].trim(),
+          npd: _autoNPDCode(),
+          brand: BRANDS[0].name,
+          type: 'Sauce',
+          storage: 'Ambient',
+          shelfLife: '12 Months',
+          yield: 0.95,
+          ingredients: [],
+          method: []
+        };
+        continue;
+      }
+
+      // Ingredient row
+      if (current && cols[0] && looksLikeIngredient) {
+        current.ingredients.push({name: cols[0].trim(), pct: col1Num});
       }
     }
     if (current) recipes.push(current);
@@ -6496,42 +6945,191 @@ function processRecipeText(text) {
       if (isDFC) recipes = parseDFCRecipeTemplate(lines);
     }
 
-    if (!recipes.length) { showSaveToast('No recipes found — check the format', true); return; }
+    // Last resort: gather any lines with numbers as a single recipe
+    if (!recipes.length && lines.length >= 1) {
+      var ingLines = [];
+      for (var li = 0; li < lines.length; li++) {
+        var ll = lines[li].trim();
+        if (!ll) continue;
+        var lc = parseCSVLine(ll);
+        var num = lc[1] ? parseFloat((lc[1]||'').toString().replace('%','').trim()) : NaN;
+        if (lc.length >= 2 && lc[0] && !isNaN(num)) {
+          ingLines.push({name: lc[0].trim(), pct: num});
+        }
+      }
+      if (ingLines.length >= 1) {
+        recipes.push({
+          name: fallbackName || 'Imported Recipe',
+          npd: _autoNPDCode(),
+          brand: BRANDS[0].name,
+          type: 'Sauce',
+          storage: 'Ambient',
+          shelfLife: '12 Months',
+          yield: 0.95,
+          ingredients: ingLines,
+          method: []
+        });
+      }
+    }
+
+    if (!recipes.length) {
+      // Show debug info so user can report format
+      _importStep = 1;
+      var preview = lines.slice(0, 8).map(function(l){ return l.trim(); }).join('\n');
+      var body = document.getElementById('import-wizard-body');
+      if (body) {
+        var dbgHtml = _importStepIndicator(1);
+        dbgHtml += '<div style="padding:14px;background:#FDE8E6;border:1px solid #F5B5B0;border-radius:var(--r-md);margin-bottom:16px">';
+        dbgHtml += '<p style="font-weight:600;color:#C0392B;margin-bottom:8px">Could not detect any recipes in this data.</p>';
+        dbgHtml += '<p style="font-size:12px;color:var(--g4);margin-bottom:8px">Here is what was read (first 8 lines):</p>';
+        dbgHtml += '<pre style="background:var(--g1);padding:10px;border-radius:6px;font-size:11px;font-family:var(--font-m);white-space:pre-wrap;max-height:150px;overflow:auto">' + preview.replace(/</g,'&lt;') + '</pre>';
+        dbgHtml += '</div>';
+        dbgHtml += '<div style="display:flex;gap:10px;justify-content:flex-end"><button class="btn btn-outline" onclick="closeModal()">Cancel</button><button class="btn btn-outline" onclick="openImportRecipes()">Try Again</button></div>';
+        body.innerHTML = dbgHtml;
+      }
+      return;
+    }
+    } catch(err) {
+      console.error('Import parse error:', err);
+      showSaveToast('Import error: ' + err.message, true);
+      return;
+    }
 
     _pendingImportRecipes = recipes;
 
-    // Check for duplicates
-    var dupes = [];
-    recipes.forEach(function(r) { if (RECIPE_DB[r.npd]) dupes.push(r.npd); });
-
-    var previewHtml = '<div style="max-height:300px;overflow-y:auto;border:1px solid var(--g2);border-radius:var(--r-md);margin-bottom:16px">';
-    previewHtml += '<table class="data-table" style="margin:0"><thead><tr><th style="width:30px"></th><th>Recipe</th><th>NPD</th><th>Brand</th><th>Type</th><th>Ingredients</th><th>Steps</th></tr></thead><tbody>';
-    recipes.forEach(function(r, idx) {
-      var isDupe = RECIPE_DB[r.npd];
-      previewHtml += '<tr' + (isDupe ? ' style="background:var(--amber-lt)"' : '') + '>';
-      previewHtml += '<td><input type="checkbox" class="import-recipe-cb" data-idx="' + idx + '" ' + (isDupe ? '' : 'checked') + ' /></td>';
-      previewHtml += '<td style="font-weight:500">' + r.name + (isDupe ? ' <span style="color:var(--amber);font-size:11px;font-weight:600">EXISTS</span>' : '') + '</td>';
-      previewHtml += '<td><span style="font-family:var(--font-m);font-size:12px">' + r.npd + '</span></td>';
-      previewHtml += '<td>' + r.brand + '</td>';
-      previewHtml += '<td>' + r.type + '</td>';
-      previewHtml += '<td style="font-family:var(--font-m);font-size:12px">' + r.ingredients.length + '</td>';
-      previewHtml += '<td style="font-family:var(--font-m);font-size:12px">' + r.method.length + '</td>';
-      previewHtml += '</tr>';
+    // Validate each recipe and flag warnings
+    var validBrands = BRANDS.map(function(b){ return b.name; });
+    recipes.forEach(function(r) {
+      r._warnings = [];
+      if (!r.name) r._warnings.push('Missing name');
+      if (!r.ingredients.length) r._warnings.push('No ingredients');
+      if (!r.method.length) r._warnings.push('No method steps');
+      if (validBrands.indexOf(r.brand) === -1) r._warnings.push('Unknown brand "' + r.brand + '"');
+      var totalPct = r.ingredients.reduce(function(s,ing){ return s + ing.pct; }, 0);
+      if (r.ingredients.length && (totalPct < 90 || totalPct > 110)) r._warnings.push('Ingredients total ' + totalPct.toFixed(1) + '%');
+      r._isDupe = !!RECIPE_DB[r.npd];
     });
-    previewHtml += '</tbody></table></div>';
 
-    if (dupes.length) {
-      previewHtml += '<p style="color:var(--amber);font-size:12px;margin-bottom:8px">⚠ ' + dupes.length + ' recipe(s) already exist (highlighted). Checking them will overwrite the existing version.</p>';
+    var dupes = recipes.filter(function(r){ return r._isDupe; });
+    var warnings = recipes.filter(function(r){ return r._warnings.length > 0; });
+
+    // Render step 2 — preview
+    var body = document.getElementById('import-wizard-body');
+    var html = _importStepIndicator(2);
+
+    // Summary bar
+    html += '<div style="display:flex;gap:12px;margin-bottom:16px">';
+    html += '<div style="flex:1;padding:10px 14px;background:var(--navy);border-radius:var(--r-md);color:white;text-align:center"><span style="font-size:20px;font-weight:700;display:block">' + recipes.length + '</span><span style="font-size:11px;opacity:0.7">Recipes found</span></div>';
+    html += '<div style="flex:1;padding:10px 14px;background:' + (dupes.length ? 'var(--amber-lt)' : '#EBF5EE') + ';border-radius:var(--r-md);text-align:center"><span style="font-size:20px;font-weight:700;display:block;color:' + (dupes.length ? 'var(--amber)' : 'var(--sage)') + '">' + dupes.length + '</span><span style="font-size:11px;color:var(--g3)">Duplicates</span></div>';
+    html += '<div style="flex:1;padding:10px 14px;background:' + (warnings.length ? '#FEF3E2' : '#EBF5EE') + ';border-radius:var(--r-md);text-align:center"><span style="font-size:20px;font-weight:700;display:block;color:' + (warnings.length ? '#D4700A' : 'var(--sage)') + '">' + warnings.length + '</span><span style="font-size:11px;color:var(--g3)">Warnings</span></div>';
+    html += '</div>';
+
+    // Select all
+    html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">';
+    html += '<label style="font-size:12px;color:var(--g4);display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="import-select-all" checked onchange="document.querySelectorAll(\'.import-recipe-cb\').forEach(function(c){c.checked=this.checked}.bind(this))" /> Select all</label>';
+    html += '<span style="font-size:11px;color:var(--g3)">All imports set to <strong>Draft</strong> status</span>';
+    html += '</div>';
+
+    // Preview table
+    html += '<div style="max-height:280px;overflow-y:auto;border:1px solid var(--g2);border-radius:var(--r-md);margin-bottom:16px">';
+    html += '<table class="data-table" style="margin:0"><thead><tr><th style="width:30px"></th><th>Recipe</th><th>NPD</th><th>Brand</th><th>Type</th><th>Ing.</th><th>Steps</th><th>Status</th></tr></thead><tbody>';
+    recipes.forEach(function(r, idx) {
+      var rowBg = r._isDupe ? 'background:var(--amber-lt)' : (r._warnings.length ? 'background:#FEF9F0' : '');
+      html += '<tr style="cursor:pointer;' + rowBg + '" onclick="toggleImportDetail(' + idx + ')">';
+      html += '<td onclick="event.stopPropagation()"><input type="checkbox" class="import-recipe-cb" data-idx="' + idx + '" ' + (r._isDupe ? '' : 'checked') + ' /></td>';
+      html += '<td style="font-weight:500">' + r.name + '</td>';
+      html += '<td><span style="font-family:var(--font-m);font-size:12px">' + r.npd + '</span></td>';
+      html += '<td>' + r.brand + '</td>';
+      html += '<td>' + r.type + '</td>';
+      html += '<td style="font-family:var(--font-m);font-size:12px;text-align:center">' + r.ingredients.length + '</td>';
+      html += '<td style="font-family:var(--font-m);font-size:12px;text-align:center">' + r.method.length + '</td>';
+      html += '<td>';
+      if (r._isDupe) html += '<span style="background:var(--amber);color:white;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600">EXISTS</span>';
+      else if (r._warnings.length) html += '<span style="background:#FEF3E2;color:#D4700A;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600">WARN</span>';
+      else html += '<span style="background:#EBF5EE;color:#2D6A4F;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600">OK</span>';
+      html += '</td></tr>';
+      // Expandable detail row
+      html += '<tr id="import-detail-' + idx + '" style="display:none"><td colspan="8" style="padding:12px 16px;background:var(--g1);border-top:none">';
+      html += '<div style="display:flex;gap:20px;font-size:12px">';
+      html += '<div style="flex:1"><strong>Ingredients:</strong><br>' + (r.ingredients.length ? r.ingredients.map(function(ing){ return ing.name + ' (' + ing.pct + '%)'; }).join(', ') : '<em style="color:var(--g3)">None</em>') + '</div>';
+      html += '<div style="flex:1"><strong>Method:</strong><br>' + (r.method.length ? r.method.map(function(m,mi){ return (mi+1) + '. ' + m.title; }).join(', ') : '<em style="color:var(--g3)">None</em>') + '</div>';
+      html += '</div>';
+      if (r._warnings.length) {
+        html += '<div style="margin-top:8px;padding:6px 10px;background:#FEF3E2;border-radius:6px;font-size:11px;color:#D4700A">';
+        r._warnings.forEach(function(w){ html += '&#9888; ' + w + '&nbsp;&nbsp;'; });
+        html += '</div>';
+      }
+      if (r._isDupe) {
+        html += '<div style="margin-top:8px;padding:6px 10px;background:var(--amber-lt);border-radius:6px;font-size:11px;color:var(--amber)">Importing will overwrite the existing recipe at ' + r.npd + '</div>';
+      }
+      html += '</td></tr>';
+    });
+    html += '</tbody></table></div>';
+
+    // Buttons
+    html += '<div style="display:flex;gap:10px;justify-content:flex-end">';
+    html += '<button class="btn btn-outline" onclick="closeModal()">Cancel</button>';
+    html += '<button class="btn btn-outline" onclick="openImportRecipes()">Back</button>';
+    var checkedCount = recipes.filter(function(r){ return !r._isDupe; }).length;
+    html += '<button class="btn btn-gold" id="import-submit-btn" onclick="importStepConfirm()">Import ' + checkedCount + ' Recipe' + (checkedCount !== 1 ? 's' : '') + '</button>';
+    html += '</div>';
+
+    body.innerHTML = html;
+
+    // Live-update button count when checkboxes change
+    body.addEventListener('change', function(e) {
+      if (e.target.classList.contains('import-recipe-cb') || e.target.id === 'import-select-all') {
+        var checked = body.querySelectorAll('.import-recipe-cb:checked').length;
+        var btn = document.getElementById('import-submit-btn');
+        if (btn) btn.textContent = 'Import ' + checked + ' Recipe' + (checked !== 1 ? 's' : '');
+      }
+    });
+}
+
+function toggleImportDetail(idx) {
+  var row = document.getElementById('import-detail-' + idx);
+  if (row) row.style.display = row.style.display === 'none' ? '' : 'none';
+}
+
+function importStepConfirm() {
+  var checkboxes = document.querySelectorAll('.import-recipe-cb:checked');
+  if (!checkboxes.length) { showSaveToast('No recipes selected', true); return; }
+
+  // Mark selection state on each recipe
+  _pendingImportRecipes.forEach(function(r) { r._selected = false; });
+  var count = checkboxes.length;
+  var dupeCount = 0;
+  checkboxes.forEach(function(cb) {
+    var idx = parseInt(cb.getAttribute('data-idx'));
+    if (_pendingImportRecipes[idx]) {
+      _pendingImportRecipes[idx]._selected = true;
+      if (_pendingImportRecipes[idx]._isDupe) dupeCount++;
     }
-    previewHtml += '<p style="color:var(--g4);font-size:12px;margin-bottom:12px">' + recipes.length + ' recipe(s) found. Uncheck any you don\'t want to import. All imported recipes will be set to <strong>Draft</strong> status.</p>';
+  });
 
-    var previewDiv = document.getElementById('import-recipe-preview');
-    previewDiv.innerHTML = previewHtml;
-    previewDiv.style.display = 'block';
+  // Step 3 — confirmation
+  _importStep = 3;
+  var body = document.getElementById('import-wizard-body');
+  var html = _importStepIndicator(3);
 
-    // Swap buttons
-    var btnRow = previewDiv.parentElement.querySelector(':scope > div:last-child');
-    btnRow.innerHTML = '<button class="btn btn-outline" onclick="closeModal()">Cancel</button> <button class="btn btn-outline" onclick="openImportRecipes()">Back</button> <button class="btn btn-gold" onclick="confirmImportRecipes()">Import Selected</button>';
+  html += '<div style="text-align:center;padding:20px 0 10px">';
+  html += '<div style="font-size:40px;margin-bottom:12px">&#128230;</div>';
+  html += '<h3 style="font-family:var(--font-h);color:var(--navy);margin-bottom:8px">Ready to Import</h3>';
+  html += '<p style="color:var(--g4);font-size:13px;margin-bottom:20px">' + count + ' recipe' + (count !== 1 ? 's' : '') + ' will be added to RecipeHub as <strong>Draft</strong>.</p>';
+  html += '</div>';
+
+  if (dupeCount) {
+    html += '<div style="padding:10px 14px;background:var(--amber-lt);border:1px solid var(--amber);border-radius:var(--r-md);font-size:12px;color:var(--amber);margin-bottom:16px;text-align:center">';
+    html += '&#9888; ' + dupeCount + ' existing recipe' + (dupeCount !== 1 ? 's' : '') + ' will be overwritten.';
+    html += '</div>';
+  }
+
+  html += '<div style="display:flex;gap:10px;justify-content:center;margin-top:20px">';
+  html += '<button class="btn btn-outline" onclick="openImportRecipes()">Start Over</button>';
+  html += '<button class="btn btn-gold" style="min-width:180px;font-size:14px;padding:12px 24px" onclick="confirmImportRecipes()">Confirm Import</button>';
+  html += '</div>';
+
+  body.innerHTML = html;
 }
 
 function parseDFCRecipeTemplate(lines) {
@@ -6628,32 +7226,40 @@ function confirmImportRecipes() {
   var catMap = {Marinade:'cat-spice',Dip:'cat-dairy',Sauce:'cat-veg',Blend:'cat-spice',Seasoning:'cat-spice',Spread:'cat-oil',Dessert:'cat-dairy',Meat:'cat-spice',Dough:'cat-base',Coating:'cat-oil',Brine:'cat-veg',Garnish:'cat-veg'};
   var count = 0;
 
-  checkboxes.forEach(function(cb) {
-    if (!cb.checked) return;
-    var idx = parseInt(cb.getAttribute('data-idx'));
-    var r = _pendingImportRecipes[idx];
-    if (!r) return;
+  // If coming from step 3, checkboxes are in _pendingImportRecipes already
+  if (!checkboxes.length && _pendingImportRecipes.length) {
+    // Use all non-dupe recipes that were selected in step 2
+    _pendingImportRecipes.forEach(function(r) {
+      if (r._selected === false) return;
+      RECIPE_DB[r.npd] = {
+        name: r.name, npd: r.npd, brand: r.brand, type: r.type,
+        version: 'v1.0', costKg: null, status: 'draft', updated: 'Just now',
+        catClass: catMap[r.type] || 'cat-base', storage: r.storage, shelfLife: r.shelfLife, yield: r.yield,
+        ingredients: r.ingredients,
+        method: r.method.length ? r.method : [{title:'Step 1', text:'Add your first step here.'}],
+        sopSteps: [], tags: [],
+      };
+      count++;
+    });
+  } else {
+    checkboxes.forEach(function(cb) {
+      if (!cb.checked) return;
+      var idx = parseInt(cb.getAttribute('data-idx'));
+      var r = _pendingImportRecipes[idx];
+      if (!r) return;
+      r._selected = true;
 
-    RECIPE_DB[r.npd] = {
-      name: r.name,
-      npd: r.npd,
-      brand: r.brand,
-      type: r.type,
-      version: 'v1.0',
-      costKg: null,
-      status: 'draft',
-      updated: 'Just now',
-      catClass: catMap[r.type] || 'cat-base',
-      storage: r.storage,
-      shelfLife: r.shelfLife,
-      yield: r.yield,
-      ingredients: r.ingredients,
-      method: r.method.length ? r.method : [{title:'Step 1', text:'Add your first step here.'}],
-      sopSteps: [],
-      tags: [],
-    };
-    count++;
-  });
+      RECIPE_DB[r.npd] = {
+        name: r.name, npd: r.npd, brand: r.brand, type: r.type,
+        version: 'v1.0', costKg: null, status: 'draft', updated: 'Just now',
+        catClass: catMap[r.type] || 'cat-base', storage: r.storage, shelfLife: r.shelfLife, yield: r.yield,
+        ingredients: r.ingredients,
+        method: r.method.length ? r.method : [{title:'Step 1', text:'Add your first step here.'}],
+        sopSteps: [], tags: [],
+      };
+      count++;
+    });
+  }
 
   _pendingImportRecipes = [];
   if (count === 0) { showSaveToast('No recipes selected for import', true); return; }
@@ -6664,9 +7270,20 @@ function confirmImportRecipes() {
   updateDashboardStats();
   updateSidebarBadges();
   saveAllData();
-  closeModal();
-  showSaveToast(count + ' recipe(s) imported as Draft');
-  logActivity('recipe', '📥', count + ' external recipe(s) imported', 'Imported via CSV upload', 'npd');
+
+  // Show success in the modal before closing
+  var body = document.getElementById('import-wizard-body');
+  if (body) {
+    var html = '<div style="text-align:center;padding:40px 20px">';
+    html += '<div style="width:56px;height:56px;border-radius:50%;background:#EBF5EE;display:inline-flex;align-items:center;justify-content:center;margin-bottom:16px"><span style="font-size:28px;color:#2D6A4F">&#10003;</span></div>';
+    html += '<h3 style="font-family:var(--font-h);color:var(--navy);margin-bottom:8px">Import Complete</h3>';
+    html += '<p style="color:var(--g4);font-size:13px">' + count + ' recipe' + (count !== 1 ? 's' : '') + ' imported as <strong>Draft</strong>.</p>';
+    html += '<button class="btn btn-gold" style="margin-top:20px" onclick="closeModal()">Done</button>';
+    html += '</div>';
+    body.innerHTML = html;
+  }
+
+  logActivity('recipe', '&#128229;', count + ' external recipe(s) imported', 'Imported via CSV upload', 'npd');
 }
 
 // ──────────── VERSIONING ────────────
@@ -7025,6 +7642,10 @@ function editRecipe(npd) {
       </div>
     </div>
   `);
+  // Attach DB autocomplete to all existing ingredient name inputs
+  document.querySelectorAll('#er-ingredients .er-ing-row input[data-field="name"]').forEach(function(inp) {
+    ebsAutocomplete(inp);
+  });
 }
 
 let _erIngMode = 'pct';
@@ -8592,6 +9213,8 @@ function deleteRecipe(npd) {
 function confirmDeleteRecipe(npd) {
   var name = RECIPE_DB[npd] ? RECIPE_DB[npd].name : npd;
   delete RECIPE_DB[npd];
+  if (_deletedRecipeIds.indexOf(npd) === -1) _deletedRecipeIds.push(npd);
+  saveAllData();
   var tbody = document.getElementById('recipes-tbody');
   if (tbody) { tbody.innerHTML = ''; buildRecipesTable(); }
   closeModal();
@@ -11142,6 +11765,16 @@ var BRANCH_SOPS = [
   },
 ];
 
+// Branch SOP brand colors (must be before init calls)
+var BSOP_BRAND_COLORS = {
+  'Maestro': '#27AE60',
+  'Pinzatta': '#E84393',
+  'Tivo': '#6C3483',
+  'Telliano': '#D4930A',
+  'Mano di Pasta': '#1B2A4A',
+  'Mad': '#C0392B'
+};
+
 // Load saved data now that all data arrays are declared
 loadAllData();
 
@@ -11181,10 +11814,46 @@ updateDashboardStats();
 updateSidebarBadges();
 applySidebarPermissions();
 
+// Sync from server after init (async — UI is already loaded from localStorage)
+syncFromServer();
+// Re-sync every 30 seconds to pick up changes from other users
+setInterval(syncFromServer, 30000);
+
 function getBranchSOPAllergenNutritionPrintHTML(sop) {
   var info = getBranchSOPAllergenNutritionData(sop);
-  if (!info.allergens.length && !info.nutrition) return '';
-  var html = '<div style="display:flex;gap:24px;padding:12px 20px;border-top:2px solid #ddd;font-size:11px">';
+  var build = sop.buildRef ? BUILDS_DATA.find(function(b){ return b.id === sop.buildRef; }) : null;
+  var components = build && build.components ? build.components : [];
+  var html = '';
+
+  // Components table for print (with shelf life)
+  var _bc = BSOP_BRAND_COLORS[sop.brand] || '#1B2A4A';
+  var _csl = sop.componentShelfLife || {};
+  if (components.length) {
+    html += '<div style="padding:10px 20px;border-top:2px solid ' + _bc + '">';
+    html += '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:' + _bc + ';margin-bottom:6px">Components</div>';
+    html += '<table style="width:100%;font-size:10px;border-collapse:collapse">';
+    html += '<thead><tr style="border-bottom:1px solid #ddd">' +
+      '<th style="text-align:left;padding:3px 6px;color:#888;font-weight:600">Type</th>' +
+      '<th style="text-align:left;padding:3px 6px;color:#888;font-weight:600">Item</th>' +
+      '<th style="text-align:right;padding:3px 6px;color:#888;font-weight:600">Weight</th>' +
+      '<th style="text-align:left;padding:3px 6px;color:#888;font-weight:600">Tool / Qty</th>' +
+      '<th style="text-align:left;padding:3px 6px;color:#888;font-weight:600">2nd Shelf Life</th>' +
+    '</tr></thead><tbody>';
+    components.forEach(function(c) {
+      var sl = _csl[c.item] || '—';
+      html += '<tr style="border-bottom:1px solid #eee">' +
+        '<td style="padding:3px 6px;color:#888">' + c.type + '</td>' +
+        '<td style="padding:3px 6px;font-weight:500">' + c.item + '</td>' +
+        '<td style="padding:3px 6px;text-align:right;color:#666">' + (c.weight||'') + '</td>' +
+        '<td style="padding:3px 6px;color:#888">' + (c.toolQty ? (c.tool ? c.tool + ' — ' : '') + c.toolQty : (c.tool||'')) + '</td>' +
+        '<td style="padding:3px 6px;color:' + (sl !== '—' ? _bc : '#ccc') + ';font-weight:' + (sl !== '—' ? '600' : '400') + '">' + sl + '</td>' +
+      '</tr>';
+    });
+    html += '</tbody></table></div>';
+  }
+
+  if (!info.allergens.length && !info.nutrition) return html;
+  html += '<div style="display:flex;gap:24px;padding:12px 20px;border-top:2px solid #ddd;font-size:11px">';
   html += '<div style="flex:1"><strong style="color:#b8820a">⚠ Allergens:</strong> ';
   if (info.allergens.length) {
     html += info.allergens.map(function(a) { return '<span style="display:inline-block;padding:1px 6px;border-radius:20px;font-size:9px;font-weight:600;background:'+(ALLERGEN_COLORS[a]||'#666')+';color:white;margin:1px">'+a+'</span>'; }).join(' ');
@@ -11221,46 +11890,85 @@ function getBranchSOPAllergenNutritionHTML(sop) {
   var info = getBranchSOPAllergenNutritionData(sop);
   var allergens = info.allergens;
   var mainNutrition = info.nutrition;
+  var build = sop.buildRef ? BUILDS_DATA.find(function(b){ return b.id === sop.buildRef; }) : null;
+  if (!build) build = BUILDS_DATA.find(function(b){ return b.name === sop.name; }) || null;
+  var components = build && build.components ? build.components : [];
 
-  if (!allergens.length && !mainNutrition) return '';
+  if (!allergens.length && !mainNutrition && !components.length) return '';
 
-  var html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0;border-top:2px solid var(--g2)">';
+  var html = '';
 
-  // Allergens column
-  html += '<div style="padding:16px 20px;border-right:1px solid var(--g2)">';
-  html += '<div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:var(--amber);margin-bottom:8px">⚠ Allergens</div>';
-  if (allergens.length) {
-    html += renderAllergenBadges(allergens);
-  } else {
-    html += '<span style="font-size:11px;color:var(--g3)">No allergens detected</span>';
-  }
-  html += '</div>';
-
-  // Nutrition column
-  html += '<div style="padding:16px 20px">';
-  html += '<div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:var(--sage);margin-bottom:8px">🥗 Nutrition (per 100g)</div>';
-  if (mainNutrition) {
-    var rows = [
-      {label:'Energy', val:mainNutrition.energy, unit:'kcal'},
-      {label:'Protein', val:mainNutrition.protein, unit:'g'},
-      {label:'Total Fat', val:mainNutrition.fat, unit:'g'},
-      {label:'Carbs', val:mainNutrition.carbs, unit:'g'},
-      {label:'Fibre', val:mainNutrition.fibre, unit:'g'},
-      {label:'Sodium', val:mainNutrition.sodium, unit:'mg'},
-    ];
+  // Components row (full width)
+  if (components.length) {
+    html += '<div style="border-top:2px solid var(--g2);padding:16px 20px">';
+    html += '<div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:var(--navy);margin-bottom:10px">Components</div>';
     html += '<table style="width:100%;font-size:12px;border-collapse:collapse">';
-    rows.forEach(function(r) {
-      if (r.val) {
-        html += '<tr><td style="padding:3px 0;color:var(--g4)">' + r.label + '</td><td style="padding:3px 0;text-align:right;font-family:var(--font-m);font-weight:500">' + r.val + ' ' + r.unit + '</td></tr>';
-      }
+    var _csl = sop.componentShelfLife || {};
+    var _slOptions = ['','4 Hours','8 Hours','12 Hours','24 Hours','2 Days','3 Days','5 Days','7 Days','14 Days','1 Month','3 Months','6 Months','Custom'];
+    html += '<thead><tr style="border-bottom:1px solid var(--g2)">' +
+      '<th style="text-align:left;padding:4px 8px;font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:var(--g3);font-weight:600">Type</th>' +
+      '<th style="text-align:left;padding:4px 8px;font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:var(--g3);font-weight:600">Item</th>' +
+      '<th style="text-align:right;padding:4px 8px;font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:var(--g3);font-weight:600">Weight</th>' +
+      '<th style="text-align:left;padding:4px 8px;font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:var(--g3);font-weight:600">Tool / Qty</th>' +
+      '<th style="text-align:left;padding:4px 8px;font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:var(--g3);font-weight:600">2nd Shelf Life</th>' +
+    '</tr></thead><tbody>';
+    components.forEach(function(c, ci) {
+      var _curSL = _csl[c.item] || '';
+      var _isCustom = _curSL && _slOptions.indexOf(_curSL) === -1;
+      html += '<tr style="border-bottom:1px solid var(--g1)">' +
+        '<td style="padding:5px 8px;color:var(--g3);font-weight:500">' + c.type + '</td>' +
+        '<td style="padding:5px 8px;font-weight:500;color:var(--g5)">' + c.item + '</td>' +
+        '<td style="padding:5px 8px;text-align:right;font-family:var(--font-m);color:var(--g4)">' + (c.weight||'') + '</td>' +
+        '<td style="padding:5px 8px;font-size:11px;color:var(--g3)">' + (c.toolQty ? (c.tool ? c.tool + ' — ' : '') + c.toolQty : (c.tool||'')) + '</td>' +
+        '<td style="padding:5px 8px"><select style="padding:3px 6px;border:1px solid var(--g2);border-radius:var(--r-sm);font-size:11px;font-family:var(--font-b);color:' + (_curSL ? 'var(--sage)' : 'var(--g3)') + ';background:white;cursor:pointer" onchange="setComponentShelfLife(\'' + sop.id + '\',\'' + c.item.replace(/'/g,"\\'") + '\',this)">' +
+          _slOptions.map(function(o) { return '<option value="' + o + '"' + (o === _curSL || (_isCustom && o === 'Custom') ? ' selected' : '') + '>' + (o || '— set —') + '</option>'; }).join('') +
+          (_isCustom ? '<option value="' + _curSL + '" selected>' + _curSL + '</option>' : '') +
+        '</select></td>' +
+      '</tr>';
     });
-    html += '</table>';
-  } else {
-    html += '<span style="font-size:11px;color:var(--g3)">No nutrition data — link a build with recipe references</span>';
+    html += '</tbody></table></div>';
   }
-  html += '</div>';
 
-  html += '</div>';
+  if (allergens.length || mainNutrition) {
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0;border-top:2px solid var(--g2)">';
+
+    // Allergens column
+    html += '<div style="padding:16px 20px;border-right:1px solid var(--g2)">';
+    html += '<div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:var(--amber);margin-bottom:8px">⚠ Allergens</div>';
+    if (allergens.length) {
+      html += renderAllergenBadges(allergens);
+    } else {
+      html += '<span style="font-size:11px;color:var(--g3)">No allergens detected</span>';
+    }
+    html += '</div>';
+
+    // Nutrition column
+    html += '<div style="padding:16px 20px">';
+    html += '<div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:var(--sage);margin-bottom:8px">🥗 Nutrition (per 100g)</div>';
+    if (mainNutrition) {
+      var rows = [
+        {label:'Energy', val:mainNutrition.energy, unit:'kcal'},
+        {label:'Protein', val:mainNutrition.protein, unit:'g'},
+        {label:'Total Fat', val:mainNutrition.fat, unit:'g'},
+        {label:'Carbs', val:mainNutrition.carbs, unit:'g'},
+        {label:'Fibre', val:mainNutrition.fibre, unit:'g'},
+        {label:'Sodium', val:mainNutrition.sodium, unit:'mg'},
+      ];
+      html += '<table style="width:100%;font-size:12px;border-collapse:collapse">';
+      rows.forEach(function(r) {
+        if (r.val) {
+          html += '<tr><td style="padding:3px 0;color:var(--g4)">' + r.label + '</td><td style="padding:3px 0;text-align:right;font-family:var(--font-m);font-weight:500">' + r.val + ' ' + r.unit + '</td></tr>';
+        }
+      });
+      html += '</table>';
+    } else {
+      html += '<span style="font-size:11px;color:var(--g3)">No nutrition data — link a build with recipe references</span>';
+    }
+    html += '</div>';
+
+    html += '</div>';
+  }
+
   return html;
 }
 
@@ -11280,7 +11988,7 @@ function buildBranchSOPTable() {
     tr.innerHTML = `
       <td><strong>${sop.name}</strong>${buildDiscontinued ? ' <span style="font-size:10px;color:var(--red);font-weight:500">DISCONTINUED</span>' : ''}</td>
       <td style="font-family:var(--font-m);font-size:12px;color:var(--g3)">${sop.id}</td>
-      <td>${sop.brand}</td>
+      <td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${BSOP_BRAND_COLORS[sop.brand]||'#1B2A4A'};margin-right:6px;vertical-align:middle"></span>${sop.brand}</td>
       <td style="font-size:12px;color:var(--g4)">${sop.version}</td>
       <td style="font-size:12px;color:var(--g4)">${sop.steps.length} steps</td>
       <td><span class="badge ${statusMap[sop.status]||'badge-draft'}">${statusLabel[sop.status]||'Draft'}</span></td>
@@ -11319,8 +12027,7 @@ function viewBranchSOP(id) {
   detail.style.display = 'block';
 
   // Brand colors
-  const brandColors = getBrandColors();
-  const brandColor = brandColors[sop.brand] || '#1B2A4A';
+  const brandColor = BSOP_BRAND_COLORS[sop.brand] || '#1B2A4A';
 
   content.innerHTML = `
     <button class="btn btn-outline btn-sm" onclick="document.getElementById('bsop-detail').style.display='none'" style="margin-bottom:14px">← Back to List</button>
@@ -11367,6 +12074,26 @@ function viewBranchSOP(id) {
     </div>
   `;
   applyRoleRestrictions();
+}
+
+function setComponentShelfLife(sopId, itemName, selectEl) {
+  var sop = BRANCH_SOPS.find(function(s) { return s.id === sopId; });
+  if (!sop) return;
+  var val = selectEl.value;
+  if (val === 'Custom') {
+    var custom = prompt('Enter custom shelf life (e.g. "6 Hours", "2 Days at 4°C"):');
+    if (!custom) { selectEl.value = (sop.componentShelfLife && sop.componentShelfLife[itemName]) || ''; return; }
+    val = custom;
+  }
+  if (!sop.componentShelfLife) sop.componentShelfLife = {};
+  if (val) {
+    sop.componentShelfLife[itemName] = val;
+    selectEl.style.color = 'var(--sage)';
+  } else {
+    delete sop.componentShelfLife[itemName];
+    selectEl.style.color = 'var(--g3)';
+  }
+  saveAllData();
 }
 
 function uploadBranchSOPPhoto(sopId, stepIdx, input) {
@@ -11569,8 +12296,7 @@ function deleteBranchSOP(id) {
 function printBranchSOP(id) {
   var sop = BRANCH_SOPS.find(s => s.id === id);
   if (!sop) return;
-  var brandColors = getBrandColors();
-  var bc = brandColors[sop.brand] || '#1B2A4A';
+  var bc = BSOP_BRAND_COLORS[sop.brand] || '#1B2A4A';
   var stepsHTML = sop.steps.map(function(step,i) {
     return '<div style="border:2px solid '+bc+';background:white;overflow:hidden">' +
       '<div style="width:100%;aspect-ratio:1;background:#f0f0f0;display:flex;align-items:center;justify-content:center;overflow:hidden">' +
