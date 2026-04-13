@@ -663,16 +663,16 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
   </div>
   <div class="nav-section-label">Main</div>
   <button class="nav-item active" data-page="dashboard" onclick="nav('dashboard')">
-    <span class="nav-icon">⊞</span> Dashboard
+    <span class="nav-icon">⊞</span> Overview
   </button>
   <button class="nav-item" data-page="recipes" onclick="nav('recipes')">
     <span class="nav-icon">◈</span> Recipes <span class="nav-badge" id="nav-badge-recipes"></span>
   </button>
-  <button class="nav-item" data-page="ingredients" onclick="nav('ingredients')">
-    <span class="nav-icon">⬡</span> Ingredients DB
-  </button>
   <button class="nav-item" data-page="builds" onclick="nav('builds')">
     <span class="nav-icon">▦</span> Product Builds
+  </button>
+  <button class="nav-item" data-page="ingredients" onclick="nav('ingredients')">
+    <span class="nav-icon">⬡</span> Ingredients DB
   </button>
 
   <div class="nav-section-label">Quality & Production</div>
@@ -694,21 +694,27 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
     <span class="nav-icon">📊</span> Recipe Analytics
   </button>
   <button class="nav-item" data-page="builds-costing" onclick="nav('builds-costing')">
-    <span class="nav-icon">🍕</span> Builds Costing
-  </button>
-  <button class="nav-item" data-page="cost-control" onclick="nav('cost-control')">
-    <span class="nav-icon">◎</span> KPI & Goals
+    <span class="nav-icon">🍕</span> Build Analytics
   </button>
   <button class="nav-item" data-page="brands" onclick="nav('brands')">
     <span class="nav-icon">◎</span> Brands
+  </button>
+  <button class="nav-item" data-page="cost-control" onclick="nav('cost-control')">
+    <span class="nav-icon">◎</span> KPI & Goals
   </button>
 
   <div class="nav-section-label">Settings</div>
   <button class="nav-item" data-page="workflow" onclick="nav('workflow')">
     <span class="nav-icon">⟳</span> Workflow
   </button>
+  <button class="nav-item" data-page="comms" onclick="nav('comms')">
+    <span class="nav-icon">✉</span> Communications
+  </button>
+  <button class="nav-item" data-page="library" onclick="nav('library')">
+    <span class="nav-icon">📁</span> Library
+  </button>
   <button class="nav-item" data-page="users" onclick="nav('users')">
-    <span class="nav-icon">◉</span> Users <span class="nav-badge" id="nav-badge-users"></span>
+    <span class="nav-icon">◉</span> Users & Access <span class="nav-badge" id="nav-badge-users"></span>
   </button>
 
   </div><!-- end nav scroll -->
@@ -719,14 +725,6 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
     </button>
     <div id="save-status" style="font-size:9px;color:rgba(255,255,255,0.3);text-align:center;margin-top:4px"></div>
     <div style="font-size:8px;text-align:center;margin-top:2px;font-family:var(--font-m)"><span style="color:rgba(255,255,255,0.2)">v2.2.0 · build 20260412</span> · <span id="sync-status" style="color:rgba(255,255,255,0.3)">...</span></div>
-    <div style="display:flex;gap:6px;margin-top:6px">
-      <button onclick="exportBackup()" style="flex:1;padding:5px;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,0.1);background:none;color:rgba(255,255,255,0.4);font-family:var(--font-b);font-size:10px;cursor:pointer" onmouseover="this.style.color='rgba(255,255,255,0.7)'" onmouseout="this.style.color='rgba(255,255,255,0.4)'">📥 Export</button>
-      <label style="flex:1;padding:5px;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,0.1);background:none;color:rgba(255,255,255,0.4);font-family:var(--font-b);font-size:10px;cursor:pointer;text-align:center" onmouseover="this.style.color='rgba(255,255,255,0.7)'" onmouseout="this.style.color='rgba(255,255,255,0.4)'">📤 Import<input type="file" accept=".json" style="display:none" onchange="importBackup(this)" /></label>
-    </div>
-    <div id="stress-test-btns" style="display:flex;gap:6px;margin-top:4px">
-      <button onclick="loadStressTest('generate')" style="flex:1;padding:5px;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,0.08);background:none;color:rgba(255,255,255,0.25);font-family:var(--font-b);font-size:9px;cursor:pointer" onmouseover="this.style.color='rgba(255,255,255,0.6)'" onmouseout="this.style.color='rgba(255,255,255,0.25)'">🧪 Stress</button>
-      <button onclick="loadStressTest('cleanup')" style="flex:1;padding:5px;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,0.08);background:none;color:rgba(255,255,255,0.25);font-family:var(--font-b);font-size:9px;cursor:pointer" onmouseover="this.style.color='rgba(255,255,255,0.6)'" onmouseout="this.style.color='rgba(255,255,255,0.25)'">🧹 Cleanup</button>
-      <button onclick="loadStressTest('report')" style="flex:1;padding:5px;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,0.08);background:none;color:rgba(255,255,255,0.25);font-family:var(--font-b);font-size:9px;cursor:pointer" onmouseover="this.style.color='rgba(255,255,255,0.6)'" onmouseout="this.style.color='rgba(255,255,255,0.25)'">📊 Report</button>
     </div>
   </div>
 
@@ -928,14 +926,13 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
       <input class="search-input" placeholder="Search ingredients, suppliers, codes…" id="ing-search" oninput="filterIngredients()" />
     </div>
     <select class="filter-select" id="ing-filter-cat" onchange="filterIngredients()"><option>All Categories</option><option>Spice / Herb</option><option>Base / Starch</option><option>Oil / Fat</option><option>Acid</option><option>Dairy</option><option>Vegetable</option><option>Additive</option><option>Packaging</option></select>
-    <select class="filter-select" id="ing-filter-supplier" onchange="filterIngredients()"><option>All Sources</option><option>Oracle EBS</option><option>Al Barakah Spices</option><option>Golden Mills</option><option>Sharq Vinegar Co.</option><option>SABIC Salt</option><option>Givaudan</option><option>Bonafide</option><option>Takasago</option><option>Al Marai</option><option>Al Khaleej Sugar</option><option>Cargill</option></select>
   </div>
 
   <div class="card">
     <div class="card-body" style="padding:0">
       <table class="data-table">
         <thead><tr>
-          <th>#</th><th>Ingredient Name</th><th>Source</th><th>Item Code</th><th>Category</th><th>Cost / kg</th><th>Storage (°C)</th><th>Allergens</th><th>Last Updated</th><th></th>
+          <th>#</th><th>Ingredient Name</th><th>Vendor</th><th>Item Code</th><th>Category</th><th>Cost</th><th>UOM</th><th>Cost/kg</th><th>Storage</th><th></th>
         </tr></thead>
         <tbody id="ing-db-tbody">
           <!-- populated by JS -->
@@ -1053,6 +1050,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
       <div class="card-head" style="background:var(--sage-lt)">
         <span class="card-title" style="color:var(--sage)">Nutrition — per 100g</span>
         <div style="display:flex;gap:6px;align-items:center">
+          <button class="btn btn-outline btn-sm" style="font-size:10px;color:var(--sage);border-color:var(--sage)" onclick="calcRecipeNutritionUSDA()">USDA Auto</button>
           <button class="btn btn-outline btn-sm" onclick="toggleQAEdit(this)">Edit</button>
           <button class="btn btn-outline btn-sm" onclick="saveNutrition()">Save</button>
         </div>
@@ -1347,12 +1345,16 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
       <input class="search-input" placeholder="Search branch SOPs…" id="bsop-search" oninput="filterBranchSOPs()" />
     </div>
     <select class="filter-select" id="bsop-filter-brand" onchange="filterBranchSOPs()"><option>All Brands</option></select>
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--g4);cursor:pointer;margin-left:auto">
+      <input type="checkbox" id="bsop-show-archived" onchange="buildBranchSOPTable()" /> Show Archived
+    </label>
   </div>
 
   <div class="card">
     <div class="card-head">
       <span class="card-title">Branch SOPs</span>
       <span style="font-size:11px;color:var(--g3)" id="bsop-count-label"></span>
+      <span style="font-size:11px;color:var(--g3);margin-left:4px" id="bsop-archived-label"></span>
     </div>
     <div class="card-body" style="padding:0">
       <table class="data-table">
@@ -1436,7 +1438,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
   <div style="margin:0 0 20px;padding:16px 20px;background:linear-gradient(135deg,#1a0a28,#2a1240);border-radius:14px;border:1px solid rgba(160,120,200,0.15);display:flex;align-items:center;gap:14px">
     <div style="width:36px;height:36px;border-radius:10px;background:rgba(160,120,200,0.12);display:flex;align-items:center;justify-content:center;font-size:18px">🍕</div>
     <div>
-      <div style="font-size:16px;font-weight:700;color:white">Product Builds Costing</div>
+      <div style="font-size:16px;font-weight:700;color:white">Build Analytics</div>
       <div style="font-size:11px;color:var(--g4)">Track build costs, compare brands, find optimization targets</div>
     </div>
     <div style="margin-left:auto" id="rpt-builds-summary"></div>
@@ -1602,12 +1604,16 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
     <select class="filter-select" id="build-filter-type" onchange="filterBuilds()"><option>All Types</option><option>Pizza</option><option>Sandwich</option><option>Pasta</option><option>Salad</option><option>Wrap</option><option>Dessert</option><option>Side Dish</option></select>
     <select class="filter-select" id="build-filter-size" onchange="filterBuilds()"><option>All Sizes</option><option>Small</option><option>Medium</option><option>Large</option><option>Piano</option></select>
     <select class="filter-select" id="build-filter-active" onchange="filterBuilds()"><option>All</option><option>Active</option><option>Discontinued</option></select>
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--g4);cursor:pointer;margin-left:auto">
+      <input type="checkbox" id="builds-show-archived" onchange="buildBuildsTable()" /> Show Archived
+    </label>
   </div>
 
   <div class="card">
     <div class="card-head">
       <span class="card-title">All Product Builds</span>
       <span style="font-size:11px;color:var(--g3)" id="builds-count-label"></span>
+      <span style="font-size:11px;color:var(--g3);margin-left:4px" id="builds-archived-label"></span>
     </div>
     <div class="card-body" style="padding:0">
       <table class="data-table">
@@ -1635,7 +1641,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
     </div>
 
     <!-- Main Flow -->
-    <div style="display:flex;align-items:flex-start;gap:0;justify-content:center;margin-bottom:40px;flex-wrap:wrap">
+    <div style="display:flex;align-items:flex-start;gap:0;justify-content:center;margin-bottom:40px">
 
       <!-- Draft -->
       <div style="text-align:center;width:140px">
@@ -2047,42 +2053,35 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
   <div id="invite-form" style="display:none;margin-top:20px">
     <div class="card" style="border:2px solid var(--navy)">
       <div class="card-head" style="background:var(--navy)">
-        <span class="card-title" style="color:white">Send Invitation Link</span>
-        <button class="btn btn-sm" style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:none" onclick="toggleInviteForm()">✕ Close</button>
+        <span class="card-title" style="color:white">Add User</span>
+        <button class="btn btn-sm" style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:none" onclick="toggleInviteForm()">✕</button>
       </div>
-      <div class="card-body">
-        <div style="background:var(--navy-lt);border-radius:var(--r-md);padding:12px 16px;margin-bottom:20px;font-size:12px;color:var(--navy);border-left:3px solid var(--navy)">
-          The user will receive a link and fill in their own details (name, email, phone, department). You approve or reject once they submit.
-        </div>
-        <div class="form-grid form-grid-2" style="margin-bottom:16px">
+      <div class="card-body" style="padding:20px">
+        <div class="form-grid form-grid-3" style="margin-bottom:16px">
           <div class="form-group">
-            <label class="form-label">Email to invite <span style="color:var(--red)">*</span></label>
+            <label class="form-label">Name <span style="color:var(--red)">*</span></label>
+            <input class="form-input" placeholder="e.g. Ahmed Al-Rashid" id="inv-name" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email <span style="color:var(--red)">*</span></label>
             <input class="form-input" type="email" placeholder="name@dailyfoodsa.com" id="inv-email" />
           </div>
           <div class="form-group">
-            <label class="form-label">Suggested Role <span style="color:var(--red)">*</span></label>
-            <select class="form-select" id="inv-role" onchange="handleRoleChange()">
+            <label class="form-label">Role <span style="color:var(--red)">*</span></label>
+            <select class="form-select" id="inv-role">
               <option value="">Select role…</option>
-              <option value="npd">NPD — Recipe Developer</option>
-              <option value="qa">QA — Quality & Lab</option>
-              <option value="factory">Factory — Production</option>
-              <option value="purchasing">Purchasing — Pricing & Supply</option>
-              <option value="admin">Admin — Full Access</option>
-              <option value="viewer">Viewer — Read Only</option>
+              <option value="npd">R&D</option>
+              <option value="qa">QA</option>
+              <option value="factory">Factory</option>
+              <option value="purchasing">Purchasing</option>
+              <option value="admin">Admin</option>
+              <option value="viewer">Viewer</option>
             </select>
           </div>
         </div>
-        <div class="form-group" style="margin-bottom:20px">
-          <label class="form-label">Brand Access</label>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px" id="inv-brands"></div>
-          <div style="font-size:11px;color:var(--g3);margin-top:6px" id="inv-brand-note">Select which brands this user can access.</div>
-        </div>
         <div style="display:flex;gap:10px;justify-content:flex-end">
           <button class="btn btn-outline" onclick="toggleInviteForm()">Cancel</button>
-          <button class="btn btn-gold" onclick="sendInvite()">Send Invitation Link</button>
-        </div>
-        <div id="inv-success" style="display:none;background:var(--sage-lt);border:1px solid var(--sage-mid);border-radius:var(--r-md);padding:14px 18px;margin-top:16px;font-size:13px;color:var(--sage);font-weight:500">
-          ✓ Invitation sent — the user will receive a link to complete their profile.
+          <button class="btn btn-gold" onclick="quickAddUser()">Add User</button>
         </div>
       </div>
     </div>
@@ -2115,55 +2114,6 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
     </div>
   </div>
 
-  <!-- Registration form preview -->
-  <div style="margin-top:28px">
-    <div style="font-size:10px;font-weight:500;letter-spacing:0.12em;text-transform:uppercase;color:var(--g3);margin-bottom:12px">What the user sees — registration form sent via invite link</div>
-    <div class="card" style="border:1.5px dashed var(--g2)">
-      <div style="background:var(--navy);padding:20px 28px 16px">
-        <div style="font-family:var(--font-d);font-size:22px;font-weight:500;color:white;font-weight:700">Recipe<span style="color:var(--gold-mid)">Hub</span></div>
-        <div style="font-size:13px;color:rgba(255,255,255,0.45);margin-top:4px">Complete your profile to request access</div>
-      </div>
-      <div class="card-body" style="padding:28px">
-        <div style="background:var(--navy-lt);border-left:3px solid var(--navy);border-radius:0 var(--r-md) var(--r-md) 0;padding:12px 16px;margin-bottom:24px;font-size:12px;color:var(--navy)">
-          You have been invited to join RecipeHub by <strong>Caterina Loduca</strong> — Daily Food SA. Complete your details below. Your request will be reviewed and you will be notified once approved.
-        </div>
-        <div class="form-grid form-grid-2" style="margin-bottom:16px">
-          <div class="form-group"><label class="form-label">First Name <span style="color:var(--red)">*</span></label><input class="form-input" placeholder="Ahmed" id="reg-fname" /></div>
-          <div class="form-group"><label class="form-label">Last Name <span style="color:var(--red)">*</span></label><input class="form-input" placeholder="Al-Rashid" id="reg-lname" /></div>
-        </div>
-        <div class="form-grid form-grid-2" style="margin-bottom:16px">
-          <div class="form-group">
-            <label class="form-label">Email Address <span style="color:var(--red)">*</span></label>
-            <input class="form-input" type="email" placeholder="ahmed@dailyfoodsa.com" id="reg-email" />
-            <div style="font-size:11px;color:var(--g3);margin-top:4px">Must match your invitation email</div>
-          </div>
-          <div class="form-group"><label class="form-label">Phone Number <span style="color:var(--red)">*</span></label><input class="form-input" type="tel" placeholder="+966 5X XXX XXXX" id="reg-phone" /></div>
-        </div>
-        <div class="form-grid form-grid-2" style="margin-bottom:16px">
-          <div class="form-group">
-            <label class="form-label">Department <span style="color:var(--red)">*</span></label>
-            <select class="form-select" id="reg-dept">
-              <option value="">Select your department…</option>
-              <option>NPD — New Product Development</option>
-              <option>Quality Assurance</option>
-              <option>Production / Factory</option>
-              <option>Purchasing</option>
-              <option>Operations</option>
-              <option>Management</option>
-            </select>
-          </div>
-          <div class="form-group"><label class="form-label">Job Title <span style="color:var(--red)">*</span></label><input class="form-input" placeholder="e.g. Senior Food Technologist" id="reg-title" /></div>
-        </div>
-        <div style="border-top:1px solid var(--g2);padding-top:20px;display:flex;align-items:center;justify-content:space-between;gap:16px">
-          <div style="font-size:11px;color:var(--g3)">Your information is only visible to your organisation admin.</div>
-          <button class="btn btn-gold" onclick="submitReg()">Submit Request</button>
-        </div>
-        <div id="reg-success" style="display:none;background:var(--sage-lt);border:1px solid var(--sage-mid);border-radius:var(--r-md);padding:14px 18px;margin-top:16px;text-align:center">
-          <div style="font-size:18px;color:var(--sage);margin-bottom:4px">✓</div>
-          <div style="font-weight:500;color:var(--sage);font-size:13px">Request submitted — you will be notified once approved.</div>
-        </div>
-      </div>
-    </div>
   </div>
 </div>
 
@@ -2175,6 +2125,112 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
     <button class="btn btn-outline btn-sm" onclick="nav('recipes')">← Back to Recipes</button>
   </div>
   <div id="recipe-detail-content"></div>
+</div>
+
+<!-- COMMUNICATIONS PAGE -->
+<div id="page-comms" class="page-hidden">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px">
+
+    <!-- Compose -->
+    <div class="card">
+      <div class="card-head" style="background:var(--navy)">
+        <span class="card-title" style="color:white">✉ Compose Message</span>
+      </div>
+      <div class="card-body" style="padding:20px">
+        <div class="form-group" style="margin-bottom:14px">
+          <label class="form-label">Send to</label>
+          <select class="form-select" id="comms-to" onchange="updateCommsRecipients()">
+            <option value="">— Select —</option>
+            <option value="all">Everyone</option>
+            <option value="npd">All R&D</option>
+            <option value="qa">All QA</option>
+            <option value="factory">All Factory</option>
+            <option value="purchasing">All Purchasing</option>
+            <option value="individual">Individual...</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom:14px;display:none" id="comms-individual-wrap">
+          <label class="form-label">Select person</label>
+          <select class="form-select" id="comms-individual"></select>
+        </div>
+        <div id="comms-recipients-preview" style="font-size:11px;color:var(--g3);margin-bottom:14px"></div>
+        <div class="form-group" style="margin-bottom:14px">
+          <label class="form-label">Regarding recipe (optional)</label>
+          <select class="form-select" id="comms-recipe">
+            <option value="">— None —</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom:14px">
+          <label class="form-label">Subject</label>
+          <input class="form-input" id="comms-subject" placeholder="e.g. QA results for Hasawi Marinade" />
+        </div>
+        <div class="form-group" style="margin-bottom:16px">
+          <label class="form-label">Message</label>
+          <textarea class="form-textarea" id="comms-body" style="min-height:120px" placeholder="Type your message..."></textarea>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          <button class="btn btn-outline" onclick="clearCommsForm()">Clear</button>
+          <button class="btn btn-gold" onclick="sendCommsMessage()">Send Email</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Message Log -->
+    <div class="card">
+      <div class="card-head">
+        <span class="card-title">Message Log</span>
+        <span style="font-size:11px;color:var(--g3)" id="comms-log-count"></span>
+      </div>
+      <div class="card-body" style="padding:0;max-height:500px;overflow-y:auto">
+        <div id="comms-log-list"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- LIBRARY PAGE -->
+<div id="page-library" class="page-hidden">
+  <div class="filter-bar">
+    <div class="search-wrap">
+      <span class="search-icon">⌕</span>
+      <input class="search-input" placeholder="Search documents…" id="lib-search" oninput="filterLibrary()" />
+    </div>
+    <select class="filter-select" id="lib-filter-cat" onchange="filterLibrary()">
+      <option>All Categories</option>
+      <option>Old Recipes</option>
+      <option>Lab Reports</option>
+      <option>Supplier Specs</option>
+      <option>Training</option>
+      <option>Compliance</option>
+      <option>Other</option>
+    </select>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <span class="card-title">Document Library</span>
+      <span style="font-size:11px;color:var(--g3)" id="lib-count"></span>
+    </div>
+    <div class="card-body" style="padding:0">
+      <div id="lib-upload-zone" style="padding:20px;border-bottom:1px solid var(--g2);display:none">
+        <div class="form-grid form-grid-3" style="margin-bottom:12px">
+          <div class="form-group"><label class="form-label">Document Title <span style="color:var(--red)">*</span></label><input class="form-input" id="lib-title" placeholder="e.g. Original Hasawi Marinade Recipe" /></div>
+          <div class="form-group"><label class="form-label">Category</label><select class="form-select" id="lib-cat"><option>Old Recipes</option><option>Lab Reports</option><option>Supplier Specs</option><option>Training</option><option>Compliance</option><option>Other</option></select></div>
+          <div class="form-group"><label class="form-label">File <span style="color:var(--red)">*</span></label><input type="file" accept=".pdf,.xlsx,.xls,.csv,.doc,.docx,.png,.jpg" id="lib-file" class="form-input" style="padding:6px" /></div>
+        </div>
+        <div class="form-group" style="margin-bottom:12px"><label class="form-label">Notes</label><input class="form-input" id="lib-notes" placeholder="Optional description or context" /></div>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button class="btn btn-outline btn-sm" onclick="toggleLibUpload()">Cancel</button>
+          <button class="btn btn-gold btn-sm" onclick="uploadLibDoc()">Upload</button>
+        </div>
+      </div>
+      <table class="data-table" id="lib-table">
+        <thead><tr><th>Title</th><th>Category</th><th>Type</th><th>Size</th><th>Uploaded</th><th>By</th><th></th></tr></thead>
+        <tbody id="lib-tbody"></tbody>
+      </table>
+    </div>
+  </div>
 </div>
 
 </div><!-- end .page-content -->
@@ -2200,10 +2256,20 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
 </div>
 
 <script>
+// ──────────── FORCE CLEAN OLD DATA (one-time) ────────────
+(function() {
+  var _forceCleanVersion = 3; // bump this to force another wipe
+  if (localStorage.getItem('_rh_cleaned') !== String(_forceCleanVersion)) {
+    localStorage.clear();
+    localStorage.setItem('_rh_cleaned', String(_forceCleanVersion));
+    console.log('RecipeHub: cleared old localStorage data');
+  }
+})();
+
 // ──────────── SAVE / LOAD SYSTEM ────────────
-const STORAGE_KEY = 'recipehub_data_v1';
+const STORAGE_KEY = 'recipehub_data_v3';
 const AUTH_KEY = 'recipehub_auth_v1';
-const DATA_VERSION = 5; // bump this to push new hardcoded data into existing localStorage
+const DATA_VERSION = 6;
 
 // ── Server sync ──
 const API_BASE = (location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.protocol === 'file:')
@@ -3080,6 +3146,7 @@ function syncFromEBS() {
 
 // ──────────── EBS INGREDIENT AUTOCOMPLETE ────────────
 let _ebsACTimeout = null;
+var _ebsPriceCache = {}; // name → {price, unit, code}
 function ebsAutocomplete(input, onSelect) {
   let dropdown = input._ebsDropdown;
   if (!dropdown) {
@@ -3105,7 +3172,7 @@ function ebsAutocomplete(input, onSelect) {
         const [code, desc, uom] = item;
         if ((desc.toLowerCase().includes(q) || code.toLowerCase().includes(q)) && !seen.has(code)) {
           seen.add(code);
-          results.push({ name: desc, code: code, uom: uom, source: 'EBS' });
+          results.push({ name: desc, code: code, uom: uom, source: 'EBS', price: null });
         }
       });
 
@@ -3114,33 +3181,32 @@ function ebsAutocomplete(input, onSelect) {
         if (results.length >= 15) return;
         if ((row[1].toLowerCase().includes(q) || row[3].toLowerCase().includes(q)) && !seen.has(row[3])) {
           seen.add(row[3]);
-          results.push({ name: row[1], code: row[3], uom: '', source: 'Local' });
+          var localPrice = parseFloat(String(row[5]).replace(/[^0-9.]/g,''));
+          results.push({ name: row[1], code: row[3], uom: '', source: 'Local', price: isNaN(localPrice) ? null : localPrice });
         }
       });
 
-      if (results.length === 0) {
-        dropdown.innerHTML = '<div class="ebs-ac-empty">No matches found</div>';
-        dropdown.style.display = 'block';
-        return;
+      // Render local results immediately
+      _renderACDropdown(dropdown, input, results, onSelect);
+
+      // Also search live EBS API (async, appends results)
+      if (q.length >= 3) {
+        fetch(API_BASE + '/api/ebs/search?q=' + encodeURIComponent(q), {
+          headers: { 'Authorization': 'Bearer ' + API_KEY }
+        }).then(function(r) { return r.json(); }).then(function(data) {
+          if (!data.results || !data.results.length) return;
+          data.results.forEach(function(item) {
+            var displayPrice = item.pricePerKg || item.avgPrice || 0;
+            if (!seen.has(item.code) && displayPrice > 0) {
+              seen.add(item.code);
+              results.push({ name: item.name, code: item.code, uom: item.pricePerKg ? 'kg' : (item.unit || 'unit'), source: 'Oracle', price: displayPrice });
+              _ebsPriceCache[item.name.toLowerCase()] = { price: displayPrice, unit: item.pricePerKg ? 'kg' : (item.unit || 'unit'), code: item.code, vendor: item.vendor || '' };
+            }
+          });
+          _renderACDropdown(dropdown, input, results, onSelect);
+        }).catch(function() {});
       }
-
-      dropdown.innerHTML = results.map(r =>
-        '<div class="ebs-ac-item" data-name="' + r.name.replace(/"/g,'&quot;') + '" data-code="' + r.code + '">' +
-          '<span class="ebs-ac-name">' + r.name + '</span>' +
-          '<span class="ebs-ac-meta">' + r.code + (r.source === 'EBS' ? ' <span class="ebs-ac-badge">EBS</span>' : '') + '</span>' +
-        '</div>'
-      ).join('');
-      dropdown.style.display = 'block';
-
-      dropdown.querySelectorAll('.ebs-ac-item').forEach(el => {
-        el.addEventListener('mousedown', function(e) {
-          e.preventDefault();
-          input.value = this.dataset.name;
-          dropdown.style.display = 'none';
-          if (onSelect) onSelect({ name: this.dataset.name, code: this.dataset.code });
-        });
-      });
-    }, 150);
+    }, 200);
   });
 
   input.addEventListener('blur', function() {
@@ -3148,6 +3214,94 @@ function ebsAutocomplete(input, onSelect) {
   });
   input.addEventListener('focus', function() {
     if (this.value.trim().length >= 2) this.dispatchEvent(new Event('input'));
+  });
+}
+
+// Fetch EBS price for a single ingredient (async, populates cache)
+function _fetchEBSPrice(ingredientName) {
+  if (!ingredientName || ingredientName.length < 3) return;
+  var cached = _ebsPriceCache[ingredientName.toLowerCase()];
+  if (cached) return; // already cached
+  fetch(API_BASE + '/api/ebs/search?q=' + encodeURIComponent(ingredientName), {
+    headers: { 'Authorization': 'Bearer ' + API_KEY }
+  }).then(function(r) { return r.json(); }).then(function(data) {
+    if (!data.results) return;
+    data.results.forEach(function(item) {
+      if (item.avgPrice > 0) {
+        _ebsPriceCache[item.name.toLowerCase()] = { price: item.avgPrice, unit: item.unit, code: item.code };
+      }
+    });
+  }).catch(function() {});
+}
+
+// Prefetch EBS prices for all ingredients in a recipe, then refresh the view
+var _prefetchDone = {};
+function _prefetchRecipePrices(r) {
+  if (!r || !r.ingredients) return;
+  var needsFetch = [];
+  r.ingredients.forEach(function(i) {
+    if (!i.costPerKg && !_ebsPriceCache[i.name.toLowerCase()]) {
+      needsFetch.push(i.name);
+    }
+  });
+  if (!needsFetch.length) return;
+  // Fetch all at once using the first few words of each ingredient
+  var fetched = 0;
+  needsFetch.forEach(function(name) {
+    fetch(API_BASE + '/api/ebs/search?q=' + encodeURIComponent(name), {
+      headers: { 'Authorization': 'Bearer ' + API_KEY }
+    }).then(function(resp) { return resp.json(); }).then(function(data) {
+      if (data.results) {
+        data.results.forEach(function(item) {
+          if (item.avgPrice > 0) {
+            _ebsPriceCache[item.name.toLowerCase()] = { price: item.avgPrice, unit: item.unit, code: item.code };
+          }
+        });
+      }
+      fetched++;
+      // When all done, re-render the recipe to show the prices (only once)
+      if (fetched >= needsFetch.length && r.npd && !_prefetchDone[r.npd]) {
+        _prefetchDone[r.npd] = true;
+        var table = document.getElementById('ing-table-' + r.npd);
+        if (table) {
+          var _sy = window.scrollY;
+          viewRecipe(r.npd);
+          window.scrollTo(0, _sy);
+        }
+      }
+    }).catch(function() { fetched++; });
+  });
+}
+
+function _renderACDropdown(dropdown, input, results, onSelect) {
+  if (results.length === 0) {
+    dropdown.innerHTML = '<div class="ebs-ac-empty">No matches found</div>';
+    dropdown.style.display = 'block';
+    return;
+  }
+  dropdown.innerHTML = results.map(function(r) {
+    var priceStr = r.price && r.price > 0 ? '<span style="color:var(--sage);font-weight:600;font-size:10px;margin-left:6px">SAR ' + r.price.toFixed(2) + '/' + (r.uom || 'unit') + '</span>' : '';
+    var sourceBadge = r.source === 'Oracle' ? ' <span class="ebs-ac-badge" style="background:var(--sage)">Oracle</span>' :
+                      r.source === 'EBS' ? ' <span class="ebs-ac-badge">EBS</span>' : '';
+    return '<div class="ebs-ac-item" data-name="' + r.name.replace(/"/g,'&quot;') + '" data-code="' + r.code + '" data-price="' + (r.price || 0) + '" data-unit="' + (r.uom || '') + '">' +
+      '<span class="ebs-ac-name">' + r.name + priceStr + '</span>' +
+      '<span class="ebs-ac-meta">' + r.code + sourceBadge + '</span>' +
+    '</div>';
+  }).join('');
+  dropdown.style.display = 'block';
+
+  dropdown.querySelectorAll('.ebs-ac-item').forEach(function(el) {
+    el.addEventListener('mousedown', function(e) {
+      e.preventDefault();
+      input.value = this.dataset.name;
+      dropdown.style.display = 'none';
+      var price = parseFloat(this.dataset.price);
+      // Cache the price for cost lookup
+      if (price > 0) {
+        _ebsPriceCache[this.dataset.name.toLowerCase()] = { price: price, unit: this.dataset.unit, code: this.dataset.code };
+      }
+      if (onSelect) onSelect({ name: this.dataset.name, code: this.dataset.code, price: price || null });
+    });
   });
 }
 
@@ -3374,6 +3528,9 @@ function exportBackup() {
     brands: BRANDS, brandRecipes: BRAND_RECIPES, savingsGoal: SAVINGS_GOAL, savingsProjects: SAVINGS_PROJECTS,
     qaAllergenOverrides: _qaAllergenOverrides,
     shelfLifeData: SHELF_LIFE_DATA, accessPermissions: ACCESS_PERMISSIONS, rejectedEmails: REJECTED_EMAILS,
+    deletedRecipeIds: _deletedRecipeIds,
+    commsLog: COMMS_LOG,
+    libraryDocs: LIBRARY_DOCS,
     exportedAt: new Date().toISOString(), version: 'RecipeHub-v2',
   };
   var json = JSON.stringify(data, null, 2);
@@ -3410,6 +3567,8 @@ function importBackup(input) {
       if (data.shelfLifeData) { SHELF_LIFE_DATA.points = data.shelfLifeData.points || []; SHELF_LIFE_DATA.notes = data.shelfLifeData.notes || ''; }
       if (data.accessPermissions) { data.accessPermissions.forEach(function(sg){ var m=ACCESS_PERMISSIONS.find(function(g){return g.group===sg.group}); if(m&&sg.items) sg.items.forEach(function(si){ var it=m.items.find(function(i){return i.key===si.key}); if(it) ['admin','npd','qa','factory','purchasing','viewer'].forEach(function(r){if(si[r]!==undefined)it[r]=si[r]}); }); }); }
       if (Array.isArray(data.rejectedEmails)) REJECTED_EMAILS = data.rejectedEmails;
+    if (Array.isArray(data.commsLog)) { COMMS_LOG.length = 0; data.commsLog.forEach(function(m){ COMMS_LOG.push(m); }); }
+    if (Array.isArray(data.libraryDocs)) { LIBRARY_DOCS.length = 0; data.libraryDocs.forEach(function(d){ LIBRARY_DOCS.push(d); }); }
       // Rebuild all tables
       populateBrandUI();
       buildIngTable(); buildRecipesTable(); buildBrandCards(); buildUsersTable();
@@ -3445,6 +3604,8 @@ function _buildDataBlob() {
     accessPermissions: ACCESS_PERMISSIONS,
     rejectedEmails: REJECTED_EMAILS,
     deletedRecipeIds: _deletedRecipeIds,
+    commsLog: COMMS_LOG,
+    libraryDocs: LIBRARY_DOCS,
     savedAt: new Date().toISOString(),
     dataVersion: DATA_VERSION,
   };
@@ -3477,8 +3638,15 @@ function _saveToServer(data) {
   });
 }
 
+var _hasLoadedFromServer = false;
 function saveAllData() {
+  // Don't push empty data to server if we haven't loaded from server yet
   const data = _buildDataBlob();
+  if (!_hasLoadedFromServer && Object.keys(RECIPE_DB).length === 0 && BUILDS_DATA.length === 0) {
+    // Only save to localStorage, don't push empty state to server
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch(e) {}
+    return;
+  }
   _localDirty = true;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
@@ -3539,14 +3707,16 @@ function loadAllData() {
       if (r.status === 'scheduled' && !r.date) r.status = 'pending';
       if (!r.createdAt) r.createdAt = new Date().toISOString();
     });
-    if (data.branchSOPs) { var _savedIds2 = data.branchSOPs.map(function(s){return s.id}); var _newHC2 = BRANCH_SOPS.filter(function(s){return _savedIds2.indexOf(s.id)===-1}); replaceArray(BRANCH_SOPS, data.branchSOPs); _newHC2.forEach(function(s){BRANCH_SOPS.push(s)}); } else { replaceArray(BRANCH_SOPS, data.branchSOPs); }
-    if (data.brands) { var _savedBrandIds = data.brands.map(function(b){return b.id}); var _newBrands = BRANDS.filter(function(b){return _savedBrandIds.indexOf(b.id)===-1}); replaceArray(BRANDS, data.brands); _newBrands.forEach(function(b){BRANDS.push(b)}); }
+    if (data.branchSOPs) { replaceArray(BRANCH_SOPS, data.branchSOPs); }
+    if (data.brands) { replaceArray(BRANDS, data.brands); }
     if (data.brandRecipes) { Object.keys(data.brandRecipes).forEach(function(k){ BRAND_RECIPES[k] = data.brandRecipes[k]; }); }
     if (Array.isArray(data.activityLog)) { ACTIVITY_LOG.length = 0; data.activityLog.forEach(function(a){ACTIVITY_LOG.push(a)}); }
     if (data.savingsGoal !== undefined) SAVINGS_GOAL = data.savingsGoal;
     if (Array.isArray(data.savingsProjects)) { SAVINGS_PROJECTS.length = 0; data.savingsProjects.forEach(function(p){SAVINGS_PROJECTS.push(p)}); }
     if (data.qaAllergenOverrides) { Object.keys(data.qaAllergenOverrides).forEach(function(k){ _qaAllergenOverrides[k] = data.qaAllergenOverrides[k]; }); }
     if (Array.isArray(data.rejectedEmails)) REJECTED_EMAILS = data.rejectedEmails;
+    if (Array.isArray(data.commsLog)) { COMMS_LOG.length = 0; data.commsLog.forEach(function(m){ COMMS_LOG.push(m); }); }
+    if (Array.isArray(data.libraryDocs)) { LIBRARY_DOCS.length = 0; data.libraryDocs.forEach(function(d){ LIBRARY_DOCS.push(d); }); }
     if (data.shelfLifeData) { SHELF_LIFE_DATA.points = data.shelfLifeData.points || []; SHELF_LIFE_DATA.notes = data.shelfLifeData.notes || ''; }
     if (Array.isArray(data.accessPermissions)) {
       data.accessPermissions.forEach(function(savedGroup) {
@@ -3559,9 +3729,6 @@ function loadAllData() {
         }
       });
     }
-
-    // Re-add new hardcoded recipes
-    Object.keys(_hardcodedRecipes).forEach(k => { RECIPE_DB[k] = _hardcodedRecipes[k]; });
 
     // If code version is newer, inject new hardcoded data that doesn't exist yet
     // But never re-inject users that were previously rejected or approved
@@ -3678,6 +3845,7 @@ function syncFromServer() {
     if (!r.ok) throw new Error('Server returned ' + r.status);
     return r.json();
   }).then(function(result) {
+    _hasLoadedFromServer = true;
     if (!result.data) {
       // Server is empty — seed it with local data
       if (syncEl) { syncEl.textContent = 'Synced'; syncEl.style.color = 'var(--sage)'; }
@@ -3688,18 +3856,23 @@ function syncFromServer() {
     var localRaw = localStorage.getItem(STORAGE_KEY);
     var localSavedAt = localRaw ? (JSON.parse(localRaw).savedAt || '') : '';
     var serverSavedAt = serverData.savedAt || result.savedAt || '';
-    // If server is newer, hydrate
-    if (serverSavedAt > localSavedAt) {
+    // If server is newer AND no local edits happened during fetch, hydrate
+    if (serverSavedAt > localSavedAt && !_localDirty && !_savingToServer) {
       _hydrateFromData(serverData);
       // Save to localStorage so it's in sync
       localStorage.setItem(STORAGE_KEY, JSON.stringify(serverData));
-      // Refresh all UI
+      // Refresh all UI — preserve scroll position
       try {
+        var _scrollY = window.scrollY;
+        var _mainEl = document.querySelector('.main');
+        var _mainScroll = _mainEl ? _mainEl.scrollTop : 0;
         populateBrandUI(); buildIngTable(); buildRecipesTable(); buildBrandCards();
         buildUsersTable(); buildPendingTable(); buildRoleCards(); buildAccessMatrix();
         buildFactorySOPTable(); buildBuildsTable(); buildBranchSOPTable();
         buildProductionTable(); populateQARecipeDropdown(); updateDashboardStats();
         updateSidebarBadges();
+        window.scrollTo(0, _scrollY);
+        if (_mainEl) _mainEl.scrollTop = _mainScroll;
       } catch(e) { console.error('UI refresh after sync error:', e); }
       if (syncEl) { syncEl.textContent = 'Synced'; syncEl.style.color = 'var(--sage)'; }
     } else {
@@ -3735,7 +3908,7 @@ function _hydrateFromData(data) {
     if (r.status === 'scheduled' && !r.date) r.status = 'pending';
     if (!r.createdAt) r.createdAt = new Date().toISOString();
   });
-  if (data.branchSOPs) { var _si = data.branchSOPs.map(function(s){return s.id}); var _nh = BRANCH_SOPS.filter(function(s){return _si.indexOf(s.id)===-1}); replaceArray(BRANCH_SOPS, data.branchSOPs); _nh.forEach(function(s){BRANCH_SOPS.push(s)}); }
+  if (data.branchSOPs) { replaceArray(BRANCH_SOPS, data.branchSOPs); }
   if (data.brands) { var _sbi = data.brands.map(function(b){return b.id}); var _nb = BRANDS.filter(function(b){return _sbi.indexOf(b.id)===-1}); replaceArray(BRANDS, data.brands); _nb.forEach(function(b){BRANDS.push(b)}); }
   if (data.brandRecipes) { Object.keys(data.brandRecipes).forEach(function(k){ BRAND_RECIPES[k] = data.brandRecipes[k]; }); }
   if (Array.isArray(data.activityLog)) { ACTIVITY_LOG.length = 0; data.activityLog.forEach(function(a){ACTIVITY_LOG.push(a)}); }
@@ -3756,7 +3929,7 @@ function _hydrateFromData(data) {
 }
 
 const PAGES = {
-  dashboard:      { title:'Dashboard',           actions:`<button class="btn btn-primary btn-sm" onclick="openRecipeForm()">+ New Recipe</button>` },
+  dashboard:      { title:'Overview',           actions:`<button class="btn btn-primary btn-sm" onclick="openRecipeForm()">+ New Recipe</button>` },
   recipes:        { title:'Recipes',             actions:`<button class="btn btn-gold btn-sm" onclick="openRecipeForm()">+ New Recipe</button> <button class="btn btn-outline btn-sm" onclick="openImportRecipes()" style="margin-left:6px">⬆ Import Recipes</button>` },
   'recipe-detail':{ title:'Recipe Detail',       actions:'' },
   ingredients:    { title:'Ingredients Database',actions:`<button class="btn btn-gold btn-sm" onclick="openIngredientForm()">+ Add Ingredient</button>` },
@@ -3765,12 +3938,14 @@ const PAGES = {
   'branch-sop':   { title:'Branch SOP',           actions:`<button class="btn btn-gold btn-sm" onclick="openBranchSOPForm()">+ New Branch SOP</button>` },
   production:     { title:'Production Plan',     actions:`<button class="btn btn-gold btn-sm" onclick="openProductionRun()">+ Schedule Run</button>` },
   reports:        { title:'Recipe Analytics', actions:`<button class="btn btn-outline btn-sm" onclick="refreshReports()">↻ Refresh</button>` },
-  'builds-costing': { title:'Builds Costing', actions:`<button class="btn btn-outline btn-sm" onclick="refreshReports()">↻ Refresh</button>` },
+  'builds-costing': { title:'Build Analytics', actions:`<button class="btn btn-outline btn-sm" onclick="refreshReports()">↻ Refresh</button>` },
   'cost-control': { title:'KPI & Goals', actions:`<button class="btn btn-outline btn-sm" onclick="refreshReports()">↻ Refresh</button>` },
   sop:            { title:'Factory SOPs', actions:'' },
   brands:         { title:'Brands',              actions:`<button class="btn btn-primary btn-sm" onclick="openBrandForm()">+ New Brand</button>` },
   workflow:       { title:'Workflow',             actions:'' },
-  users:          { title:'Users & Access',      actions:`<button class="btn btn-gold btn-sm" onclick="toggleInviteForm()">+ Invite User</button>` },
+  users:          { title:'Users & Access',      actions:`<button class="btn btn-gold btn-sm" onclick="toggleInviteForm()">+ Add User</button>` },
+  comms:          { title:'Communications',     actions:'' },
+  library:        { title:'Library',            actions:'<button class="btn btn-gold btn-sm" onclick="toggleLibUpload()">+ Upload Document</button>' },
 };
 
 let _navHistory = [];
@@ -3819,7 +3994,7 @@ function applyRoleRestrictions() {
 
   // Strip action buttons from pages this role CANNOT edit
   stripPageActions('page-users');
-  var allPages = ['page-dashboard','page-recipes','page-recipe-detail','page-ingredients','page-qa','page-sop','page-branch-sop','page-production','page-builds','page-brands','page-builds-costing','page-cost-control','page-reports'];
+  var allPages = ['page-dashboard','page-recipes','page-recipe-detail','page-ingredients','page-qa','page-sop','page-branch-sop','page-production','page-builds','page-brands','page-builds-costing','page-cost-control','page-reports','page-comms','page-library'];
   allPages.forEach(function(pid) {
     var pageId = pid.replace('page-','');
     if (allowed.indexOf(pageId) === -1) stripPageActions(pid);
@@ -3886,6 +4061,8 @@ function nav(id) {
     else if (id === 'production') { buildProductionTable(); }
     else if (id === 'branch-sop') { buildBranchSOPTable(); }
     else if (id === 'qa') { populateQARecipeDropdown(); buildShelfLifeUI(); }
+    else if (id === 'comms') { initCommsPage(); }
+    else if (id === 'library') { renderLibrary(); }
     updateSidebarBadges();
     addEmptyStates();
   } catch(e) {}
@@ -4117,28 +4294,120 @@ function buildIngTable() {
   const tbody = document.getElementById('ing-db-tbody');
   if (!tbody) return;
   tbody.innerHTML = '';
-  ING_DATA.forEach(row => {
+  ING_DATA.forEach((row, idx) => {
     const [num,name,supplier,code,cat,cost,storage,shelf,updated] = row;
-    const allergens = row[9] || '';
-    const autoAllergens = detectAllergens(name);
-    const allAllergens = allergens ? allergens.split(',').map(a=>a.trim()) : [];
-    autoAllergens.forEach(a => { if (allAllergens.indexOf(a)===-1) allAllergens.push(a); });
     const catClass = CAT_CLASS[cat] || 'cat-base';
+    // Check EBS cache for price, vendor, UOM
+    var displayCost = cost;
+    var costColor = 'var(--sage)';
+    var displayVendor = supplier || '—';
+    var displayUOM = row[10] || '—';
+    var ebsP = _ebsPriceCache[name.toLowerCase()];
+    if (ebsP) {
+      if (!cost || cost === '—' || cost === 'SAR 0.00') {
+        displayCost = 'SAR ' + ebsP.price.toFixed(2);
+        costColor = 'var(--blue)';
+      }
+      if (ebsP.unit) displayUOM = ebsP.unit;
+      if (ebsP.vendor) displayVendor = ebsP.vendor;
+    }
+    // Cost/kg: manual override (row[11]) > EBS cache > —
+    var costPerKg = row[11] || null;
+    var costKgColor = 'var(--sage)';
+    var costKgDisplay = '—';
+    if (costPerKg) {
+      costKgDisplay = 'SAR ' + parseFloat(costPerKg).toFixed(2);
+      costKgColor = 'var(--sage)';
+    } else if (ebsP && ebsP.price > 0 && (ebsP.unit === 'kg' || displayUOM === 'kg')) {
+      costKgDisplay = 'SAR ' + ebsP.price.toFixed(2);
+      costKgColor = 'var(--blue)';
+    }
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td style="color:var(--g3);font-size:12px;text-align:center">${num}</td>
       <td><strong>${name}</strong></td>
-      <td style="color:var(--g4)">${supplier}</td>
+      <td style="color:var(--g4);font-size:12px" id="ing-vendor-${idx}">${displayVendor}</td>
       <td style="font-family:var(--font-m);font-size:12px;color:var(--g3)">${code}</td>
       <td><span class="cat-tag ${catClass}">${cat}</span></td>
-      <td style="font-family:var(--font-m);font-weight:500;color:var(--sage)">${cost}</td>
+      <td style="font-family:var(--font-m);font-weight:500;color:${costColor}" id="ing-cost-${idx}">${displayCost}</td>
+      <td style="font-family:var(--font-m);font-size:12px;color:var(--g4)" id="ing-uom-${idx}">${displayUOM}</td>
+      <td style="font-family:var(--font-m);font-weight:600;color:${costKgColor};cursor:pointer" onclick="editIngCostPerKg(${idx})" title="Click to set cost/kg">${costKgDisplay}</td>
       <td style="font-size:12px;color:var(--g4)">${storage}</td>
-      <td style="font-size:11px">${allAllergens.length ? allAllergens.map(a => '<span style="display:inline-block;padding:1px 6px;border-radius:20px;font-size:9px;font-weight:500;background:'+(ALLERGEN_COLORS[a]||'#666')+';color:white;margin:1px">'+a+'</span>').join('') : '<span style="color:var(--g3)">—</span>'}</td>
-      <td style="font-size:11px;color:var(--g3)">${updated}</td>
       <td style="white-space:nowrap"><button class="btn btn-outline btn-sm" onclick="editIngredient(this)">Edit</button>${supplier !== 'Oracle EBS' ? ' <button class="btn btn-sm" style="background:var(--red-lt);color:var(--red);border:1px solid var(--red);margin-left:4px" onclick="deleteIngredient(this)">✕</button>' : ''}</td>
     `;
     tbody.appendChild(tr);
   });
+  // Fetch EBS prices for ingredients missing costs
+  _syncIngEBSPrices();
+}
+
+// Async: fetch EBS prices for ingredients without a cost and update the table
+function _syncIngEBSPrices() {
+  var toFetch = [];
+  ING_DATA.forEach(function(row, idx) {
+    var cost = row[5];
+    var name = row[1];
+    if ((!cost || cost === '—' || cost === 'SAR 0.00') && !_ebsPriceCache[name.toLowerCase()]) {
+      toFetch.push({ name: name, idx: idx });
+    }
+  });
+  if (!toFetch.length) return;
+  // Batch: fetch in groups of 5 to avoid hammering the API
+  var batch = toFetch.slice(0, 20);
+  var done = 0;
+  batch.forEach(function(item) {
+    fetch(API_BASE + '/api/ebs/search?q=' + encodeURIComponent(item.name), {
+      headers: { 'Authorization': 'Bearer ' + API_KEY }
+    }).then(function(r) { return r.json(); }).then(function(data) {
+      if (data.results) {
+        // Find best match by name similarity
+        var bestMatch = null;
+        data.results.forEach(function(r) {
+          if (r.avgPrice > 0 && r.name.toLowerCase().includes(item.name.toLowerCase().split(' ')[0])) {
+            if (!bestMatch || r.avgPrice > bestMatch.avgPrice) bestMatch = r;
+          }
+        });
+        if (!bestMatch && data.results.length) {
+          bestMatch = data.results.find(function(r) { return r.avgPrice > 0; });
+        }
+        if (bestMatch) {
+          var displayPrice = bestMatch.pricePerKg || bestMatch.avgPrice || 0;
+          if (displayPrice <= 0) return;
+          var vendorName = bestMatch.vendor || (bestMatch.vendors && bestMatch.vendors.length ? bestMatch.vendors[0].vendor : '');
+          var displayUnit = bestMatch.pricePerKg ? 'kg' : (bestMatch.unit || 'unit');
+          _ebsPriceCache[item.name.toLowerCase()] = { price: displayPrice, unit: displayUnit, code: bestMatch.code, vendor: vendorName };
+          // Update the table cells
+          var costCell = document.getElementById('ing-cost-' + item.idx);
+          if (costCell) { costCell.textContent = 'SAR ' + displayPrice.toFixed(2); costCell.style.color = 'var(--blue)'; }
+          var uomCell = document.getElementById('ing-uom-' + item.idx);
+          if (uomCell) { uomCell.textContent = displayUnit; }
+          var vendorCell = document.getElementById('ing-vendor-' + item.idx);
+          if (vendorCell && vendorName) { vendorCell.textContent = vendorName; vendorCell.style.color = 'var(--blue)'; }
+        }
+      }
+    }).catch(function() {}).finally(function() {
+      done++;
+    });
+  });
+}
+
+function editIngCostPerKg(idx) {
+  var row = ING_DATA[idx];
+  if (!row) return;
+  var name = row[1];
+  var current = row[11] || '';
+  var input = prompt('Cost per kg (SAR) for "' + name + '":\n\nEnter the price per kilogram. Leave empty to clear.', current);
+  if (input === null) return;
+  if (input.trim() === '') {
+    row[11] = null;
+  } else {
+    var val = parseFloat(input.replace(/[^0-9.]/g, ''));
+    if (isNaN(val)) { alert('Invalid number'); return; }
+    row[11] = val;
+  }
+  buildIngTable();
+  saveAllData();
+  showSaveToast('Cost/kg updated for ' + name);
 }
 
 function deleteIngredient(btn) {
@@ -4158,7 +4427,8 @@ function deleteIngredient(btn) {
 }
 
 // ──────────── RECIPE DETAIL DATA ────────────
-let RECIPE_DB = {
+let RECIPE_DB = {}; /* Clean slate — all recipes come from server */
+var _RECIPE_DB_SEED_REMOVED = {
   '2025-009': {
     name:'Hasawi Marinade', npd:'2025-009', brand:'Maestro', type:'Marinade', version:'v2.1',
     costKg:'SAR 14.20', status:'approved', updated:'2 days ago', catClass:'cat-spice',
@@ -4451,92 +4721,8 @@ let RECIPE_DB = {
 };
 
 var _deletedRecipeIds = [];
-
-// Add QA history and batch logs to existing recipes for demo
-RECIPE_DB['2025-009'].nutrition = {energy:'142',protein:'1.8',fat:'9.2',satfat:'1.1',carbs:'12.5',sugars:'2.3',fibre:'1.6',sodium:'680'};
-RECIPE_DB['2025-021'].nutrition = {energy:'198',protein:'2.4',fat:'6.8',satfat:'0.9',carbs:'32.1',sugars:'24.5',fibre:'0.8',sodium:'920'};
-RECIPE_DB['2025-009'].trialQA = {
-  signed:true, signedBy:'Lina Fakhouri', signedAt:'12 Feb 2026',
-  tpc:'2.1×10³', ym:'<10', col:'<10', ecoli:'ND', sal:'ND',
-  ph:'3.9', brix:'20', viscosity:'1,050 cP',
-  notes:'All parameters within spec. Approved for production trial.',
-  files:[]
-};
-RECIPE_DB['2025-009']['prod-trialQA'] = {
-  signed:true, signedBy:'Lina Fakhouri', signedAt:'22 Feb 2026',
-  tpc:'1.8×10³', ym:'<10', col:'<10', ecoli:'ND', sal:'ND',
-  ph:'4.0', brix:'19', viscosity:'980 cP',
-  notes:'Production trial successful. Consistent with factory trial. Approved for release.',
-  files:[]
-};
-RECIPE_DB['2025-009'].batchLog = [
-  {date:'2026-02-10', batch:'B-009-01', size:'200 kg', operator:'Rami Khoury', yield:'92%', waste:'8%', notes:'Factory trial run'},
-  {date:'2026-02-20', batch:'B-009-02', size:'400 kg', operator:'Rami Khoury', yield:'94%', waste:'6%', notes:'Production trial — clean run'},
-  {date:'2026-03-15', batch:'B-009-03', size:'400 kg', operator:'Faris Al-Otaibi', yield:'93%', waste:'7%', notes:'First production batch'},
-  {date:'2026-04-01', batch:'B-009-04', size:'400 kg', operator:'Rami Khoury', yield:'94%', waste:'6%', notes:'Clean run'},
-];
-RECIPE_DB['2025-021'].trialQA = {
-  signed:false, signedBy:'', signedAt:'',
-  tpc:'3.5×10³', ym:'15', col:'<10', ecoli:'ND', sal:'ND',
-  ph:'3.7', brix:'31', viscosity:'820 cP',
-  notes:'Micro slightly elevated — re-test recommended before sign-off.',
-  files:[]
-};
-RECIPE_DB['2025-021'].batchLog = [
-  {date:'2026-03-20', batch:'B-021-01', size:'300 kg', operator:'Dana Yousef', yield:'91%', waste:'9%', notes:'Factory trial — slight over-seasoning noted'},
-];
-
-// Demo dough recipe to show Baker's % feature
-RECIPE_DB['2026-100'] = {
-  name:'Maestro Thin Crust Dough', npd:'2026-100', brand:'Maestro', type:'Dough', version:'v1.0',
-  costKg:null, status:'draft', updated:'Just now', catClass:'cat-base',
-  storage:'Chilled 4°C', shelfLife:'3 Days', yield:0.97,
-  ingredients:[
-    {name:'Patent Flour', pct:57.0},
-    {name:'Water', pct:33.0},
-    {name:'Olive Oil', pct:4.0},
-    {name:'Salt', pct:1.5},
-    {name:'Sugar', pct:1.5},
-    {name:'Dry Yeast', pct:1.2},
-    {name:'Dough Improver', pct:1.0},
-    {name:'Milk Powder', pct:0.8},
-  ],
-  method:[
-    {title:'Combine dry', text:'Mix flour, salt, sugar, yeast, milk powder and dough improver in spiral mixer.'},
-    {title:'Add liquids', text:'Add water at 4°C and olive oil. Mix on low speed 3 min, then high speed 8 min until window-pane test passes.'},
-    {title:'Bulk ferment', text:'Cover and rest at room temperature for 30 minutes.'},
-    {title:'Divide & ball', text:'Scale to 220g portions. Round into tight balls, place on oiled trays.'},
-    {title:'Cold proof', text:'Cover trays with cling film. Retard in chiller at 4°C for 24-72 hours.'},
-  ],
-  sopSteps:[], tags:[], packaging:[], media:[],
-};
-
-RECIPE_DB['2026-101'] = {
-  name:'Cauliflower Dough', npd:'2026-101', brand:'Pinzatta', type:'Dough', version:'v1.0',
-  costKg:null, status:'draft', updated:'Just now', catClass:'cat-base',
-  storage:'Chilled 4°C', shelfLife:'3 Days', yield:0.95,
-  ingredients:[
-    {name:'Cauliflower Puree', pct:31.96},
-    {name:'Rice Flour', pct:24.74},
-    {name:'Tapioca Starch', pct:12.37},
-    {name:'Cold Water', pct:11.34},
-    {name:'Rice Starch', pct:8.25},
-    {name:'Canola Oil', pct:3.40},
-    {name:'Cane Sugar', pct:3.40},
-    {name:'Potato Starch', pct:1.55},
-    {name:'Salt', pct:1.55},
-    {name:'Baking Powder', pct:0.52},
-    {name:'Instant Dry Yeast', pct:0.52},
-    {name:'Extra Virgin Olive Oil', pct:0.21},
-    {name:'Xanthan Gum', pct:0.21},
-  ],
-  method:[
-    {title:'The Dry Whisk', text:'In a medium bowl, combine all dry structure ingredients (rice flour, tapioca starch, rice starch, potato starch) with binders and micro-ingredients (cane sugar, salt, baking powder, instant dry yeast, xanthan gum). Whisk vigorously for at least 60 seconds. The xanthan gum must be thoroughly dispersed into the rice flour before it hits the wet ingredients.'},
-    {title:'The Wet Blend', text:'In the bowl of a stand mixer (or a large mixing bowl), add chilled cauliflower puree, cold water, canola oil, and olive oil. Whisk until it looks like a unified, smooth liquid.'},
-    {title:'The Mix', text:'Use a paddle attachment (not a dough hook — this is gluten-free). Add the dry mix into the wet mix. Beat on medium speed for 2–3 minutes. Final texture should be a thick, sticky cookie dough, not a stretchy bread dough. If crumbling and dry, add 30g of hold-back water 10g at a time.'},
-  ],
-  sopSteps:[], tags:['Gluten Free','Vegetarian'], packaging:[], media:[],
-};
+var COMMS_LOG = [];
+var LIBRARY_DOCS = [];
 
 // ──────────── BUILD RECIPES TABLE ────────────
 var _showArchivedRecipes = false;
@@ -4555,7 +4741,7 @@ function buildRecipesTable() {
   const userRole = getCurrentUserRole();
   var archivedCount = 0;
   var _recipes = Object.values(RECIPE_DB).sort(function(a, b) {
-    return (b.npd || '').localeCompare(a.npd || '');
+    return (b.updatedAt || b.npd || '').localeCompare(a.updatedAt || a.npd || '');
   });
   _recipes.forEach(r => {
     if (r.archived) archivedCount++;
@@ -4948,12 +5134,21 @@ function updateRecipeCost(npd) {
   }
 }
 
-// Get effective price per kg for an ingredient (override > DB lookup)
+// Get effective price per kg for an ingredient (recipe override > ING_DATA cost/kg > ING_DATA cost > EBS cache)
 function _getIngPrice(i) {
   if (i.costPerKg != null) return i.costPerKg;
+  // Check local ING_DATA — first the cost/kg override (row[11]), then raw cost (row[5])
   var n = i.name.toLowerCase().replace(/[^a-z0-9]/g,'');
   var fd = ING_DATA.find(function(row){ var dn=row[1].toLowerCase().replace(/[^a-z0-9]/g,''); return dn.includes(n)||n.includes(dn); });
-  if (fd) { var p = parseFloat(String(fd[5]).replace(/[^0-9.]/g,'')); if (!isNaN(p)) return p; }
+  if (fd) {
+    // Cost/kg override on ingredient
+    if (fd[11] != null && fd[11] > 0) return fd[11];
+    // Raw cost
+    var p = parseFloat(String(fd[5]).replace(/[^0-9.]/g,'')); if (!isNaN(p) && p > 0) return p;
+  }
+  // Check EBS price cache
+  var ebsEntry = _ebsPriceCache[i.name.toLowerCase()];
+  if (ebsEntry && ebsEntry.price > 0) return ebsEntry.price;
   return null;
 }
 
@@ -4966,13 +5161,7 @@ function _calcIngCostTotal(r) {
   var total = 0; var matched = 0;
   r.ingredients.forEach(function(i) {
     var frac = i.pct / totalPct;
-    var price = null;
-    if (i.costPerKg != null) { price = i.costPerKg; }
-    else {
-      var n = i.name.toLowerCase().replace(/[^a-z0-9]/g,'');
-      var fd = ING_DATA.find(function(row){ var dn=row[1].toLowerCase().replace(/[^a-z0-9]/g,''); return dn.includes(n)||n.includes(dn); });
-      if (fd) { var p = parseFloat(String(fd[5]).replace(/[^0-9.]/g,'')); if (!isNaN(p)) price = p; }
-    }
+    var price = _getIngPrice(i);
     if (price !== null) { total += frac * price; matched++; }
   });
   return matched > 0 ? total : null;
@@ -5122,6 +5311,8 @@ function viewRecipe(npd) {
   if (_currentPage !== 'recipe-detail') _navHistory.push(_currentPage);
   const r = RECIPE_DB[npd];
   if (!r) return;
+  // Prefetch EBS prices for ingredients without costs
+  _prefetchRecipePrices(r);
   const scaled = scaleIngredients(r.ingredients, 1);
   const totalPct = r.ingredients.reduce((s,i) => s+i.pct, 0);
   const statusMap = {approved:'badge-approved','prod-trial':'badge-prod-trial',trial:'badge-trial',review:'badge-review',draft:'badge-draft'};
@@ -5140,6 +5331,8 @@ function viewRecipe(npd) {
         </div>
         <div style="display:flex;gap:8px;align-items:center">
           <span class="badge ${statusMap[r.status]}" style="font-size:11px">${statusLabel[r.status]}</span>
+          <button class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:white;border:none" onclick="editRecipe('${r.npd}')">Edit</button>
+          <button class="btn btn-sm" style="background:var(--sage);color:white;border:none" onclick="saveAllData();showSaveToast('Recipe saved')">Save</button>
           <div class="print-dd" id="dd-detail-${r.npd}">
             <button class="btn btn-sm" style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:none" onclick="event.stopPropagation();toggleDD('dd-detail-${r.npd}')">Print ▾</button>
             <div class="print-dd-menu">
@@ -5166,6 +5359,7 @@ function viewRecipe(npd) {
           <div style="display:flex;align-items:center;gap:8px">
             <span style="font-size:11px;color:var(--g3)">Per 1 kg</span>
             ${(r.type === 'Dough' || r.ingredients.some(function(i){ return /flour|dough/i.test(i.name); })) ? '<button class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 10px" onclick="toggleBakerPct(\''+r.npd+'\')" id="baker-btn-'+r.npd+'">Baker\'s %</button>' : ''}
+            <button class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 10px" onclick="editRecipe('${r.npd}')">Edit</button>
           </div>
         </div>
         <div class="card-body" style="padding:0">
@@ -5191,7 +5385,7 @@ function viewRecipe(npd) {
 
       <!-- Method -->
       <div class="card">
-        <div class="card-head"><span class="card-title">Method</span><span class="badge badge-navy">${r.method.length} Steps</span></div>
+        <div class="card-head"><span class="card-title">Method</span><div style="display:flex;align-items:center;gap:8px"><span class="badge badge-navy">${r.method.length} Steps</span><button class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 10px" onclick="editRecipe('${r.npd}')">Edit</button></div></div>
         <div class="card-body">
           ${r.method.map((s,i) => `
             <div class="sop-step" style="margin-bottom:14px">
@@ -5305,7 +5499,10 @@ function viewRecipe(npd) {
     <div class="card" style="margin-bottom:20px">
       <div class="card-head">
         <span class="card-title">🥗 Nutrition (per 100g)</span>
-        <button class="btn btn-outline btn-sm" onclick="toggleNutritionEdit('${r.npd}')">Edit</button>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-outline btn-sm" style="font-size:10px;color:var(--sage);border-color:var(--sage)" onclick="calcRecipeNutritionUSDA('${r.npd}')">USDA Auto</button>
+          <button class="btn btn-outline btn-sm" onclick="toggleNutritionEdit('${r.npd}')">Edit</button>
+        </div>
       </div>
       <div class="card-body" style="padding:0">
         <table class="data-table" style="font-size:12px">
@@ -5818,11 +6015,22 @@ function setRecipeStatus(npd, newStatus) {
   buildRecipesTable();
   updateDashboardStats();
   updateSidebarBadges();
+  var _userName = getCurrentUserName();
   var notifyRole = newStatus==='trial'?'factory':newStatus==='prod-trial'?'factory':newStatus==='review'?'admin':'all';
-  logActivity('status', newStatus==='approved'?'✅':newStatus==='trial'?'🏭':newStatus==='prod-trial'?'🔬':'📤', r.name + ' moved to ' + labels[newStatus], 'By Caterina Loduca', notifyRole);
+  logActivity('status', newStatus==='approved'?'✅':newStatus==='trial'?'🏭':newStatus==='prod-trial'?'🔬':'📤', r.name + ' moved to ' + labels[newStatus], 'By ' + _userName, notifyRole);
   viewRecipe(npd);
   showSaveToast('Recipe moved to ' + labels[newStatus]);
   saveAllData();
+
+  // Send email notification
+  var _eventMap = {review:'recipe-review', trial:'recipe-factory-trial', 'prod-trial':'recipe-prod-trial', approved:'recipe-approved'};
+  if (_eventMap[newStatus]) {
+    fetch(API_BASE + '/api/notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + API_KEY },
+      body: JSON.stringify({ event: _eventMap[newStatus], recipe: r.name + ' (' + npd + ')', user: _userName }),
+    }).catch(function() {});
+  }
 }
 
 function updateTrialQA(npd, stage, field, value) {
@@ -5857,6 +6065,13 @@ function signOffTrialQA(npd, stage) {
   viewRecipe(npd);
   showSaveToast('QA sign-off recorded for ' + (stage === 'trial' ? 'Factory Trial' : 'Production Trial'));
   saveAllData();
+
+  // Notify R&D that QA signed off
+  fetch(API_BASE + '/api/notify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + API_KEY },
+    body: JSON.stringify({ event: 'qa-signoff', recipe: r.name + ' (' + npd + ')', user: qa.signedBy || getCurrentUserName() }),
+  }).catch(function() {});
 }
 
 function handleTrialQAMedia(npd, stage, inputEl) {
@@ -7324,7 +7539,7 @@ function createNewVersion(npd, type) {
   r.version = bumpVersion(r.version, type);
   r.status = 'draft';
   r.sopStatus = null;
-  r.updated = 'Just now';
+  r.updated = 'Just now'; r.updatedAt = new Date().toISOString();
 
   // Rebuild table and open edit
   var tbody = document.getElementById('recipes-tbody');
@@ -7397,7 +7612,7 @@ function restoreVersion(npd, idx) {
   r.shelfLife = old.shelfLife;
   r.yield = old.yield;
   r.yieldNotes = old.yieldNotes || '';
-  r.updated = 'Just now';
+  r.updated = 'Just now'; r.updatedAt = new Date().toISOString();
 
   var tbody = document.getElementById('recipes-tbody');
   if (tbody) { tbody.innerHTML = ''; buildRecipesTable(); }
@@ -7771,7 +7986,7 @@ function saveEditRecipe(npd) {
   r.yield = yieldVal ? parseFloat(yieldVal) / 100 : null;
   r.yieldNotes = document.getElementById('er-yield-notes')?.value || '';
   r.status = document.getElementById('er-status').value;
-  r.updated = 'Just now';
+  r.updated = 'Just now'; r.updatedAt = new Date().toISOString();
 
   const catMap = {Marinade:'cat-spice',Dip:'cat-dairy',Sauce:'cat-veg',Blend:'cat-spice',Seasoning:'cat-spice',Spread:'cat-oil',Dessert:'cat-dairy',Meat:'cat-spice',Dough:'cat-base',Coating:'cat-oil',Brine:'cat-veg',Garnish:'cat-veg'};
   r.catClass = catMap[r.type] || 'cat-base';
@@ -7781,13 +7996,25 @@ function saveEditRecipe(npd) {
 
   // Collect ingredients (always save as %)
   const ingRows = document.querySelectorAll('#er-ingredients .er-ing-row');
+  // Preserve existing cost overrides by name
+  var _oldCosts = {};
+  if (r.ingredients) r.ingredients.forEach(function(i) { if (i.costPerKg != null) _oldCosts[i.name] = i.costPerKg; });
   r.ingredients = [];
   ingRows.forEach(row => {
     const nameInput = row.querySelector('[data-field="name"]');
     const pctInput = row.querySelector('.er-ing-pct');
     const name = nameInput ? nameInput.value.trim() : '';
     const pct = pctInput ? parseFloat(pctInput.value) : 0;
-    if (name && pct > 0) r.ingredients.push({ name, pct });
+    if (name && pct > 0) {
+      var ing = { name, pct };
+      // Carry over existing manual cost override
+      if (_oldCosts[name] != null) ing.costPerKg = _oldCosts[name];
+      // Or auto-set from EBS cache if available and no existing override
+      else if (_ebsPriceCache[name.toLowerCase()] && _ebsPriceCache[name.toLowerCase()].price > 0) {
+        ing.costPerKg = _ebsPriceCache[name.toLowerCase()].price;
+      }
+      r.ingredients.push(ing);
+    }
   });
 
   // Collect method
@@ -8082,7 +8309,8 @@ const BRANDS = [
   { id:'telliano', name:'Telliano',  concept:'Fast casual Italian', recipes:5, approved:3, draft:0, review:2, bg:'#F5EEFA', border:'#D4B5F0', text:'#6B2FA0', types:['Pasta sauce','Pesto','Dip','Dressing'], costRange:'SAR 14–30' },
 ];
 
-const BRAND_RECIPES = {
+const BRAND_RECIPES = {}; /* Clean slate */
+var _BRAND_RECIPES_SEED_REMOVED = {
   maestro:  [
     {name:'Classic Tomato Pizza Sauce', npd:'2025-001', v:'v3.2', costKg:8.40,  status:'approved'},
     {name:'Garlic Butter Crust Finish', npd:'2025-002', v:'v2.0', costKg:11.20, status:'approved'},
@@ -8126,7 +8354,10 @@ function renderBrandDetail(id) {
     c.style.outlineOffset = '2px';
   });
   const b = BRANDS.find(x => x.id === id);
-  const recipes = BRAND_RECIPES[id] || [];
+  // Pull recipes dynamically from RECIPE_DB by brand name
+  const recipes = Object.values(RECIPE_DB).filter(function(r){ return r.brand === b.name; }).map(function(r){
+    return {name:r.name, npd:r.npd, v:r.version, costKg:r.costKg ? parseFloat(String(r.costKg).replace(/[^0-9.]/g,'')) : null, status:r.status};
+  });
   const costed = recipes.filter(r => r.costKg);
   const panel = document.getElementById('brand-detail-panel');
 
@@ -8286,6 +8517,7 @@ function populateBrandCheckboxes() {
 function buildBrandCards() {
   const row = document.getElementById('brand-cards-row');
   if (!row) return;
+  row.innerHTML = '';
   BRANDS.forEach((b, i) => {
     const div = document.createElement('div');
     div.className = 'brand-card';
@@ -8631,6 +8863,25 @@ function submitReg() {
 }
 
 // ──────────── INVITE FORM ────────────
+function quickAddUser() {
+  var name = (document.getElementById('inv-name') || {}).value || '';
+  var email = (document.getElementById('inv-email') || {}).value || '';
+  var role = (document.getElementById('inv-role') || {}).value || '';
+  if (!name.trim()) { showSaveToast('Enter a name', true); return; }
+  if (!email.trim() || !email.includes('@dailyfoodsa.com')) { showSaveToast('Enter a valid @dailyfoodsa.com email', true); return; }
+  if (!role) { showSaveToast('Select a role', true); return; }
+  // Check duplicate
+  if (USERS_DATA.find(function(u){ return u.email.toLowerCase() === email.toLowerCase(); })) {
+    showSaveToast('User already exists', true); return;
+  }
+  USERS_DATA.push({ name: name.trim(), email: email.trim().toLowerCase(), role: role, active: true, title: role });
+  buildUsersTable();
+  toggleInviteForm();
+  saveAllData();
+  showSaveToast(name.trim() + ' added as ' + role);
+  logActivity('user', '👤', 'Added user: ' + name.trim(), email + ' — ' + role);
+}
+
 function toggleInviteForm() {
   const f = document.getElementById('invite-form');
   f.style.display = f.style.display === 'none' ? 'block' : 'none';
@@ -9085,6 +9336,107 @@ function saveNutrition() {
   saveAllData();
 }
 
+// Calculate nutrition from USDA for a recipe (QA page or recipe detail)
+function calcRecipeNutritionUSDA(npd) {
+  if (!npd) npd = _qaCurrentNPD;
+  var r = RECIPE_DB[npd];
+  if (!r) { showSaveToast('Select a recipe first', true); return; }
+  if (!r.ingredients || !r.ingredients.length) { showSaveToast('No ingredients to calculate', true); return; }
+  showSaveToast('Calculating nutrition from USDA...');
+  fetch(API_BASE + '/api/nutrition/recipe?npd=' + encodeURIComponent(npd), {
+    headers: { 'Authorization': 'Bearer ' + API_KEY }
+  }).then(function(resp) { return resp.json(); }).then(function(data) {
+    if (data.error) { showSaveToast('USDA error: ' + data.error, true); return; }
+    if (!data.nutritionPer100g) { showSaveToast('No nutrition data found', true); return; }
+    var n = data.nutritionPer100g;
+    r.nutrition = {
+      energy: n.energy ? String(Math.round(n.energy)) : '',
+      protein: n.protein ? String(n.protein.toFixed(1)) : '',
+      fat: n.fat ? String(n.fat.toFixed(1)) : '',
+      satfat: n.satfat ? String(n.satfat.toFixed(1)) : '',
+      carbs: n.carbs ? String(n.carbs.toFixed(1)) : '',
+      sugars: n.sugars ? String(n.sugars.toFixed(1)) : '',
+      fibre: n.fibre ? String(n.fibre.toFixed(1)) : '',
+      sodium: n.sodium ? String(Math.round(n.sodium)) : '',
+    };
+    // Update QA page fields if visible
+    var fields = ['energy','fat','satfat','carbs','sugars','fibre','protein','sodium'];
+    fields.forEach(function(f) {
+      var el = document.getElementById('qa-nut-' + f);
+      if (el && r.nutrition[f]) el.value = r.nutrition[f];
+    });
+    calcNutDV();
+    saveAllData();
+    showSaveToast('Nutrition calculated from USDA (' + data.matched + ' ingredients matched)');
+    logActivity('qa', '🥗', 'USDA nutrition calculated for ' + r.name, data.matched + ' matched');
+    // Re-render recipe detail if on that page
+    if (document.getElementById('ing-table-' + npd)) {
+      var _sy = window.scrollY; viewRecipe(npd); window.scrollTo(0, _sy);
+    }
+  }).catch(function(err) {
+    showSaveToast('USDA calculation failed: ' + err.message, true);
+  });
+}
+
+// Calculate nutrition from USDA for a build (uses linked recipe components)
+function calcBuildNutritionUSDA(buildId) {
+  var b = BUILDS_DATA.find(function(x) { return x.id === buildId; });
+  if (!b) return;
+  if (!b.components || !b.components.length) { showSaveToast('No components to calculate', true); return; }
+  showSaveToast('Calculating nutrition from USDA...');
+  // Search USDA for each component
+  var totals = { energy:0, protein:0, fat:0, satfat:0, carbs:0, sugars:0, fibre:0, sodium:0 };
+  var totalWeight = 0;
+  var fetched = 0;
+  var components = b.components.filter(function(c) { return c.weight; });
+  if (!components.length) { showSaveToast('Components need weights for nutrition calc', true); return; }
+  components.forEach(function(c) {
+    var grams = parseFloat(c.weight) || 0;
+    if (grams <= 0) { fetched++; return; }
+    totalWeight += grams;
+    fetch(API_BASE + '/api/nutrition/search?q=' + encodeURIComponent(c.item), {
+      headers: { 'Authorization': 'Bearer ' + API_KEY }
+    }).then(function(resp) { return resp.json(); }).then(function(data) {
+      if (data.results && data.results[0] && data.results[0].nutrition) {
+        var n = data.results[0].nutrition;
+        var scale = grams / 100;
+        Object.keys(totals).forEach(function(k) { if (n[k]) totals[k] += n[k] * scale; });
+      }
+      fetched++;
+      if (fetched >= components.length) _finishBuildNutrition(buildId, totals, totalWeight);
+    }).catch(function() {
+      fetched++;
+      if (fetched >= components.length) _finishBuildNutrition(buildId, totals, totalWeight);
+    });
+  });
+}
+
+function _finishBuildNutrition(buildId, totals, totalWeight) {
+  var b = BUILDS_DATA.find(function(x) { return x.id === buildId; });
+  if (!b || totalWeight <= 0) return;
+  // Convert to per 100g of total build
+  var scale = 100 / totalWeight;
+  b.nutrition = {
+    energy: String(Math.round(totals.energy * scale)),
+    protein: String((totals.protein * scale).toFixed(1)),
+    fat: String((totals.fat * scale).toFixed(1)),
+    satfat: String((totals.satfat * scale).toFixed(1)),
+    carbs: String((totals.carbs * scale).toFixed(1)),
+    sugars: String((totals.sugars * scale).toFixed(1)),
+    fibre: String((totals.fibre * scale).toFixed(1)),
+    sodium: String(Math.round(totals.sodium * scale)),
+  };
+  // Update build nutrition inputs
+  var fields = ['energy','protein','fat','satfat','carbs','sugars','fibre','sodium'];
+  fields.forEach(function(f) {
+    var el = document.getElementById('bld-nut-' + f + '-' + buildId);
+    if (el && b.nutrition[f]) el.value = b.nutrition[f];
+  });
+  saveAllData();
+  showSaveToast('Build nutrition calculated from USDA');
+  logActivity('recipe', '🥗', 'USDA nutrition calculated for build ' + b.name);
+}
+
 function loadNutrition(npd) {
   var r = RECIPE_DB[npd];
   if (!r || !r.nutrition) return;
@@ -9214,15 +9566,14 @@ function confirmDeleteRecipe(npd) {
   var name = RECIPE_DB[npd] ? RECIPE_DB[npd].name : npd;
   delete RECIPE_DB[npd];
   if (_deletedRecipeIds.indexOf(npd) === -1) _deletedRecipeIds.push(npd);
-  saveAllData();
   var tbody = document.getElementById('recipes-tbody');
   if (tbody) { tbody.innerHTML = ''; buildRecipesTable(); }
   closeModal();
   updateDashboardStats();
   updateSidebarBadges();
   logActivity('recipe', '🗑️', 'Deleted recipe: ' + name);
-  showSaveToast('Recipe deleted');
   saveAllData();
+  showSaveToast('Recipe deleted');
 }
 
 // ──────────── DELETE QA SHELF LIFE ROWS ────────────
@@ -9768,7 +10119,8 @@ function clearNotifications() {
 }
 
 // ──────────── PIZZA BUILDS ────────────
-var BUILDS_DATA = [
+var BUILDS_DATA = []; /* Clean slate — all builds come from server */
+var _BUILDS_SEED_REMOVED = [
   {
     id:'BLD-001', name:'Maestro Classic Margherita', brand:'Maestro', type:'Pizza', size:'Medium', status:'approved',
     components:[
@@ -9869,17 +10221,23 @@ function buildBuildsTable() {
   const tbody = document.getElementById('builds-tbody');
   if (!tbody) return;
   tbody.innerHTML = '';
-  BUILDS_DATA.forEach(b => {
+  const showArchived = document.getElementById('builds-show-archived') && document.getElementById('builds-show-archived').checked;
+  const statusMap = {approved:'badge-approved',review:'badge-review',trial:'badge-trial','prod-trial':'badge-prod-trial',draft:'badge-draft'};
+  const statusLabel = {approved:'Approved',review:'In Review',trial:'Factory Trial','prod-trial':'Production Trial',draft:'Draft'};
+  var archivedCount = 0;
+  var visibleCount = 0;
+  var _sortedBuilds = BUILDS_DATA.slice().sort(function(a,b){ return (b.updatedAt||b.id||'').localeCompare(a.updatedAt||a.id||''); });
+  _sortedBuilds.forEach(b => {
     if (b.active === undefined) b.active = true;
+    if (b.archived) { archivedCount++; if (!showArchived) return; }
+    visibleCount++;
     const totalCost = b.components.reduce((s,c) => s + (c.cost||0), 0);
-    const statusMap = {approved:'badge-approved',review:'badge-review',trial:'badge-trial','prod-trial':'badge-prod-trial',draft:'badge-draft'};
-    const statusLabel = {approved:'Approved',review:'In Review',trial:'Factory Trial','prod-trial':'Production Trial',draft:'Draft'};
     const tr = document.createElement('tr');
     tr.style.cursor = 'pointer';
-    if (!b.active) tr.style.opacity = '0.5';
+    if (!b.active || b.archived) tr.style.opacity = '0.5';
     tr.onclick = function(){ viewBuild(b.id); };
     tr.innerHTML = `
-      <td><strong>${b.name}</strong>${!b.active ? ' <span style="font-size:10px;color:var(--red);font-weight:500">DISCONTINUED</span>' : ''}${(b.tags&&b.tags.length)?'<div style="margin-top:3px">'+renderTagBadges(b.tags)+'</div>':''}</td>
+      <td><strong>${b.name}</strong>${!b.active ? ' <span style="font-size:10px;color:var(--red);font-weight:500">DISCONTINUED</span>' : ''}${b.archived ? ' <span style="font-size:10px;color:var(--g3);font-weight:500">ARCHIVED</span>' : ''}${(b.tags&&b.tags.length)?'<div style="margin-top:3px">'+renderTagBadges(b.tags)+'</div>':''}</td>
       <td style="font-family:var(--font-m);font-size:12px;color:var(--g3)">${b.id}</td>
       <td>${b.brand}</td>
       <td><span class="cat-tag">${b.type || 'Other'}</span></td>
@@ -9892,28 +10250,41 @@ function buildBuildsTable() {
         <div style="display:flex;gap:4px">
           <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();viewBuild('${b.id}')">View</button>
           <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();editBuild('${b.id}')">Edit</button>
-          <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();printBuild('${b.id}')">Print</button>
+          <button class="btn btn-outline btn-sm" style="font-size:10px" onclick="event.stopPropagation();archiveBuild('${b.id}')">${b.archived ? 'Unarchive' : 'Archive'}</button>
           <button class="btn btn-danger-sm" onclick="event.stopPropagation();deleteBuild('${b.id}')">✕</button>
         </div>
       </td>
     `;
     tbody.appendChild(tr);
   });
-  if (!BUILDS_DATA.length) {
+  if (!visibleCount) {
     tbody.innerHTML = '<tr><td colspan="10" style="padding:40px;text-align:center;color:var(--g3);font-size:13px">No product builds yet. Click <strong>+ New Build</strong> to create one.</td></tr>';
   }
-  // Update stats
+  // Update stats (exclude archived from counts)
   const el = id => document.getElementById(id);
-  var activeCount = BUILDS_DATA.filter(function(b){ return b.active !== false; }).length;
-  var discontinuedCount = BUILDS_DATA.filter(function(b){ return b.active === false; }).length;
+  var nonArchived = BUILDS_DATA.filter(function(b){ return !b.archived; });
+  var activeCount = nonArchived.filter(function(b){ return b.active !== false; }).length;
+  var discontinuedCount = nonArchived.filter(function(b){ return b.active === false; }).length;
   if (el('builds-active-count')) el('builds-active-count').textContent = activeCount;
   if (el('builds-discontinued-count')) el('builds-discontinued-count').textContent = discontinuedCount;
-  if (el('builds-total-count')) el('builds-total-count').textContent = BUILDS_DATA.length;
-  if (el('builds-count-label')) el('builds-count-label').textContent = BUILDS_DATA.length + ' builds';
+  if (el('builds-total-count')) el('builds-total-count').textContent = nonArchived.length;
+  if (el('builds-count-label')) el('builds-count-label').textContent = visibleCount + ' builds';
+  var archivedLabel = document.getElementById('builds-archived-label');
+  if (archivedLabel) archivedLabel.textContent = archivedCount ? '(' + archivedCount + ' archived)' : '';
   BRANDS.forEach(function(brand) {
-    var count = BUILDS_DATA.filter(function(b){ return b.brand === brand.name; }).length;
+    var count = nonArchived.filter(function(b){ return b.brand === brand.name; }).length;
     if (el('builds-' + brand.id)) el('builds-' + brand.id).textContent = count;
   });
+}
+
+function archiveBuild(id) {
+  var b = BUILDS_DATA.find(function(x) { return x.id === id; });
+  if (!b) return;
+  b.archived = !b.archived;
+  buildBuildsTable();
+  saveAllData();
+  showSaveToast(b.name + (b.archived ? ' archived' : ' restored'));
+  logActivity('recipe', '🍕', (b.archived ? 'Archived' : 'Unarchived') + ' build: ' + b.name, b.id);
 }
 
 function filterBuilds() {
@@ -10056,7 +10427,10 @@ function viewBuild(id) {
       <div class="card">
         <div class="card-head">
           <span class="card-title">🥗 Nutrition (per 100g)</span>
-          <button class="btn btn-outline btn-sm" onclick="toggleBuildNutritionEdit('${b.id}')">Edit</button>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-outline btn-sm" style="font-size:10px;color:var(--sage);border-color:var(--sage)" onclick="calcBuildNutritionUSDA('${b.id}')">USDA Auto</button>
+            <button class="btn btn-outline btn-sm" onclick="toggleBuildNutritionEdit('${b.id}')">Edit</button>
+          </div>
         </div>
         <div class="card-body" style="padding:0">
           <table class="data-table" style="font-size:12px">
@@ -10316,8 +10690,8 @@ function editBuild(id) {
       '<select class="form-select" style="width:80px;padding:4px 6px;font-size:10px" data-field="type"><option '+(c.type==='Dough'?'selected':'')+'>Dough</option><option '+(c.type==='Sauce'?'selected':'')+'>Sauce</option><option '+(c.type==='Cheese'?'selected':'')+'>Cheese</option><option '+(c.type==='Protein'?'selected':'')+'>Protein</option><option '+(c.type==='Topping'?'selected':'')+'>Topping</option><option '+(c.type==='Finish'?'selected':'')+'>Finish</option></select>' +
       '<input class="form-input" value="'+c.item+'" style="flex:2;padding:4px 6px;font-size:11px;min-width:120px" placeholder="Item name" data-field="item" />' +
       '<select class="form-select" style="width:65px;padding:4px 6px;font-size:10px" data-field="source"><option '+(c.source==='sfg'?'selected':'')+' value="sfg">SFG</option><option '+(c.source==='recipe'?'selected':'')+' value="recipe">Recipe</option><option '+(c.source==='ingredient'?'selected':'')+' value="ingredient">Raw</option></select>' +
-      '<input class="form-input" value="'+(c.tool||'')+'" style="width:80px;padding:4px 6px;font-size:10px" placeholder="Tool" data-field="tool" />' +
-      '<input class="form-input" value="'+(c.toolQty||'')+'" style="width:80px;padding:4px 6px;font-size:10px" placeholder="Qty/Pcs" data-field="toolQty" />' +
+      '<select class="form-select" style="width:110px;padding:4px 6px;font-size:10px" data-field="tool" onchange="onToolSelect(this)">' + toolSelectHTML(c.tool) + '</select>' +
+      '<input class="form-input" value="'+(c.toolQty||'')+'" style="width:80px;padding:4px 6px;font-size:10px" placeholder="Qty/Pcs" data-field="toolQty" oninput="onToolQtyChange(this)" />' +
       '<input class="form-input" value="'+(c.weight||'')+'" style="width:60px;padding:4px 6px;font-size:11px;text-align:right" placeholder="Weight" data-field="weight" />' +
       '<input class="form-input" value="'+(c.cost||0)+'" type="number" step="0.01" style="width:60px;padding:4px 6px;font-size:11px;text-align:right" placeholder="Cost" data-field="cost" />' +
       '<button style="background:none;border:none;cursor:pointer;color:var(--red);font-size:14px" onclick="this.closest(\'.eb-comp-row\').remove()">✕</button>' +
@@ -10363,8 +10737,8 @@ function addBuildComponent() {
     '<select class="form-select" style="width:80px;padding:4px 6px;font-size:10px" data-field="type"><option>Dough</option><option>Sauce</option><option>Cheese</option><option>Protein</option><option>Topping</option><option>Finish</option></select>' +
     '<input class="form-input" style="flex:2;padding:4px 6px;font-size:11px;min-width:120px" placeholder="Item name" data-field="item" />' +
     '<select class="form-select" style="width:65px;padding:4px 6px;font-size:10px" data-field="source"><option value="sfg">SFG</option><option value="recipe">Recipe</option><option value="ingredient">Raw</option></select>' +
-    '<input class="form-input" style="width:80px;padding:4px 6px;font-size:10px" placeholder="Tool" data-field="tool" />' +
-    '<input class="form-input" style="width:80px;padding:4px 6px;font-size:10px" placeholder="Qty/Pcs" data-field="toolQty" />' +
+    '<select class="form-select" style="width:110px;padding:4px 6px;font-size:10px" data-field="tool" onchange="onToolSelect(this)">' + toolSelectHTML('') + '</select>' +
+    '<input class="form-input" style="width:80px;padding:4px 6px;font-size:10px" placeholder="Qty/Pcs" data-field="toolQty" oninput="onToolQtyChange(this)" />' +
     '<input class="form-input" style="width:60px;padding:4px 6px;font-size:11px;text-align:right" placeholder="Weight" data-field="weight" />' +
     '<input class="form-input" type="number" step="0.01" style="width:60px;padding:4px 6px;font-size:11px;text-align:right" placeholder="Cost" data-field="cost" />' +
     '<button style="background:none;border:none;cursor:pointer;color:var(--red);font-size:14px" onclick="this.closest(\'.eb-comp-row\').remove()">✕</button>';
@@ -10382,6 +10756,7 @@ function saveEditBuild(id) {
   b.instructions = document.getElementById('eb-build-instr').value;
   b.status = document.getElementById('eb-build-status').value;
   b.updated = 'Just now';
+  b.updatedAt = new Date().toISOString();
   // Rebuild components from rows
   b.components = [];
   document.querySelectorAll('.eb-comp-row').forEach(function(row) {
@@ -10500,7 +10875,7 @@ function duplicateBuild(id) {
   var b = BUILDS_DATA.find(x => x.id === id);
   if (!b) return;
   var copy = JSON.parse(JSON.stringify(b));
-  var nextNum = BUILDS_DATA.length + 1;
+  var nextNum = BUILDS_DATA.reduce(function(m,x){var n=parseInt((x.id||'').replace(/[^0-9]/g,''))||0;return n>m?n:m},0) + 1;
   copy.id = 'BLD-' + String(nextNum).padStart(3,'0');
   copy.name = b.name + ' (Copy)';
   copy.status = 'draft';
@@ -10634,7 +11009,7 @@ function saveProductionRun() {
   var npd = document.getElementById('np-recipe').value;
   var r = RECIPE_DB[npd];
   var _newDate = document.getElementById('np-date').value;
-  PRODUCTION_RUNS.push({id:'PR-'+String(PRODUCTION_RUNS.length+1).padStart(3,'0'), date:_newDate, recipe:r?r.name:npd, npd:npd, brand:r?r.brand:'', runType:document.getElementById('np-runtype').value, batchSize:document.getElementById('np-batch').value+' kg', operator:document.getElementById('np-operator').value, status:_newDate ? 'scheduled' : 'pending', yield:'', waste:'', notes:document.getElementById('np-notes').value, createdAt:new Date().toISOString()});
+  PRODUCTION_RUNS.push({id:'PR-'+String((PRODUCTION_RUNS.reduce(function(m,r){var n=parseInt(r.id.replace(/[^0-9]/g,''))||0;return n>m?n:m},0))+1).padStart(3,'0'), date:_newDate, recipe:r?r.name:npd, npd:npd, brand:r?r.brand:'', runType:document.getElementById('np-runtype').value, batchSize:document.getElementById('np-batch').value+' kg', operator:document.getElementById('np-operator').value, status:_newDate ? 'scheduled' : 'pending', yield:'', waste:'', notes:document.getElementById('np-notes').value, createdAt:new Date().toISOString()});
   closeModal(); buildProductionTable(); logActivity('production','📅','Run scheduled: '+(r?r.name:npd)); showSaveToast('Run scheduled');
   saveAllData();
 }
@@ -10701,6 +11076,15 @@ function setRunStatus(id, status) {
   logActivity('production', '🔄', run.recipe + ': ' + labels[oldStatus] + ' → ' + labels[status]);
   showSaveToast('Status changed to ' + labels[status]);
   saveAllData();
+
+  // Notify on schedule
+  if (status === 'scheduled') {
+    fetch(API_BASE + '/api/notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + API_KEY },
+      body: JSON.stringify({ event: 'run-scheduled', recipe: run.recipe, user: getCurrentUserName() }),
+    }).catch(function() {});
+  }
 }
 
 
@@ -10716,6 +11100,13 @@ function saveCompleteRun(id) {
   run.status='completed'; run.completedAt=new Date().toISOString(); run.yield=document.getElementById('cp-yield').value+'%'; run.waste=document.getElementById('cp-waste').value+'%'; run.notes=document.getElementById('cp-notes').value;
   closeModal(); buildProductionTable(); logActivity('production','✅','Completed: '+run.recipe,'Yield: '+run.yield+' · Waste: '+run.waste); showSaveToast('Run completed');
   saveAllData();
+
+  // Notify R&D + QA that run is completed
+  fetch(API_BASE + '/api/notify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + API_KEY },
+    body: JSON.stringify({ event: 'run-completed', recipe: run.recipe, user: getCurrentUserName() }),
+  }).catch(function() {});
 }
 
 function editProductionRun(id) {
@@ -11734,7 +12125,8 @@ function buildReports() {
 // buildReports + renderSavingsTracker moved to after loadAllData()
 
 // ──────────── BRANCH SOP ────────────
-var BRANCH_SOPS = [
+var BRANCH_SOPS = []; /* Clean slate — all SOPs come from server */
+var _BRANCH_SOPS_SEED_REMOVED = [
   {
     id:'M-PS-120', name:'Original Ranchy', brand:'Maestro', version:'V-06', date:'03/05/2025', status:'approved',
     buildRef:'BLD-001',
@@ -11766,8 +12158,62 @@ var BRANCH_SOPS = [
 ];
 
 // Branch SOP brand colors (must be before init calls)
+// Portioning tools reference — auto-fills weight in builds & SOPs
+var PORTIONING_TOOLS = [
+  {name:'2 oz Ladle', category:'Ladle', baseWeight:0.040, notes:'Tomato sauce. M=40g, L=60g'},
+  {name:'3 oz Ladle', category:'Ladle', baseWeight:0.060, notes:'Ranch/Alfredo. M=60g, L=90g'},
+  {name:'1.5 Ladle', category:'Ladle', baseWeight:0.090, notes:'Pinzatta only'},
+  {name:'2/3 Ladle', category:'Ladle', baseWeight:0.045, notes:'Mad only'},
+  {name:'Cheese Scoop', category:'Scoop', baseWeight:0.045, notes:'45g/scoop. M=2 scoops(90g), L=3(135g)'},
+  {name:'1/4 Scoop', category:'Scoop', baseWeight:0.060, notes:'Protein. M=60g, L=100g'},
+  {name:'3 Scoop', category:'Scoop', baseWeight:0.135, notes:'Pinzatta 3x cheese'},
+  {name:'4 Scoop', category:'Scoop', baseWeight:0.180, notes:'Pinzatta La Margarita 4x cheese'},
+  {name:'Swirl', category:'Drizzle', baseWeight:0.020, notes:'BBQ/Dynamite/Ranch drizzle. 18-26g'},
+  {name:'Line', category:'Drizzle', baseWeight:0.015, notes:'Line application for quesadillas'},
+  {name:'Drops', category:'Drizzle', baseWeight:0.003, notes:'Pesto/Tabasco small qty'},
+  {name:'Spoon', category:'Spoon', baseWeight:0.010, notes:'Garlic butter/ranch/tomato'},
+  {name:'Pcs', category:'Count', baseWeight:0, notes:'Count-based (olives, peppers, etc.)'},
+  {name:'Hand', category:'Hand', baseWeight:0, notes:'Manual portioning'},
+  {name:'Squeeze bottle', category:'Bottle', baseWeight:0.010, notes:'Drizzle from bottle'},
+];
+
+function toolSelectHTML(selected) {
+  return '<option value="">' + (selected ? '' : '— Tool —') + '</option>' +
+    PORTIONING_TOOLS.map(function(t) {
+      return '<option value="' + t.name + '"' + (t.name === selected ? ' selected' : '') + ' data-weight="' + t.baseWeight + '">' + t.name + ' (' + (t.baseWeight > 0 ? (t.baseWeight*1000)+'g' : 'count') + ')</option>';
+    }).join('') +
+    (selected && !PORTIONING_TOOLS.find(function(t){return t.name===selected}) ? '<option value="'+selected+'" selected>'+selected+'</option>' : '');
+}
+
+function onToolSelect(selectEl) {
+  var row = selectEl.closest('.eb-comp-row');
+  if (!row) return;
+  var tool = PORTIONING_TOOLS.find(function(t) { return t.name === selectEl.value; });
+  if (tool && tool.baseWeight > 0) {
+    var qtyInput = row.querySelector('[data-field="toolQty"]');
+    var weightInput = row.querySelector('[data-field="weight"]');
+    var qty = qtyInput ? (parseFloat(qtyInput.value) || 1) : 1;
+    if (qtyInput && !qtyInput.value) qtyInput.value = '1';
+    if (weightInput) weightInput.value = (tool.baseWeight * qty * 1000) + 'g';
+  }
+}
+
+function onToolQtyChange(inputEl) {
+  var row = inputEl.closest('.eb-comp-row');
+  if (!row) return;
+  var toolSelect = row.querySelector('[data-field="tool"]');
+  if (!toolSelect || !toolSelect.value) return;
+  var tool = PORTIONING_TOOLS.find(function(t) { return t.name === toolSelect.value; });
+  if (tool && tool.baseWeight > 0) {
+    var qty = parseFloat(inputEl.value) || 1;
+    var weightInput = row.querySelector('[data-field="weight"]');
+    if (weightInput) weightInput.value = (tool.baseWeight * qty * 1000) + 'g';
+  }
+}
+
 var BSOP_BRAND_COLORS = {
   'Maestro': '#27AE60',
+  'Maestro KSA': '#27AE60',
   'Pinzatta': '#E84393',
   'Tivo': '#6C3483',
   'Telliano': '#D4930A',
@@ -11828,6 +12274,7 @@ function getBranchSOPAllergenNutritionPrintHTML(sop) {
   // Components table for print (with shelf life)
   var _bc = BSOP_BRAND_COLORS[sop.brand] || '#1B2A4A';
   var _csl = sop.componentShelfLife || {};
+  var _cslOpen = sop.componentShelfLifeOpen || {};
   if (components.length) {
     html += '<div style="padding:10px 20px;border-top:2px solid ' + _bc + '">';
     html += '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:' + _bc + ';margin-bottom:6px">Components</div>';
@@ -11838,15 +12285,18 @@ function getBranchSOPAllergenNutritionPrintHTML(sop) {
       '<th style="text-align:right;padding:3px 6px;color:#888;font-weight:600">Weight</th>' +
       '<th style="text-align:left;padding:3px 6px;color:#888;font-weight:600">Tool / Qty</th>' +
       '<th style="text-align:left;padding:3px 6px;color:#888;font-weight:600">2nd Shelf Life</th>' +
+      '<th style="text-align:left;padding:3px 6px;color:#888;font-weight:600">After Opening</th>' +
     '</tr></thead><tbody>';
     components.forEach(function(c) {
       var sl = _csl[c.item] || '—';
+      var slOpen = _cslOpen[c.item] || '—';
       html += '<tr style="border-bottom:1px solid #eee">' +
         '<td style="padding:3px 6px;color:#888">' + c.type + '</td>' +
         '<td style="padding:3px 6px;font-weight:500">' + c.item + '</td>' +
         '<td style="padding:3px 6px;text-align:right;color:#666">' + (c.weight||'') + '</td>' +
         '<td style="padding:3px 6px;color:#888">' + (c.toolQty ? (c.tool ? c.tool + ' — ' : '') + c.toolQty : (c.tool||'')) + '</td>' +
         '<td style="padding:3px 6px;color:' + (sl !== '—' ? _bc : '#ccc') + ';font-weight:' + (sl !== '—' ? '600' : '400') + '">' + sl + '</td>' +
+        '<td style="padding:3px 6px;color:' + (slOpen !== '—' ? '#D4700A' : '#ccc') + ';font-weight:' + (slOpen !== '—' ? '600' : '400') + '">' + slOpen + '</td>' +
       '</tr>';
     });
     html += '</tbody></table></div>';
@@ -11904,25 +12354,35 @@ function getBranchSOPAllergenNutritionHTML(sop) {
     html += '<div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:var(--navy);margin-bottom:10px">Components</div>';
     html += '<table style="width:100%;font-size:12px;border-collapse:collapse">';
     var _csl = sop.componentShelfLife || {};
+    var _cslOpen = sop.componentShelfLifeOpen || {};
     var _slOptions = ['','4 Hours','8 Hours','12 Hours','24 Hours','2 Days','3 Days','5 Days','7 Days','14 Days','1 Month','3 Months','6 Months','Custom'];
+    var _thStyle = 'text-align:left;padding:4px 8px;font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:var(--g3);font-weight:600';
     html += '<thead><tr style="border-bottom:1px solid var(--g2)">' +
-      '<th style="text-align:left;padding:4px 8px;font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:var(--g3);font-weight:600">Type</th>' +
-      '<th style="text-align:left;padding:4px 8px;font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:var(--g3);font-weight:600">Item</th>' +
-      '<th style="text-align:right;padding:4px 8px;font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:var(--g3);font-weight:600">Weight</th>' +
-      '<th style="text-align:left;padding:4px 8px;font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:var(--g3);font-weight:600">Tool / Qty</th>' +
-      '<th style="text-align:left;padding:4px 8px;font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:var(--g3);font-weight:600">2nd Shelf Life</th>' +
+      '<th style="' + _thStyle + '">Type</th>' +
+      '<th style="' + _thStyle + '">Item</th>' +
+      '<th style="' + _thStyle + ';text-align:right">Weight</th>' +
+      '<th style="' + _thStyle + '">Tool / Qty</th>' +
+      '<th style="' + _thStyle + '">2nd Shelf Life</th>' +
+      '<th style="' + _thStyle + '">After Opening</th>' +
     '</tr></thead><tbody>';
     components.forEach(function(c, ci) {
       var _curSL = _csl[c.item] || '';
       var _isCustom = _curSL && _slOptions.indexOf(_curSL) === -1;
+      var _curOpen = _cslOpen[c.item] || '';
+      var _isCustomOpen = _curOpen && _slOptions.indexOf(_curOpen) === -1;
+      var _selStyle = 'padding:3px 6px;border:1px solid var(--g2);border-radius:var(--r-sm);font-size:11px;font-family:var(--font-b);background:white;cursor:pointer';
       html += '<tr style="border-bottom:1px solid var(--g1)">' +
         '<td style="padding:5px 8px;color:var(--g3);font-weight:500">' + c.type + '</td>' +
         '<td style="padding:5px 8px;font-weight:500;color:var(--g5)">' + c.item + '</td>' +
         '<td style="padding:5px 8px;text-align:right;font-family:var(--font-m);color:var(--g4)">' + (c.weight||'') + '</td>' +
         '<td style="padding:5px 8px;font-size:11px;color:var(--g3)">' + (c.toolQty ? (c.tool ? c.tool + ' — ' : '') + c.toolQty : (c.tool||'')) + '</td>' +
-        '<td style="padding:5px 8px"><select style="padding:3px 6px;border:1px solid var(--g2);border-radius:var(--r-sm);font-size:11px;font-family:var(--font-b);color:' + (_curSL ? 'var(--sage)' : 'var(--g3)') + ';background:white;cursor:pointer" onchange="setComponentShelfLife(\'' + sop.id + '\',\'' + c.item.replace(/'/g,"\\'") + '\',this)">' +
+        '<td style="padding:5px 8px"><select style="' + _selStyle + ';color:' + (_curSL ? 'var(--sage)' : 'var(--g3)') + '" onchange="setComponentShelfLife(\'' + sop.id + '\',\'' + c.item.replace(/'/g,"\\'") + '\',this,\'sealed\')">' +
           _slOptions.map(function(o) { return '<option value="' + o + '"' + (o === _curSL || (_isCustom && o === 'Custom') ? ' selected' : '') + '>' + (o || '— set —') + '</option>'; }).join('') +
           (_isCustom ? '<option value="' + _curSL + '" selected>' + _curSL + '</option>' : '') +
+        '</select></td>' +
+        '<td style="padding:5px 8px"><select style="' + _selStyle + ';color:' + (_curOpen ? 'var(--amber)' : 'var(--g3)') + '" onchange="setComponentShelfLife(\'' + sop.id + '\',\'' + c.item.replace(/'/g,"\\'") + '\',this,\'open\')">' +
+          _slOptions.map(function(o) { return '<option value="' + o + '"' + (o === _curOpen || (_isCustomOpen && o === 'Custom') ? ' selected' : '') + '>' + (o || '— set —') + '</option>'; }).join('') +
+          (_isCustomOpen ? '<option value="' + _curOpen + '" selected>' + _curOpen + '</option>' : '') +
         '</select></td>' +
       '</tr>';
     });
@@ -11972,41 +12432,74 @@ function getBranchSOPAllergenNutritionHTML(sop) {
   return html;
 }
 
+function _dedupBranchSOPs() {
+  var seen = {};
+  var clean = [];
+  BRANCH_SOPS.forEach(function(s) {
+    if (!seen[s.id]) { seen[s.id] = true; clean.push(s); }
+  });
+  if (clean.length !== BRANCH_SOPS.length) {
+    console.log('Deduped BRANCH_SOPS: ' + BRANCH_SOPS.length + ' → ' + clean.length);
+    BRANCH_SOPS.length = 0;
+    clean.forEach(function(s) { BRANCH_SOPS.push(s); });
+  }
+}
+
 function buildBranchSOPTable() {
+  _dedupBranchSOPs();
   const tbody = document.getElementById('bsop-tbody');
   if (!tbody) return;
   tbody.innerHTML = '';
-  const statusMap = {approved:'badge-approved',review:'badge-review',draft:'badge-draft'};
-  const statusLabel = {approved:'Approved',review:'In Review',draft:'Draft'};
+  const showArchived = document.getElementById('bsop-show-archived') && document.getElementById('bsop-show-archived').checked;
+  const statusMap = {approved:'badge-approved',review:'badge-review',draft:'badge-draft',archived:'badge-draft'};
+  const statusLabel = {approved:'Approved',review:'In Review',draft:'Draft',archived:'Archived'};
+  var archivedCount = 0;
+  var visibleCount = 0;
   BRANCH_SOPS.forEach(sop => {
+    if (sop.archived) { archivedCount++; if (!showArchived) return; }
+    visibleCount++;
     var linkedBuild = sop.buildRef ? BUILDS_DATA.find(function(x){return x.id===sop.buildRef}) : null;
     var buildDiscontinued = linkedBuild && linkedBuild.active === false;
     const tr = document.createElement('tr');
     tr.style.cursor = 'pointer';
-    if (buildDiscontinued) tr.style.opacity = '0.5';
+    if (buildDiscontinued || sop.archived) tr.style.opacity = '0.5';
     tr.onclick = function(){ viewBranchSOP(sop.id); };
     tr.innerHTML = `
-      <td><strong>${sop.name}</strong>${buildDiscontinued ? ' <span style="font-size:10px;color:var(--red);font-weight:500">DISCONTINUED</span>' : ''}</td>
+      <td><strong>${sop.name}</strong>${buildDiscontinued ? ' <span style="font-size:10px;color:var(--red);font-weight:500">DISCONTINUED</span>' : ''}${sop.archived ? ' <span style="font-size:10px;color:var(--g3);font-weight:500">ARCHIVED</span>' : ''}</td>
       <td style="font-family:var(--font-m);font-size:12px;color:var(--g3)">${sop.id}</td>
       <td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${BSOP_BRAND_COLORS[sop.brand]||'#1B2A4A'};margin-right:6px;vertical-align:middle"></span>${sop.brand}</td>
       <td style="font-size:12px;color:var(--g4)">${sop.version}</td>
       <td style="font-size:12px;color:var(--g4)">${sop.steps.length} steps</td>
-      <td><span class="badge ${statusMap[sop.status]||'badge-draft'}">${statusLabel[sop.status]||'Draft'}</span></td>
+      <td><span class="badge ${statusMap[sop.archived ? 'archived' : sop.status]||'badge-draft'}">${statusLabel[sop.archived ? 'archived' : sop.status]||'Draft'}</span></td>
       <td onclick="event.stopPropagation()">
         <div style="display:flex;gap:4px">
           <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();viewBranchSOP('${sop.id}')">View</button>
           <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();editBranchSOP('${sop.id}')">Edit</button>
+          <button class="btn btn-outline btn-sm" style="font-size:10px" onclick="event.stopPropagation();archiveBranchSOP('${sop.id}')">${sop.archived ? 'Unarchive' : 'Archive'}</button>
           <button class="btn btn-danger-sm" onclick="event.stopPropagation();deleteBranchSOP('${sop.id}')">✕</button>
         </div>
       </td>
     `;
     tbody.appendChild(tr);
   });
-  if (!BRANCH_SOPS.length) {
+  if (!visibleCount) {
     tbody.innerHTML = '<tr><td colspan="7" style="padding:40px;text-align:center;color:var(--g3);font-size:13px">No branch SOPs yet. Click <strong>+ New Branch SOP</strong> to create one.</td></tr>';
   }
   const countEl = document.getElementById('bsop-count-label');
-  if (countEl) countEl.textContent = BRANCH_SOPS.length + ' SOPs';
+  if (countEl) countEl.textContent = visibleCount + ' SOPs';
+  const archivedLabel = document.getElementById('bsop-archived-label');
+  if (archivedLabel) archivedLabel.textContent = archivedCount ? '(' + archivedCount + ' archived)' : '';
+}
+
+function archiveBranchSOP(id) {
+  var sop = BRANCH_SOPS.find(function(s) { return s.id === id; });
+  if (!sop) return;
+  sop.archived = !sop.archived;
+  buildBranchSOPTable();
+  document.getElementById('bsop-detail').style.display = 'none';
+  saveAllData();
+  showSaveToast(sop.name + (sop.archived ? ' archived' : ' restored'));
+  logActivity('sop', '📋', (sop.archived ? 'Archived' : 'Unarchived') + ' branch SOP: ' + sop.name, sop.id);
 }
 
 function filterBranchSOPs() {
@@ -12076,21 +12569,23 @@ function viewBranchSOP(id) {
   applyRoleRestrictions();
 }
 
-function setComponentShelfLife(sopId, itemName, selectEl) {
+function setComponentShelfLife(sopId, itemName, selectEl, type) {
   var sop = BRANCH_SOPS.find(function(s) { return s.id === sopId; });
   if (!sop) return;
   var val = selectEl.value;
+  var storageKey = type === 'open' ? 'componentShelfLifeOpen' : 'componentShelfLife';
+  var activeColor = type === 'open' ? 'var(--amber)' : 'var(--sage)';
   if (val === 'Custom') {
     var custom = prompt('Enter custom shelf life (e.g. "6 Hours", "2 Days at 4°C"):');
-    if (!custom) { selectEl.value = (sop.componentShelfLife && sop.componentShelfLife[itemName]) || ''; return; }
+    if (!custom) { selectEl.value = (sop[storageKey] && sop[storageKey][itemName]) || ''; return; }
     val = custom;
   }
-  if (!sop.componentShelfLife) sop.componentShelfLife = {};
+  if (!sop[storageKey]) sop[storageKey] = {};
   if (val) {
-    sop.componentShelfLife[itemName] = val;
-    selectEl.style.color = 'var(--sage)';
+    sop[storageKey][itemName] = val;
+    selectEl.style.color = activeColor;
   } else {
-    delete sop.componentShelfLife[itemName];
+    delete sop[storageKey][itemName];
     selectEl.style.color = 'var(--g3)';
   }
   saveAllData();
@@ -12143,9 +12638,20 @@ function openBranchSOPForm() {
   );
 }
 
+var _creatingSOP = false;
 function createBranchSOP() {
+  if (_creatingSOP) return;
+  _creatingSOP = true;
+  setTimeout(function(){ _creatingSOP = false; }, 2000);
   var name = document.getElementById('nb-sop-name').value;
-  if (!name) { document.getElementById('nb-sop-name').style.borderColor = '#C0392B'; return; }
+  if (!name) { document.getElementById('nb-sop-name').style.borderColor = '#C0392B'; _creatingSOP = false; return; }
+  // Check for duplicate ID
+  var sopCode = document.getElementById('nb-sop-code').value;
+  if (BRANCH_SOPS.find(function(s){ return s.id === sopCode; })) {
+    showSaveToast('SOP code ' + sopCode + ' already exists', true);
+    _creatingSOP = false;
+    return;
+  }
   var numSteps = parseInt(document.getElementById('nb-sop-steps').value) || 8;
   var steps = [];
   for (var i = 0; i < numSteps; i++) {
@@ -12325,6 +12831,255 @@ function printBranchSOP(id) {
 
 buildBranchSOPTable();
 
+// ──────────── COMMUNICATIONS ────────────
+
+function initCommsPage() {
+  // Populate individual dropdown
+  var sel = document.getElementById('comms-individual');
+  if (sel) {
+    sel.innerHTML = '<option value="">— Select —</option>' +
+      USERS_DATA.filter(function(u){ return u.active; }).map(function(u) {
+        return '<option value="' + u.email + '">' + u.name + ' (' + u.role + ')</option>';
+      }).join('');
+  }
+  // Populate recipe dropdown
+  var recSel = document.getElementById('comms-recipe');
+  if (recSel) {
+    recSel.innerHTML = '<option value="">— None —</option>' +
+      Object.values(RECIPE_DB).map(function(r) {
+        return '<option value="' + r.npd + '">' + r.name + ' (' + r.npd + ')</option>';
+      }).join('');
+  }
+  renderCommsLog();
+}
+
+function updateCommsRecipients() {
+  var to = document.getElementById('comms-to').value;
+  var indWrap = document.getElementById('comms-individual-wrap');
+  var preview = document.getElementById('comms-recipients-preview');
+  if (to === 'individual') {
+    indWrap.style.display = '';
+    preview.textContent = '';
+  } else {
+    indWrap.style.display = 'none';
+    if (!to) { preview.textContent = ''; return; }
+    var emails = [];
+    if (to === 'all') {
+      emails = USERS_DATA.filter(function(u){ return u.active && u.email; }).map(function(u){ return u.name; });
+    } else {
+      emails = USERS_DATA.filter(function(u){ return u.active && u.email && (u.role === to || u.role === 'admin'); }).map(function(u){ return u.name; });
+    }
+    preview.textContent = emails.length + ' recipients: ' + emails.join(', ');
+  }
+}
+
+function clearCommsForm() {
+  document.getElementById('comms-to').value = '';
+  document.getElementById('comms-subject').value = '';
+  document.getElementById('comms-body').value = '';
+  document.getElementById('comms-recipe').value = '';
+  document.getElementById('comms-individual-wrap').style.display = 'none';
+  document.getElementById('comms-recipients-preview').textContent = '';
+}
+
+function sendCommsMessage() {
+  var to = document.getElementById('comms-to').value;
+  var subject = document.getElementById('comms-subject').value.trim();
+  var body = document.getElementById('comms-body').value.trim();
+  var recipeNpd = document.getElementById('comms-recipe').value;
+  if (!to) { showSaveToast('Select recipients', true); return; }
+  if (!subject) { showSaveToast('Enter a subject', true); return; }
+  if (!body) { showSaveToast('Enter a message', true); return; }
+
+  var recipients = [];
+  if (to === 'all') {
+    recipients = USERS_DATA.filter(function(u){ return u.active && u.email; }).map(function(u){ return u.email; });
+  } else if (to === 'individual') {
+    var ind = document.getElementById('comms-individual').value;
+    if (!ind) { showSaveToast('Select a person', true); return; }
+    recipients = [ind];
+  } else {
+    recipients = USERS_DATA.filter(function(u){ return u.active && u.email && (u.role === to || u.role === 'admin'); }).map(function(u){ return u.email; });
+  }
+
+  var recipeName = '';
+  if (recipeNpd && RECIPE_DB[recipeNpd]) recipeName = RECIPE_DB[recipeNpd].name + ' (' + recipeNpd + ')';
+
+  showSaveToast('Sending...');
+
+  var htmlBody = '<p>' + body.replace(/\n/g, '<br>') + '</p>';
+  if (recipeName) {
+    htmlBody += '<div style="margin-top:16px;padding:12px 16px;background:#F5F4F2;border-radius:6px;font-size:13px">' +
+      '<strong>Regarding:</strong> ' + recipeName +
+      ' <a href="https://recipehub.dailyfoodsa.com" style="color:#1A5FA5;margin-left:8px">Open in RecipeHub</a></div>';
+  }
+
+  fetch(API_BASE + '/api/comms/send', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + API_KEY },
+    body: JSON.stringify({
+      to: recipients,
+      subject: subject,
+      html: htmlBody,
+      recipe: recipeName,
+      sentBy: getCurrentUserName(),
+    }),
+  }).then(function(r) { return r.json(); }).then(function(data) {
+    if (data.error) { showSaveToast('Send failed: ' + data.error, true); return; }
+    // Log locally
+    COMMS_LOG.unshift({
+      date: new Date().toISOString(),
+      to: to === 'individual' ? document.getElementById('comms-individual').value : to,
+      toLabel: to === 'all' ? 'Everyone' : to === 'individual' ? (USERS_DATA.find(function(u){return u.email===document.getElementById('comms-individual').value})||{}).name||to : to.toUpperCase(),
+      recipients: recipients.length,
+      subject: subject,
+      recipe: recipeName,
+      sentBy: getCurrentUserName(),
+    });
+    saveAllData();
+    showSaveToast('Email sent to ' + recipients.length + ' recipients');
+    logActivity('comms', '✉', 'Email sent: ' + subject, 'To: ' + (to === 'all' ? 'Everyone' : to));
+    clearCommsForm();
+    renderCommsLog();
+  }).catch(function(err) {
+    showSaveToast('Send failed: ' + err.message, true);
+  });
+}
+
+function renderCommsLog() {
+  var list = document.getElementById('comms-log-list');
+  if (!list) return;
+  var countEl = document.getElementById('comms-log-count');
+  if (countEl) countEl.textContent = COMMS_LOG.length + ' messages';
+  if (!COMMS_LOG.length) {
+    list.innerHTML = '<div style="padding:40px;text-align:center;color:var(--g3);font-size:13px">No messages sent yet</div>';
+    return;
+  }
+  list.innerHTML = COMMS_LOG.map(function(m) {
+    var date = new Date(m.date);
+    var dateStr = date.toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'numeric'});
+    var timeStr = date.toLocaleTimeString('en-GB', {hour:'2-digit',minute:'2-digit'});
+    return '<div style="padding:12px 16px;border-bottom:1px solid var(--g1)">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">' +
+        '<strong style="font-size:13px;color:var(--navy)">' + m.subject + '</strong>' +
+        '<span style="font-size:10px;color:var(--g3)">' + dateStr + ' ' + timeStr + '</span>' +
+      '</div>' +
+      '<div style="font-size:11px;color:var(--g4)">' +
+        'To: <span style="font-weight:500">' + m.toLabel + '</span> (' + m.recipients + ' recipients)' +
+        (m.recipe ? ' · Re: <span style="color:var(--sage)">' + m.recipe + '</span>' : '') +
+      '</div>' +
+      '<div style="font-size:10px;color:var(--g3);margin-top:2px">Sent by ' + m.sentBy + '</div>' +
+    '</div>';
+  }).join('');
+}
+
+// ──────────── DOCUMENT LIBRARY ────────────
+
+function toggleLibUpload() {
+  var zone = document.getElementById('lib-upload-zone');
+  if (zone) zone.style.display = zone.style.display === 'none' ? '' : 'none';
+}
+
+function uploadLibDoc() {
+  var title = (document.getElementById('lib-title') || {}).value || '';
+  var cat = (document.getElementById('lib-cat') || {}).value || 'Other';
+  var notes = (document.getElementById('lib-notes') || {}).value || '';
+  var fileInput = document.getElementById('lib-file');
+  if (!title.trim()) { showSaveToast('Enter a title', true); return; }
+  if (!fileInput || !fileInput.files[0]) { showSaveToast('Select a file', true); return; }
+
+  var file = fileInput.files[0];
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var doc = {
+      id: 'DOC-' + Date.now(),
+      title: title.trim(),
+      category: cat,
+      notes: notes,
+      fileName: file.name,
+      fileType: file.name.split('.').pop().toUpperCase(),
+      fileSize: file.size,
+      uploadedAt: new Date().toISOString(),
+      uploadedBy: getCurrentUserName(),
+    };
+
+    // Upload file to server
+    fetch(API_BASE + '/api/library/upload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + API_KEY },
+      body: JSON.stringify({ id: doc.id, fileName: file.name, data: e.target.result }),
+    }).then(function(r) { return r.json(); }).then(function(data) {
+      if (data.error) { showSaveToast('Upload failed: ' + data.error, true); return; }
+      doc.url = data.url;
+      LIBRARY_DOCS.unshift(doc);
+      saveAllData();
+      renderLibrary();
+      toggleLibUpload();
+      document.getElementById('lib-title').value = '';
+      document.getElementById('lib-notes').value = '';
+      fileInput.value = '';
+      showSaveToast('Document uploaded: ' + title);
+      logActivity('library', '📁', 'Uploaded: ' + title, cat);
+    }).catch(function(err) {
+      showSaveToast('Upload failed: ' + err.message, true);
+    });
+  };
+  reader.readAsDataURL(file);
+}
+
+function renderLibrary() {
+  var tbody = document.getElementById('lib-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  var countEl = document.getElementById('lib-count');
+  if (countEl) countEl.textContent = LIBRARY_DOCS.length + ' documents';
+
+  if (!LIBRARY_DOCS.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="padding:40px;text-align:center;color:var(--g3);font-size:13px">No documents yet. Click <strong>+ Upload Document</strong> to add one.</td></tr>';
+    return;
+  }
+
+  LIBRARY_DOCS.forEach(function(doc, idx) {
+    var date = new Date(doc.uploadedAt);
+    var dateStr = date.toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'});
+    var sizeStr = doc.fileSize > 1048576 ? (doc.fileSize / 1048576).toFixed(1) + ' MB' : Math.round(doc.fileSize / 1024) + ' KB';
+    var typeIcon = doc.fileType === 'PDF' ? '📄' : doc.fileType === 'XLSX' || doc.fileType === 'XLS' ? '📊' : doc.fileType === 'CSV' ? '📋' : '📎';
+    var tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td><strong>' + typeIcon + ' ' + doc.title + '</strong>' + (doc.notes ? '<div style="font-size:11px;color:var(--g3);margin-top:2px">' + doc.notes + '</div>' : '') + '</td>' +
+      '<td><span class="badge badge-navy" style="font-size:10px">' + doc.category + '</span></td>' +
+      '<td style="font-family:var(--font-m);font-size:11px;color:var(--g3)">' + doc.fileType + '</td>' +
+      '<td style="font-family:var(--font-m);font-size:11px;color:var(--g4)">' + sizeStr + '</td>' +
+      '<td style="font-size:11px;color:var(--g3)">' + dateStr + '</td>' +
+      '<td style="font-size:11px;color:var(--g4)">' + doc.uploadedBy + '</td>' +
+      '<td style="white-space:nowrap">' +
+        (doc.url ? '<a href="' + doc.url + '" target="_blank" class="btn btn-outline btn-sm" style="text-decoration:none">Download</a> ' : '') +
+        '<button class="btn btn-danger-sm" onclick="deleteLibDoc(' + idx + ')">✕</button>' +
+      '</td>';
+    tbody.appendChild(tr);
+  });
+}
+
+function deleteLibDoc(idx) {
+  var doc = LIBRARY_DOCS[idx];
+  if (!doc) return;
+  if (!confirm('Delete "' + doc.title + '"?')) return;
+  LIBRARY_DOCS.splice(idx, 1);
+  renderLibrary();
+  saveAllData();
+  showSaveToast('Document deleted');
+}
+
+function filterLibrary() {
+  var q = (document.getElementById('lib-search').value || '').toLowerCase();
+  var cat = document.getElementById('lib-filter-cat').value;
+  var rows = document.getElementById('lib-tbody').querySelectorAll('tr');
+  rows.forEach(function(row) {
+    var text = row.textContent.toLowerCase();
+    row.style.display = (!q || text.includes(q)) && (cat === 'All Categories' || text.includes(cat.toLowerCase())) ? '' : 'none';
+  });
+}
+
 // ──────────── BUILD IMPORT / EXPORT ────────────
 function downloadBuildTemplate() {
   var rows = [
@@ -12485,7 +13240,8 @@ function importDFCFormat(lines) {
 
   if (!buildName) { showSaveToast('Could not find product name in CSV', true); return; }
 
-  var id = npdCode ? npdCode : ('BLD-' + String(BUILDS_DATA.length + 1).padStart(3,'0'));
+  var _maxBldNum = BUILDS_DATA.reduce(function(m,b){var n=parseInt((b.id||'').replace(/[^0-9]/g,''))||0;return n>m?n:m},0);
+  var id = npdCode ? npdCode : ('BLD-' + String(_maxBldNum + 1).padStart(3,'0'));
   var build = {
     id: id,
     name: (brand ? brand + ' ' : '') + buildName,
