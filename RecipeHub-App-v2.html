@@ -5009,7 +5009,7 @@ function renderFactory(r, batchKg, noImages) {
         ${steps.map((s,i) => `
           <div class="ps-step">
             <div class="ps-step-num">${i+1}</div>
-            ${!noImages && s.visualImg ? '<div style="width:80px;height:60px;border-radius:4px;overflow:hidden;flex-shrink:0;background:#f5f5f5"><img src="'+s.visualImg+'" style="width:100%;height:100%;object-fit:cover" /></div>' : ''}
+            ${!noImages && s.visualImg ? `<div style="width:80px;height:60px;border-radius:4px;overflow:hidden;flex-shrink:0;background:#f5f5f5"><img src="${s.visualImg}" style="width:100%;height:100%;object-fit:cover" /></div>` : ''}
             <div class="ps-step-body">
               ${s.icons && s.icons.length ? '<div style="margin-bottom:2px;font-size:8pt">' + s.icons.map(k => { const ic = SOP_ICONS[k]; return ic ? '<span style="margin-right:4px">' + ic.emoji + '</span>' : ''; }).join('') + '</div>' : ''}
               <div class="ps-step-title">${s.title}</div>
@@ -5055,7 +5055,7 @@ function renderSOPOnly(r) {
       ${steps.map((s,i) => `
         <div class="ps-step" style="break-inside:avoid">
           <div class="ps-step-num">${i+1}</div>
-          ${s.visualImg ? '<div style="width:80px;height:60px;border-radius:4px;overflow:hidden;flex-shrink:0;background:#f5f5f5"><img src="'+s.visualImg+'" style="width:100%;height:100%;object-fit:cover" /></div>' : ''}
+          ${s.visualImg ? `<div style="width:80px;height:60px;border-radius:4px;overflow:hidden;flex-shrink:0;background:#f5f5f5"><img src="${s.visualImg}" style="width:100%;height:100%;object-fit:cover" /></div>` : ''}
           <div class="ps-step-body">
             ${s.icons && s.icons.length ? '<div style="margin-bottom:2px;font-size:8pt">' + s.icons.map(k => { const ic = SOP_ICONS[k]; return ic ? '<span style="margin-right:4px">' + ic.emoji + '</span>' : ''; }).join('') + '</div>' : ''}
             <div class="ps-step-title">${s.title}</div>
@@ -6490,7 +6490,7 @@ function exportToSOP(npd) {
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px">
           <span class="badge ${r.sopStatus==='approved'?'badge-approved':r.sopStatus==='pending'?'badge-review':'badge-draft'}" style="font-size:11px" id="sop-status-badge">${r.sopStatus==='approved'?'Approved for Production':r.sopStatus==='pending'?'Pending Approval':'Draft — Review Required'}</span>
           <div style="display:flex;gap:6px">
-            <button class="btn btn-sm" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15)" onclick="saveSOPDraft('${r.npd}')">💾 Save</button>
+            <button class="btn btn-sm" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15)" onclick="saveAllData();showSaveToast('SOP saved')">💾 Save</button>
             <button class="btn btn-sm" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15)" onclick="openPrint('${r.npd}','factory')">🖨️ Full Print</button>
             <button class="btn btn-sm" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15)" onclick="openPrint('${r.npd}','factory-text')">🖨️ Text Only</button>
             <button class="btn btn-sm" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15)" onclick="viewRecipe('${r.npd}')">← Recipe</button>
@@ -6579,7 +6579,7 @@ function renderEditableSOPStep(s, idx, npd) {
     <div id="sop-step-${idx}" style="position:relative;margin-bottom:28px;padding-bottom:28px;border-bottom:1px solid var(--g1)">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
         <div class="sop-num">${idx+1}</div>
-        <input class="form-input" value="${s.title}" style="font-weight:600;color:var(--navy);font-size:15px;padding:6px 10px;flex:1" onchange="updateSOPStepField('${npd}',${idx},'title',this.value)" />
+        <input class="form-input" value="${s.title}" style="font-weight:600;color:var(--navy);font-size:15px;padding:6px 10px;flex:1" oninput="updateSOPStepField('${npd}',${idx},'title',this.value)" />
         <button class="btn btn-danger-sm" onclick="removeSOPStep('${npd}',${idx})" style="flex-shrink:0">✕</button>
       </div>
       <div style="display:flex;gap:14px;margin-bottom:6px">
@@ -6590,7 +6590,7 @@ function renderEditableSOPStep(s, idx, npd) {
         </label>
         <div style="flex:1;display:flex;flex-direction:column;gap:6px">
           ${renderIcons(s.icons)}
-          <textarea class="form-textarea" style="width:100%;min-height:120px;font-size:13.5px;line-height:1.8;padding:12px 14px;box-sizing:border-box;resize:vertical;flex:1" onchange="updateSOPStepField('${npd}',${idx},'text',this.value)">${s.text}</textarea>
+          <textarea class="form-textarea" style="width:100%;min-height:120px;font-size:13.5px;line-height:1.8;padding:12px 14px;box-sizing:border-box;resize:vertical;flex:1" oninput="updateSOPStepField('${npd}',${idx},'text',this.value)">${s.text}</textarea>
         </div>
       </div>
 
