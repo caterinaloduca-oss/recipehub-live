@@ -10486,6 +10486,7 @@ function viewBuild(id) {
       <button class="btn btn-outline btn-sm" onclick="duplicateBuild('${b.id}')">📋 Duplicate</button>
       <button class="btn btn-outline btn-sm" onclick="editBuildTags('${b.id}')">🏷️ Tags</button>
       <button class="btn btn-outline btn-sm" onclick="printBuild('${b.id}')">🖨️ Print</button>
+      <button class="btn btn-outline btn-sm" onclick="downloadBuildPDF('${b.id}')" style="color:var(--red)">📄 PDF</button>
       <button class="btn btn-primary btn-sm" onclick="createSOPFromBuild('${b.id}')">📋 Create Branch SOP</button>
       ${b.active===false ? `<button class="btn btn-sm" style="background:var(--sage);color:white" onclick="toggleBuildActive('${b.id}')">✓ Reactivate</button>` : `<button class="btn btn-sm" style="background:var(--red);color:white" onclick="toggleBuildActive('${b.id}')">✕ Discontinue</button>`}
     </div>
@@ -10870,6 +10871,116 @@ function printBuild(id) {
   w.document.write('</body></html>');
   w.document.close();
   setTimeout(function(){ w.print(); }, 500);
+}
+
+function downloadBuildPDF(id) {
+  var b = BUILDS_DATA.find(function(x){return x.id===id});
+  if (!b) return;
+  var totalCost = b.components.reduce(function(s,c){return s+(c.cost||0)},0);
+  var totalWeight = b.components.reduce(function(s,c){return s+(parseFloat(c.weight)||0)},0);
+  var typeColors = {Dough:'#B8820A',Sauce:'#C0392B',Cheese:'#C7A354',Protein:'#1B2A4A',Topping:'#2D6A4F',Finish:'#6B2FA0'};
+  var allergens = getBuildAllergens(b);
+  var n = b.nutrition || {};
+
+  var compRows = b.components.map(function(c) {
+    return '<tr>' +
+      '<td><span style="display:inline-block;padding:2px 8px;border-radius:20px;font-size:8pt;font-weight:500;background:'+(typeColors[c.type]||'#999')+';color:white">'+c.type+'</span></td>' +
+      '<td style="font-weight:500">'+c.item+(c.ref?' <span style="color:#999;font-size:7.5pt">'+c.ref+'</span>':'')+'</td>' +
+      '<td style="color:#666">'+(c.source==='sfg'?'SFG':c.source==='recipe'?'Recipe':'Raw')+'</td>' +
+      '<td style="color:#666">'+(c.tool||'—')+'</td>' +
+      '<td style="font-weight:500">'+(c.toolQty||'—')+'</td>' +
+      '<td style="text-align:right;font-family:monospace">'+(c.weight||'—')+'</td>' +
+      '<td style="text-align:right;font-family:monospace">SAR '+(c.cost||0).toFixed(2)+'</td>' +
+    '</tr>';
+  }).join('');
+
+  // Get photo as data URL if it exists and is a blob/base64
+  var photoSrc = b.photo || '';
+
+  var w = window.open('','_blank');
+  w.document.write('<!DOCTYPE html><html><head><title>'+b.name+' — Product Build Sheet</title>');
+  w.document.write('<style>');
+  w.document.write('@page{size:portrait;margin:12mm}');
+  w.document.write('body{margin:0;font-family:-apple-system,sans-serif;padding:10mm;font-size:9pt;color:#1a1a1a}');
+  w.document.write('@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}');
+  w.document.write('table{width:100%;border-collapse:collapse}');
+  w.document.write('th{text-align:left;font-size:7pt;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:#999;padding:5px 6px;border-bottom:1.5px solid #ccc}');
+  w.document.write('td{padding:4px 6px;border-bottom:1px solid #eee;font-size:8.5pt}');
+  w.document.write('.section{margin-bottom:16px}');
+  w.document.write('.section-title{font-size:10pt;font-weight:700;border-bottom:1px solid #ccc;padding-bottom:3px;margin-bottom:8px}');
+  w.document.write('.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:8pt;font-weight:500;color:white;margin:2px}');
+  w.document.write('.stat-box{background:#f8f9fb;padding:6px 12px;border-radius:4px;text-align:center}');
+  w.document.write('.stat-label{font-size:6.5pt;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:#999}');
+  w.document.write('.stat-value{font-size:10pt;font-weight:600;margin-top:2px}');
+  w.document.write('</style></head><body>');
+
+  // Header with photo
+  w.document.write('<div style="display:flex;gap:20px;align-items:flex-start;border-bottom:2px solid #1B2A4A;padding-bottom:12px;margin-bottom:16px">');
+  if (photoSrc) {
+    w.document.write('<div style="width:140px;height:140px;border-radius:8px;overflow:hidden;flex-shrink:0;border:1px solid #ddd"><img src="'+photoSrc+'" style="width:100%;height:100%;object-fit:cover" /></div>');
+  }
+  w.document.write('<div style="flex:1">');
+  w.document.write('<div style="font-size:20pt;font-weight:700;color:#1B2A4A">'+b.name+'</div>');
+  w.document.write('<div style="font-size:8.5pt;color:#666;margin-top:2px">'+b.brand+' · '+(b.type||'Build')+' · '+(b.size||'—')+' · '+b.id+'</div>');
+  if (b.tags&&b.tags.length) w.document.write('<div style="margin-top:6px">'+b.tags.map(function(t){return '<span style="display:inline-block;padding:1px 6px;border-radius:20px;font-size:7pt;border:1px solid #ccc;color:#666;margin:1px">'+t+'</span>'}).join('')+'</div>');
+  w.document.write('<div style="display:flex;gap:12px;margin-top:10px">');
+  w.document.write('<div class="stat-box"><div class="stat-label">Build Cost</div><div class="stat-value" style="color:#2D6A4F">SAR '+totalCost.toFixed(2)+'</div></div>');
+  w.document.write('<div class="stat-box"><div class="stat-label">Total Weight</div><div class="stat-value">'+(totalWeight?totalWeight.toFixed(0)+'g':'—')+'</div></div>');
+  w.document.write('<div class="stat-box"><div class="stat-label">Bake Temp</div><div class="stat-value">'+(b.bakeTemp||'—')+'</div></div>');
+  w.document.write('<div class="stat-box"><div class="stat-label">Bake Time</div><div class="stat-value">'+(b.bakeTime||'—')+'</div></div>');
+  w.document.write('</div></div></div>');
+
+  // Components
+  w.document.write('<div class="section"><div class="section-title">Components</div>');
+  w.document.write('<table><thead><tr><th>Type</th><th>Item</th><th>Source</th><th>Tool</th><th>Qty/Pcs</th><th style="text-align:right">Weight</th><th style="text-align:right">Cost</th></tr></thead><tbody>');
+  w.document.write(compRows);
+  w.document.write('<tr style="border-top:2px solid #1a1a1a;font-weight:600"><td colspan="5">Total</td><td style="text-align:right;font-family:monospace">'+(totalWeight?totalWeight.toFixed(0)+'g':'—')+'</td><td style="text-align:right;font-family:monospace;color:#2D6A4F">SAR '+totalCost.toFixed(2)+'</td></tr>');
+  w.document.write('</tbody></table></div>');
+
+  // Instructions
+  w.document.write('<div class="section"><div class="section-title">Assembly Instructions</div>');
+  w.document.write('<div style="font-size:9pt;line-height:1.7;color:#333">'+(b.instructions||'No instructions.')+'</div></div>');
+
+  // Size Costing (Pizza)
+  if (b.type === 'Pizza') {
+    w.document.write('<div class="section"><div class="section-title">Cost by Size</div>');
+    w.document.write('<table><thead><tr><th>Size</th><th style="text-align:right">Multiplier</th><th style="text-align:right">Est. Weight</th><th style="text-align:right">Est. Cost</th></tr></thead><tbody>');
+    [{s:'Small',m:0.7},{s:'Medium',m:1.0},{s:'Large',m:1.35},{s:'Piano',m:4.05}].forEach(function(sz) {
+      var isCurrent = sz.s === b.size;
+      w.document.write('<tr style="'+(isCurrent?'background:#f0f4ff;font-weight:500':'')+'"><td>'+sz.s+(isCurrent?' ●':'')+'</td><td style="text-align:right;font-family:monospace">×'+sz.m.toFixed(2)+'</td><td style="text-align:right;font-family:monospace">'+(totalWeight*sz.m).toFixed(0)+'g</td><td style="text-align:right;font-family:monospace;color:#2D6A4F">SAR '+(totalCost*sz.m).toFixed(2)+'</td></tr>');
+    });
+    w.document.write('</tbody></table></div>');
+  }
+
+  // Allergens & Nutrition side by side
+  w.document.write('<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px" class="section">');
+  // Allergens
+  w.document.write('<div><div class="section-title">Allergens</div>');
+  if (allergens.length) {
+    var ALLERGEN_COLORS_PDF = {Gluten:'#C0392B',Milk:'#2980B9',Eggs:'#E67E22',Soy:'#27AE60',Fish:'#1B6B9C',Shellfish:'#E74C3C',Peanuts:'#D35400','Tree Nuts':'#8E44AD',Sesame:'#F39C12',Celery:'#2D6A4F',Mustard:'#B8860B',Lupin:'#6B2FA0',Molluscs:'#16A085',Sulphites:'#7F8C8D'};
+    w.document.write(allergens.map(function(a){return '<span class="badge" style="background:'+(ALLERGEN_COLORS_PDF[a]||'#666')+'">'+a+'</span>'}).join(' '));
+  } else {
+    w.document.write('<span style="color:#2D6A4F;font-size:9pt">No allergens detected</span>');
+  }
+  w.document.write('</div>');
+  // Nutrition
+  w.document.write('<div><div class="section-title">Nutrition (per 100g)</div>');
+  w.document.write('<table><thead><tr><th>Nutrient</th><th style="text-align:right">Value</th></tr></thead><tbody>');
+  w.document.write('<tr><td>Energy</td><td style="text-align:right;font-family:monospace">'+(n.energy||'—')+' kcal</td></tr>');
+  w.document.write('<tr><td>Protein</td><td style="text-align:right;font-family:monospace">'+(n.protein||'—')+' g</td></tr>');
+  w.document.write('<tr><td>Total Fat</td><td style="text-align:right;font-family:monospace">'+(n.fat||'—')+' g</td></tr>');
+  w.document.write('<tr><td style="padding-left:16px;color:#666">Sat. Fat</td><td style="text-align:right;font-family:monospace">'+(n.satfat||'—')+' g</td></tr>');
+  w.document.write('<tr><td>Carbs</td><td style="text-align:right;font-family:monospace">'+(n.carbs||'—')+' g</td></tr>');
+  w.document.write('<tr><td style="padding-left:16px;color:#666">Sugars</td><td style="text-align:right;font-family:monospace">'+(n.sugars||'—')+' g</td></tr>');
+  w.document.write('<tr><td>Fibre</td><td style="text-align:right;font-family:monospace">'+(n.fibre||'—')+' g</td></tr>');
+  w.document.write('<tr><td>Sodium</td><td style="text-align:right;font-family:monospace">'+(n.sodium||'—')+' mg</td></tr>');
+  w.document.write('</tbody></table></div></div>');
+
+  // Footer
+  w.document.write('<div style="margin-top:20px;padding-top:8px;border-top:1px solid #ddd;font-size:7pt;color:#999;display:flex;justify-content:space-between"><span>RecipeHub · '+b.brand+' · CONFIDENTIAL</span><span>'+b.id+' · Product Build Sheet · '+new Date().toLocaleDateString()+'</span></div>');
+  w.document.write('</body></html>');
+  w.document.close();
+  setTimeout(function(){ w.print(); }, 600);
 }
 
 function duplicateBuild(id) {
