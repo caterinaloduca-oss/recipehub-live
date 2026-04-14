@@ -10,7 +10,7 @@ Hosted at `recipehub.dailyfoodsa.com`. Internal tool for `@dailyfoodsa.com` empl
 
 ## Architecture
 
-Single-file HTML application (`RecipeHub-App-v2.html`, ~13.5K lines) + Node/Express backend (`server/`, ~670 lines).
+Single-file HTML application (`RecipeHub-App-v2.html`, ~14K lines) + Node/Express backend (`server/`, ~750 lines).
 
 - **State**: Dual persistence — `localStorage` (instant/offline) + shared server via `saveAllData()` / `syncFromServer()`
 - **Backend**: Node/Express + SQLite on VPS at port 3002, proxied via nginx at `/api/`
@@ -43,15 +43,32 @@ Node/Express API with SQLite storing the entire app state as a single JSON docum
 | `/api/notify` | POST | Yes | Send workflow email notification |
 | `/api/comms/send` | POST | Yes | Send admin email to team |
 | `/api/library/upload` | POST | Yes | Upload document to library |
+| `/api/img/upload` | POST | Yes | Upload image file, returns URL path |
 
 ### Sync Mechanism
 
 - `saveAllData()` saves to localStorage immediately, then POSTs to server (throttled, 3s)
+- `saveAllDataNow()` saves immediately (no throttle) — used for photo uploads
+- `forceRefreshFromServer()` pulls from server instantly and rebuilds all UI (Refresh Data button)
 - `_hasLoadedFromServer` flag prevents pushing empty data before first sync
-- `syncFromServer()` pulls from server every 30 seconds, hydrates if server is newer
-- Sync skips if `_localDirty` or `_savingToServer` — also re-checks before hydrating
-- `beforeunload` uses `navigator.sendBeacon()` for reliable last-save
+- `syncFromServer()` pulls from server every 2 minutes, hydrates if server is newer
+- Sync skips if `_localDirty`, `_savingToServer`, or `_sopEditTimer` active
+- `beforeunload` uses `navigator.sendBeacon()` for last-save attempt
+- Auto-save timer DISABLED — only user actions trigger saves (prevents idle laptops overwriting data)
 - Server deduplicates Branch SOPs (by ID + name), Builds (by ID), Users (by email, @dailyfoodsa.com only)
+
+### Server-Side Merge (Multi-User)
+
+The POST `/api/data` endpoint merges incoming data with existing server data to prevent overwrites:
+- **Images**: recipe media, SOP step photos, build photos, Branch SOP step photos — preserves existing if incoming is null/empty
+- **Media arrays**: recipe media, QA files — combines by filename, dedupes
+- **Library docs**: combined by URL, deduped
+- **Comms log**: combined by timestamp, deduped
+- **Activity log**: combined by timestamp, capped at 200 entries
+
+### Image Storage
+
+Images upload to `/api/img/upload` → saved as files in `/docs/img/` on VPS disk, served by nginx. Data stores URL paths (e.g. `/docs/img/build-BLD-001.jpg`), not base64. Compressed to 600px max, quality 0.6 via canvas before upload.
 
 ### Pages (sidebar order)
 
@@ -112,14 +129,26 @@ Gmail via nodemailer (`caterina.loduca@dailyfoodsa.com`). Triggers:
 ### Empty Data Guard
 **`saveAllData()` will not push to server if `_hasLoadedFromServer` is false and data is empty.** This prevents a fresh browser from wiping the server.
 
-### Server-Side Dedup
-The POST `/api/data` endpoint strips duplicate Branch SOPs (by ID + name), Builds (by ID), Users (by email), and rejects non-`@dailyfoodsa.com` emails.
+### Server-Side Dedup & Merge
+The POST `/api/data` endpoint deduplicates and merges — see "Server-Side Merge" section above.
 
 ### Force Clean
 A one-time `localStorage.clear()` runs on first load (controlled by `_rh_cleaned` flag). Bump `_forceCleanVersion` to trigger another wipe across all browsers.
 
-### No Hardcoded Seed Data
-`RECIPE_DB`, `BUILDS_DATA`, `BRANCH_SOPS`, `BRAND_RECIPES` all start empty. All data comes from the server.
+### Seed Data Merge
+`BUILDS_DATA` and `BRANCH_SOPS` have hardcoded seed data. On load/sync, seed items are preserved if not present in server data (merge by ID). `RECIPE_DB` starts empty — all recipes come from server.
+
+## Roles & Permissions
+
+- **Admin** (`caterina.loduca@dailyfoodsa.com`): full access, "View as" role switcher
+- **R&D (npd)**: recipes, ingredients, builds, Branch SOP, Factory SOP, brands, comms, library uploads
+- **QA**: QA lab, builds, Branch SOP, recipe detail, comms
+- **Factory**: production plan, comms
+- **Purchasing**: ingredients, comms
+- **Viewer**: read-only everywhere, no comms
+- Default for unknown/unauthenticated users: **Viewer**
+- "View as" dropdown hidden for non-admins
+- Modal buttons excluded from role stripping (`stripPageActions` skips `#modal-overlay`)
 
 ## Security
 
@@ -134,6 +163,6 @@ A one-time `localStorage.clear()` runs on first load (controlled by `_rh_cleaned
 
 - **File size**: ~13.5K lines. Use line numbers from grep, don't read the full file.
 - **No tests**: Deploy without automated verification.
-- **Last-write-wins sync**: ~12 users, no conflict resolution.
+- **Multi-user sync**: ~12 users, server-side merge protects images/docs/logs but text data is still last-write-wins.
 - **EBS per-kg conversion**: Only works for items with `recipe_unit='kg'`. Others need manual cost/kg entry.
 - **USDA matching**: Name-based search, not always accurate. Best for common ingredients.
