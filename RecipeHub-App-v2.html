@@ -3716,7 +3716,13 @@ function loadAllData() {
     replaceArray(ING_DATA, data.ingredients);
     replaceArray(USERS_DATA, data.users);
     replaceArray(PENDING_DATA, data.pending);
-    replaceArray(BUILDS_DATA, data.builds);
+    // Merge builds: saved data wins, keep seed builds not in saved
+    if (Array.isArray(data.builds)) {
+      var _seedBuilds = BUILDS_DATA.slice();
+      replaceArray(BUILDS_DATA, data.builds);
+      var _savedIds = data.builds.map(function(b){return b.id});
+      _seedBuilds.forEach(function(b){ if (_savedIds.indexOf(b.id)===-1) BUILDS_DATA.push(b); });
+    }
     replaceArray(PRODUCTION_RUNS, data.productionRuns);
     PRODUCTION_RUNS.forEach(function(r){
       if (r.status === 'in-progress') r.status = r.date ? 'scheduled' : 'pending';
@@ -3913,14 +3919,26 @@ function _hydrateFromData(data) {
   replaceArray(ING_DATA, data.ingredients);
   replaceArray(USERS_DATA, data.users);
   replaceArray(PENDING_DATA, data.pending);
-  replaceArray(BUILDS_DATA, data.builds);
+  // Merge builds: saved wins, keep seed builds not in saved
+  if (Array.isArray(data.builds)) {
+    var _sb = BUILDS_DATA.slice();
+    replaceArray(BUILDS_DATA, data.builds);
+    var _si = data.builds.map(function(b){return b.id});
+    _sb.forEach(function(b){ if (_si.indexOf(b.id)===-1) BUILDS_DATA.push(b); });
+  }
   replaceArray(PRODUCTION_RUNS, data.productionRuns);
   PRODUCTION_RUNS.forEach(function(r) {
     if (r.status === 'in-progress') r.status = r.date ? 'scheduled' : 'pending';
     if (r.status === 'scheduled' && !r.date) r.status = 'pending';
     if (!r.createdAt) r.createdAt = new Date().toISOString();
   });
-  if (data.branchSOPs) { replaceArray(BRANCH_SOPS, data.branchSOPs); }
+  // Merge branch SOPs: saved wins, keep seed SOPs not in saved
+  if (data.branchSOPs) {
+    var _ss = BRANCH_SOPS.slice();
+    replaceArray(BRANCH_SOPS, data.branchSOPs);
+    var _ssIds = data.branchSOPs.map(function(s){return s.id});
+    _ss.forEach(function(s){ if (_ssIds.indexOf(s.id)===-1) BRANCH_SOPS.push(s); });
+  }
   if (data.brands) { var _sbi = data.brands.map(function(b){return b.id}); var _nb = BRANDS.filter(function(b){return _sbi.indexOf(b.id)===-1}); replaceArray(BRANDS, data.brands); _nb.forEach(function(b){BRANDS.push(b)}); }
   if (data.brandRecipes) { Object.keys(data.brandRecipes).forEach(function(k){ BRAND_RECIPES[k] = data.brandRecipes[k]; }); }
   if (Array.isArray(data.activityLog)) { ACTIVITY_LOG.length = 0; data.activityLog.forEach(function(a){ACTIVITY_LOG.push(a)}); }
