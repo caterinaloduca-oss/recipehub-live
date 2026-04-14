@@ -748,7 +748,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
       </select>
     </div>
     <div style="display:flex;gap:6px">
-      <button onclick="openProfileModal()" style="flex:1;padding:6px;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,0.1);background:none;color:rgba(255,255,255,0.4);font-family:var(--font-b);font-size:11px;cursor:pointer;transition:all 0.15s" onmouseover="this.style.background='rgba(255,255,255,0.08)';this.style.color='rgba(255,255,255,0.7)'" onmouseout="this.style.background='none';this.style.color='rgba(255,255,255,0.4)'">Edit Profile</button>
+      <button onclick="localStorage.clear();location.reload()" style="flex:1;padding:6px;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,0.1);background:none;color:rgba(255,255,255,0.4);font-family:var(--font-b);font-size:11px;cursor:pointer;transition:all 0.15s" onmouseover="this.style.background='rgba(255,255,255,0.08)';this.style.color='rgba(255,255,255,0.7)'" onmouseout="this.style.background='none';this.style.color='rgba(255,255,255,0.4)'">Refresh Data</button>
       <button onclick="signOut()" style="flex:1;padding:6px;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,0.1);background:none;color:rgba(255,255,255,0.4);font-family:var(--font-b);font-size:11px;cursor:pointer;transition:all 0.15s" onmouseover="this.style.background='rgba(255,255,255,0.08)';this.style.color='rgba(255,255,255,0.7)'" onmouseout="this.style.background='none';this.style.color='rgba(255,255,255,0.4)'">Sign Out</button>
     </div>
   </div>
