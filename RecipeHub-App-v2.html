@@ -5886,6 +5886,28 @@ function viewRecipe(npd) {
     </div>
     ` : ''}
 
+    <!-- Comments -->
+    <div class="card" style="margin-top:20px">
+      <div class="card-head"><span class="card-title">💬 Comments</span><span style="font-size:11px;color:var(--g3)">${(r.comments||[]).length} comments</span></div>
+      <div class="card-body">
+        <div id="recipe-comments-${r.npd}" style="max-height:250px;overflow-y:auto;margin-bottom:12px">
+          ${(r.comments&&r.comments.length) ? r.comments.map(c => `
+            <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--g1)">
+              <div style="width:30px;height:30px;border-radius:50%;background:var(--navy-lt);color:var(--navy);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;flex-shrink:0">${c.by.split(' ').map(n=>n[0]).join('')}</div>
+              <div style="flex:1">
+                <div style="font-size:12px"><strong>${c.by}</strong> <span style="color:var(--g3);font-size:10px;margin-left:4px">${new Date(c.date).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})} ${new Date(c.date).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</span></div>
+                <div style="font-size:12px;color:var(--g5);margin-top:2px">${c.text}</div>
+              </div>
+            </div>
+          `).join('') : '<div style="text-align:center;color:var(--g3);font-size:12px;padding:12px">No comments yet</div>'}
+        </div>
+        <div style="display:flex;gap:8px">
+          <input class="form-input" id="comment-input-${r.npd}" placeholder="Write a comment…" style="flex:1;padding:8px 12px;font-size:12px" onkeydown="if(event.key==='Enter')addRecipeComment('${r.npd}')" />
+          <button class="btn btn-primary btn-sm" onclick="addRecipeComment('${r.npd}')">Post</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Version History -->
     <div class="card" style="margin-top:20px">
       <div class="card-head">
@@ -5931,28 +5953,6 @@ function viewRecipe(npd) {
       </div>
     </div>
     ` : ''}
-
-    <!-- Comments -->
-    <div class="card" style="margin-top:20px">
-      <div class="card-head"><span class="card-title">💬 Comments</span><span style="font-size:11px;color:var(--g3)">${(r.comments||[]).length} comments</span></div>
-      <div class="card-body">
-        <div id="recipe-comments-${r.npd}" style="max-height:250px;overflow-y:auto;margin-bottom:12px">
-          ${(r.comments&&r.comments.length) ? r.comments.map(c => `
-            <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--g1)">
-              <div style="width:30px;height:30px;border-radius:50%;background:var(--navy-lt);color:var(--navy);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;flex-shrink:0">${c.by.split(' ').map(n=>n[0]).join('')}</div>
-              <div style="flex:1">
-                <div style="font-size:12px"><strong>${c.by}</strong> <span style="color:var(--g3);font-size:10px;margin-left:4px">${new Date(c.date).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})} ${new Date(c.date).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</span></div>
-                <div style="font-size:12px;color:var(--g5);margin-top:2px">${c.text}</div>
-              </div>
-            </div>
-          `).join('') : '<div style="text-align:center;color:var(--g3);font-size:12px;padding:12px">No comments yet</div>'}
-        </div>
-        <div style="display:flex;gap:8px">
-          <input class="form-input" id="comment-input-${r.npd}" placeholder="Write a comment…" style="flex:1;padding:8px 12px;font-size:12px" onkeydown="if(event.key==='Enter')addRecipeComment('${r.npd}')" />
-          <button class="btn btn-primary btn-sm" onclick="addRecipeComment('${r.npd}')">Post</button>
-        </div>
-      </div>
-    </div>
   `;
 
   // render existing media
