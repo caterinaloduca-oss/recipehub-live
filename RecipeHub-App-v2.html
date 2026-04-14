@@ -3667,12 +3667,12 @@ function saveAllData() {
   // Don't push empty data to server if we haven't loaded from server yet
   const data = _buildDataBlob();
   if (!_hasLoadedFromServer && Object.keys(RECIPE_DB).length === 0 && BUILDS_DATA.length === 0) {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(_buildLightBlob(data))); } catch(e) {}
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch(e) {}
     return;
   }
   _localDirty = true;
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(_buildLightBlob(data)));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     const statusEl = document.getElementById('save-status');
     if (statusEl) statusEl.textContent = 'Saved ' + new Date().toLocaleTimeString('en-GB', {hour:'2-digit',minute:'2-digit'});
     const iconEl = document.getElementById('save-icon');
@@ -3844,7 +3844,7 @@ window.addEventListener('beforeunload', function() {
   if (typeof RECIPE_DB !== 'undefined') {
     try {
       var data = _buildDataBlob();
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(_buildLightBlob(data)));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
       navigator.sendBeacon(API_BASE + '/api/data?key=' + API_KEY, new Blob([JSON.stringify(data)], { type: 'application/json' }));
     } catch(e) {}
   }
@@ -3878,7 +3878,7 @@ function syncFromServer() {
       _hydrateFromData(serverData);
       _stripBlobUrls();
       // Save light version to localStorage (no images — they stay on server)
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(_buildLightBlob(_buildDataBlob()))); } catch(e) {}
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(_buildDataBlob())); } catch(e) {}
       // Refresh all UI — preserve scroll position
       try {
         var _scrollY = window.scrollY;
@@ -4871,7 +4871,7 @@ function handleMediaUpload(npd, inputEl) {
       };
       reader.readAsDataURL(file);
     } else {
-      compressImage(file, 800, 0.7, function(dataUrl) {
+      compressImage(file, 300, 0.4, function(dataUrl) {
         r.media.push({ name: file.name, url: dataUrl, isVideo: false, type: 'image/jpeg' });
         if (--pending === 0) { renderMediaGrid(npd); saveAllData(); }
       });
@@ -6133,7 +6133,7 @@ function handleTrialQAMedia(npd, stage, inputEl) {
   var pending = inputEl.files.length;
   for (let i = 0; i < inputEl.files.length; i++) {
     const file = inputEl.files[i];
-    compressImage(file, 800, 0.7, function(dataUrl) {
+    compressImage(file, 300, 0.4, function(dataUrl) {
       r[stage+'QA'].files.push({ name: file.name, url: dataUrl, type: 'image/jpeg' });
       if (--pending === 0) { viewRecipe(npd); saveAllData(); }
     });
@@ -6461,7 +6461,7 @@ function saveAllDataNow() {
   // Force immediate save to server — no throttle. Used after photo uploads.
   var data = _buildDataBlob();
   _localDirty = true;
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(_buildLightBlob(data))); } catch(e) { console.warn('localStorage full'); }
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch(e) { console.warn('localStorage full'); }
   if (_pendingServerSave) { clearTimeout(_pendingServerSave); _pendingServerSave = null; }
   _lastServerSave = Date.now();
   _savingToServer = true;
@@ -6506,7 +6506,7 @@ function _stripBlobUrls() {
 function uploadVisualSOPImg(npd, stepIdx, input) {
   var r = RECIPE_DB[npd];
   if (!r || !r.sopSteps || !input.files[0]) return;
-  compressImage(input.files[0], 400, 0.5, function(dataUrl) {
+  compressImage(input.files[0], 300, 0.4, function(dataUrl) {
     r.sopSteps[stepIdx].visualImg = dataUrl;
     var editBody = document.getElementById('sop-steps-body');
     if (editBody) { refreshSOPSteps(npd); }
@@ -6826,7 +6826,7 @@ function handleSOPStepMedia(npd, idx, inputEl) {
       };
       reader.readAsDataURL(file);
     } else {
-      compressImage(file, 800, 0.7, function(dataUrl) {
+      compressImage(file, 300, 0.4, function(dataUrl) {
         step.media.push({ name: file.name, url: dataUrl, isVideo: false, type: 'image/jpeg' });
         if (--pending === 0) { refreshSOPSteps(npd); saveAllData(); }
       });
@@ -10906,7 +10906,7 @@ function uploadBuildPhoto(id, input) {
   var b = BUILDS_DATA.find(x => x.id === id);
   if (!b || !input.files[0]) return;
   showSaveToast('Compressing photo...');
-  compressImage(input.files[0], 400, 0.5, function(dataUrl) {
+  compressImage(input.files[0], 300, 0.4, function(dataUrl) {
     b.photo = dataUrl;
     viewBuild(id);
     saveAllDataNow();
@@ -13040,7 +13040,7 @@ function setComponentShelfLife(sopId, itemName, selectEl, type) {
 function uploadBranchSOPPhoto(sopId, stepIdx, input) {
   const sop = BRANCH_SOPS.find(s => s.id === sopId);
   if (!sop || !input.files[0]) return;
-  compressImage(input.files[0], 400, 0.5, function(dataUrl) {
+  compressImage(input.files[0], 300, 0.4, function(dataUrl) {
     sop.steps[stepIdx].img = dataUrl;
     viewBranchSOP(sopId);
     saveAllDataNow();
