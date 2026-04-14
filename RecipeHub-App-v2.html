@@ -3871,8 +3871,8 @@ function syncFromServer() {
     if (serverSavedAt > localSavedAt && !_localDirty && !_savingToServer) {
       _hydrateFromData(serverData);
       _stripBlobUrls();
-      // Save to localStorage so it's in sync
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(_buildDataBlob()));
+      // Save light version to localStorage (no images — they stay on server)
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(_buildLightBlob(_buildDataBlob()))); } catch(e) {}
       // Refresh all UI — preserve scroll position
       try {
         var _scrollY = window.scrollY;
