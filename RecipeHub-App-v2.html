@@ -10697,6 +10697,7 @@ function saveBuildTags(id) {
 function uploadBuildPhoto(id, input) {
   var b = BUILDS_DATA.find(x => x.id === id);
   if (!b || !input.files[0]) return;
+  showSaveToast('Compressing photo...');
   compressImage(input.files[0], 400, 0.5, function(dataUrl) {
     b.photo = dataUrl;
     viewBuild(id);
