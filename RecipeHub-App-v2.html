@@ -6209,9 +6209,7 @@ function buildFactorySOPTable() {
       <td><span class="badge ${hasSOP ? (statusMap[sopStatus]||'badge-draft') : 'badge-draft'}">${hasSOP ? (statusLabel[sopStatus]||'Draft') : 'No SOP'}</span></td>
       <td onclick="event.stopPropagation()">
         <div style="display:flex;gap:4px">
-          ${hasSOP ? `<button class="btn btn-outline btn-sm" onclick="event.stopPropagation();viewFactorySOP('${r.npd}')">View</button>` : ''}
-          ${hasSOP ? `<button class="btn btn-outline btn-sm" onclick="event.stopPropagation();viewVisualSOP('${r.npd}')" style="color:#0C6BA8">Visual</button>` : ''}
-          <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();exportToSOP('${r.npd}')">Edit</button>
+          <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();exportToSOP('${r.npd}')">${hasSOP ? 'View' : 'Generate'}</button>
           <div class="print-dd" id="dd-fsop-${r.npd}" onclick="event.stopPropagation()">
             <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();toggleDD('dd-fsop-${r.npd}')">Print ▾</button>
             <div class="print-dd-menu">
@@ -6246,14 +6244,6 @@ function filterFactorySOPs() {
 }
 
 function viewFactorySOP(npd) {
-  const r = RECIPE_DB[npd];
-  if (!r || !r.sopSteps || !r.sopSteps.length) {
-    exportToSOP(npd);
-    return;
-  }
-  // Show the SOP detail view
-  document.getElementById('sop-landing').style.display = 'none';
-  document.getElementById('sop-content').style.display = 'block';
   exportToSOP(npd);
 }
 
@@ -6356,17 +6346,51 @@ function uploadVisualSOPImg(npd, stepIdx, input) {
   var reader = new FileReader();
   reader.onload = function(e) {
     r.sopSteps[stepIdx].visualImg = e.target.result;
-    viewVisualSOP(npd);
+    var editBody = document.getElementById('sop-steps-body');
+    if (editBody) { refreshSOPSteps(npd); }
+    else { viewVisualSOP(npd); }
     saveAllData();
   };
   reader.readAsDataURL(input.files[0]);
 }
 
 function printVisualSOP(npd) {
-  var el = document.getElementById('sop-content');
-  if (!el) return;
+  var r = RECIPE_DB[npd];
+  if (!r || !r.sopSteps || !r.sopSteps.length) return;
+  var steps = r.sopSteps;
+  var stepColors = ['blue','green','orange','blue','green','orange','red','blue','green','orange','red','blue'];
+
+  function extractTemp(text) {
+    var m = text.match(/(\d+[\–\-–]?\d*)\s*°[CF]/i) || text.match(/(\d+[\–\-–]?\d*)\s*degrees/i);
+    if (m) { return {value:m[0], type: parseInt(m[1]) > 30 ? 'hot' : 'cold'}; }
+    return null;
+  }
+  function extractTime(text) {
+    var m = text.match(/(\d+[\–\-–]?\d*)\s*(min|minutes|hour|hours|seconds|sec)/i);
+    return m ? m[0] : null;
+  }
+
+  var stepsHTML = steps.map(function(s, i) {
+    var color = stepColors[i % stepColors.length];
+    var temp = extractTemp(s.text || '');
+    var time = extractTime(s.text || '');
+    return '<div class="vsop-step">' +
+      '<div class="vsop-step-num '+color+'">'+(i+1)+'</div>' +
+      '<div class="vsop-step-title">'+s.title+'</div>' +
+      '<div class="vsop-step-img">' + (s.visualImg ? '<img src="'+s.visualImg+'" />' : '') + '</div>' +
+      '<div class="vsop-step-body">' + (s.text || '') + '</div>' +
+      (temp ? '<span class="vsop-temp '+temp.type+'">🌡 '+temp.value+'</span>' : '') +
+      (time ? '<span class="vsop-temp time">⏱ '+time+'</span>' : '') +
+      (s.params && s.params.length ? '<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:3px">'+s.params.map(function(p){return '<span class="vsop-temp time">'+p.l+': '+p.v+'</span>'}).join('')+'</div>' : '') +
+      (s.ccp ? '<div style="background:#FFF0F0;border-left:2px solid #C0392B;padding:3px 6px;margin-top:4px;font-size:8px;color:#C0392B;font-weight:500">🛑 '+s.ccp+'</div>' : '') +
+      (s.warning ? '<div style="background:#FFF8E6;border-left:2px solid #d47000;padding:3px 6px;margin-top:3px;font-size:8px;color:#8a4500">⚠ '+s.warning+'</div>' : '') +
+    '</div>';
+  }).join('');
+
+  var ccps = steps.filter(function(s){return s.ccp}).map(function(s){return s.ccp});
+
   var w = window.open('','_blank');
-  w.document.write('<html><head><title>Visual SOP</title>');
+  w.document.write('<html><head><title>Visual SOP — '+r.name+'</title>');
   w.document.write('<style>@page{size:landscape;margin:8mm}body{margin:0;font-family:sans-serif}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}');
   w.document.write('.vsop-flow{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border:2px solid #ddd;border-radius:8px;overflow:hidden}');
   w.document.write('.vsop-step{position:relative;padding:12px;border:1px solid #e0e0e0;background:white;min-height:120px}');
@@ -6378,22 +6402,22 @@ function printVisualSOP(npd) {
   w.document.write('.vsop-step-body{font-size:9px;color:#555;line-height:1.4}');
   w.document.write('.vsop-temp{display:inline-block;padding:1px 6px;border-radius:3px;font-size:8px;font-weight:600;margin-top:3px}');
   w.document.write('.vsop-temp.hot{background:#FEF3E2;color:#C0392B}.vsop-temp.cold{background:#E8F4FD;color:#0C6BA8}.vsop-temp.time{background:#E8EDF5;color:#1B2A4A}');
-  w.document.write('.vsop-ingredients{background:#f5f5f5;border-radius:3px;padding:4px 6px;margin-top:4px}.vsop-ingredients li{font-size:8px;list-style:none;padding:0}.vsop-ingredients li::before{content:"●";color:#2D6A4F;margin-right:3px;font-size:6px}');
   w.document.write('.vsop-ccp-bar{background:#FFF0F0;border:2px solid #C0392B;padding:8px 12px;font-size:10px;font-weight:500;color:#C0392B}');
-  w.document.write('.vsop-arrow{display:none}.vsop-upload-hint{display:none !important}button{display:none !important}');
   w.document.write('</style></head><body>');
 
-  // Clone just the visual content (skip the nav buttons)
-  var content = el.querySelector('.vsop-flow');
-  var header = el.querySelector('[style*="linear-gradient"]');
-  var ccpBar = el.querySelector('.vsop-ccp-bar');
-  if (header) w.document.write(header.outerHTML);
-  if (content) w.document.write('<div class="vsop-flow">' + content.innerHTML + '</div>');
-  if (ccpBar) w.document.write(ccpBar.outerHTML);
+  // Header
+  w.document.write('<div style="background:linear-gradient(135deg,#1B2A4A 0%,#2A4070 100%);padding:16px 24px;display:flex;justify-content:space-between;align-items:center">');
+  w.document.write('<div><div style="font-size:20px;font-weight:700;color:white;text-transform:uppercase">'+r.name+'</div>');
+  w.document.write('<div style="font-size:10px;color:rgba(255,255,255,0.5);margin-top:2px">Step-by-Step Process · '+r.brand+' · SOP-'+r.npd+' · '+r.version+'</div></div>');
+  w.document.write('<div style="display:flex;gap:6px"><span style="padding:3px 10px;border-radius:40px;font-size:10px;font-weight:500;background:rgba(255,255,255,0.15);color:white">'+steps.length+' Steps</span></div>');
+  w.document.write('</div>');
+
+  w.document.write('<div class="vsop-flow">'+stepsHTML+'</div>');
+  if (ccps.length) w.document.write('<div class="vsop-ccp-bar">⚠ Critical: '+ccps.join(' · ')+'</div>');
 
   w.document.write('</body></html>');
   w.document.close();
-  setTimeout(function(){ w.print(); }, 500);
+  setTimeout(function(){ w.print(); }, 600);
 }
 
 function backToSOPList() {
@@ -6464,7 +6488,8 @@ function exportToSOP(npd) {
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px">
           <span class="badge ${r.sopStatus==='approved'?'badge-approved':r.sopStatus==='pending'?'badge-review':'badge-draft'}" style="font-size:11px" id="sop-status-badge">${r.sopStatus==='approved'?'Approved for Production':r.sopStatus==='pending'?'Pending Approval':'Draft — Review Required'}</span>
           <div style="display:flex;gap:6px">
-            <button class="btn btn-sm" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15)" onclick="openPrint('${r.npd}','factory')">Print Factory SOP</button>
+            <button class="btn btn-sm" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15)" onclick="printVisualSOP('${r.npd}')">🖨️ Visual Print</button>
+            <button class="btn btn-sm" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15)" onclick="openPrint('${r.npd}','factory')">🖨️ Full Print</button>
             <button class="btn btn-sm" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15)" onclick="viewRecipe('${r.npd}')">← Back to Recipe</button>
           </div>
         </div>
@@ -6538,7 +6563,8 @@ function exportToSOP(npd) {
   document.getElementById('sop-content').innerHTML = sopHTML;
   PAGES.sop.title = 'Factory SOP — ' + r.name;
   PAGES.sop.actions = `
-    <button class="btn btn-outline btn-sm" onclick="openPrint('${r.npd}','factory')">Print Factory SOP</button>
+    <button class="btn btn-outline btn-sm" onclick="printVisualSOP('${r.npd}')">🖨️ Visual Print</button>
+    <button class="btn btn-outline btn-sm" onclick="openPrint('${r.npd}','factory')">🖨️ Full Print</button>
     <button class="btn btn-outline btn-sm" onclick="saveSOPDraft('${r.npd}')">💾 Save</button>
     <button class="btn btn-gold btn-sm" onclick="submitSOPForApproval('${r.npd}')">📤 Submit</button>
     <button class="btn btn-sage btn-sm" onclick="approveSOPRelease('${r.npd}')">✓ Approve</button>
@@ -6558,6 +6584,11 @@ function renderEditableSOPStep(s, idx, npd) {
         <input class="form-input" value="${s.title}" style="font-weight:600;color:var(--navy);font-size:15px;padding:6px 10px;flex:1" onchange="updateSOPStepField('${npd}',${idx},'title',this.value)" />
         <button class="btn btn-danger-sm" onclick="removeSOPStep('${npd}',${idx})" style="flex-shrink:0">✕</button>
       </div>
+      <label style="display:block;width:100%;height:200px;border-radius:var(--r-md);overflow:hidden;background:var(--g1);border:1px dashed var(--g2);cursor:pointer;position:relative;margin-bottom:10px">
+        ${s.visualImg ? '<img src="'+s.visualImg+'" style="width:100%;height:100%;object-fit:cover" />' : '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--g3)"><span style="font-size:28px">📷</span><span style="font-size:11px;margin-top:4px">Click to add step photo</span></div>'}
+        <div style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.4);color:white;font-size:11px;font-weight:500;align-items:center;justify-content:center" class="vsop-upload-hint">${s.visualImg ? 'Change Photo' : 'Upload Photo'}</div>
+        <input type="file" accept="image/*" style="display:none" onchange="uploadVisualSOPImg('${npd}',${idx},this)" />
+      </label>
       ${renderIcons(s.icons)}
       <textarea class="form-textarea" style="width:100%;min-height:120px;font-size:13.5px;line-height:1.8;padding:12px 14px;margin-top:6px;box-sizing:border-box;resize:vertical" onchange="updateSOPStepField('${npd}',${idx},'text',this.value)">${s.text}</textarea>
 
