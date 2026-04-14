@@ -10687,9 +10687,15 @@ function viewBuild(id) {
   window.scrollTo(0, 0);
 
   content.innerHTML = `
-    <div style="display:flex;gap:8px;margin-bottom:14px">
+    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
       <button class="btn btn-outline btn-sm" onclick="closeBuildDetail()">← Back to List</button>
       <button class="btn btn-gold btn-sm" onclick="editBuild('${b.id}')">✏️ Edit Build</button>
+      <button class="btn btn-outline btn-sm" onclick="duplicateBuild('${b.id}')">📋 Duplicate</button>
+      <button class="btn btn-outline btn-sm" onclick="editBuildTags('${b.id}')">🏷️ Tags</button>
+      <button class="btn btn-outline btn-sm" onclick="printBuild('${b.id}')">🖨️ Print</button>
+      <button class="btn btn-outline btn-sm" onclick="downloadBuildPDF('${b.id}')" style="color:var(--red)">📄 PDF</button>
+      <button class="btn btn-primary btn-sm" onclick="createSOPFromBuild('${b.id}')">📋 Create Branch SOP</button>
+      ${b.active===false ? `<button class="btn btn-sm" style="background:var(--sage);color:white" onclick="toggleBuildActive('${b.id}')">✓ Reactivate</button>` : `<button class="btn btn-sm" style="background:var(--red);color:white" onclick="toggleBuildActive('${b.id}')">✕ Discontinue</button>`}
     </div>
     <div class="card" style="overflow:hidden;margin-bottom:20px">
       <div style="background:var(--navy);padding:24px 28px;display:flex;justify-content:space-between;align-items:flex-start">
@@ -10841,16 +10847,7 @@ function viewBuild(id) {
       </div>
     </div>
 
-    <div style="display:flex;gap:8px">
-      <button class="btn btn-outline btn-sm" onclick="closeBuildDetail()">← Back to List</button>
-      <button class="btn btn-gold btn-sm" onclick="editBuild('${b.id}')">✏️ Edit Build</button>
-      <button class="btn btn-outline btn-sm" onclick="duplicateBuild('${b.id}')">📋 Duplicate</button>
-      <button class="btn btn-outline btn-sm" onclick="editBuildTags('${b.id}')">🏷️ Tags</button>
-      <button class="btn btn-outline btn-sm" onclick="printBuild('${b.id}')">🖨️ Print</button>
-      <button class="btn btn-outline btn-sm" onclick="downloadBuildPDF('${b.id}')" style="color:var(--red)">📄 PDF</button>
-      <button class="btn btn-primary btn-sm" onclick="createSOPFromBuild('${b.id}')">📋 Create Branch SOP</button>
-      ${b.active===false ? `<button class="btn btn-sm" style="background:var(--sage);color:white" onclick="toggleBuildActive('${b.id}')">✓ Reactivate</button>` : `<button class="btn btn-sm" style="background:var(--red);color:white" onclick="toggleBuildActive('${b.id}')">✕ Discontinue</button>`}
-    </div>
+    <!-- bottom actions removed — all at top -->
   `;
   applyRoleRestrictions();
 }
@@ -13021,7 +13018,11 @@ function viewBranchSOP(id) {
   const brandColor = BSOP_BRAND_COLORS[sop.brand] || '#1B2A4A';
 
   content.innerHTML = `
-    <button class="btn btn-outline btn-sm" onclick="document.getElementById('bsop-detail').style.display='none'" style="margin-bottom:14px">← Back to List</button>
+    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+      <button class="btn btn-outline btn-sm" onclick="document.getElementById('bsop-detail').style.display='none'">← Back to List</button>
+      <button class="btn btn-gold btn-sm" onclick="editBranchSOP('${sop.id}')">✏️ Edit Steps</button>
+      <button class="btn btn-outline btn-sm" onclick="printBranchSOP('${sop.id}')">🖨️ Print</button>
+    </div>
     ${(function(){ var lb = sop.buildRef ? BUILDS_DATA.find(function(x){return x.id===sop.buildRef}) : null; return lb && lb.active===false ? '<div style="background:var(--red);color:white;padding:10px 20px;border-radius:var(--r-lg) var(--r-lg) 0 0;font-size:12px;font-weight:600;display:flex;align-items:center;gap:8px"><span style="font-size:16px">⚠</span> This product has been discontinued — the linked build ('+sop.buildRef+') is no longer active</div>' : ''; })()}
     <div style="background:white;border-radius:${(function(){ var lb = sop.buildRef ? BUILDS_DATA.find(function(x){return x.id===sop.buildRef}) : null; return lb && lb.active===false ? '0 0 var(--r-lg) var(--r-lg)' : 'var(--r-lg)'; })()};overflow:hidden;box-shadow:var(--sh-md);margin-bottom:20px">
       <!-- Header banner -->
@@ -13058,11 +13059,7 @@ function viewBranchSOP(id) {
       </div>
     </div>
 
-    <div style="display:flex;gap:8px;margin-bottom:20px">
-      <button class="btn btn-outline btn-sm" onclick="document.getElementById('bsop-detail').style.display='none'">← Back to List</button>
-      <button class="btn btn-gold btn-sm" onclick="editBranchSOP('${sop.id}')">✏️ Edit Steps</button>
-      <button class="btn btn-outline btn-sm" onclick="printBranchSOP('${sop.id}')">🖨️ Print</button>
-    </div>
+    <!-- bottom actions removed — all at top -->
   `;
   applyRoleRestrictions();
 }
