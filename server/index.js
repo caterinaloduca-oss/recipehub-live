@@ -166,6 +166,56 @@ app.post('/api/data', requireAuth, (req, res) => {
         return email.endsWith('@dailyfoodsa.com');
       });
     }
+    // Merge images: never overwrite a real image with null/empty/placeholder
+    const existing = db.getState();
+    if (existing && existing.data) {
+      const old = existing.data;
+      // Merge recipe images
+      if (body.recipes && old.recipes) {
+        Object.keys(body.recipes).forEach(k => {
+          const nr = body.recipes[k], or = old.recipes[k];
+          if (!or) return;
+          // Preserve recipe media
+          if (or.media && or.media.length && (!nr.media || !nr.media.length)) nr.media = or.media;
+          // Preserve SOP step images
+          if (or.sopSteps && nr.sopSteps) {
+            nr.sopSteps.forEach((s, i) => {
+              if (or.sopSteps[i] && or.sopSteps[i].visualImg && or.sopSteps[i].visualImg.startsWith('data:') && (!s.visualImg || s.visualImg === '[server]' || s.visualImg === 'null')) {
+                s.visualImg = or.sopSteps[i].visualImg;
+              }
+            });
+          }
+          // Preserve QA files
+          ['trialQA','prodQA'].forEach(stage => {
+            if (or[stage] && or[stage].files && or[stage].files.length && nr[stage] && (!nr[stage].files || !nr[stage].files.length)) {
+              nr[stage].files = or[stage].files;
+            }
+          });
+        });
+      }
+      // Merge build photos
+      if (body.builds && old.builds) {
+        body.builds.forEach(b => {
+          const ob = old.builds.find(x => x.id === b.id);
+          if (ob && ob.photo && ob.photo.startsWith('data:') && (!b.photo || b.photo === '[server]' || b.photo === 'null')) {
+            b.photo = ob.photo;
+          }
+        });
+      }
+      // Merge branch SOP step images
+      if (body.branchSOPs && old.branchSOPs) {
+        body.branchSOPs.forEach(sop => {
+          const os = old.branchSOPs.find(x => x.id === sop.id);
+          if (os && os.steps && sop.steps) {
+            sop.steps.forEach((s, i) => {
+              if (os.steps[i] && os.steps[i].img && os.steps[i].img.startsWith('data:') && (!s.img || s.img === '[server]' || s.img === 'null')) {
+                s.img = os.steps[i].img;
+              }
+            });
+          }
+        });
+      }
+    }
     const savedAt = db.setState(JSON.stringify(body), body.dataVersion || 0);
     res.json({ ok: true, savedAt });
   } catch (err) {
