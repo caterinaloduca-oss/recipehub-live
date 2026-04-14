@@ -6373,6 +6373,29 @@ function compressImage(file, maxSize, quality, cb) {
   img.src = URL.createObjectURL(file);
 }
 
+function saveAllDataNow() {
+  // Force immediate save to server — no throttle. Used after photo uploads.
+  var data = _buildDataBlob();
+  _localDirty = true;
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch(e) { console.warn('localStorage full'); }
+  if (_pendingServerSave) { clearTimeout(_pendingServerSave); _pendingServerSave = null; }
+  _lastServerSave = Date.now();
+  _savingToServer = true;
+  fetch(API_BASE + '/api/data', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + API_KEY },
+    body: JSON.stringify(data),
+  }).then(function(r) {
+    if (!r.ok) throw new Error('Server returned ' + r.status);
+    _savingToServer = false;
+    _localDirty = false;
+    showSaveToast('Photo saved');
+  }).catch(function(err) {
+    _savingToServer = false;
+    showSaveToast('Photo save failed — try again', true);
+  });
+}
+
 function _stripBlobUrls() {
   // Clean dead blob: URLs from all data — they don't survive refresh
   Object.keys(RECIPE_DB).forEach(function(k) {
@@ -6399,12 +6422,12 @@ function _stripBlobUrls() {
 function uploadVisualSOPImg(npd, stepIdx, input) {
   var r = RECIPE_DB[npd];
   if (!r || !r.sopSteps || !input.files[0]) return;
-  compressImage(input.files[0], 800, 0.7, function(dataUrl) {
+  compressImage(input.files[0], 400, 0.5, function(dataUrl) {
     r.sopSteps[stepIdx].visualImg = dataUrl;
     var editBody = document.getElementById('sop-steps-body');
     if (editBody) { refreshSOPSteps(npd); }
     else { viewVisualSOP(npd); }
-    saveAllData();
+    saveAllDataNow();
   });
 }
 
@@ -10674,10 +10697,10 @@ function saveBuildTags(id) {
 function uploadBuildPhoto(id, input) {
   var b = BUILDS_DATA.find(x => x.id === id);
   if (!b || !input.files[0]) return;
-  compressImage(input.files[0], 800, 0.7, function(dataUrl) {
+  compressImage(input.files[0], 400, 0.5, function(dataUrl) {
     b.photo = dataUrl;
     viewBuild(id);
-    saveAllData();
+    saveAllDataNow();
   });
 }
 
