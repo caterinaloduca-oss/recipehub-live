@@ -3987,7 +3987,7 @@ const PAGES = {
   recipes:        { title:'Recipes',             actions:`<button class="btn btn-gold btn-sm" onclick="openRecipeForm()">+ New Recipe</button>` },
   'recipe-detail':{ title:'Recipe Detail',       actions:'' },
   ingredients:    { title:'Ingredients Database',actions:`<button class="btn btn-gold btn-sm" onclick="openIngredientForm()">+ Add Ingredient</button>` },
-  builds:         { title:'Product Builds',       actions:`<button class="btn btn-outline btn-sm" onclick="document.getElementById('build-import-input').click()">Import CSV</button><input type="file" id="build-import-input" accept=".csv" style="display:none" onchange="importBuildsCSV(this)" /><button class="btn btn-gold btn-sm" style="margin-left:6px" onclick="openBuildForm()">+ New Build</button>` },
+  builds:         { title:'Product Builds',       actions:`<button class="btn btn-gold btn-sm" onclick="openBuildForm()">+ New Build</button>` },
   qa:             { title:'QA Lab Results',      actions:`<button class="btn btn-outline btn-sm" onclick="printQALabReport()">🖨️ Lab Report</button><button class="btn btn-outline btn-sm" style="margin-left:6px" onclick="printCOA()">📄 COA</button><button class="btn btn-sage btn-sm" style="margin-left:6px" onclick="addTestPoint()">+ New Test</button>` },
   'branch-sop':   { title:'Branch SOP',           actions:`<button class="btn btn-gold btn-sm" onclick="openBranchSOPForm()">+ New Branch SOP</button>` },
   production:     { title:'Production Plan',     actions:`<button class="btn btn-gold btn-sm" onclick="openProductionRun()">+ Schedule Run</button>` },
