@@ -5826,6 +5826,10 @@ function viewRecipe(npd) {
               <label class="form-label">QA Sign-off</label>
               <input class="form-input" placeholder="QA name" id="qa-${r.status}-signoff-${r.npd}" value="${(r[r.status+'QA'] && r[r.status+'QA'].signedBy) || ''}" onchange="updateTrialQA('${r.npd}','${r.status}','signedBy',this.value)" />
             </div>
+            <div class="form-group" style="width:150px;margin:0">
+              <label class="form-label">Shelf Life</label>
+              <input class="form-input" placeholder="e.g. 6 Months" id="qa-shelf-${r.npd}" value="${r.shelfLife || ''}" onchange="RECIPE_DB['${r.npd}'].shelfLife=this.value;saveAllData();showSaveToast('Shelf life updated')" />
+            </div>
             <button class="btn btn-sage" style="margin-bottom:0;white-space:nowrap" onclick="signOffTrialQA('${r.npd}','${r.status}')">✓ Sign Off QA</button>
           </div>
           <div class="media-grid" id="trial-qa-media-${r.status}-${r.npd}" style="margin-top:10px">
@@ -8012,9 +8016,8 @@ function editRecipe(npd) {
         <div class="form-group"><label class="form-label">Type</label><select class="form-select" id="er-type">${typeOpts}</select></div>
         <div class="form-group"><label class="form-label">Storage</label><select class="form-select" id="er-storage">${storageOpts}</select></div>
       </div>
-      <div class="form-grid form-grid-2" style="margin-bottom:16px">
-        <div class="form-group"><label class="form-label">Shelf Life</label><input class="form-input" id="er-shelf" value="${r.shelfLife}" /></div>
-        <div class="form-group"><label class="form-label">Status</label><select class="form-select" id="er-status"><option ${r.status==='draft'?'selected':''} value="draft">Draft</option><option ${r.status==='review'?'selected':''} value="review">In Review</option><option ${r.status==='trial'?'selected':''} value="trial">Factory Trial</option><option ${r.status==='prod-trial'?'selected':''} value="prod-trial">Production Trial</option><option ${r.status==='approved'?'selected':''} value="approved">Approved</option></select></div>
+      <div class="form-group" style="margin-bottom:16px">
+        <label class="form-label">Status</label><select class="form-select" id="er-status"><option ${r.status==='draft'?'selected':''} value="draft">Draft</option><option ${r.status==='review'?'selected':''} value="review">In Review</option><option ${r.status==='trial'?'selected':''} value="trial">Factory Trial</option><option ${r.status==='prod-trial'?'selected':''} value="prod-trial">Production Trial</option><option ${r.status==='approved'?'selected':''} value="approved">Approved</option></select>
       </div>
 
       <div class="sec-divider"><span class="sec-divider-label">Ingredients</span><span class="sec-divider-line"></span></div>
