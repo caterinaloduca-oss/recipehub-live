@@ -5957,8 +5957,7 @@ function viewRecipe(npd) {
   if (_isRD) {
     _detailActions = `
       <button class="btn btn-gold btn-sm" onclick="editRecipe('${r.npd}')">✏️ Edit</button>
-      <button class="btn ${r.sopSteps && r.sopSteps.length ? 'btn-outline' : 'btn-sage'} btn-sm" onclick="generateFactorySOP('${r.npd}')">🏭 ${r.sopSteps && r.sopSteps.length ? 'Regenerate' : 'Generate'} Factory SOP</button>
-      ${r.sopSteps && r.sopSteps.length ? `<button class="btn btn-outline btn-sm" onclick="exportToSOP('${r.npd}')">🏭 View SOP</button>` : ''}
+      ${r.sopSteps && r.sopSteps.length ? `<button class="btn btn-outline btn-sm" onclick="exportToSOP('${r.npd}')">🏭 View SOP</button>` : `<button class="btn btn-sage btn-sm" onclick="generateFactorySOP('${r.npd}')">🏭 Generate Factory SOP</button>`}
       ${_statusBtn}
       <div class="more-dd">
         <button class="btn btn-outline btn-sm" onclick="this.nextElementSibling.classList.toggle('show')">More ▾</button>
@@ -5972,7 +5971,7 @@ function viewRecipe(npd) {
           <button class="more-dd-item" onclick="editRecipeTags('${r.npd}')">🏷️ Tags</button>
           <button class="more-dd-item" onclick="duplicateRecipe('${r.npd}')">📋 Duplicate</button>
           <button class="more-dd-item" onclick="viewVersionHistory('${r.npd}')">🕐 Version History</button>
-          <button class="more-dd-item" onclick="exportToSOP('${r.npd}')">🏭 Export to Factory SOP</button>
+          <button class="more-dd-item" onclick="generateFactorySOP('${r.npd}')">🏭 Regenerate Factory SOP</button>
         </div>
       </div>
     `;
