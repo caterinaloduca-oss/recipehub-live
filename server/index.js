@@ -175,8 +175,14 @@ app.post('/api/data', requireAuth, (req, res) => {
         Object.keys(body.recipes).forEach(k => {
           const nr = body.recipes[k], or = old.recipes[k];
           if (!or) return;
-          // Preserve recipe media
-          if (or.media && or.media.length && (!nr.media || !nr.media.length)) nr.media = or.media;
+          // Merge recipe media: combine both, dedupe by name, keep real images
+          if (or.media && or.media.length) {
+            if (!nr.media) nr.media = [];
+            const nrNames = new Set(nr.media.map(m => m.name));
+            or.media.forEach(m => {
+              if (m.url && m.url.startsWith('data:') && !nrNames.has(m.name)) nr.media.push(m);
+            });
+          }
           // Preserve SOP step images
           if (or.sopSteps && nr.sopSteps) {
             nr.sopSteps.forEach((s, i) => {
@@ -185,10 +191,15 @@ app.post('/api/data', requireAuth, (req, res) => {
               }
             });
           }
-          // Preserve QA files
+          // Merge QA files
           ['trialQA','prodQA'].forEach(stage => {
-            if (or[stage] && or[stage].files && or[stage].files.length && nr[stage] && (!nr[stage].files || !nr[stage].files.length)) {
-              nr[stage].files = or[stage].files;
+            if (or[stage] && or[stage].files && or[stage].files.length) {
+              if (!nr[stage]) nr[stage] = { signed: false, files: [] };
+              if (!nr[stage].files) nr[stage].files = [];
+              const nrNames = new Set(nr[stage].files.map(f => f.name));
+              or[stage].files.forEach(f => {
+                if (f.url && f.url.startsWith('data:') && !nrNames.has(f.name)) nr[stage].files.push(f);
+              });
             }
           });
         });
