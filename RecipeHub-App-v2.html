@@ -5650,7 +5650,7 @@ function viewRecipe(npd) {
     <!-- SOP Production Steps removed — use Factory SOP page instead -->
 
     <!-- ═══ SENSORY STAGE GATES (NPD) ═══ -->
-    ${(r.status === 'trial' || r.status === 'prod-trial' || r.status === 'approved') ? `
+    ${(r.status === 'review' || r.status === 'trial' || r.status === 'prod-trial' || r.status === 'approved') ? `
     <div class="card" style="margin-top:20px;border:2px solid var(--gold)">
       <div class="card-head" style="background:linear-gradient(135deg,#3a2f1a,#2a2210)">
         <span class="card-title" style="color:var(--gold)">Sensory Panel — NPD</span>
@@ -5663,8 +5663,8 @@ function viewRecipe(npd) {
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
               <div style="width:24px;height:24px;border-radius:50%;background:${r.sensoryGate1 && r.sensoryGate1.result==='pass'?'var(--sage)':r.sensoryGate1 && r.sensoryGate1.result==='fail'?'var(--red)':'rgba(255,255,255,0.1)'};display:flex;align-items:center;justify-content:center;font-size:11px;color:white">${r.sensoryGate1 && r.sensoryGate1.result==='pass'?'✓':r.sensoryGate1 && r.sensoryGate1.result==='fail'?'✕':'1'}</div>
               <div>
-                <div style="font-size:13px;font-weight:600">Kitchen Test Tasting</div>
-                <div style="font-size:10px;color:var(--g3)">NPD tastes from test kitchen before factory trial</div>
+                <div style="font-size:13px;font-weight:600">Kitchen → Factory Trial</div>
+                <div style="font-size:10px;color:var(--g3)">Sensory pass required before sending to factory</div>
               </div>
             </div>
             <div style="display:flex;gap:6px;margin-bottom:10px">
@@ -5683,8 +5683,8 @@ function viewRecipe(npd) {
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
               <div style="width:24px;height:24px;border-radius:50%;background:${r.sensoryGate2 && r.sensoryGate2.result==='pass'?'var(--sage)':r.sensoryGate2 && r.sensoryGate2.result==='fail'?'var(--red)':'rgba(255,255,255,0.1)'};display:flex;align-items:center;justify-content:center;font-size:11px;color:white">${r.sensoryGate2 && r.sensoryGate2.result==='pass'?'✓':r.sensoryGate2 && r.sensoryGate2.result==='fail'?'✕':'2'}</div>
               <div>
-                <div style="font-size:13px;font-weight:600">Factory Trial Tasting</div>
-                <div style="font-size:10px;color:var(--g3)">NPD tastes after factory trial production</div>
+                <div style="font-size:13px;font-weight:600">Factory Trial → Production Trial</div>
+                <div style="font-size:10px;color:var(--g3)">Sensory pass required before production trial</div>
               </div>
             </div>
             <div style="display:flex;gap:6px;margin-bottom:10px">
