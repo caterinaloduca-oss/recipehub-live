@@ -10748,17 +10748,7 @@ function viewBuild(id) {
         </div>
       </div>
 
-      <div class="card">
-        <div class="card-head"><span class="card-title">Assembly Instructions</span></div>
-        <div class="card-body">
-          <div style="font-size:13.5px;color:var(--g5);line-height:1.8">${b.instructions}</div>
-          <div style="display:flex;gap:12px;margin-top:16px">
-            <div class="sop-param"><div class="sop-param-label">Oven Temp</div><div class="sop-param-value">${b.bakeTemp}</div></div>
-            <div class="sop-param"><div class="sop-param-label">Bake Time</div><div class="sop-param-value">${b.bakeTime}</div></div>
-            <div class="sop-param"><div class="sop-param-label">Total Weight</div><div class="sop-param-value">${b.components.reduce((s,c)=>s+(parseFloat(c.weight)||0),0).toFixed(0)}g</div></div>
-          </div>
-        </div>
-      </div>
+      <!-- Assembly Instructions removed -->
     </div>
 
     <!-- Size Variants -->
