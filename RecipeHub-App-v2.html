@@ -3729,7 +3729,7 @@ function loadAllData() {
       if (r.status === 'scheduled' && !r.date) r.status = 'pending';
       if (!r.createdAt) r.createdAt = new Date().toISOString();
     });
-    if (data.branchSOPs) { replaceArray(BRANCH_SOPS, data.branchSOPs); }
+    if (data.branchSOPs) { var _bss=BRANCH_SOPS.slice(); replaceArray(BRANCH_SOPS, data.branchSOPs); var _bsi=data.branchSOPs.map(function(s){return s.id}); _bss.forEach(function(s){if(_bsi.indexOf(s.id)===-1)BRANCH_SOPS.push(s)}); }
     if (data.brands) { replaceArray(BRANDS, data.brands); }
     if (data.brandRecipes) { Object.keys(data.brandRecipes).forEach(function(k){ BRAND_RECIPES[k] = data.brandRecipes[k]; }); }
     if (Array.isArray(data.activityLog)) { ACTIVITY_LOG.length = 0; data.activityLog.forEach(function(a){ACTIVITY_LOG.push(a)}); }
