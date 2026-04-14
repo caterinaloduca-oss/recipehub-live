@@ -12651,11 +12651,6 @@ var BSOP_BRAND_COLORS = {
 // Load saved data now that all data arrays are declared
 loadAllData();
 _stripBlobUrls();
-// Re-save localStorage with light blob to free space from old bloated data
-try { localStorage.setItem(STORAGE_KEY, JSON.stringify(_buildLightBlob(_buildDataBlob()))); } catch(e) {
-  // If still too big, clear and let server sync restore data
-  try { localStorage.removeItem(STORAGE_KEY); } catch(e2) {}
-}
 
 // Seed nutrition on builds if not already set (survives localStorage)
 (function() {
