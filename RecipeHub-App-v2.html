@@ -5957,7 +5957,8 @@ function viewRecipe(npd) {
   if (_isRD) {
     _detailActions = `
       <button class="btn btn-gold btn-sm" onclick="editRecipe('${r.npd}')">✏️ Edit</button>
-      ${r.sopSteps && r.sopSteps.length ? `<button class="btn btn-outline btn-sm" onclick="exportToSOP('${r.npd}')">🏭 View Factory SOP</button>` : `<button class="btn btn-sage btn-sm" onclick="generateFactorySOP('${r.npd}')">🏭 Generate Factory SOP</button>`}
+      <button class="btn ${r.sopSteps && r.sopSteps.length ? 'btn-outline' : 'btn-sage'} btn-sm" onclick="generateFactorySOP('${r.npd}')">🏭 ${r.sopSteps && r.sopSteps.length ? 'Regenerate' : 'Generate'} Factory SOP</button>
+      ${r.sopSteps && r.sopSteps.length ? `<button class="btn btn-outline btn-sm" onclick="exportToSOP('${r.npd}')">🏭 View SOP</button>` : ''}
       ${_statusBtn}
       <div class="more-dd">
         <button class="btn btn-outline btn-sm" onclick="this.nextElementSibling.classList.toggle('show')">More ▾</button>
@@ -6283,7 +6284,13 @@ function generateFactorySOP(npd) {
   var r = RECIPE_DB[npd];
   if (!r) return;
   if (r.sopSteps && r.sopSteps.length) {
-    exportToSOP(npd);
+    if (!confirm('This will regenerate the Factory SOP from the recipe method (' + r.method.length + ' steps). Existing SOP steps will be replaced. Continue?')) {
+      exportToSOP(npd);
+      return;
+    }
+  }
+  if (!r.method || !r.method.length) {
+    showSaveToast('No method steps in recipe — add steps first', true);
     return;
   }
   // Generate SOP steps from recipe method
