@@ -5403,7 +5403,7 @@ function viewRecipe(npd) {
 
       <!-- Method -->
       <div class="card">
-        <div class="card-head"><span class="card-title">Method</span><div style="display:flex;align-items:center;gap:8px"><span class="badge badge-navy">${r.method.length} Steps</span><button class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 10px" onclick="editRecipe('${r.npd}')">Edit</button></div></div>
+        <div class="card-head"><span class="card-title">Method</span><div style="display:flex;align-items:center;gap:8px"><span class="badge badge-navy">${r.method.length} Steps</span><button class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 10px" onclick="importStepsToRecipe('${r.npd}')">⬆ Import</button><button class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 10px" onclick="editRecipe('${r.npd}')">Edit</button></div></div>
         <div class="card-body">
           ${r.method.map((s,i) => `
             <div class="sop-step" style="margin-bottom:14px">
@@ -8083,6 +8083,49 @@ function addEditMethodRow() {
 
 function renumberEditSteps() {
   document.querySelectorAll('#er-method .er-step-num').forEach((el, i) => { el.textContent = i + 1; });
+}
+
+function importStepsToRecipe(npd) {
+  var r = RECIPE_DB[npd];
+  if (!r) return;
+  openModal(
+    '<div class="card-head" style="background:var(--navy);border-radius:16px 16px 0 0">' +
+      '<span class="card-title" style="color:white">Import Method Steps</span>' +
+      '<button class="btn btn-sm" style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:none" onclick="closeModal()">✕</button>' +
+    '</div>' +
+    '<div class="card-body" style="padding:24px">' +
+      '<div style="font-size:12px;color:var(--g4);margin-bottom:12px">Paste your steps below, one per line. Use <strong>Title: Description</strong> format, or just the description (auto-numbered). These will be <strong>added</strong> to existing steps.</div>' +
+      '<textarea class="form-textarea" id="import-steps-text" style="min-height:200px;width:100%;font-size:13px;line-height:1.8;padding:12px 14px;box-sizing:border-box" placeholder="Mix dry ingredients together\nAdd water slowly: Combine until smooth\nBake at 180°C for 25 minutes"></textarea>' +
+      '<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">' +
+        '<button class="btn btn-outline" onclick="closeModal()">Cancel</button>' +
+        '<button class="btn btn-gold" onclick="doImportStepsToRecipe(\'' + npd + '\')">Import</button>' +
+      '</div>' +
+    '</div>'
+  );
+}
+
+function doImportStepsToRecipe(npd) {
+  var r = RECIPE_DB[npd];
+  if (!r) return;
+  var text = document.getElementById('import-steps-text').value.trim();
+  if (!text) return;
+  var lines = text.split('\n').filter(function(l) { return l.trim(); });
+  lines.forEach(function(line) {
+    var title, desc;
+    var colonIdx = line.indexOf(':');
+    if (colonIdx > 0 && colonIdx < 60) {
+      title = line.slice(0, colonIdx).trim();
+      desc = line.slice(colonIdx + 1).trim();
+    } else {
+      title = 'Step ' + (r.method.length + 1);
+      desc = line.trim();
+    }
+    r.method.push({ title: title, text: desc });
+  });
+  closeModal();
+  saveAllData();
+  viewRecipe(npd);
+  showSaveToast(lines.length + ' steps imported');
 }
 
 function openImportSteps() {
