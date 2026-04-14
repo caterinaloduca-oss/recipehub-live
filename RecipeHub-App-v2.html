@@ -7,7 +7,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>Recipe Hub</title>
-<meta name="app-version" content="20260414-1530">
+<meta name="app-version" content="20260414-1535">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -749,7 +749,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
       </select>
     </div>
     <div style="display:flex;gap:6px">
-      <button onclick="localStorage.clear();location.reload()" style="flex:1;padding:6px;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,0.1);background:none;color:rgba(255,255,255,0.4);font-family:var(--font-b);font-size:11px;cursor:pointer;transition:all 0.15s" onmouseover="this.style.background='rgba(255,255,255,0.08)';this.style.color='rgba(255,255,255,0.7)'" onmouseout="this.style.background='none';this.style.color='rgba(255,255,255,0.4)'">Refresh Data</button>
+      <button onclick="forceRefreshFromServer()" style="flex:1;padding:6px;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,0.1);background:none;color:rgba(255,255,255,0.4);font-family:var(--font-b);font-size:11px;cursor:pointer;transition:all 0.15s" onmouseover="this.style.background='rgba(255,255,255,0.08)';this.style.color='rgba(255,255,255,0.7)'" onmouseout="this.style.background='none';this.style.color='rgba(255,255,255,0.4)'">Refresh Data</button>
       <button onclick="signOut()" style="flex:1;padding:6px;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,0.1);background:none;color:rgba(255,255,255,0.4);font-family:var(--font-b);font-size:11px;cursor:pointer;transition:all 0.15s" onmouseover="this.style.background='rgba(255,255,255,0.08)';this.style.color='rgba(255,255,255,0.7)'" onmouseout="this.style.background='none';this.style.color='rgba(255,255,255,0.4)'">Sign Out</button>
     </div>
   </div>
@@ -3827,6 +3827,29 @@ function showSaveToast(msg, isError) {
   if (isError) { toast.style.background = '#C0392B'; } else { toast.style.background = '#1B2A4A'; }
   toast.classList.add('show');
   setTimeout(() => toast.classList.remove('show'), 2500);
+}
+
+function forceRefreshFromServer() {
+  showSaveToast('Pulling data from server...');
+  fetch(API_BASE + '/api/data', { headers: { 'Authorization': 'Bearer ' + API_KEY } })
+    .then(function(r) { if (!r.ok) throw new Error('Server error'); return r.json(); })
+    .then(function(result) {
+      if (!result.data) { showSaveToast('Server has no data', true); return; }
+      _hasLoadedFromServer = true;
+      _hydrateFromData(result.data);
+      _stripBlobUrls();
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(_buildDataBlob())); } catch(e) {}
+      // Rebuild all UI
+      try {
+        populateBrandUI(); buildIngTable(); buildRecipesTable(); buildBrandCards();
+        buildUsersTable(); buildPendingTable(); buildRoleCards(); buildAccessMatrix();
+        buildFactorySOPTable(); buildBuildsTable(); buildBranchSOPTable();
+        buildProductionTable(); populateQARecipeDropdown(); updateDashboardStats();
+        updateSidebarBadges(); addEmptyStates();
+      } catch(e) {}
+      showSaveToast('Data refreshed — ' + Object.keys(RECIPE_DB).length + ' recipes loaded');
+    })
+    .catch(function(err) { showSaveToast('Refresh failed: ' + err.message, true); });
 }
 
 // Auto-save disabled — with multiple users, idle laptops push stale data.
