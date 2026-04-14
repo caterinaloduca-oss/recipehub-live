@@ -6353,9 +6353,13 @@ function viewVisualSOP(npd) {
 function uploadVisualSOPImg(npd, stepIdx, input) {
   var r = RECIPE_DB[npd];
   if (!r || !r.sopSteps || !input.files[0]) return;
-  if (r.sopSteps[stepIdx].visualImg) URL.revokeObjectURL(r.sopSteps[stepIdx].visualImg);
-  r.sopSteps[stepIdx].visualImg = URL.createObjectURL(input.files[0]);
-  viewVisualSOP(npd);
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    r.sopSteps[stepIdx].visualImg = e.target.result;
+    viewVisualSOP(npd);
+    saveAllData();
+  };
+  reader.readAsDataURL(input.files[0]);
 }
 
 function printVisualSOP(npd) {
@@ -10574,16 +10578,18 @@ function saveBuildTags(id) {
 function uploadBuildPhoto(id, input) {
   var b = BUILDS_DATA.find(x => x.id === id);
   if (!b || !input.files[0]) return;
-  if (b.photo) URL.revokeObjectURL(b.photo);
-  b.photo = URL.createObjectURL(input.files[0]);
-  viewBuild(id);
-  saveAllData();
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    b.photo = e.target.result;
+    viewBuild(id);
+    saveAllData();
+  };
+  reader.readAsDataURL(input.files[0]);
 }
 
 function removeBuildPhoto(id) {
   var b = BUILDS_DATA.find(x => x.id === id);
   if (!b) return;
-  if (b.photo) URL.revokeObjectURL(b.photo);
   b.photo = null;
   viewBuild(id);
   saveAllData();
