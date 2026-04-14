@@ -10148,7 +10148,12 @@ function setSensoryGateData(npd, gate, result) {
   if (!r[key]) r[key] = {};
   r[key].result = result;
   saveAllData();
+  var scrollY = window.scrollY;
+  var mainEl = document.querySelector('.main');
+  var mainScroll = mainEl ? mainEl.scrollTop : 0;
   viewRecipe(npd);
+  window.scrollTo(0, scrollY);
+  if (mainEl) mainEl.scrollTop = mainScroll;
   var label = gate === 1 ? 'Kitchen Test' : 'Factory Trial';
   logActivity('sensory', result === 'pass' ? '✅' : result === 'fail' ? '❌' : '⚠️', r.name + ' — ' + label + ' sensory: ' + result, 'NPD Panel');
   showSaveToast('Sensory gate ' + gate + ': ' + result);
