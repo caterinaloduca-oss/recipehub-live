@@ -4001,15 +4001,19 @@ function applyRoleRestrictions() {
 function stripPageActions(pageId) {
   var el = document.getElementById(pageId);
   if (!el) return;
+  // Never strip buttons inside modals or the modal overlay
+  function inModal(b) { return b.closest('#modal-overlay') || b.closest('#modal-box'); }
   // Hide styled action buttons
-  el.querySelectorAll('.btn-gold, .btn-sage, .btn-danger-sm, .btn-primary').forEach(function(b) { b.style.display = 'none'; });
+  el.querySelectorAll('.btn-gold, .btn-sage, .btn-danger-sm, .btn-primary').forEach(function(b) { if (!inModal(b)) b.style.display = 'none'; });
   // Hide edit/delete/status outline buttons by label
   el.querySelectorAll('.btn-outline, .btn').forEach(function(b) {
+    if (inModal(b)) return;
     var t = b.textContent.trim().toLowerCase();
     if (t === 'edit' || t === 'delete' || t.indexOf('status') > -1 || t === 'archive' || t === 'restore' || t === 'duplicate' || t === 'discontinue' || t === 'reactivate') b.style.display = 'none';
   });
   // Hide buttons by onclick keyword (for buttons without standard classes)
   el.querySelectorAll('button[onclick]').forEach(function(b) {
+    if (inModal(b)) return;
     var oc = (b.getAttribute('onclick') || '').toLowerCase();
     // Skip nav/view/print/filter/search/toggle-UI buttons
     if (oc.indexOf('nav(') > -1 || oc.indexOf('view') > -1 || oc.indexOf('print') > -1 || oc.indexOf('filter') > -1 || oc.indexOf('search') > -1 || oc.indexOf('toggledd') > -1 || oc.indexOf('togglenotif') > -1 || oc.indexOf('togglearchived') > -1 || oc.indexOf('goback') > -1 || oc.indexOf('closebuild') > -1 || oc.indexOf("display='none'") > -1) return;
@@ -4020,8 +4024,9 @@ function stripPageActions(pageId) {
   });
   // Hide standalone X / delete buttons
   el.querySelectorAll('button').forEach(function(b) {
+    if (inModal(b)) return;
     var t = b.textContent.trim();
-    if ((t === '✕' || t === '×' || t === 'X') && !b.closest('.topbar') && !b.closest('#notif-panel') && !b.closest('.modal')) b.style.display = 'none';
+    if ((t === '✕' || t === '×' || t === 'X') && !b.closest('.topbar') && !b.closest('#notif-panel')) b.style.display = 'none';
   });
 }
 
