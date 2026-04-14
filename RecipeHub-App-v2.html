@@ -4326,7 +4326,7 @@ function addRecipeComment(npd) {
   var input = document.getElementById('comment-input-'+npd);
   if (!input || !input.value.trim()) return;
   if (!r.comments) r.comments = [];
-  r.comments.push({by:'Caterina Loduca', date:new Date().toISOString(), text:input.value.trim()});
+  r.comments.push({by:getCurrentUserName(), date:new Date().toISOString(), text:input.value.trim()});
   logActivity('comment', '💬', 'Comment on ' + r.name, input.value.trim().substring(0,50));
   viewRecipe(npd);
   saveAllData();
@@ -6069,7 +6069,7 @@ function setRecipeStatus(npd, newStatus) {
   r.status = newStatus;
   r.updated = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
   if (!r.changeLog) r.changeLog = [];
-  r.changeLog.push({date:new Date().toISOString(), by:'Caterina Loduca', changes:'Status changed to ' + labels[newStatus]});
+  r.changeLog.push({date:new Date().toISOString(), by:getCurrentUserName(), changes:'Status changed to ' + labels[newStatus]});
 
   // Auto-create production run for Factory Trial or Production Trial
   if (newStatus === 'trial' || newStatus === 'prod-trial') {
@@ -6226,8 +6226,8 @@ function archiveRecipe(npd) {
   r.archived = true;
   r.updated = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
   if (!r.changeLog) r.changeLog = [];
-  r.changeLog.push({date:new Date().toISOString(), by:'Caterina Loduca', changes:'Recipe archived'});
-  logActivity('status', '📦', r.name + ' archived', 'By Caterina Loduca');
+  r.changeLog.push({date:new Date().toISOString(), by:getCurrentUserName(), changes:'Recipe archived'});
+  logActivity('status', '📦', r.name + ' archived', 'By ' + getCurrentUserName());
   buildRecipesTable();
   updateDashboardStats();
   updateSidebarBadges();
@@ -6242,8 +6242,8 @@ function unarchiveRecipe(npd) {
   r.archived = false;
   r.updated = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
   if (!r.changeLog) r.changeLog = [];
-  r.changeLog.push({date:new Date().toISOString(), by:'Caterina Loduca', changes:'Recipe restored from archive'});
-  logActivity('status', '♻️', r.name + ' restored from archive', 'By Caterina Loduca');
+  r.changeLog.push({date:new Date().toISOString(), by:getCurrentUserName(), changes:'Recipe restored from archive'});
+  logActivity('status', '♻️', r.name + ' restored from archive', 'By ' + getCurrentUserName());
   buildRecipesTable();
   updateDashboardStats();
   updateSidebarBadges();
@@ -7030,7 +7030,7 @@ function approveSOPRelease(npd) {
 
   r.sopStatus = 'approved';
   r.sopApprovedAt = new Date().toLocaleString('en-GB');
-  r.sopApprovedBy = 'Caterina Loduca';
+  r.sopApprovedBy = getCurrentUserName();
   r.sopSupervisor = supervisor;
   r.sopQATech = qa;
 
@@ -7039,7 +7039,7 @@ function approveSOPRelease(npd) {
   r.approvedAt = new Date().toISOString();
 
   updateSOPStatusBadge(r);
-  showSOPMsg('✓ SOP approved and released for production by Caterina Loduca — ' + r.sopApprovedAt, 'success');
+  showSOPMsg('✓ SOP approved and released for production by ' + getCurrentUserName() + ' — ' + r.sopApprovedAt, 'success');
 
   // Rebuild recipes table to reflect new status
   const tbody = document.getElementById('recipes-tbody');
@@ -7780,7 +7780,7 @@ function snapshotRecipe(r) {
     yield: r.yield,
     yieldNotes: r.yieldNotes,
     savedAt: new Date().toISOString(),
-    savedBy: 'Caterina Loduca',
+    savedBy: getCurrentUserName(),
   }));
 }
 
@@ -8427,7 +8427,7 @@ function saveEditRecipe(npd) {
   if (!r.changeLog) r.changeLog = [];
   r.changeLog.push({
     date: new Date().toISOString(),
-    by: 'Caterina Loduca',
+    by: getCurrentUserName(),
     changes: 'Recipe edited — ' + r.ingredients.length + ' ingredients, ' + r.method.length + ' steps, status: ' + r.status,
   });
 
