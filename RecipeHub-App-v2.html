@@ -3860,8 +3860,9 @@ function syncFromServer() {
     // If server is newer AND no local edits happened during fetch, hydrate
     if (serverSavedAt > localSavedAt && !_localDirty && !_savingToServer) {
       _hydrateFromData(serverData);
+      _stripBlobUrls();
       // Save to localStorage so it's in sync
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(serverData));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(_buildDataBlob()));
       // Refresh all UI — preserve scroll position
       try {
         var _scrollY = window.scrollY;
@@ -6364,9 +6365,35 @@ function compressImage(file, maxSize, quality, cb) {
     var canvas = document.createElement('canvas');
     canvas.width = w; canvas.height = h;
     canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-    cb(canvas.toDataURL('image/jpeg', quality));
+    var result = canvas.toDataURL('image/jpeg', quality);
+    URL.revokeObjectURL(img.src);
+    cb(result);
   };
+  img.onerror = function() { URL.revokeObjectURL(img.src); showSaveToast('Image upload failed', true); };
   img.src = URL.createObjectURL(file);
+}
+
+function _stripBlobUrls() {
+  // Clean dead blob: URLs from all data — they don't survive refresh
+  Object.keys(RECIPE_DB).forEach(function(k) {
+    var r = RECIPE_DB[k];
+    if (r.media) r.media = r.media.filter(function(m) { return !m.url || !m.url.startsWith('blob:'); });
+    if (r.sopSteps) r.sopSteps.forEach(function(s) {
+      if (s.visualImg && s.visualImg.startsWith('blob:')) s.visualImg = null;
+      if (s.media) s.media = s.media.filter(function(m) { return !m.url || !m.url.startsWith('blob:'); });
+    });
+    ['trialQA','prodQA'].forEach(function(stage) {
+      if (r[stage] && r[stage].files) r[stage].files = r[stage].files.filter(function(f) { return !f.url || !f.url.startsWith('blob:'); });
+    });
+  });
+  BUILDS_DATA.forEach(function(b) {
+    if (b.photo && b.photo.startsWith('blob:')) b.photo = null;
+  });
+  BRANCH_SOPS.forEach(function(sop) {
+    if (sop.steps) sop.steps.forEach(function(s) {
+      if (s.img && s.img.startsWith('blob:')) s.img = null;
+    });
+  });
 }
 
 function uploadVisualSOPImg(npd, stepIdx, input) {
@@ -12408,6 +12435,7 @@ var BSOP_BRAND_COLORS = {
 
 // Load saved data now that all data arrays are declared
 loadAllData();
+_stripBlobUrls();
 
 // Seed nutrition on builds if not already set (survives localStorage)
 (function() {
