@@ -3640,33 +3640,48 @@ function _saveToServer(data) {
 }
 
 var _hasLoadedFromServer = false;
+
+function _buildLightBlob(data) {
+  // Strip base64 images for localStorage — server keeps the full data
+  var lite = JSON.parse(JSON.stringify(data));
+  if (lite.recipes) Object.keys(lite.recipes).forEach(function(k) {
+    var r = lite.recipes[k];
+    if (r.media) r.media = r.media.map(function(m) { return m.url && m.url.startsWith('data:') ? {name:m.name,url:'[server]',isVideo:m.isVideo,type:m.type} : m; });
+    if (r.sopSteps) r.sopSteps.forEach(function(s) {
+      if (s.visualImg && s.visualImg.startsWith('data:')) s.visualImg = '[server]';
+      if (s.media) s.media = s.media.map(function(m) { return m.url && m.url.startsWith('data:') ? {name:m.name,url:'[server]',isVideo:m.isVideo,type:m.type} : m; });
+    });
+    ['trialQA','prodQA'].forEach(function(stage) {
+      if (r[stage] && r[stage].files) r[stage].files = r[stage].files.map(function(f) { return f.url && f.url.startsWith('data:') ? {name:f.name,url:'[server]',type:f.type} : f; });
+    });
+  });
+  if (lite.builds) lite.builds.forEach(function(b) { if (b.photo && b.photo.startsWith('data:')) b.photo = '[server]'; });
+  if (lite.branchSOPs) lite.branchSOPs.forEach(function(sop) {
+    if (sop.steps) sop.steps.forEach(function(s) { if (s.img && s.img.startsWith('data:')) s.img = '[server]'; });
+  });
+  if (lite.activityLog && lite.activityLog.length > 50) lite.activityLog = lite.activityLog.slice(-50);
+  return lite;
+}
+
 function saveAllData() {
   // Don't push empty data to server if we haven't loaded from server yet
   const data = _buildDataBlob();
   if (!_hasLoadedFromServer && Object.keys(RECIPE_DB).length === 0 && BUILDS_DATA.length === 0) {
-    // Only save to localStorage, don't push empty state to server
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch(e) {}
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(_buildLightBlob(data))); } catch(e) {}
     return;
   }
   _localDirty = true;
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    // Update sidebar status
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(_buildLightBlob(data)));
     const statusEl = document.getElementById('save-status');
     if (statusEl) statusEl.textContent = 'Saved ' + new Date().toLocaleTimeString('en-GB', {hour:'2-digit',minute:'2-digit'});
-    // Flash save icon
     const iconEl = document.getElementById('save-icon');
     if (iconEl) { iconEl.textContent = '✅'; setTimeout(() => { iconEl.textContent = '💾'; }, 1500); }
-    // Warn if storage is getting large (over 4MB of 5MB limit)
-    var sizeKB = Math.round(JSON.stringify(data).length / 1024);
-    if (sizeKB > 4000) {
-      showSaveToast('⚠️ Storage nearly full (' + sizeKB + ' KB) — export a backup', true);
-    }
   } catch (e) {
     console.error('Save failed:', e);
-    showSaveToast('❌ Save failed — storage full! Export backup and clear old data.', true);
+    showSaveToast('❌ Save failed — clear browser data', true);
   }
-  // Also save to server (async, fire-and-forget)
+  // Full data (with images) goes to server
   _saveToServer(data);
 }
 
@@ -3823,7 +3838,7 @@ window.addEventListener('beforeunload', function() {
   if (typeof RECIPE_DB !== 'undefined') {
     try {
       var data = _buildDataBlob();
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(_buildLightBlob(data)));
       navigator.sendBeacon(API_BASE + '/api/data?key=' + API_KEY, new Blob([JSON.stringify(data)], { type: 'application/json' }));
     } catch(e) {}
   }
@@ -6422,7 +6437,7 @@ function saveAllDataNow() {
   // Force immediate save to server — no throttle. Used after photo uploads.
   var data = _buildDataBlob();
   _localDirty = true;
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch(e) { console.warn('localStorage full'); }
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(_buildLightBlob(data))); } catch(e) { console.warn('localStorage full'); }
   if (_pendingServerSave) { clearTimeout(_pendingServerSave); _pendingServerSave = null; }
   _lastServerSave = Date.now();
   _savingToServer = true;
