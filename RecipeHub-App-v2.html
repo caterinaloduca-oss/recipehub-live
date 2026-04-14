@@ -5647,32 +5647,7 @@ function viewRecipe(npd) {
     </div>
     ` : ''}
 
-    ${(r.sopSteps && r.sopSteps.length) ? `
-    <div class="card">
-      <div class="card-head" style="cursor:pointer" onclick="var body=this.nextElementSibling;var arrow=this.querySelector('.sop-toggle');if(body.style.display==='none'){body.style.display='';arrow.textContent='▾'}else{body.style.display='none';arrow.textContent='▸'}">
-        <span class="card-title">SOP Production Steps</span>
-        <div style="display:flex;gap:8px;align-items:center">
-          <span class="badge badge-navy">${r.sopSteps.length} Steps</span>
-          <span class="sop-toggle" style="font-size:14px;color:var(--g3)">▸</span>
-        </div>
-      </div>
-      <div class="card-body" style="display:none">
-        ${r.sopSteps.map((s,i) => `
-          <div class="sop-step">
-            <div class="sop-num">${i+1}</div>
-            <div class="sop-content">
-              ${renderIcons(s.icons)}
-              <div class="sop-step-title">${s.title}</div>
-              <div class="sop-step-body">${s.text}</div>
-              ${s.params && s.params.length ? `<div class="sop-params">${s.params.map(p => `<div class="sop-param"><div class="sop-param-label">${p.l}</div><div class="sop-param-value">${p.v}</div></div>`).join('')}</div>` : ''}
-              ${s.ccp ? `<div class="sop-ccp">🛑 ${s.ccp}</div>` : ''}
-              ${s.warning ? `<div class="sop-warning">⚠️ ${s.warning}</div>` : ''}
-            </div>
-          </div>
-        `).join('')}
-      </div>
-    </div>
-    ` : ''}
+    <!-- SOP Production Steps removed — use Factory SOP page instead -->
 
     <!-- ═══ SENSORY STAGE GATES (NPD) ═══ -->
     ${(r.status === 'trial' || r.status === 'prod-trial' || r.status === 'approved') ? `
