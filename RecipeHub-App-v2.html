@@ -6566,11 +6566,6 @@ function exportToSOP(npd) {
   document.getElementById('sop-content').innerHTML = sopHTML;
   PAGES.sop.title = 'Factory SOP — ' + r.name;
   PAGES.sop.actions = `
-    <button class="btn btn-outline btn-sm" onclick="printVisualSOP('${r.npd}')">🖨️ Visual Print</button>
-    <button class="btn btn-outline btn-sm" onclick="openPrint('${r.npd}','factory')">🖨️ Full Print</button>
-    <button class="btn btn-outline btn-sm" onclick="saveSOPDraft('${r.npd}')">💾 Save</button>
-    <button class="btn btn-gold btn-sm" onclick="submitSOPForApproval('${r.npd}')">📤 Submit</button>
-    <button class="btn btn-sage btn-sm" onclick="approveSOPRelease('${r.npd}')">✓ Approve</button>
   `;
   document.getElementById('sop-landing').style.display = 'none';
   document.getElementById('sop-content').style.display = 'block';
