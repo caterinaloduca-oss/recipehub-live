@@ -12600,8 +12600,9 @@ applySidebarPermissions();
 
 // Sync from server after init (async — UI is already loaded from localStorage)
 syncFromServer();
-// Periodic sync disabled — with multiple users testing, it overwrites mid-edit.
-// Users get latest data on page load/refresh instead.
+// Re-sync every 30 seconds to pick up changes from other users
+// (guards in syncFromServer prevent overwriting active edits)
+setInterval(syncFromServer, 30000);
 
 function getBranchSOPAllergenNutritionPrintHTML(sop) {
   var info = getBranchSOPAllergenNutritionData(sop);
