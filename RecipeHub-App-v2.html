@@ -2279,6 +2279,7 @@ var _lastServerSave = 0;
 var _pendingServerSave = null;
 var _localDirty = false;
 var _savingToServer = false;
+var _sopEditTimer = null;
 var REJECTED_EMAILS = []; // track rejected pending users so they don't get re-injected
 
 // ──────────── ORACLE EBS ITEMS MASTER (pre-loaded from gateway.dailyfoodsa.com) ────────────
@@ -4224,7 +4225,7 @@ function downloadPDF(npd, mode) {
   } else if (mode === 'sop-only') {
     sheet.innerHTML = renderSOPOnly(r);
   } else {
-    sheet.innerHTML = renderFactory(r, 400);
+    sheet.innerHTML = renderFactory(r, 400, false);
   }
 
   // Add allergens + nutrition to the PDF
@@ -4821,21 +4822,30 @@ function handleMediaUpload(npd, inputEl) {
   const r = RECIPE_DB[npd];
   if (!r) return;
   const files = inputEl.files;
+  var pending = files.length;
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
-    const url = URL.createObjectURL(file);
     const isVideo = file.type.startsWith('video/');
-    r.media.push({ name: file.name, url, isVideo, type: file.type });
+    if (isVideo) {
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        r.media.push({ name: file.name, url: e.target.result, isVideo: true, type: file.type });
+        if (--pending === 0) { renderMediaGrid(npd); saveAllData(); }
+      };
+      reader.readAsDataURL(file);
+    } else {
+      compressImage(file, 800, 0.7, function(dataUrl) {
+        r.media.push({ name: file.name, url: dataUrl, isVideo: false, type: 'image/jpeg' });
+        if (--pending === 0) { renderMediaGrid(npd); saveAllData(); }
+      });
+    }
   }
-  renderMediaGrid(npd);
   inputEl.value = '';
-  saveAllData();
 }
 
 function removeMedia(npd, idx) {
   const r = RECIPE_DB[npd];
   if (!r) return;
-  URL.revokeObjectURL(r.media[idx].url);
   r.media.splice(idx, 1);
   renderMediaGrid(npd);
   saveAllData();
@@ -6083,20 +6093,20 @@ function handleTrialQAMedia(npd, stage, inputEl) {
   if (!r) return;
   if (!r[stage+'QA']) r[stage+'QA'] = { signed:false, files:[] };
   if (!r[stage+'QA'].files) r[stage+'QA'].files = [];
+  var pending = inputEl.files.length;
   for (let i = 0; i < inputEl.files.length; i++) {
     const file = inputEl.files[i];
-    const url = URL.createObjectURL(file);
-    r[stage+'QA'].files.push({ name: file.name, url, type: file.type });
+    compressImage(file, 800, 0.7, function(dataUrl) {
+      r[stage+'QA'].files.push({ name: file.name, url: dataUrl, type: 'image/jpeg' });
+      if (--pending === 0) { viewRecipe(npd); saveAllData(); }
+    });
   }
   inputEl.value = '';
-  viewRecipe(npd);
-  saveAllData();
 }
 
 function removeTrialQAMedia(npd, stage, idx) {
   const r = RECIPE_DB[npd];
   if (!r || !r[stage+'QA'] || !r[stage+'QA'].files) return;
-  URL.revokeObjectURL(r[stage+'QA'].files[idx].url);
   r[stage+'QA'].files.splice(idx, 1);
   viewRecipe(npd);
   saveAllData();
@@ -6660,7 +6670,6 @@ function refreshSOPSteps(npd) {
   document.getElementById('sop-steps-body').innerHTML = r.sopSteps.map((s,i) => renderEditableSOPStep(s, i, npd)).join('');
 }
 
-var _sopEditTimer = null;
 function updateSOPStepField(npd, idx, field, val) {
   RECIPE_DB[npd].sopSteps[idx][field] = val;
   _localDirty = true;
