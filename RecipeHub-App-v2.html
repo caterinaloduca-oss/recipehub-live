@@ -12983,7 +12983,7 @@ function viewBranchSOP(id) {
         ${sop.steps.map((step, i) => `
           <div class="bsop-step" style="border-color:${brandColor}">
             <div class="bsop-step-img">
-              ${step.img ? `<img src="${step.img}" alt="Step ${i+1}" />` : `<div class="bsop-placeholder">📷</div>`}
+              ${step.img && step.img !== '[server]' && step.img !== 'null' ? `<img src="${step.img}" alt="Step ${i+1}" />` : `<div class="bsop-placeholder">📷</div>`}
               <label class="bsop-upload-btn">
                 <span>${step.img ? 'Change Photo' : 'Upload Photo'}</span>
                 <input type="file" accept="image/*" style="display:none" onchange="uploadBranchSOPPhoto('${sop.id}',${i},this)" />
@@ -13040,14 +13040,11 @@ function setComponentShelfLife(sopId, itemName, selectEl, type) {
 function uploadBranchSOPPhoto(sopId, stepIdx, input) {
   const sop = BRANCH_SOPS.find(s => s.id === sopId);
   if (!sop || !input.files[0]) return;
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    if (sop.steps[stepIdx].img && sop.steps[stepIdx].img.startsWith('blob:')) URL.revokeObjectURL(sop.steps[stepIdx].img);
-    sop.steps[stepIdx].img = e.target.result;
+  compressImage(input.files[0], 400, 0.5, function(dataUrl) {
+    sop.steps[stepIdx].img = dataUrl;
     viewBranchSOP(sopId);
-    saveAllData();
-  };
-  reader.readAsDataURL(input.files[0]);
+    saveAllDataNow();
+  });
 }
 
 function openBranchSOPForm() {
