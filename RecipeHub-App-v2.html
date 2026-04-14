@@ -7,7 +7,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>Recipe Hub</title>
-<meta name="app-version" content="20260414-1545">
+<meta name="app-version" content="20260414-1548">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -4891,13 +4891,13 @@ function handleMediaUpload(npd, inputEl) {
       var reader = new FileReader();
       reader.onload = function(e) {
         r.media.push({ name: file.name, url: e.target.result, isVideo: true, type: file.type });
-        if (--pending === 0) { renderMediaGrid(npd); saveAllData(); }
+        if (--pending === 0) { renderMediaGrid(npd); saveAllDataNow(); }
       };
       reader.readAsDataURL(file);
     } else {
       compressImage(file, 300, 0.4, function(dataUrl) {
         r.media.push({ name: file.name, url: dataUrl, isVideo: false, type: 'image/jpeg' });
-        if (--pending === 0) { renderMediaGrid(npd); saveAllData(); }
+        if (--pending === 0) { renderMediaGrid(npd); saveAllDataNow(); }
       });
     }
   }
