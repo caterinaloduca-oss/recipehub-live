@@ -10687,7 +10687,10 @@ function viewBuild(id) {
   window.scrollTo(0, 0);
 
   content.innerHTML = `
-    <button class="btn btn-outline btn-sm" onclick="closeBuildDetail()" style="margin-bottom:14px">← Back to List</button>
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      <button class="btn btn-outline btn-sm" onclick="closeBuildDetail()">← Back to List</button>
+      <button class="btn btn-gold btn-sm" onclick="editBuild('${b.id}')">✏️ Edit Build</button>
+    </div>
     <div class="card" style="overflow:hidden;margin-bottom:20px">
       <div style="background:var(--navy);padding:24px 28px;display:flex;justify-content:space-between;align-items:flex-start">
         <div>
