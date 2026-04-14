@@ -4882,6 +4882,7 @@ function renderIcons(iconKeys) {
 function handleMediaUpload(npd, inputEl) {
   const r = RECIPE_DB[npd];
   if (!r) return;
+  if (!r.media) r.media = [];
   const files = inputEl.files;
   var pending = files.length;
   for (let i = 0; i < files.length; i++) {
