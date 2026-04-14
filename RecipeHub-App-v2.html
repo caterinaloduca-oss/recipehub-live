@@ -8338,7 +8338,7 @@ function saveEditRecipe(npd) {
   r.brand = document.getElementById('er-brand').value;
   r.type = document.getElementById('er-type').value;
   r.storage = document.getElementById('er-storage').value;
-  r.shelfLife = document.getElementById('er-shelf').value || r.shelfLife;
+  // Shelf life set by QA, not here
   const yieldVal = document.getElementById('er-yield').value;
   r.yield = yieldVal ? parseFloat(yieldVal) / 100 : null;
   r.yieldNotes = document.getElementById('er-yield-notes')?.value || '';
