@@ -3975,10 +3975,10 @@ function applyRoleRestrictions() {
   // Pages where this role can edit (topbar + inline buttons stay visible)
   var editablePages = {
     viewer:     [],
-    purchasing: ['ingredients'],
-    factory:    ['production'],
-    qa:         ['qa','builds','branch-sop','recipe-detail'],
-    npd:        ['recipes','recipe-detail','ingredients','builds','branch-sop','sop','brands'],
+    purchasing: ['ingredients','comms'],
+    factory:    ['production','comms'],
+    qa:         ['qa','builds','branch-sop','recipe-detail','comms'],
+    npd:        ['recipes','recipe-detail','ingredients','builds','branch-sop','sop','brands','comms'],
   };
 
   var allowed = editablePages[role] || [];
