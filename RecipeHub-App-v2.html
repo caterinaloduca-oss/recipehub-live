@@ -3807,13 +3807,8 @@ function showSaveToast(msg, isError) {
   setTimeout(() => toast.classList.remove('show'), 2500);
 }
 
-// Auto-save every 60 seconds
-setInterval(() => {
-  // Only auto-save if data has been loaded/initialized
-  if (typeof RECIPE_DB !== 'undefined' && typeof ING_DATA !== 'undefined') {
-    saveAllData();
-  }
-}, 60000);
+// Auto-save disabled — with multiple users, idle laptops push stale data.
+// Data saves on every user action (edit, upload, etc.) instead.
 
 // Save on Ctrl+S / Cmd+S
 document.addEventListener('keydown', function(e) {
@@ -12499,8 +12494,8 @@ applySidebarPermissions();
 
 // Sync from server after init (async — UI is already loaded from localStorage)
 syncFromServer();
-// Re-sync every 30 seconds to pick up changes from other users
-setInterval(syncFromServer, 30000);
+// Periodic sync disabled — with multiple users testing, it overwrites mid-edit.
+// Users get latest data on page load/refresh instead.
 
 function getBranchSOPAllergenNutritionPrintHTML(sop) {
   var info = getBranchSOPAllergenNutritionData(sop);
