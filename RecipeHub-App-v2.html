@@ -10434,8 +10434,7 @@ function clearNotifications() {
 }
 
 // ──────────── PIZZA BUILDS ────────────
-var BUILDS_DATA = []; /* Clean slate — all builds come from server */
-var _BUILDS_SEED_REMOVED = [
+var BUILDS_DATA = [
   {
     id:'BLD-001', name:'Maestro Classic Margherita', brand:'Maestro', type:'Pizza', size:'Medium', status:'approved',
     components:[
@@ -12552,8 +12551,7 @@ function buildReports() {
 // buildReports + renderSavingsTracker moved to after loadAllData()
 
 // ──────────── BRANCH SOP ────────────
-var BRANCH_SOPS = []; /* Clean slate — all SOPs come from server */
-var _BRANCH_SOPS_SEED_REMOVED = [
+var BRANCH_SOPS = [
   {
     id:'M-PS-120', name:'Original Ranchy', brand:'Maestro', version:'V-06', date:'03/05/2025', status:'approved',
     buildRef:'BLD-001',
@@ -12584,7 +12582,8 @@ var _BRANCH_SOPS_SEED_REMOVED = [
   },
 ];
 
-// Branch SOP brand colors (must be before init calls)
+// Branch SOP brand colors
+
 // Portioning tools reference — auto-fills weight in builds & SOPs
 var PORTIONING_TOOLS = [
   {name:'2 oz Ladle', category:'Ladle', baseWeight:0.040, notes:'Tomato sauce. M=40g, L=60g'},
