@@ -4922,11 +4922,19 @@ function renderMediaGrid(npd) {
     <div class="media-thumb ${m.isVideo ? 'video' : ''}">
       ${m.isVideo
         ? `<video src="${m.url}" muted></video>`
-        : `<img src="${m.url}" alt="${m.name}" />`}
+        : `<img src="${m.url}" alt="${m.name}" onclick="zoomImage('${m.url.replace(/'/g,"\\'")}')" style="cursor:zoom-in" />`}
       <button class="media-thumb-del" onclick="removeMedia('${npd}',${i})">✕</button>
       <div class="media-thumb-label">${m.name}</div>
     </div>
   `).join('');
+}
+
+function zoomImage(url) {
+  var overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;cursor:zoom-out;padding:20px';
+  overlay.onclick = function() { overlay.remove(); };
+  overlay.innerHTML = '<img src="'+url+'" style="max-width:90vw;max-height:90vh;border-radius:8px;box-shadow:0 8px 40px rgba(0,0,0,0.5)" />';
+  document.body.appendChild(overlay);
 }
 
 // ──────────── PRINT FUNCTIONS ────────────
@@ -13026,7 +13034,7 @@ function viewBranchSOP(id) {
         ${sop.steps.map((step, i) => `
           <div class="bsop-step" style="border-color:${brandColor}">
             <div class="bsop-step-img">
-              ${step.img && step.img !== '[server]' && step.img !== 'null' ? `<img src="${step.img}" alt="Step ${i+1}" />` : `<div class="bsop-placeholder">📷</div>`}
+              ${step.img && step.img !== '[server]' && step.img !== 'null' ? `<img src="${step.img}" alt="Step ${i+1}" onclick="zoomImage('${step.img}')" style="cursor:zoom-in" />` : `<div class="bsop-placeholder">📷</div>`}
               <label class="bsop-upload-btn">
                 <span>${step.img ? 'Change Photo' : 'Upload Photo'}</span>
                 <input type="file" accept="image/*" style="display:none" onchange="uploadBranchSOPPhoto('${sop.id}',${i},this)" />
