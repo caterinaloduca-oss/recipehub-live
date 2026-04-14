@@ -13153,12 +13153,16 @@ function editBranchSOP(id) {
 
   var stepRows = sop.steps.map(function(step, i) {
     return '<div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:10px;padding:10px;background:var(--g1);border-radius:var(--r-sm)" class="bsop-edit-row">' +
-      '<div style="width:28px;height:28px;border-radius:50%;background:var(--navy);color:white;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0">'+(i+1)+'</div>' +
+      '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0">' +
+        '<div class="bsop-step-num" style="width:28px;height:28px;border-radius:50%;background:var(--navy);color:white;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600">'+(i+1)+'</div>' +
+        '<button style="background:none;border:none;cursor:pointer;color:var(--g3);font-size:11px;padding:0;line-height:1" onclick="moveBSOPUp(this)">▲</button>' +
+        '<button style="background:none;border:none;cursor:pointer;color:var(--g3);font-size:11px;padding:0;line-height:1" onclick="moveBSOPDown(this)">▼</button>' +
+      '</div>' +
       '<div style="flex:1">' +
         '<input class="form-input" value="'+step.text.replace(/"/g,'&quot;')+'" style="margin-bottom:6px;font-size:12px" placeholder="Step instruction" data-field="text" />' +
         '<input class="form-input" value="'+(step.portions||'')+'" style="font-size:11px;color:var(--sage)" placeholder="Portions — e.g. S-1, M-2, L-3" data-field="portions" />' +
       '</div>' +
-      '<button style="background:none;border:none;cursor:pointer;color:var(--red);font-size:14px;flex-shrink:0" onclick="this.closest(\'.bsop-edit-row\').remove()">✕</button>' +
+      '<button style="background:none;border:none;cursor:pointer;color:var(--red);font-size:14px;flex-shrink:0" onclick="this.closest(\'.bsop-edit-row\').remove();renumberBSOPSteps()">✕</button>' +
     '</div>';
   }).join('');
 
@@ -13191,13 +13195,31 @@ function addBranchSOPStep() {
   row.className = 'bsop-edit-row';
   row.style.cssText = 'display:flex;gap:8px;align-items:flex-start;margin-bottom:10px;padding:10px;background:#F5F4F2;border-radius:6px';
   row.innerHTML =
-    '<div style="width:28px;height:28px;border-radius:50%;background:var(--navy);color:white;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0">'+num+'</div>' +
+    '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0">' +
+      '<div class="bsop-step-num" style="width:28px;height:28px;border-radius:50%;background:var(--navy);color:white;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600">'+num+'</div>' +
+      '<button style="background:none;border:none;cursor:pointer;color:var(--g3);font-size:11px;padding:0;line-height:1" onclick="moveBSOPUp(this)">▲</button>' +
+      '<button style="background:none;border:none;cursor:pointer;color:var(--g3);font-size:11px;padding:0;line-height:1" onclick="moveBSOPDown(this)">▼</button>' +
+    '</div>' +
     '<div style="flex:1">' +
       '<input class="form-input" style="margin-bottom:6px;font-size:12px" placeholder="Step instruction" data-field="text" />' +
       '<input class="form-input" style="font-size:11px;color:var(--sage)" placeholder="Portions — e.g. S-1, M-2, L-3" data-field="portions" />' +
     '</div>' +
-    '<button style="background:none;border:none;cursor:pointer;color:var(--red);font-size:14px;flex-shrink:0" onclick="this.closest(\'.bsop-edit-row\').remove()">✕</button>';
+    '<button style="background:none;border:none;cursor:pointer;color:var(--red);font-size:14px;flex-shrink:0" onclick="this.closest(\'.bsop-edit-row\').remove();renumberBSOPSteps()">✕</button>';
   list.appendChild(row);
+}
+
+function moveBSOPUp(btn) {
+  var row = btn.closest('.bsop-edit-row');
+  var prev = row.previousElementSibling;
+  if (prev && prev.classList.contains('bsop-edit-row')) { row.parentNode.insertBefore(row, prev); renumberBSOPSteps(); }
+}
+function moveBSOPDown(btn) {
+  var row = btn.closest('.bsop-edit-row');
+  var next = row.nextElementSibling;
+  if (next && next.classList.contains('bsop-edit-row')) { row.parentNode.insertBefore(next, row); renumberBSOPSteps(); }
+}
+function renumberBSOPSteps() {
+  document.querySelectorAll('#eb-sop-steps .bsop-step-num').forEach(function(el, i) { el.textContent = i + 1; });
 }
 
 function saveBranchSOPEdit(id) {
