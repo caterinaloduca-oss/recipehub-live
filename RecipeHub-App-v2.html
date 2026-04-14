@@ -10670,7 +10670,7 @@ function viewBuild(id) {
   const statusMap = {approved:'badge-approved',review:'badge-review',trial:'badge-trial','prod-trial':'badge-prod-trial',draft:'badge-draft'};
   const statusLabel = {approved:'Approved',review:'In Review',trial:'Factory Trial','prod-trial':'Production Trial',draft:'Draft'};
 
-  const typeColors = {Dough:'var(--amber)',Sauce:'var(--red)',Cheese:'var(--gold)',Protein:'var(--navy)',Topping:'var(--sage)',Finish:'#6B2FA0'};
+  const typeColors = {Dough:'var(--amber)',Sauce:'var(--red)',Cheese:'var(--gold)',Protein:'var(--navy)',Topping:'var(--sage)',Finish:'#6B2FA0',Packaging:'#7F8C8D',Bread:'#B8820A',Seasoning:'#D4A84A'};
   const sourceLabels = {sfg:'SFG',recipe:'Recipe',ingredient:'Raw'};
   const sourceBg = {sfg:'var(--blue-lt)',recipe:'var(--amber-lt)',ingredient:'var(--g1)'};
   const sourceColor = {sfg:'var(--blue)',recipe:'var(--amber)',ingredient:'var(--g4)'};
@@ -10701,9 +10701,11 @@ function viewBuild(id) {
           <span class="badge ${statusMap[b.status]}" style="font-size:11px">${statusLabel[b.status]}</span>
         </div>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--g2)">
+      <div style="display:grid;grid-template-columns:repeat(6,1fr);border-top:1px solid var(--g2)">
         <div style="padding:14px 20px;border-right:1px solid var(--g2)"><div style="font-size:9px;font-weight:500;text-transform:uppercase;letter-spacing:0.12em;color:var(--g3);margin-bottom:4px">Components</div><div style="font-size:14px;font-weight:600;color:var(--navy)">${b.components.length} items</div></div>
         <div style="padding:14px 20px;border-right:1px solid var(--g2)"><div style="font-size:9px;font-weight:500;text-transform:uppercase;letter-spacing:0.12em;color:var(--g3);margin-bottom:4px">Build Cost</div><div style="font-size:14px;font-weight:600;color:var(--sage);font-family:var(--font-m)">SAR ${totalCost.toFixed(2)}</div></div>
+        <div style="padding:14px 20px;border-right:1px solid var(--g2)"><div style="font-size:9px;font-weight:500;text-transform:uppercase;letter-spacing:0.12em;color:var(--g3);margin-bottom:4px">Selling Price</div><div style="font-size:14px;font-weight:600;color:var(--navy);font-family:var(--font-m)">${b.sellingPrice ? 'SAR ' + parseFloat(b.sellingPrice).toFixed(2) : '<span style="color:var(--g3);cursor:pointer" onclick="editBuildSellingPrice(\''+b.id+'\')">+ Set</span>'}</div></div>
+        <div style="padding:14px 20px;border-right:1px solid var(--g2)"><div style="font-size:9px;font-weight:500;text-transform:uppercase;letter-spacing:0.12em;color:var(--g3);margin-bottom:4px">COGS %</div><div style="font-size:14px;font-weight:600;font-family:var(--font-m);color:${b.sellingPrice && totalCost/b.sellingPrice > 0.35 ? 'var(--red)' : 'var(--sage)'}">${b.sellingPrice ? (totalCost / b.sellingPrice * 100).toFixed(1) + '%' : '—'}</div></div>
         <div style="padding:14px 20px;border-right:1px solid var(--g2)"><div style="font-size:9px;font-weight:500;text-transform:uppercase;letter-spacing:0.12em;color:var(--g3);margin-bottom:4px">Bake Temp</div><div style="font-size:14px;font-weight:600;color:var(--navy)">${b.bakeTemp || '—'}</div></div>
         <div style="padding:14px 20px"><div style="font-size:9px;font-weight:500;text-transform:uppercase;letter-spacing:0.12em;color:var(--g3);margin-bottom:4px">Bake Time</div><div style="font-size:14px;font-weight:600;color:var(--navy)">${b.bakeTime || '—'}</div></div>
       </div>
@@ -10939,6 +10941,16 @@ function uploadBuildPhoto(id, input) {
   });
 }
 
+function editBuildSellingPrice(id) {
+  var b = BUILDS_DATA.find(x => x.id === id);
+  if (!b) return;
+  var val = prompt('Selling Price (SAR):', b.sellingPrice || '');
+  if (val === null) return;
+  b.sellingPrice = parseFloat(val) || null;
+  viewBuild(id);
+  saveAllData();
+}
+
 function removeBuildPhoto(id) {
   var b = BUILDS_DATA.find(x => x.id === id);
   if (!b) return;
@@ -11047,7 +11059,7 @@ function editBuild(id) {
   if (!b) return;
   var compRows = b.components.map(function(c, i) {
     return '<div style="display:flex;gap:4px;align-items:center;margin-bottom:6px;flex-wrap:wrap" class="eb-comp-row">' +
-      '<select class="form-select" style="width:80px;padding:4px 6px;font-size:10px" data-field="type"><option '+(c.type==='Dough'?'selected':'')+'>Dough</option><option '+(c.type==='Sauce'?'selected':'')+'>Sauce</option><option '+(c.type==='Cheese'?'selected':'')+'>Cheese</option><option '+(c.type==='Protein'?'selected':'')+'>Protein</option><option '+(c.type==='Topping'?'selected':'')+'>Topping</option><option '+(c.type==='Finish'?'selected':'')+'>Finish</option></select>' +
+      '<select class="form-select" style="width:80px;padding:4px 6px;font-size:10px" data-field="type"><option '+(c.type==='Dough'?'selected':'')+'>Dough</option><option '+(c.type==='Sauce'?'selected':'')+'>Sauce</option><option '+(c.type==='Cheese'?'selected':'')+'>Cheese</option><option '+(c.type==='Protein'?'selected':'')+'>Protein</option><option '+(c.type==='Topping'?'selected':'')+'>Topping</option><option '+(c.type==='Finish'?'selected':'')+'>Finish</option><option '+(c.type==='Packaging'?'selected':'')+'>Packaging</option><option '+(c.type==='Bread'?'selected':'')+'>Bread</option><option '+(c.type==='Seasoning'?'selected':'')+'>Seasoning</option></select>' +
       '<input class="form-input" value="'+c.item+'" style="flex:2;padding:4px 6px;font-size:11px;min-width:120px" placeholder="Item name" data-field="item" />' +
       '<select class="form-select" style="width:65px;padding:4px 6px;font-size:10px" data-field="source"><option '+(c.source==='sfg'?'selected':'')+' value="sfg">SFG</option><option '+(c.source==='recipe'?'selected':'')+' value="recipe">Recipe</option><option '+(c.source==='ingredient'?'selected':'')+' value="ingredient">Raw</option></select>' +
       '<select class="form-select" style="width:110px;padding:4px 6px;font-size:10px" data-field="tool" onchange="onToolSelect(this)">' + toolSelectHTML(c.tool) + '</select>' +
@@ -11073,6 +11085,10 @@ function editBuild(id) {
         '<div class="form-group"><label class="form-label">Bake Temp</label><input class="form-input" id="eb-build-temp" value="'+b.bakeTemp+'" /></div>' +
         '<div class="form-group"><label class="form-label">Bake Time</label><input class="form-input" id="eb-build-time" value="'+b.bakeTime+'" /></div>' +
       '</div>' +
+      '<div class="form-grid form-grid-2" style="margin-bottom:16px">' +
+        '<div class="form-group"><label class="form-label">Selling Price (SAR)</label><input class="form-input" type="number" step="0.01" id="eb-build-price" value="'+(b.sellingPrice||'')+'" placeholder="e.g. 25.00" /></div>' +
+        '<div class="form-group"><label class="form-label">Type</label><select class="form-select" id="eb-build-type"><option '+(b.type==='Pizza'?'selected':'')+'>Pizza</option><option '+(b.type==='Sandwich'?'selected':'')+'>Sandwich</option><option '+(b.type==='Pasta'?'selected':'')+'>Pasta</option><option '+(b.type==='Salad'?'selected':'')+'>Salad</option><option '+(b.type==='Wrap'?'selected':'')+'>Wrap</option><option '+(b.type==='Dessert'?'selected':'')+'>Dessert</option><option '+(b.type==='Side Dish'?'selected':'')+'>Side Dish</option></select></div>' +
+      '</div>' +
       '<div class="form-group" style="margin-bottom:16px">' +
         '<label class="form-label">Components</label>' +
         '<div id="eb-comp-list">'+compRows+'</div>' +
@@ -11094,7 +11110,7 @@ function addBuildComponent() {
   row.className = 'eb-comp-row';
   row.style.cssText = 'display:flex;gap:4px;align-items:center;margin-bottom:6px;flex-wrap:wrap';
   row.innerHTML =
-    '<select class="form-select" style="width:80px;padding:4px 6px;font-size:10px" data-field="type"><option>Dough</option><option>Sauce</option><option>Cheese</option><option>Protein</option><option>Topping</option><option>Finish</option></select>' +
+    '<select class="form-select" style="width:80px;padding:4px 6px;font-size:10px" data-field="type"><option>Dough</option><option>Sauce</option><option>Cheese</option><option>Protein</option><option>Topping</option><option>Finish</option><option>Packaging</option><option>Bread</option><option>Seasoning</option></select>' +
     '<input class="form-input" style="flex:2;padding:4px 6px;font-size:11px;min-width:120px" placeholder="Item name" data-field="item" />' +
     '<select class="form-select" style="width:65px;padding:4px 6px;font-size:10px" data-field="source"><option value="sfg">SFG</option><option value="recipe">Recipe</option><option value="ingredient">Raw</option></select>' +
     '<select class="form-select" style="width:110px;padding:4px 6px;font-size:10px" data-field="tool" onchange="onToolSelect(this)">' + toolSelectHTML('') + '</select>' +
@@ -11114,6 +11130,8 @@ function saveEditBuild(id) {
   b.bakeTemp = document.getElementById('eb-build-temp').value;
   b.bakeTime = document.getElementById('eb-build-time').value;
   b.instructions = document.getElementById('eb-build-instr').value;
+  b.sellingPrice = parseFloat(document.getElementById('eb-build-price').value) || null;
+  b.type = document.getElementById('eb-build-type').value;
   b.status = document.getElementById('eb-build-status').value;
   b.updated = 'Just now';
   b.updatedAt = new Date().toISOString();
@@ -11180,7 +11198,7 @@ function printBuild(id) {
   if (!b) return;
   var totalCost = b.components.reduce(function(s,c){return s+(c.cost||0)},0);
   var totalWeight = b.components.reduce(function(s,c){return s+(parseFloat(c.weight)||0)},0);
-  var typeColors = {Dough:'#B8820A',Sauce:'#C0392B',Cheese:'#C7A354',Protein:'#1B2A4A',Topping:'#2D6A4F',Finish:'#6B2FA0'};
+  var typeColors = {Dough:'#B8820A',Sauce:'#C0392B',Cheese:'#C7A354',Protein:'#1B2A4A',Topping:'#2D6A4F',Finish:'#6B2FA0',Packaging:'#7F8C8D',Bread:'#B8820A',Seasoning:'#D4A84A'};
 
   var compRows = b.components.map(function(c) {
     return '<tr>' +
@@ -11236,7 +11254,7 @@ function downloadBuildPDF(id) {
   if (!b) return;
   var totalCost = b.components.reduce(function(s,c){return s+(c.cost||0)},0);
   var totalWeight = b.components.reduce(function(s,c){return s+(parseFloat(c.weight)||0)},0);
-  var typeColors = {Dough:'#B8820A',Sauce:'#C0392B',Cheese:'#C7A354',Protein:'#1B2A4A',Topping:'#2D6A4F',Finish:'#6B2FA0'};
+  var typeColors = {Dough:'#B8820A',Sauce:'#C0392B',Cheese:'#C7A354',Protein:'#1B2A4A',Topping:'#2D6A4F',Finish:'#6B2FA0',Packaging:'#7F8C8D',Bread:'#B8820A',Seasoning:'#D4A84A'};
   var allergens = getBuildAllergens(b);
   var n = b.nutrition || {};
 
