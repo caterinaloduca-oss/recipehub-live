@@ -7094,6 +7094,7 @@ function saveNewRecipe() {
   buildRecipesTable();
   closeModal();
   saveAllData();
+  showSaveToast('Recipe created — ' + name);
 }
 
 // ──────────── IMPORT EXTERNAL RECIPES ────────────
@@ -8341,6 +8342,7 @@ function saveEditRecipe(npd) {
   viewRecipe(npd);
   logActivity('recipe', '✏️', 'Recipe edited: ' + r.name, r.version);
   saveAllData();
+  showSaveToast('Recipe saved — ' + r.name);
 }
 
 // ──────────── NEW INGREDIENT FORM ────────────
