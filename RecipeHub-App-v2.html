@@ -6117,11 +6117,12 @@ function getCurrentUserRole() {
     var raw = sessionStorage.getItem(AUTH_KEY);
     if (raw) {
       var user = JSON.parse(raw);
+      if (user.email && user.email.toLowerCase() === 'caterina.loduca@dailyfoodsa.com') return 'admin';
       var found = USERS_DATA.find(function(u){ return u.email.toLowerCase() === user.email.toLowerCase(); });
-      return found ? found.role : 'admin';
+      return found ? found.role : 'viewer';
     }
   } catch(e) {}
-  return 'admin';
+  return 'viewer';
 }
 
 function previewAs(role) {
