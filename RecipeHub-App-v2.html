@@ -4038,6 +4038,9 @@ function applySidebarPermissions() {
     var pageId = btn.getAttribute('data-page');
     btn.style.display = canAccessPage(pageId) ? '' : 'none';
   });
+  // Hide "View as" role switcher for non-admins
+  var previewSelect = document.getElementById('preview-role-select');
+  if (previewSelect) previewSelect.parentElement.style.display = getCurrentUserRole() === 'admin' ? '' : 'none';
 }
 
 function nav(id) {
