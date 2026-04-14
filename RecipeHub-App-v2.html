@@ -7,6 +7,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>Recipe Hub</title>
+<meta name="app-version" content="20260414-1530">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -13950,6 +13951,22 @@ function loadStressTest(action) {
   else if (action === 'cleanup') { stressTest.cleanup(); showSaveToast('Test data cleaned up'); }
   else if (action === 'report') { stressTest.report(); }
 }
+
+// Auto-update: check for new version every 60s, reload if changed
+(function() {
+  var myVersion = document.querySelector('meta[name="app-version"]').content;
+  setInterval(function() {
+    fetch(location.href.split('?')[0] + '?_v=' + Date.now(), { cache: 'no-store' })
+      .then(function(r) { return r.text(); })
+      .then(function(html) {
+        var m = html.match(/app-version"\s+content="([^"]+)"/);
+        if (m && m[1] !== myVersion) {
+          showSaveToast('New version available — reloading...');
+          setTimeout(function() { location.reload(true); }, 1500);
+        }
+      }).catch(function() {});
+  }, 60000);
+})();
 
 </script>
 </body>
