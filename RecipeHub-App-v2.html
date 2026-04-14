@@ -8006,7 +8006,11 @@ function editRecipe(npd) {
       <div id="er-method">
         ${r.method.map((step, i) => `
           <div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:8px" class="er-method-row">
-            <div style="width:28px;height:28px;border-radius:50%;background:var(--navy);color:white;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;margin-top:6px" class="er-step-num">${i+1}</div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:2px;margin-top:6px;flex-shrink:0">
+              <div style="width:28px;height:28px;border-radius:50%;background:var(--navy);color:white;display:flex;align-items:center;justify-content:center;font-size:11px" class="er-step-num">${i+1}</div>
+              <button style="background:none;border:none;cursor:pointer;color:var(--g3);font-size:11px;padding:0;line-height:1" onclick="moveStepUp(this)" title="Move up">▲</button>
+              <button style="background:none;border:none;cursor:pointer;color:var(--g3);font-size:11px;padding:0;line-height:1" onclick="moveStepDown(this)" title="Move down">▼</button>
+            </div>
             <div style="flex:1">
               <input class="form-input" value="${step.title}" style="padding:6px 10px;font-weight:500;margin-bottom:4px;width:100%" placeholder="Step title" />
               <textarea class="form-textarea" style="min-height:40px;padding:6px 10px;font-size:12px;width:100%">${step.text}</textarea>
@@ -8133,7 +8137,11 @@ function addEditMethodRow() {
   div.className = 'er-method-row';
   div.style.cssText = 'display:flex;gap:8px;align-items:flex-start;margin-bottom:8px';
   div.innerHTML = `
-    <div style="width:28px;height:28px;border-radius:50%;background:var(--navy);color:white;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;margin-top:6px" class="er-step-num">${num}</div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:2px;margin-top:6px;flex-shrink:0">
+      <div style="width:28px;height:28px;border-radius:50%;background:var(--navy);color:white;display:flex;align-items:center;justify-content:center;font-size:11px" class="er-step-num">${num}</div>
+      <button style="background:none;border:none;cursor:pointer;color:var(--g3);font-size:11px;padding:0;line-height:1" onclick="moveStepUp(this)" title="Move up">▲</button>
+      <button style="background:none;border:none;cursor:pointer;color:var(--g3);font-size:11px;padding:0;line-height:1" onclick="moveStepDown(this)" title="Move down">▼</button>
+    </div>
     <div style="flex:1">
       <input class="form-input" value="" style="padding:6px 10px;font-weight:500;margin-bottom:4px;width:100%" placeholder="Step title" />
       <textarea class="form-textarea" style="min-height:40px;padding:6px 10px;font-size:12px;width:100%" placeholder="Describe this step..."></textarea>
@@ -8146,6 +8154,24 @@ function addEditMethodRow() {
 
 function renumberEditSteps() {
   document.querySelectorAll('#er-method .er-step-num').forEach((el, i) => { el.textContent = i + 1; });
+}
+
+function moveStepUp(btn) {
+  var row = btn.closest('.er-method-row');
+  var prev = row.previousElementSibling;
+  if (prev && prev.classList.contains('er-method-row')) {
+    row.parentNode.insertBefore(row, prev);
+    renumberEditSteps();
+  }
+}
+
+function moveStepDown(btn) {
+  var row = btn.closest('.er-method-row');
+  var next = row.nextElementSibling;
+  if (next && next.classList.contains('er-method-row')) {
+    row.parentNode.insertBefore(next, row);
+    renumberEditSteps();
+  }
 }
 
 function importStepsToRecipe(npd) {
@@ -12625,6 +12651,11 @@ var BSOP_BRAND_COLORS = {
 // Load saved data now that all data arrays are declared
 loadAllData();
 _stripBlobUrls();
+// Re-save localStorage with light blob to free space from old bloated data
+try { localStorage.setItem(STORAGE_KEY, JSON.stringify(_buildLightBlob(_buildDataBlob()))); } catch(e) {
+  // If still too big, clear and let server sync restore data
+  try { localStorage.removeItem(STORAGE_KEY); } catch(e2) {}
+}
 
 // Seed nutrition on builds if not already set (survives localStorage)
 (function() {
