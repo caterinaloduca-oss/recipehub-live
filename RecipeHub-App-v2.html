@@ -3835,8 +3835,8 @@ window.addEventListener('beforeunload', function() {
 
 // Sync from server — pulls latest shared data if newer than local
 function syncFromServer() {
-  // Don't pull from server while local changes are unsaved or a save is in flight
-  if (_localDirty || _savingToServer || _pendingServerSave) {
+  // Don't pull from server while local changes are unsaved, a save is in flight, or user is editing SOP
+  if (_localDirty || _savingToServer || _pendingServerSave || _sopEditTimer) {
     return;
   }
   var syncEl = document.getElementById('sync-status');
@@ -6660,9 +6660,12 @@ function refreshSOPSteps(npd) {
   document.getElementById('sop-steps-body').innerHTML = r.sopSteps.map((s,i) => renderEditableSOPStep(s, i, npd)).join('');
 }
 
+var _sopEditTimer = null;
 function updateSOPStepField(npd, idx, field, val) {
   RECIPE_DB[npd].sopSteps[idx][field] = val;
-  saveAllData();
+  _localDirty = true;
+  if (_sopEditTimer) clearTimeout(_sopEditTimer);
+  _sopEditTimer = setTimeout(function() { _sopEditTimer = null; saveAllData(); }, 1500);
 }
 
 function handleSOPStepMedia(npd, idx, inputEl) {
