@@ -227,6 +227,26 @@ app.post('/api/data', requireAuth, (req, res) => {
         });
       }
     }
+    // Merge library docs and comms log — combine, dedupe by URL or timestamp
+    if (existing && existing.data) {
+      const old = existing.data;
+      if (old.libraryDocs && old.libraryDocs.length) {
+        if (!body.libraryDocs) body.libraryDocs = [];
+        const existingUrls = new Set(body.libraryDocs.map(d => d.url));
+        old.libraryDocs.forEach(d => { if (d.url && !existingUrls.has(d.url)) body.libraryDocs.push(d); });
+      }
+      if (old.commsLog && old.commsLog.length) {
+        if (!body.commsLog) body.commsLog = [];
+        const existingTs = new Set(body.commsLog.map(m => m.sentAt));
+        old.commsLog.forEach(m => { if (m.sentAt && !existingTs.has(m.sentAt)) body.commsLog.push(m); });
+      }
+      if (old.activityLog && old.activityLog.length) {
+        if (!body.activityLog) body.activityLog = [];
+        const existingAct = new Set(body.activityLog.map(a => a.time));
+        old.activityLog.forEach(a => { if (a.time && !existingAct.has(a.time)) body.activityLog.push(a); });
+        body.activityLog = body.activityLog.slice(-200);
+      }
+    }
     const savedAt = db.setState(JSON.stringify(body), body.dataVersion || 0);
     res.json({ ok: true, savedAt });
   } catch (err) {
