@@ -7918,7 +7918,7 @@ function editRecipe(npd) {
         <button class="btn btn-outline btn-sm" id="er-mode-g" style="padding:4px 12px;font-size:11px" onclick="setIngMode('grams')">Grams</button>
         <div id="er-batch-wrap" style="display:none;margin-left:auto;display:flex;align-items:center;gap:6px">
           <span style="font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:0.1em;color:var(--g4)">Batch:</span>
-          <input class="form-input" type="number" id="er-batch-size" value="500" min="1" step="100" style="width:80px;padding:4px 8px;text-align:right;font-size:12px;font-family:var(--font-m)" onchange="recalcIngFromGrams()" />
+          <input class="form-input" type="number" id="er-batch-size" value="${r.batchSize || 500}" min="1" step="100" style="width:80px;padding:4px 8px;text-align:right;font-size:12px;font-family:var(--font-m)" onchange="recalcIngFromGrams()" />
           <span style="font-size:11px;color:var(--g3)">g</span>
         </div>
       </div>
@@ -8112,6 +8112,7 @@ function saveEditRecipe(npd) {
   r.yield = yieldVal ? parseFloat(yieldVal) / 100 : null;
   r.yieldNotes = document.getElementById('er-yield-notes')?.value || '';
   r.status = document.getElementById('er-status').value;
+  r.batchSize = parseFloat(document.getElementById('er-batch-size').value) || 500;
   r.updated = 'Just now'; r.updatedAt = new Date().toISOString();
 
   const catMap = {Marinade:'cat-spice',Dip:'cat-dairy',Sauce:'cat-veg',Blend:'cat-spice',Seasoning:'cat-spice',Spread:'cat-oil',Dessert:'cat-dairy',Meat:'cat-spice',Dough:'cat-base',Coating:'cat-oil',Brine:'cat-veg',Garnish:'cat-veg'};
