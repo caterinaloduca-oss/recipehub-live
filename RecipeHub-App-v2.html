@@ -4873,8 +4873,10 @@ function openPrint(npd, mode) {
     sheet.innerHTML = renderKitchen(r, defaultBatch);
   } else if (mode === 'sop-only') {
     sheet.innerHTML = renderSOPOnly(r);
+  } else if (mode === 'factory-text') {
+    sheet.innerHTML = renderFactory(r, 400, true);
   } else {
-    sheet.innerHTML = renderFactory(r, 400);
+    sheet.innerHTML = renderFactory(r, 400, false);
   }
   document.getElementById('print-overlay').classList.add('active');
   document.body.classList.add('print-active');
@@ -4954,7 +4956,7 @@ function rescaleKitchen(npd, val) {
     + `<tr class="total-row"><td>Total</td><td class="num">100%</td><td class="num">${formatWeight(totalKg)}</td></tr>`;
 }
 
-function renderFactory(r, batchKg) {
+function renderFactory(r, batchKg, noImages) {
   const scaled = scaleIngredients(r.ingredients, batchKg);
   const totalKg = scaled.reduce((s, i) => s + i.kg, 0);
   const steps = (r.sopSteps && r.sopSteps.length) ? r.sopSteps : r.method.map(m => ({title:m.title, text:m.text, params:[]}));
@@ -5007,7 +5009,7 @@ function renderFactory(r, batchKg) {
         ${steps.map((s,i) => `
           <div class="ps-step">
             <div class="ps-step-num">${i+1}</div>
-            ${s.visualImg ? '<div style="width:80px;height:60px;border-radius:4px;overflow:hidden;flex-shrink:0;background:#f5f5f5"><img src="'+s.visualImg+'" style="width:100%;height:100%;object-fit:cover" /></div>' : ''}
+            ${!noImages && s.visualImg ? '<div style="width:80px;height:60px;border-radius:4px;overflow:hidden;flex-shrink:0;background:#f5f5f5"><img src="'+s.visualImg+'" style="width:100%;height:100%;object-fit:cover" /></div>' : ''}
             <div class="ps-step-body">
               ${s.icons && s.icons.length ? '<div style="margin-bottom:2px;font-size:8pt">' + s.icons.map(k => { const ic = SOP_ICONS[k]; return ic ? '<span style="margin-right:4px">' + ic.emoji + '</span>' : ''; }).join('') + '</div>' : ''}
               <div class="ps-step-title">${s.title}</div>
@@ -6215,11 +6217,9 @@ function buildFactorySOPTable() {
           <div class="print-dd" id="dd-fsop-${r.npd}" onclick="event.stopPropagation()">
             <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();toggleDD('dd-fsop-${r.npd}')">Print ▾</button>
             <div class="print-dd-menu">
-              <button class="print-dd-item" onclick="event.stopPropagation();openPrint('${r.npd}','factory')"><span class="dd-icon">🏭</span> Full (Recipe + SOP)</button>
+              <button class="print-dd-item" onclick="event.stopPropagation();openPrint('${r.npd}','factory')"><span class="dd-icon">🖼️</span> Full Print (with pictures)</button>
               <div class="print-dd-divider"></div>
-              <button class="print-dd-item" onclick="event.stopPropagation();openPrint('${r.npd}','sop-only')"><span class="dd-icon">📋</span> SOP Steps Only</button>
-              <div class="print-dd-divider"></div>
-              <button class="print-dd-item" onclick="event.stopPropagation();openPrint('${r.npd}','kitchen')"><span class="dd-icon">🍳</span> Recipe Only</button>
+              <button class="print-dd-item" onclick="event.stopPropagation();openPrint('${r.npd}','factory-text')"><span class="dd-icon">📄</span> Text Only (no pictures)</button>
             </div>
           </div>
         </div>
@@ -6491,8 +6491,8 @@ function exportToSOP(npd) {
           <span class="badge ${r.sopStatus==='approved'?'badge-approved':r.sopStatus==='pending'?'badge-review':'badge-draft'}" style="font-size:11px" id="sop-status-badge">${r.sopStatus==='approved'?'Approved for Production':r.sopStatus==='pending'?'Pending Approval':'Draft — Review Required'}</span>
           <div style="display:flex;gap:6px">
             <button class="btn btn-sm" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15)" onclick="saveSOPDraft('${r.npd}')">💾 Save</button>
-            <button class="btn btn-sm" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15)" onclick="printVisualSOP('${r.npd}')">🖨️ Visual</button>
-            <button class="btn btn-sm" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15)" onclick="openPrint('${r.npd}','factory')">🖨️ Full</button>
+            <button class="btn btn-sm" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15)" onclick="openPrint('${r.npd}','factory')">🖨️ Full Print</button>
+            <button class="btn btn-sm" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15)" onclick="openPrint('${r.npd}','factory-text')">🖨️ Text Only</button>
             <button class="btn btn-sm" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15)" onclick="viewRecipe('${r.npd}')">← Recipe</button>
           </div>
         </div>
