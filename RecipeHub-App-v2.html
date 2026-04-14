@@ -10748,7 +10748,29 @@ function viewBuild(id) {
         </div>
       </div>
 
-      <!-- Assembly Instructions removed -->
+      <!-- Product Photo + Allergens -->
+      <div class="card">
+        <div class="card-head"><span class="card-title">Product Photo</span></div>
+        <div class="card-body" style="display:flex;gap:16px;align-items:flex-start">
+          <div style="width:200px;height:200px;border-radius:var(--r-md);overflow:hidden;background:var(--g1);border:1px solid var(--g2);flex-shrink:0;display:flex;align-items:center;justify-content:center">
+            ${b.photo ? `<img src="${b.photo}" style="width:100%;height:100%;object-fit:cover;cursor:zoom-in" onclick="zoomImage('${b.photo}')" />` : `<span style="color:var(--g3);font-size:40px">📷</span>`}
+          </div>
+          <div>
+            <label class="btn btn-outline btn-sm" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px">
+              📷 ${b.photo ? 'Change' : 'Upload'} Photo
+              <input type="file" accept="image/*" style="display:none" onchange="uploadBuildPhoto('${b.id}',this)" />
+            </label>
+            ${b.photo ? `<button class="btn btn-danger-sm" style="margin-left:6px" onclick="removeBuildPhoto('${b.id}')">Remove</button>` : ''}
+            <div style="font-size:11px;color:var(--g3);margin-top:8px">Upload a photo of the finished product</div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="card-title">⚠ Allergens</span></div>
+        <div class="card-body" style="padding:14px 18px">
+          ${renderAllergenBadges(getBuildAllergens(b))}
+        </div>
+      </div>
     </div>
 
     <!-- Size Variants -->
@@ -10774,14 +10796,8 @@ function viewBuild(id) {
         }).join('') + '</tbody></table></div></div>';
     })()}
 
-    <!-- Allergens & Nutrition -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px">
-      <div class="card">
-        <div class="card-head"><span class="card-title">⚠ Allergens</span></div>
-        <div class="card-body" style="padding:14px 18px">
-          ${renderAllergenBadges(getBuildAllergens(b))}
-        </div>
-      </div>
+    <!-- Nutrition -->
+    <div style="display:grid;grid-template-columns:1fr;gap:20px;margin-bottom:20px">
       <div class="card">
         <div class="card-head">
           <span class="card-title">🥗 Nutrition (per 100g)</span>
@@ -10819,23 +10835,7 @@ function viewBuild(id) {
       </div>
     </div>
 
-    <!-- Build Photo -->
-    <div class="card" style="margin-bottom:20px">
-      <div class="card-head"><span class="card-title">Product Photo</span></div>
-      <div class="card-body" style="display:flex;gap:16px;align-items:flex-start">
-        <div style="width:200px;height:200px;border-radius:var(--r-md);overflow:hidden;background:var(--g1);border:1px solid var(--g2);flex-shrink:0;display:flex;align-items:center;justify-content:center">
-          ${b.photo ? `<img src="${b.photo}" style="width:100%;height:100%;object-fit:cover" />` : `<span style="color:var(--g3);font-size:40px">📷</span>`}
-        </div>
-        <div>
-          <label class="btn btn-outline btn-sm" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px">
-            📷 ${b.photo ? 'Change' : 'Upload'} Photo
-            <input type="file" accept="image/*" style="display:none" onchange="uploadBuildPhoto('${b.id}',this)" />
-          </label>
-          ${b.photo ? `<button class="btn btn-danger-sm" style="margin-left:6px" onclick="removeBuildPhoto('${b.id}')">Remove</button>` : ''}
-          <div style="font-size:11px;color:var(--g3);margin-top:8px">Upload a photo of the finished product</div>
-        </div>
-      </div>
-    </div>
+    <!-- Photo moved to top grid -->
 
     <!-- bottom actions removed — all at top -->
   `;
