@@ -5942,7 +5942,7 @@ function viewRecipe(npd) {
   if (_isRD) {
     _detailActions = `
       <button class="btn btn-gold btn-sm" onclick="editRecipe('${r.npd}')">✏️ Edit</button>
-      <button class="btn btn-outline btn-sm" onclick="exportToSOP('${r.npd}')">🏭 Factory SOP</button>
+      ${r.sopSteps && r.sopSteps.length ? `<button class="btn btn-outline btn-sm" onclick="exportToSOP('${r.npd}')">🏭 View Factory SOP</button>` : `<button class="btn btn-sage btn-sm" onclick="generateFactorySOP('${r.npd}')">🏭 Generate Factory SOP</button>`}
       ${_statusBtn}
       <div class="more-dd">
         <button class="btn btn-outline btn-sm" onclick="this.nextElementSibling.classList.toggle('show')">More ▾</button>
@@ -6261,6 +6261,47 @@ function filterFactorySOPs() {
 }
 
 function viewFactorySOP(npd) {
+  exportToSOP(npd);
+}
+
+function generateFactorySOP(npd) {
+  var r = RECIPE_DB[npd];
+  if (!r) return;
+  if (r.sopSteps && r.sopSteps.length) {
+    exportToSOP(npd);
+    return;
+  }
+  // Generate SOP steps from recipe method
+  var steps = r.method.map(function(m) {
+    return { title: m.title, text: m.text, icons: autoDetectIcons(m.title, m.text), params: [], ccp: null, warning: null, media: [] };
+  });
+  // Prepend equipment prep step
+  steps.unshift({
+    title: 'Equipment Preparation & Sanitation',
+    text: 'Ensure all mixing vessels, pipelines and equipment are CIP-cleaned and sanitised per SAN-001 protocol. Verify calibration logs.',
+    icons: ['hygiene', 'temp'],
+    params: [{l:'CIP Temperature', v:'85°C minimum'}, {l:'Hold Time', v:'20 minutes'}],
+    ccp: null, warning: null, media: []
+  });
+  // Append QC check
+  steps.push({
+    title: 'In-Process QC Check',
+    text: 'QA technician takes sample for quality checks. Product must be within spec before proceeding to filling.',
+    icons: ['check', 'danger'], params: [], ccp: null,
+    warning: 'If any parameter is out of spec, HOLD product and notify QA Manager and NPD immediately.', media: []
+  });
+  // Append packaging step
+  steps.push({
+    title: 'Filling, Packaging & Storage',
+    text: 'Fill into designated packaging format per pack spec. Apply batch code and best-before date label. Transfer to appropriate storage.',
+    icons: ['weight', 'photo'],
+    params: [{l:'Fill Weight', v:'Per pack spec'}, {l:'Storage', v: r.storage || ''}],
+    ccp: null, warning: null, media: []
+  });
+  r.sopSteps = steps;
+  r.sopStatus = 'draft';
+  saveAllData();
+  showSaveToast('Factory SOP generated with ' + steps.length + ' steps');
   exportToSOP(npd);
 }
 
