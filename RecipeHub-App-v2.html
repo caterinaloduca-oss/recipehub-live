@@ -7,7 +7,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>Recipe Hub</title>
-<meta name="app-version" content="20260414-1548">
+<meta name="app-version" content="20260414-1600">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -4891,13 +4891,14 @@ function handleMediaUpload(npd, inputEl) {
       var reader = new FileReader();
       reader.onload = function(e) {
         r.media.push({ name: file.name, url: e.target.result, isVideo: true, type: file.type });
-        if (--pending === 0) { renderMediaGrid(npd); saveAllDataNow(); }
+        if (--pending === 0) { renderMediaGrid(npd); saveAllData(); showSaveToast('Media saved'); }
       };
       reader.readAsDataURL(file);
     } else {
-      compressImage(file, 300, 0.4, function(dataUrl) {
-        r.media.push({ name: file.name, url: dataUrl, isVideo: false, type: 'image/jpeg' });
-        if (--pending === 0) { renderMediaGrid(npd); saveAllDataNow(); }
+      var mediaIdx = r.media.length + i;
+      uploadImageToServer(file, 'recipe-'+npd+'-media'+Date.now()+'-'+i, function(url) {
+        r.media.push({ name: file.name, url: url, isVideo: false, type: 'image/jpeg' });
+        if (--pending === 0) { renderMediaGrid(npd); saveAllData(); showSaveToast('Photos saved'); }
       });
     }
   }
@@ -6461,6 +6462,21 @@ function viewVisualSOP(npd) {
   showPage('sop');
 }
 
+function uploadImageToServer(file, key, cb) {
+  compressImage(file, 600, 0.6, function(dataUrl) {
+    fetch(API_BASE + '/api/img/upload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + API_KEY },
+      body: JSON.stringify({ key: key, data: dataUrl }),
+    }).then(function(r) { return r.json(); })
+      .then(function(res) {
+        if (res.ok && res.url) { cb(res.url); }
+        else { cb(dataUrl); } // Fallback to base64 if upload fails
+      })
+      .catch(function() { cb(dataUrl); }); // Fallback
+  });
+}
+
 function compressImage(file, maxSize, quality, cb) {
   var img = new Image();
   img.onload = function() {
@@ -6530,12 +6546,13 @@ function _stripBlobUrls() {
 function uploadVisualSOPImg(npd, stepIdx, input) {
   var r = RECIPE_DB[npd];
   if (!r || !r.sopSteps || !input.files[0]) return;
-  compressImage(input.files[0], 300, 0.4, function(dataUrl) {
-    r.sopSteps[stepIdx].visualImg = dataUrl;
+  uploadImageToServer(input.files[0], 'sop-'+npd+'-step'+stepIdx, function(url) {
+    r.sopSteps[stepIdx].visualImg = url;
     var editBody = document.getElementById('sop-steps-body');
     if (editBody) { refreshSOPSteps(npd); }
     else { viewVisualSOP(npd); }
-    saveAllDataNow();
+    saveAllData();
+    showSaveToast('Step photo saved');
   });
 }
 
@@ -10929,11 +10946,12 @@ function saveBuildTags(id) {
 function uploadBuildPhoto(id, input) {
   var b = BUILDS_DATA.find(x => x.id === id);
   if (!b || !input.files[0]) return;
-  showSaveToast('Compressing photo...');
-  compressImage(input.files[0], 300, 0.4, function(dataUrl) {
-    b.photo = dataUrl;
+  showSaveToast('Uploading photo...');
+  uploadImageToServer(input.files[0], 'build-'+id, function(url) {
+    b.photo = url;
     viewBuild(id);
-    saveAllDataNow();
+    saveAllData();
+    showSaveToast('Photo saved');
   });
 }
 
@@ -13064,10 +13082,11 @@ function setComponentShelfLife(sopId, itemName, selectEl, type) {
 function uploadBranchSOPPhoto(sopId, stepIdx, input) {
   const sop = BRANCH_SOPS.find(s => s.id === sopId);
   if (!sop || !input.files[0]) return;
-  compressImage(input.files[0], 300, 0.4, function(dataUrl) {
-    sop.steps[stepIdx].img = dataUrl;
+  uploadImageToServer(input.files[0], 'bsop-'+sopId+'-step'+stepIdx, function(url) {
+    sop.steps[stepIdx].img = url;
     viewBranchSOP(sopId);
-    saveAllDataNow();
+    saveAllData();
+    showSaveToast('Step photo saved');
   });
 }
 

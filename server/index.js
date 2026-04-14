@@ -511,6 +511,26 @@ const fs = require('fs');
 const DOCS_DIR = '/var/www/recipehub/docs';
 if (!fs.existsSync(DOCS_DIR)) fs.mkdirSync(DOCS_DIR, { recursive: true });
 
+// General image upload — saves to /docs/img/ and returns URL
+const IMG_DIR = '/var/www/recipehub/docs/img';
+if (!fs.existsSync(IMG_DIR)) fs.mkdirSync(IMG_DIR, { recursive: true });
+
+app.post('/api/img/upload', requireAuth, (req, res) => {
+  try {
+    const { key, data } = req.body;
+    if (!key || !data) return res.status(400).json({ error: 'key and data required' });
+    const matches = data.match(/^data:(.+);base64,(.+)$/);
+    if (!matches) return res.status(400).json({ error: 'Invalid image data' });
+    const buffer = Buffer.from(matches[2], 'base64');
+    const safeName = key.replace(/[^a-zA-Z0-9._-]/g, '_') + '.jpg';
+    fs.writeFileSync(IMG_DIR + '/' + safeName, buffer);
+    res.json({ ok: true, url: '/docs/img/' + safeName });
+  } catch (err) {
+    console.error('Image upload error:', err);
+    res.status(500).json({ error: 'Upload failed: ' + err.message });
+  }
+});
+
 app.post('/api/library/upload', requireAuth, (req, res) => {
   try {
     const { id, fileName, data } = req.body;
