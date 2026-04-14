@@ -7,7 +7,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>Recipe Hub</title>
-<meta name="app-version" content="20260414-1535">
+<meta name="app-version" content="20260414-1545">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -12733,7 +12733,7 @@ applySidebarPermissions();
 syncFromServer();
 // Re-sync every 30 seconds to pick up changes from other users
 // (guards in syncFromServer prevent overwriting active edits)
-setInterval(syncFromServer, 30000);
+setInterval(syncFromServer, 120000); // Sync every 2 minutes (was 30s)
 
 function getBranchSOPAllergenNutritionPrintHTML(sop) {
   var info = getBranchSOPAllergenNutritionData(sop);
@@ -13975,21 +13975,7 @@ function loadStressTest(action) {
   else if (action === 'report') { stressTest.report(); }
 }
 
-// Auto-update: check for new version every 60s, reload if changed
-(function() {
-  var myVersion = document.querySelector('meta[name="app-version"]').content;
-  setInterval(function() {
-    fetch(location.href.split('?')[0] + '?_v=' + Date.now(), { cache: 'no-store' })
-      .then(function(r) { return r.text(); })
-      .then(function(html) {
-        var m = html.match(/app-version"\s+content="([^"]+)"/);
-        if (m && m[1] !== myVersion) {
-          showSaveToast('New version available — reloading...');
-          setTimeout(function() { location.reload(true); }, 1500);
-        }
-      }).catch(function() {});
-  }, 60000);
-})();
+// Version check removed — was fetching full HTML every 60s. Use Refresh Data button instead.
 
 </script>
 </body>
