@@ -6342,18 +6342,33 @@ function viewVisualSOP(npd) {
   showPage('sop');
 }
 
+function compressImage(file, maxSize, quality, cb) {
+  var img = new Image();
+  img.onload = function() {
+    var w = img.width, h = img.height;
+    if (w > maxSize || h > maxSize) {
+      var ratio = Math.min(maxSize / w, maxSize / h);
+      w = Math.round(w * ratio);
+      h = Math.round(h * ratio);
+    }
+    var canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+    cb(canvas.toDataURL('image/jpeg', quality));
+  };
+  img.src = URL.createObjectURL(file);
+}
+
 function uploadVisualSOPImg(npd, stepIdx, input) {
   var r = RECIPE_DB[npd];
   if (!r || !r.sopSteps || !input.files[0]) return;
-  var reader = new FileReader();
-  reader.onload = function(e) {
-    r.sopSteps[stepIdx].visualImg = e.target.result;
+  compressImage(input.files[0], 800, 0.7, function(dataUrl) {
+    r.sopSteps[stepIdx].visualImg = dataUrl;
     var editBody = document.getElementById('sop-steps-body');
     if (editBody) { refreshSOPSteps(npd); }
     else { viewVisualSOP(npd); }
     saveAllData();
-  };
-  reader.readAsDataURL(input.files[0]);
+  });
 }
 
 function printVisualSOP(npd) {
@@ -6653,21 +6668,30 @@ function updateSOPStepField(npd, idx, field, val) {
 function handleSOPStepMedia(npd, idx, inputEl) {
   const step = RECIPE_DB[npd].sopSteps[idx];
   if (!step.media) step.media = [];
+  var pending = inputEl.files.length;
   for (let i = 0; i < inputEl.files.length; i++) {
     const file = inputEl.files[i];
-    const url = URL.createObjectURL(file);
     const isVideo = file.type.startsWith('video/');
-    step.media.push({ name: file.name, url, isVideo, type: file.type });
+    if (isVideo) {
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        step.media.push({ name: file.name, url: e.target.result, isVideo: true, type: file.type });
+        if (--pending === 0) { refreshSOPSteps(npd); saveAllData(); }
+      };
+      reader.readAsDataURL(file);
+    } else {
+      compressImage(file, 800, 0.7, function(dataUrl) {
+        step.media.push({ name: file.name, url: dataUrl, isVideo: false, type: 'image/jpeg' });
+        if (--pending === 0) { refreshSOPSteps(npd); saveAllData(); }
+      });
+    }
   }
   inputEl.value = '';
-  refreshSOPSteps(npd);
-  saveAllData();
 }
 
 function removeSOPStepMedia(npd, idx, mediaIdx) {
   const step = RECIPE_DB[npd].sopSteps[idx];
   if (step.media && step.media[mediaIdx]) {
-    URL.revokeObjectURL(step.media[mediaIdx].url);
     step.media.splice(mediaIdx, 1);
   }
   refreshSOPSteps(npd);
@@ -10611,13 +10635,11 @@ function saveBuildTags(id) {
 function uploadBuildPhoto(id, input) {
   var b = BUILDS_DATA.find(x => x.id === id);
   if (!b || !input.files[0]) return;
-  var reader = new FileReader();
-  reader.onload = function(e) {
-    b.photo = e.target.result;
+  compressImage(input.files[0], 800, 0.7, function(dataUrl) {
+    b.photo = dataUrl;
     viewBuild(id);
     saveAllData();
-  };
-  reader.readAsDataURL(input.files[0]);
+  });
 }
 
 function removeBuildPhoto(id) {
