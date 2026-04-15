@@ -4181,16 +4181,13 @@ function forceRefreshFromServer() {
     .then(function(result) {
       if (!result.data) { showSaveToast('Server has no data', true); return; }
       _hasLoadedFromServer = true;
-      console.log('Server libraryDocs:', (result.data.libraryDocs||[]).length);
-      console.log('Is array?', Array.isArray(result.data.libraryDocs));
-      console.log('First doc:', JSON.stringify((result.data.libraryDocs||[])[0])?.slice(0,100));
       _hydrateFromData(result.data);
-      console.log('After hydrate LIBRARY_DOCS:', LIBRARY_DOCS.length);
-      // Force load if hydrate missed it
-      if (LIBRARY_DOCS.length === 0 && result.data.libraryDocs && result.data.libraryDocs.length) {
-        LIBRARY_DOCS.length = 0;
+      // Force-load library docs and comms if hydrate missed them
+      if (result.data.libraryDocs && result.data.libraryDocs.length && LIBRARY_DOCS.length === 0) {
         result.data.libraryDocs.forEach(function(doc){ LIBRARY_DOCS.push(doc); });
-        console.log('Force-loaded LIBRARY_DOCS:', LIBRARY_DOCS.length);
+      }
+      if (result.data.commsLog && result.data.commsLog.length && COMMS_LOG.length === 0) {
+        result.data.commsLog.forEach(function(m){ COMMS_LOG.push(m); });
       }
       _stripBlobUrls();
       try { localStorage.setItem(STORAGE_KEY, JSON.stringify(_buildDataBlob())); } catch(e) {}
