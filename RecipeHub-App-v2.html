@@ -717,10 +717,6 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
   <button class="nav-item" data-page="users" onclick="nav('users')">
     <span class="nav-icon">◉</span> Users & Access <span class="nav-badge" id="nav-badge-users"></span>
   </button>
-  <button class="nav-item" data-page="help" onclick="nav('help')">
-    <span class="nav-icon">?</span> How to Use
-  </button>
-
   </div><!-- end nav scroll -->
 
   <div style="padding:10px 20px;border-top:1px solid rgba(255,255,255,0.08)">
@@ -2000,6 +1996,52 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
       </div>
     </div>
 
+    <!-- Practical Guide -->
+    <div style="border-top:2px solid var(--g1);margin:40px 0;position:relative">
+      <span style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--bg);padding:0 16px;font-size:11px;color:var(--g3);text-transform:uppercase;letter-spacing:0.1em;font-weight:500">How to Use the App</span>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px">
+      <div style="background:white;border-radius:16px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06)">
+        <div style="font-size:32px;margin-bottom:8px">⚙</div>
+        <div style="font-size:14px;font-weight:700;color:var(--navy);margin-bottom:4px">Factory SOP</div>
+        <div style="font-size:11px;color:var(--g4);line-height:1.6">1. Open recipe → <strong>Generate Factory SOP</strong><br>2. Steps pulled from recipe method<br>3. Add photos to each step<br>4. Print: Full (photos) or Text Only</div>
+      </div>
+      <div style="background:white;border-radius:16px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06)">
+        <div style="font-size:32px;margin-bottom:8px">📋</div>
+        <div style="font-size:14px;font-weight:700;color:var(--navy);margin-bottom:4px">Branch SOP</div>
+        <div style="font-size:11px;color:var(--g4);line-height:1.6">1. Branch SOP → <strong>+ New</strong> or from Build<br>2. Upload step photos<br>3. Use <strong>▲ ▼</strong> to reorder steps<br>4. Print colour-coded cards for stores</div>
+      </div>
+      <div style="background:white;border-radius:16px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06)">
+        <div style="font-size:32px;margin-bottom:8px">🍕</div>
+        <div style="font-size:14px;font-weight:700;color:var(--navy);margin-bottom:4px">Product Builds</div>
+        <div style="font-size:11px;color:var(--g4);line-height:1.6">1. Add components + tools + weights<br>2. Set <strong>Selling Price</strong> → see COGS %<br>3. Each size = its own build<br>4. Export PDF build sheet</div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:24px">
+      <div style="background:white;border-radius:12px;padding:14px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.06)">
+        <div style="font-size:22px;margin-bottom:4px">🔄</div>
+        <div style="font-size:11px;font-weight:600;color:var(--navy)">Refresh Data</div>
+        <div style="font-size:10px;color:var(--g3)">Pull latest from server</div>
+      </div>
+      <div style="background:white;border-radius:12px;padding:14px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.06)">
+        <div style="font-size:22px;margin-bottom:4px">💾</div>
+        <div style="font-size:11px;font-weight:600;color:var(--navy)">Save All Data</div>
+        <div style="font-size:10px;color:var(--g3)">Push your changes</div>
+      </div>
+      <div style="background:white;border-radius:12px;padding:14px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.06)">
+        <div style="font-size:22px;margin-bottom:4px">📷</div>
+        <div style="font-size:11px;font-weight:600;color:var(--navy)">Click Photos</div>
+        <div style="font-size:10px;color:var(--g3)">Zoom in full screen</div>
+      </div>
+      <div style="background:white;border-radius:12px;padding:14px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.06)">
+        <div style="font-size:22px;margin-bottom:4px">▲▼</div>
+        <div style="font-size:11px;font-weight:600;color:var(--navy)">Reorder Steps</div>
+        <div style="font-size:10px;color:var(--g3)">Move steps up/down</div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -2238,7 +2280,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
 </div>
 
 <!-- HOW TO USE PAGE -->
-<div id="page-help" class="page-hidden">
+<div id="page-help" class="page-hidden" style="display:none !important">
   <div style="text-align:center;padding:20px 0 10px">
     <div style="font-family:var(--font-d);font-size:28px;font-weight:700;color:var(--navy)">How it works</div>
   </div>
@@ -4227,7 +4269,6 @@ const PAGES = {
   brands:         { title:'Brands',              actions:`<button class="btn btn-primary btn-sm" onclick="openBrandForm()">+ New Brand</button>` },
   workflow:       { title:'Workflow',             actions:'' },
   users:          { title:'Users & Access',      actions:`<button class="btn btn-gold btn-sm" onclick="toggleInviteForm()">+ Add User</button>` },
-  help:           { title:'How to Use RecipeHub', actions:'' },
   comms:          { title:'Communications',     actions:'' },
   library:        { title:'Library',            actions:'<button class="btn btn-gold btn-sm" onclick="toggleLibUpload()">+ Upload Document</button>' },
 };
