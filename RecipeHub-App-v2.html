@@ -1565,9 +1565,9 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
       </div>
     </div>
     <div class="card-body" style="padding:0;overflow-x:auto">
-      <table class="data-table" style="min-width:820px">
-        <colgroup><col style="width:90px"><col><col style="width:110px"><col style="width:70px"><col style="width:110px"><col style="width:95px"><col style="width:180px"></colgroup>
-        <thead><tr><th>Date</th><th>Recipe</th><th>Type</th><th>Batch</th><th>Responsible</th><th>Status</th><th></th></tr></thead>
+      <table class="data-table" style="min-width:1000px">
+        <colgroup><col style="width:85px"><col><col style="width:70px"><col style="width:85px"><col style="width:100px"><col style="width:70px"><col style="width:55px"><col style="width:95px"><col style="width:90px"><col style="width:160px"></colgroup>
+        <thead><tr><th>Sent</th><th>Recipe</th><th>Waiting</th><th>Scheduled</th><th>Stage</th><th>Batch</th><th>Changes</th><th>Responsible</th><th>Status</th><th></th></tr></thead>
         <tbody id="prod-tbody"></tbody>
       </table>
     </div>
@@ -11721,21 +11721,39 @@ function buildProductionTable() {
       if (_daysDiff > 0) _daysWaiting = '<div style="font-size:10px;color:var(--red);font-weight:500;margin-top:2px">' + _daysDiff + 'd without date</div>';
     }
     var _dateChanges = (run.dateLog && run.dateLog.length) ? run.dateLog.length : 0;
-    var _dateChangeTag = _dateChanges ? ' <span title="Date changed '+_dateChanges+' time'+(_dateChanges>1?'s':'')+'" style="font-size:9px;color:var(--amber);font-weight:600;cursor:help" onclick="event.stopPropagation();showDateLog(\''+run.id+'\')">'+_dateChanges+'x</span>' : '';
+    var _dateChangeLink = _dateChanges ? '<span title="Date changed '+_dateChanges+' time'+(_dateChanges>1?'s':'')+'" style="font-size:10px;color:var(--amber);font-weight:600;cursor:pointer" onclick="event.stopPropagation();showDateLog(\''+run.id+'\')">'+_dateChanges+'x</span>' : '<span style="font-size:10px;color:var(--g3)">—</span>';
     var _runTypeBadge = {'Factory Trial':'badge-factory-trial','Production Trial':'badge-prod-trial-run'};
     var _runTypeLabel = run.runType || 'Production';
+    // Sent date (when recipe was moved to this stage)
+    var _sentDate = '—';
+    if (run.createdAt) { var _sd = new Date(run.createdAt); _sentDate = _sd.toLocaleDateString('en-GB',{day:'2-digit',month:'short'}); }
+    // Days waiting
+    var _waitingDays = '';
+    if (run.status === 'pending' && run.createdAt) {
+      var _daysDiff = Math.floor((Date.now() - new Date(run.createdAt).getTime()) / 86400000);
+      _waitingDays = '<span style="font-size:11px;color:'+(_daysDiff>3?'var(--red)':'var(--amber)')+';font-weight:500">'+_daysDiff+'d</span>';
+    } else if (run.status === 'scheduled' || run.status === 'completed') {
+      _waitingDays = '<span style="font-size:10px;color:var(--sage)">—</span>';
+    }
+    // Comments count
+    var _commCount = (run.comments && run.comments.length) ? run.comments.length : 0;
+    tr.style.cursor = 'pointer';
+    tr.onclick = function(){ viewProductionRun(run.id); };
     tr.innerHTML =
-      '<td style="font-family:var(--font-m);font-size:12px">' + _fmtDate + _dateChangeTag + _daysWaiting + '</td>' +
+      '<td style="font-size:11px;color:var(--g4)">' + _sentDate + '</td>' +
       '<td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><strong title="' + run.recipe + '">' + run.recipe + '</strong><br><span style="font-size:11px;color:var(--g3)">' + (run.brand || '') + '</span></td>' +
+      '<td style="text-align:center">' + _waitingDays + '</td>' +
+      '<td style="font-family:var(--font-m);font-size:12px">' + _fmtDate + '</td>' +
       '<td><span class="badge ' + (_runTypeBadge[run.runType] || 'badge-production') + '">' + _runTypeLabel + '</span></td>' +
       '<td style="font-family:var(--font-m);font-size:12px">' + run.batchSize + '</td>' +
-      '<td style="font-size:12px;color:var(--g4)">' + run.operator + '</td>' +
+      '<td style="text-align:center">' + _dateChangeLink + '</td>' +
+      '<td style="font-size:12px;color:var(--g4)">' + (run.operator || '—') + '</td>' +
       '<td><span class="badge ' + (statusMap[displayStatus] || 'badge-draft') + '">' + (statusLabel[displayStatus] || displayStatus) + '</span></td>' +
-      '<td><div style="display:flex;gap:4px;white-space:nowrap">' + actions + '</div></td>';
+      '<td onclick="event.stopPropagation()"><div style="display:flex;gap:4px;white-space:nowrap">' + actions + '</div></td>';
     tbody.appendChild(tr);
   });
 
-  if (!visibleRuns.length) tbody.innerHTML = '<tr><td colspan="7" style="padding:40px;text-align:center;color:var(--g3);font-size:13px">'+(_showArchived ? 'No runs found.' : 'No runs scheduled yet.')+'</td></tr>';
+  if (!visibleRuns.length) tbody.innerHTML = '<tr><td colspan="10" style="padding:40px;text-align:center;color:var(--g3);font-size:13px">'+(_showArchived ? 'No runs found.' : 'No runs scheduled yet.')+'</td></tr>';
 
   // Stats count only active (non-archived) runs
   var el = function(id){return document.getElementById(id)};
@@ -11883,10 +11901,75 @@ function saveCompleteRun(id) {
   }).catch(function() {});
 }
 
+function viewProductionRun(id) {
+  var run = PRODUCTION_RUNS.find(function(r){return r.id===id});
+  if (!run) return;
+  if (!run.comments) run.comments = [];
+  var _sentDate = run.createdAt ? new Date(run.createdAt).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+  var _schedDate = run.date ? run.date.split('-').reverse().join('/') : 'Not scheduled';
+  var _daysWaiting = '';
+  if (run.status === 'pending' && run.createdAt) {
+    var _dd = Math.floor((Date.now() - new Date(run.createdAt).getTime()) / 86400000);
+    _daysWaiting = ' <span style="color:var(--red);font-weight:600">(' + _dd + ' days waiting)</span>';
+  }
+  var commentsHTML = run.comments.map(function(c) {
+    return '<div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--g1)"><div style="width:28px;height:28px;border-radius:50%;background:var(--navy-lt);color:var(--navy);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;flex-shrink:0">'+c.by.split(' ').map(function(n){return n[0]}).join('')+'</div><div style="flex:1"><div style="font-size:12px"><strong>'+c.by+'</strong> <span style="color:var(--g3);font-size:10px;margin-left:4px">'+new Date(c.date).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})+' '+new Date(c.date).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})+'</span></div><div style="font-size:12px;color:var(--g5);margin-top:2px">'+c.text+'</div></div></div>';
+  }).join('') || '<div style="text-align:center;color:var(--g3);font-size:12px;padding:12px">No comments yet</div>';
+
+  openModal(
+    '<div class="card-head" style="background:var(--navy);border-radius:16px 16px 0 0"><span class="card-title" style="color:white">'+run.recipe+'</span><button class="btn btn-sm" style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:none" onclick="closeModal()">✕</button></div>' +
+    '<div class="card-body" style="padding:24px;max-height:70vh;overflow-y:auto">' +
+      '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px">' +
+        '<div style="background:var(--g1);padding:10px 14px;border-radius:var(--r-sm)"><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3)">Sent</div><div style="font-size:13px;font-weight:500;margin-top:2px">'+_sentDate+'</div></div>' +
+        '<div style="background:var(--g1);padding:10px 14px;border-radius:var(--r-sm)"><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3)">Scheduled</div><div style="font-size:13px;font-weight:500;margin-top:2px">'+_schedDate+_daysWaiting+'</div></div>' +
+        '<div style="background:var(--g1);padding:10px 14px;border-radius:var(--r-sm)"><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3)">Stage</div><div style="font-size:13px;font-weight:500;margin-top:2px">'+(run.runType||'Production')+'</div></div>' +
+        '<div style="background:var(--g1);padding:10px 14px;border-radius:var(--r-sm)"><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3)">Batch</div><div style="font-size:13px;font-weight:500;margin-top:2px">'+run.batchSize+'</div></div>' +
+        '<div style="background:var(--g1);padding:10px 14px;border-radius:var(--r-sm)"><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3)">Responsible</div><div style="font-size:13px;font-weight:500;margin-top:2px">'+(run.operator||'—')+'</div></div>' +
+        '<div style="background:var(--g1);padding:10px 14px;border-radius:var(--r-sm)"><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3)">Status</div><div style="font-size:13px;font-weight:500;margin-top:2px">'+run.status+'</div></div>' +
+      '</div>' +
+      (run.notes ? '<div style="font-size:12px;color:var(--g4);margin-bottom:16px;padding:10px 14px;background:var(--g1);border-radius:var(--r-sm)">'+run.notes+'</div>' : '') +
+      '<div style="font-size:12px;font-weight:600;color:var(--navy);margin-bottom:8px">Comments</div>' +
+      '<div id="run-comments-'+id+'" style="max-height:200px;overflow-y:auto;margin-bottom:12px">'+commentsHTML+'</div>' +
+      '<div style="display:flex;gap:8px"><input class="form-input" id="run-comment-input-'+id+'" placeholder="Write a comment..." style="flex:1;padding:8px 12px;font-size:12px" onkeydown="if(event.key===\'Enter\')addRunComment(\''+id+'\')" /><button class="btn btn-primary btn-sm" onclick="addRunComment(\''+id+'\')">Post</button></div>' +
+      '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px"><button class="btn btn-outline btn-sm" onclick="closeModal()">Close</button><button class="btn btn-gold btn-sm" onclick="closeModal();editProductionRun(\''+id+'\')">Edit</button></div>' +
+    '</div>'
+  );
+}
+
+function addRunComment(id) {
+  var run = PRODUCTION_RUNS.find(function(r){return r.id===id});
+  if (!run) return;
+  var input = document.getElementById('run-comment-input-'+id);
+  if (!input || !input.value.trim()) return;
+  if (!run.comments) run.comments = [];
+  run.comments.push({by:getCurrentUserName(), date:new Date().toISOString(), text:input.value.trim()});
+  saveAllData();
+  viewProductionRun(id);
+}
+
 function editProductionRun(id) {
   var run = PRODUCTION_RUNS.find(function(r){return r.id===id});
   if (!run) return;
-  openModal('<div class="card-head" style="background:var(--navy);border-radius:16px 16px 0 0"><span class="card-title" style="color:white">Edit — '+run.recipe+'</span><button class="btn btn-sm" style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:none" onclick="closeModal()">✕</button></div><div class="card-body" style="padding:24px"><div class="form-grid form-grid-2" style="margin-bottom:16px"><div class="form-group"><label class="form-label">Date</label><input class="form-input" type="date" id="ep-date" value="'+run.date+'" /></div><div class="form-group"><label class="form-label">Batch Size</label><input class="form-input" id="ep-batch" value="'+run.batchSize+'" /></div></div><div class="form-grid form-grid-2" style="margin-bottom:16px"><div class="form-group"><label class="form-label">Responsible</label><input class="form-input" id="ep-operator" value="'+run.operator+'" /></div><div class="form-group"><label class="form-label">Notes</label><input class="form-input" id="ep-notes" value="'+run.notes+'" /></div></div><div style="display:flex;gap:10px;justify-content:flex-end"><button class="btn btn-outline" onclick="closeModal()">Cancel</button><button class="btn btn-gold" onclick="saveEditRun(\''+id+'\')">Save</button><button class="btn" style="background:var(--red);color:white" onclick="PRODUCTION_RUNS=PRODUCTION_RUNS.filter(function(r){return r.id!==\''+id+'\'});closeModal();buildProductionTable();saveAllData();showSaveToast(\'Deleted\')">Delete</button></div></div>');
+  openModal(
+    '<div class="card-head" style="background:var(--navy);border-radius:16px 16px 0 0"><span class="card-title" style="color:white">Edit — '+run.recipe+'</span><button class="btn btn-sm" style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:none" onclick="closeModal()">✕</button></div>' +
+    '<div class="card-body" style="padding:24px">' +
+      '<div class="form-grid form-grid-3" style="margin-bottom:16px">' +
+        '<div class="form-group"><label class="form-label">Scheduled Date</label><input class="form-input" type="date" id="ep-date" value="'+run.date+'" /></div>' +
+        '<div class="form-group"><label class="form-label">Batch Size</label><input class="form-input" id="ep-batch" value="'+run.batchSize+'" placeholder="e.g. 150 kg" /></div>' +
+        '<div class="form-group"><label class="form-label">Responsible</label><input class="form-input" id="ep-operator" value="'+(run.operator||'')+'" placeholder="Name" /></div>' +
+      '</div>' +
+      '<div class="form-group" style="margin-bottom:16px"><label class="form-label">Description / Notes</label><textarea class="form-textarea" id="ep-notes" style="min-height:60px">'+(run.notes||'')+'</textarea></div>' +
+      '<div class="form-grid form-grid-2" style="margin-bottom:16px">' +
+        '<div class="form-group"><label class="form-label">Yield</label><input class="form-input" id="ep-yield" value="'+(run.yield||'')+'" placeholder="e.g. 95%" /></div>' +
+        '<div class="form-group"><label class="form-label">Waste %</label><input class="form-input" id="ep-waste" value="'+(run.waste||'')+'" placeholder="e.g. 5%" /></div>' +
+      '</div>' +
+      '<div style="display:flex;gap:10px;justify-content:flex-end">' +
+        '<button class="btn btn-outline" onclick="closeModal()">Cancel</button>' +
+        '<button class="btn btn-gold" onclick="saveEditRun(\''+id+'\')">Save</button>' +
+        '<button class="btn" style="background:var(--red);color:white" onclick="if(confirm(\'Delete this run?\')){PRODUCTION_RUNS=PRODUCTION_RUNS.filter(function(r){return r.id!==\''+id+'\'});closeModal();buildProductionTable();saveAllData();showSaveToast(\'Deleted\')}">Delete</button>' +
+      '</div>' +
+    '</div>'
+  );
 }
 
 function saveEditRun(id) {
@@ -11898,7 +11981,7 @@ function saveEditRun(id) {
     run.dateLog.push({from: run.date || '(none)', to: newDate || '(none)', at: new Date().toISOString()});
     logActivity('production', '📅', run.recipe + ': date changed' + (run.date ? ' from ' + run.date : '') + ' → ' + (newDate || 'unset'));
   }
-  run.date=newDate; run.batchSize=document.getElementById('ep-batch').value; run.operator=document.getElementById('ep-operator').value; run.notes=document.getElementById('ep-notes').value;
+  run.date=newDate; run.batchSize=document.getElementById('ep-batch').value; run.operator=document.getElementById('ep-operator').value; run.notes=document.getElementById('ep-notes').value; run.yield=document.getElementById('ep-yield').value; run.waste=document.getElementById('ep-waste').value;
   // Auto-promote pending → scheduled when date is set
   if (run.status === 'pending' && newDate) {
     run.status = 'scheduled';
