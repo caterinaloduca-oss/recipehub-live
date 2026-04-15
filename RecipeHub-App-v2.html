@@ -2261,6 +2261,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
           <select class="form-select" id="comms-to" onchange="updateCommsRecipients()">
             <option value="">— Select —</option>
             <option value="all">Everyone (all users + viewers)</option>
+            <option value="all-no-viewers">All Team (no viewers)</option>
             <option value="npd">All R&D</option>
             <option value="qa">All QA</option>
             <option value="factory">All Factory</option>
@@ -14017,6 +14018,8 @@ function sendCommsMessage() {
   var recipients = [];
   if (to === 'all') {
     recipients = USERS_DATA.filter(function(u){ return u.active && u.email; }).map(function(u){ return u.email; });
+  } else if (to === 'all-no-viewers') {
+    recipients = USERS_DATA.filter(function(u){ return u.active && u.email && u.role !== 'viewer'; }).map(function(u){ return u.email; });
   } else if (to === 'individual') {
     var ind = document.getElementById('comms-individual').value;
     if (!ind) { showSaveToast('Select a person', true); return; }
