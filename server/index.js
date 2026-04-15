@@ -71,8 +71,8 @@ app.use((req, res, next) => {
 const rateLimit = require('express-rate-limit');
 app.use('/api/comms/', rateLimit({ windowMs: 60000, max: 10, message: { error: 'Too many requests' } }));
 app.use('/api/notify', rateLimit({ windowMs: 60000, max: 20, message: { error: 'Too many requests' } }));
-app.use('/api/ebs/', rateLimit({ windowMs: 60000, max: 60, message: { error: 'Too many requests' } }));
-app.use('/api/img/', rateLimit({ windowMs: 60000, max: 30, message: { error: 'Too many requests' } }));
+app.use('/api/ebs/', rateLimit({ windowMs: 60000, max: 300, message: { error: 'Too many requests' } }));
+app.use('/api/img/', rateLimit({ windowMs: 60000, max: 50, message: { error: 'Too many requests' } }));
 
 // Request logging
 app.use((req, res, next) => {
