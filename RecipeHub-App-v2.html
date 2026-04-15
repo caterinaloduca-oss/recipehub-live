@@ -4723,7 +4723,7 @@ function buildIngTable() {
       <td style="font-family:var(--font-m);font-size:12px;color:var(--g4)" id="ing-uom-${idx}">${displayUOM}</td>
       <td style="font-family:var(--font-m);font-weight:600;color:${costKgColor};cursor:pointer" onclick="editIngCostPerKg(${idx})" title="Click to set cost/kg">${costKgDisplay}</td>
       <td style="font-size:12px;color:var(--g4)">${storage}</td>
-      <td style="white-space:nowrap"><button class="btn btn-outline btn-sm" onclick="showIngUsedIn('${name.replace(/'/g,"\\'")}')">Used in</button> <button class="btn btn-outline btn-sm" onclick="editIngredient(this)">Edit</button>${supplier !== 'Oracle EBS' ? ' <button class="btn btn-sm" style="background:var(--red-lt);color:var(--red);border:1px solid var(--red);margin-left:4px" onclick="deleteIngredient(this)">✕</button>' : ''}</td>
+      <td style="white-space:nowrap"><button class="btn btn-outline btn-sm" style="color:var(--blue);font-weight:700;border-color:var(--blue)" onclick="showIngUsedIn('${name.replace(/'/g,"\\'")}')">Used in</button> <button class="btn btn-outline btn-sm" onclick="editIngredient(this)">Edit</button>${supplier !== 'Oracle EBS' ? ' <button class="btn btn-sm" style="background:var(--red-lt);color:var(--red);border:1px solid var(--red);margin-left:4px" onclick="deleteIngredient(this)">✕</button>' : ''}</td>
     `;
     tbody.appendChild(tr);
   });
