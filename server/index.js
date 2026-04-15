@@ -255,6 +255,174 @@ app.post('/api/data', requireAuth, (req, res) => {
   }
 });
 
+// ── Per-item merge helpers ──
+function unionByKey(oldArr, newArr, key) {
+  if (!oldArr || !oldArr.length) return newArr || [];
+  if (!newArr || !newArr.length) return oldArr;
+  const seen = new Set(newArr.map(x => x[key]));
+  const merged = [...newArr];
+  oldArr.forEach(x => { if (x[key] && !seen.has(x[key])) merged.push(x); });
+  return merged;
+}
+
+function mergeRecipe(existing, incoming) {
+  if (!existing) return incoming;
+  const result = { ...incoming };
+  const eTime = existing.updatedAt || '2000-01-01';
+  const iTime = incoming.updatedAt || '2000-01-01';
+
+  // If existing is newer for core fields, keep existing
+  if (eTime > iTime) {
+    ['name','version','brand','type','storage','yield','yieldNotes','batchSize','costKg',
+     'ingredients','method','packaging','sopSteps','sensoryGate1','sensoryGate2'].forEach(f => {
+      if (existing[f] !== undefined) result[f] = existing[f];
+    });
+    result.updatedAt = eTime;
+  }
+
+  // Always union-merge media
+  result.media = unionByKey(existing.media, result.media, 'name');
+  // Union-merge append-only logs
+  result.changeLog = unionByKey(existing.changeLog, result.changeLog, 'date');
+  result.versionHistory = unionByKey(existing.versionHistory, result.versionHistory, 'savedAt');
+  // Preserve comments from both
+  result.comments = unionByKey(existing.comments, result.comments, 'date');
+
+  // QA: preserve signed data
+  ['trialQA', 'prodQA', 'prod-trialQA'].forEach(stage => {
+    if (existing[stage] && existing[stage].signed && (!result[stage] || !result[stage].signed)) {
+      result[stage] = existing[stage];
+    }
+    if (existing[stage] && existing[stage].files && existing[stage].files.length) {
+      if (!result[stage]) result[stage] = { signed: false, files: [] };
+      if (!result[stage].files) result[stage].files = [];
+      const names = new Set(result[stage].files.map(f => f.name));
+      existing[stage].files.forEach(f => { if (f.url && !names.has(f.name)) result[stage].files.push(f); });
+    }
+  });
+
+  // Status: never regress unless explicitly newer
+  const statusOrder = { draft:0, review:1, trial:2, 'prod-trial':3, approved:4 };
+  if ((statusOrder[existing.status]||0) > (statusOrder[result.status]||0) && iTime <= eTime) {
+    result.status = existing.status;
+  }
+
+  // Preserve images that incoming doesn't have
+  if (existing.sopSteps && result.sopSteps) {
+    result.sopSteps.forEach((s, i) => {
+      if (existing.sopSteps[i] && existing.sopSteps[i].visualImg && !s.visualImg) {
+        s.visualImg = existing.sopSteps[i].visualImg;
+      }
+    });
+  }
+
+  return result;
+}
+
+function mergeBuild(existing, incoming) {
+  if (!existing) return incoming;
+  const result = { ...incoming };
+  const eTime = existing.updatedAt || '2000-01-01';
+  const iTime = incoming.updatedAt || '2000-01-01';
+  if (eTime > iTime) {
+    ['name','brand','type','size','components','instructions','bakeTemp','bakeTime','sellingPrice','status','nutrition','tags'].forEach(f => {
+      if (existing[f] !== undefined) result[f] = existing[f];
+    });
+    result.updatedAt = eTime;
+  }
+  // Preserve photo
+  if (existing.photo && !result.photo) result.photo = existing.photo;
+  return result;
+}
+
+function mergeBranchSOP(existing, incoming) {
+  if (!existing) return incoming;
+  const result = { ...incoming };
+  const eTime = existing.updatedAt || '2000-01-01';
+  const iTime = incoming.updatedAt || '2000-01-01';
+  if (eTime > iTime) {
+    ['name','version','brand','status','steps','buildRef','date'].forEach(f => {
+      if (existing[f] !== undefined) result[f] = existing[f];
+    });
+    result.updatedAt = eTime;
+  }
+  // Preserve step images
+  if (existing.steps && result.steps) {
+    result.steps.forEach((s, i) => {
+      if (existing.steps[i] && existing.steps[i].img && !s.img) s.img = existing.steps[i].img;
+    });
+  }
+  return result;
+}
+
+// ── Per-item save endpoints ──
+app.post('/api/recipe/:npd', requireAuth, (req, res) => {
+  try {
+    const { npd } = req.params;
+    const incoming = req.body.recipe;
+    if (!incoming) return res.status(400).json({ error: 'recipe required' });
+    const state = db.getState();
+    if (!state || !state.data) return res.status(500).json({ error: 'No data on server' });
+    const data = state.data;
+    if (!data.recipes) data.recipes = {};
+    data.recipes[npd] = mergeRecipe(data.recipes[npd], incoming);
+    data.savedAt = new Date().toISOString();
+    const savedAt = db.setState(JSON.stringify(data), data.dataVersion || 0);
+    res.json({ ok: true, savedAt, recipe: data.recipes[npd] });
+  } catch (err) {
+    console.error('POST /api/recipe error:', err);
+    res.status(500).json({ error: 'Failed to save recipe: ' + err.message });
+  }
+});
+
+app.post('/api/build/:id', requireAuth, (req, res) => {
+  try {
+    const { id } = req.params;
+    const incoming = req.body.build;
+    if (!incoming) return res.status(400).json({ error: 'build required' });
+    const state = db.getState();
+    if (!state || !state.data) return res.status(500).json({ error: 'No data on server' });
+    const data = state.data;
+    if (!data.builds) data.builds = [];
+    const idx = data.builds.findIndex(b => b.id === id);
+    if (idx >= 0) {
+      data.builds[idx] = mergeBuild(data.builds[idx], incoming);
+    } else {
+      data.builds.push(incoming);
+    }
+    data.savedAt = new Date().toISOString();
+    const savedAt = db.setState(JSON.stringify(data), data.dataVersion || 0);
+    res.json({ ok: true, savedAt, build: idx >= 0 ? data.builds[idx] : incoming });
+  } catch (err) {
+    console.error('POST /api/build error:', err);
+    res.status(500).json({ error: 'Failed to save build: ' + err.message });
+  }
+});
+
+app.post('/api/branchsop/:id', requireAuth, (req, res) => {
+  try {
+    const { id } = req.params;
+    const incoming = req.body.sop;
+    if (!incoming) return res.status(400).json({ error: 'sop required' });
+    const state = db.getState();
+    if (!state || !state.data) return res.status(500).json({ error: 'No data on server' });
+    const data = state.data;
+    if (!data.branchSOPs) data.branchSOPs = [];
+    const idx = data.branchSOPs.findIndex(s => s.id === id);
+    if (idx >= 0) {
+      data.branchSOPs[idx] = mergeBranchSOP(data.branchSOPs[idx], incoming);
+    } else {
+      data.branchSOPs.push(incoming);
+    }
+    data.savedAt = new Date().toISOString();
+    const savedAt = db.setState(JSON.stringify(data), data.dataVersion || 0);
+    res.json({ ok: true, savedAt, sop: idx >= 0 ? data.branchSOPs[idx] : incoming });
+  } catch (err) {
+    console.error('POST /api/branchsop error:', err);
+    res.status(500).json({ error: 'Failed to save branch SOP: ' + err.message });
+  }
+});
+
 // ── EBS PRICE ENDPOINTS ──
 
 // GET /api/ebs/prices — all ingredient prices with supplier info

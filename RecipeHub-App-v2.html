@@ -725,7 +725,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
       <span id="save-icon">💾</span> Save All Data
     </button>
     <div id="save-status" style="font-size:9px;color:rgba(255,255,255,0.3);text-align:center;margin-top:4px"></div>
-    <div style="font-size:8px;text-align:center;margin-top:2px;font-family:var(--font-m)"><span style="color:rgba(255,255,255,0.2)">v2.3.0 · build 20260414</span> · <span id="sync-status" style="color:rgba(255,255,255,0.3)">...</span></div>
+    <div style="font-size:8px;text-align:center;margin-top:2px;font-family:var(--font-m)"><span style="color:rgba(255,255,255,0.2)">v2.4.0 · build 20260415</span> · <span id="sync-status" style="color:rgba(255,255,255,0.3)">...</span></div>
     </div>
   </div>
 
@@ -3686,6 +3686,74 @@ function saveAllData() {
   _saveToServer(data);
 }
 
+// ── Per-item saves (reduced conflict surface) ──
+function saveRecipeToServer(npd) {
+  var r = RECIPE_DB[npd];
+  if (!r) return;
+  if (!r.updatedAt) r.updatedAt = new Date().toISOString();
+  // Save to localStorage
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(_buildDataBlob())); } catch(e) {}
+  // Send just this recipe to server
+  fetch(API_BASE + '/api/recipe/' + encodeURIComponent(npd), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + API_KEY },
+    body: JSON.stringify({ recipe: r }),
+  }).then(function(resp) {
+    if (!resp.ok) throw new Error('Server ' + resp.status);
+    return resp.json();
+  }).then(function(result) {
+    if (result.recipe) RECIPE_DB[npd] = result.recipe;
+    _localDirty = false;
+    var syncEl = document.getElementById('sync-status');
+    if (syncEl) { syncEl.textContent = 'Synced'; syncEl.style.color = 'var(--sage)'; }
+  }).catch(function(err) {
+    console.warn('Per-recipe save failed, falling back:', err.message);
+    _saveToServer(_buildDataBlob());
+  });
+}
+
+function saveBuildToServer(id) {
+  var b = BUILDS_DATA.find(function(x) { return x.id === id; });
+  if (!b) return;
+  if (!b.updatedAt) b.updatedAt = new Date().toISOString();
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(_buildDataBlob())); } catch(e) {}
+  fetch(API_BASE + '/api/build/' + encodeURIComponent(id), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + API_KEY },
+    body: JSON.stringify({ build: b }),
+  }).then(function(resp) {
+    if (!resp.ok) throw new Error('Server ' + resp.status);
+    return resp.json();
+  }).then(function(result) {
+    if (result.build) { var idx = BUILDS_DATA.findIndex(function(x){return x.id===id}); if (idx>=0) BUILDS_DATA[idx] = result.build; }
+    _localDirty = false;
+  }).catch(function(err) {
+    console.warn('Per-build save failed, falling back:', err.message);
+    _saveToServer(_buildDataBlob());
+  });
+}
+
+function saveBranchSOPToServer(id) {
+  var sop = BRANCH_SOPS.find(function(x) { return x.id === id; });
+  if (!sop) return;
+  if (!sop.updatedAt) sop.updatedAt = new Date().toISOString();
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(_buildDataBlob())); } catch(e) {}
+  fetch(API_BASE + '/api/branchsop/' + encodeURIComponent(id), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + API_KEY },
+    body: JSON.stringify({ sop: sop }),
+  }).then(function(resp) {
+    if (!resp.ok) throw new Error('Server ' + resp.status);
+    return resp.json();
+  }).then(function(result) {
+    if (result.sop) { var idx = BRANCH_SOPS.findIndex(function(x){return x.id===id}); if (idx>=0) BRANCH_SOPS[idx] = result.sop; }
+    _localDirty = false;
+  }).catch(function(err) {
+    console.warn('Per-SOP save failed, falling back:', err.message);
+    _saveToServer(_buildDataBlob());
+  });
+}
+
 function loadAllData() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -5417,7 +5485,7 @@ function viewRecipe(npd) {
         <div style="display:flex;gap:8px;align-items:center">
           <span class="badge ${statusMap[r.status]}" style="font-size:11px">${statusLabel[r.status]}</span>
           <button class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:white;border:none" onclick="editRecipe('${r.npd}')">Edit</button>
-          <button class="btn btn-sm" style="background:var(--sage);color:white;border:none" onclick="saveAllData();showSaveToast('Recipe saved')">Save</button>
+          <button class="btn btn-sm" style="background:var(--sage);color:white;border:none" onclick="saveRecipeToServer('${r.npd}');showSaveToast('Recipe saved')">Save</button>
           <div class="print-dd" id="dd-detail-${r.npd}">
             <button class="btn btn-sm" style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:none" onclick="event.stopPropagation();toggleDD('dd-detail-${r.npd}')">Print ▾</button>
             <div class="print-dd-menu">
@@ -6835,7 +6903,7 @@ function updateSOPStepField(npd, idx, field, val) {
   RECIPE_DB[npd].sopSteps[idx][field] = val;
   _localDirty = true;
   if (_sopEditTimer) clearTimeout(_sopEditTimer);
-  _sopEditTimer = setTimeout(function() { _sopEditTimer = null; saveAllData(); }, 1500);
+  _sopEditTimer = setTimeout(function() { _sopEditTimer = null; saveRecipeToServer(npd); }, 1500);
 }
 
 function handleSOPStepMedia(npd, idx, inputEl) {
@@ -8417,7 +8485,7 @@ function saveEditRecipe(npd) {
   // Re-open the detail view with updated data
   viewRecipe(npd);
   logActivity('recipe', '✏️', 'Recipe edited: ' + r.name, r.version);
-  saveAllData();
+  saveRecipeToServer(npd);
   showSaveToast('Recipe saved — ' + r.name);
 }
 
@@ -11147,7 +11215,7 @@ function saveEditBuild(id) {
   buildBuildsTable();
   viewBuild(id);
   showSaveToast('Build updated');
-  saveAllData();
+  saveBuildToServer(id);
 }
 
 function deleteBuild(id) {
@@ -13286,7 +13354,7 @@ function saveBranchSOPEdit(id) {
   closeModal();
   buildBranchSOPTable();
   viewBranchSOP(id);
-  saveAllData();
+  saveBranchSOPToServer(id);
   showSaveToast('Branch SOP updated');
 }
 
