@@ -8745,9 +8745,28 @@ function saveEditRecipe(npd) {
   const yieldVal = document.getElementById('er-yield').value;
   r.yield = yieldVal ? parseFloat(yieldVal) / 100 : null;
   r.yieldNotes = document.getElementById('er-yield-notes')?.value || '';
+  var _oldStatus = r.status;
   r.status = document.getElementById('er-status').value;
   r.batchSize = parseFloat(document.getElementById('er-batch-size').value) || 500;
   r.updated = 'Just now'; r.updatedAt = new Date().toISOString();
+
+  // Auto-create production run if status changed to trial or prod-trial
+  if (r.status !== _oldStatus && (r.status === 'trial' || r.status === 'prod-trial')) {
+    var _rt = r.status === 'trial' ? 'Factory Trial' : 'Production Trial';
+    var _exists = PRODUCTION_RUNS.some(function(pr){ return pr.npd === npd && pr.runType === _rt; });
+    if (!_exists) {
+      PRODUCTION_RUNS.push({
+        id: 'PR-' + String(Date.now()).slice(-6),
+        date: '', recipe: r.name, npd: npd, brand: r.brand || '',
+        batchSize: r.status === 'trial' ? '150 kg' : '400 kg',
+        operator: '', status: 'pending', runType: _rt,
+        yield: '', waste: '',
+        notes: _rt + ' — from recipe edit',
+        createdAt: new Date().toISOString(), comments: [],
+      });
+      showSaveToast('Production run created for ' + r.name);
+    }
+  }
 
   const catMap = {Marinade:'cat-spice',Dip:'cat-dairy',Sauce:'cat-veg',Blend:'cat-spice',Seasoning:'cat-spice',Spread:'cat-oil',Dessert:'cat-dairy',Meat:'cat-spice',Dough:'cat-base',Coating:'cat-oil',Brine:'cat-veg',Garnish:'cat-veg'};
   r.catClass = catMap[r.type] || 'cat-base';
