@@ -4600,7 +4600,7 @@ function addRecipeComment(npd) {
   r.comments.push({by:getCurrentUserName(), date:new Date().toISOString(), text:input.value.trim()});
   logActivity('comment', '💬', 'Comment on ' + r.name, input.value.trim().substring(0,50));
   viewRecipe(npd);
-  saveAllData();
+  saveRecipeToServer(npd);
 }
 
 function saveRecipeTags(npd) {
@@ -5664,7 +5664,11 @@ function toggleBakerPct(npd) {
 }
 
 function viewRecipe(npd) {
-  if (_currentPage !== 'recipe-detail') _navHistory.push(_currentPage);
+  var _wasOnDetail = (_currentPage === 'recipe-detail');
+  var _scrollY = _wasOnDetail ? window.scrollY : 0;
+  var _mainEl = document.querySelector('.main');
+  var _mainScroll = _wasOnDetail && _mainEl ? _mainEl.scrollTop : 0;
+  if (!_wasOnDetail) _navHistory.push(_currentPage);
   const r = RECIPE_DB[npd];
   if (!r) return;
   // Prefetch EBS prices for ingredients without costs
@@ -6278,6 +6282,11 @@ function viewRecipe(npd) {
   }
   PAGES['recipe-detail'].actions = _detailActions;
   showPage('recipe-detail');
+  // Restore scroll if re-rendering same page (not navigating fresh)
+  if (_wasOnDetail) {
+    window.scrollTo(0, _scrollY);
+    if (_mainEl) _mainEl.scrollTop = _mainScroll;
+  }
 }
 
 // ──────────── RECIPE STATUS WORKFLOW ────────────
@@ -10940,6 +10949,10 @@ function filterBuilds() {
 }
 
 function viewBuild(id) {
+  var _scrollY = window.scrollY;
+  var _mainEl = document.querySelector('.main');
+  var _mainScroll = _mainEl ? _mainEl.scrollTop : 0;
+  var _wasOpen = document.getElementById('build-detail').style.display === 'block';
   const b = BUILDS_DATA.find(x => x.id === id);
   if (!b) return;
   const totalCost = b.components.reduce((s,c) => s + (c.cost||0), 0);
@@ -11117,6 +11130,7 @@ function viewBuild(id) {
     <!-- bottom actions removed — all at top -->
   `;
   applyRoleRestrictions();
+  if (_wasOpen) { window.scrollTo(0, _scrollY); if (_mainEl) _mainEl.scrollTop = _mainScroll; }
 }
 
 function toggleBuildActive(id) {
