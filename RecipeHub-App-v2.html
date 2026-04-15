@@ -2260,11 +2260,12 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
           <label class="form-label">Send to</label>
           <select class="form-select" id="comms-to" onchange="updateCommsRecipients()">
             <option value="">— Select —</option>
-            <option value="all">Everyone</option>
+            <option value="all">Everyone (all users + viewers)</option>
             <option value="npd">All R&D</option>
             <option value="qa">All QA</option>
             <option value="factory">All Factory</option>
             <option value="purchasing">All Purchasing</option>
+            <option value="viewer">All Viewers</option>
             <option value="individual">Individual...</option>
           </select>
         </div>
