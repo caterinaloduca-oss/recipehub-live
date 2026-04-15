@@ -618,7 +618,7 @@ app.post('/api/notify', requireAuth, (req, res) => {
 
     switch (event) {
       case 'recipe-review':
-        recipients = getEmailsByRole(['npd', 'purchasing']);
+        recipients = getEmailsByRole(['npd']);
         subject = `Recipe sent for review: ${recipe}`;
         html = `<h2 style="color:#1B2A4A;margin:0 0 12px">${recipe}</h2>
           <p><strong>${userName}</strong> sent this recipe for review.</p>
@@ -626,7 +626,7 @@ app.post('/api/notify', requireAuth, (req, res) => {
         break;
 
       case 'recipe-factory-trial':
-        recipients = getEmailsByRole(['npd', 'factory', 'purchasing']);
+        recipients = getEmailsByRole(['npd', 'factory', 'qa', 'purchasing']);
         subject = `Factory Trial requested: ${recipe}`;
         html = `<h2 style="color:#1B2A4A;margin:0 0 12px">${recipe}</h2>
           <p><strong>${userName}</strong> sent this recipe to <span style="color:#1A5FA5;font-weight:600">Factory Trial</span>.</p>
