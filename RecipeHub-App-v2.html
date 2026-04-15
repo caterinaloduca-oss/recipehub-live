@@ -717,6 +717,9 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
   <button class="nav-item" data-page="users" onclick="nav('users')">
     <span class="nav-icon">◉</span> Users & Access <span class="nav-badge" id="nav-badge-users"></span>
   </button>
+  <button class="nav-item" data-page="help" onclick="nav('help')">
+    <span class="nav-icon">?</span> How to Use
+  </button>
 
   </div><!-- end nav scroll -->
 
@@ -2231,6 +2234,131 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
         <tbody id="lib-tbody"></tbody>
       </table>
     </div>
+  </div>
+</div>
+
+<!-- HOW TO USE PAGE -->
+<div id="page-help" class="page-hidden">
+  <div style="max-width:900px;margin:0 auto">
+
+    <div style="text-align:center;margin-bottom:30px">
+      <div style="font-size:40px;margin-bottom:8px">👋</div>
+      <div style="font-family:var(--font-d);font-size:22px;font-weight:700;color:var(--navy)">Welcome to RecipeHub</div>
+      <div style="font-size:14px;color:var(--g4);margin-top:4px">Your recipe management platform — here's how to get around</div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px">
+
+      <div class="card">
+        <div class="card-body" style="padding:20px;text-align:center">
+          <div style="font-size:36px;margin-bottom:8px">📝</div>
+          <div style="font-size:15px;font-weight:700;color:var(--navy);margin-bottom:6px">1. Create a Recipe</div>
+          <div style="font-size:12px;color:var(--g4);line-height:1.6">
+            Go to <strong>Recipes</strong> → click <strong>+ New Recipe</strong><br>
+            Fill in name, brand, type, storage<br>
+            Add ingredients with percentages<br>
+            Add method steps (or use <strong>Import</strong>)
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-body" style="padding:20px;text-align:center">
+          <div style="font-size:36px;margin-bottom:8px">📤</div>
+          <div style="font-size:15px;font-weight:700;color:var(--navy);margin-bottom:6px">2. Submit for Review</div>
+          <div style="font-size:12px;color:var(--g4);line-height:1.6">
+            Open the recipe → click <strong>Submit for Review</strong><br>
+            Do the kitchen sensory tasting<br>
+            Mark <strong>Pass</strong> in the Sensory Panel<br>
+            Then send to <strong>Factory Trial</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-body" style="padding:20px;text-align:center">
+          <div style="font-size:36px;margin-bottom:8px">🏭</div>
+          <div style="font-size:15px;font-weight:700;color:var(--navy);margin-bottom:6px">3. Factory Trial</div>
+          <div style="font-size:12px;color:var(--g4);line-height:1.6">
+            Factory produces a test batch<br>
+            QA runs lab tests and <strong>signs off</strong><br>
+            QA sets the <strong>shelf life</strong><br>
+            Do the factory trial sensory tasting
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-body" style="padding:20px;text-align:center">
+          <div style="font-size:36px;margin-bottom:8px">✅</div>
+          <div style="font-size:15px;font-weight:700;color:var(--navy);margin-bottom:6px">4. Approve</div>
+          <div style="font-size:12px;color:var(--g4);line-height:1.6">
+            Production Trial → QA signs off again<br>
+            Costs, allergens, nutrition confirmed<br>
+            Click <strong>Approve</strong> → recipe is live<br>
+            Generate the <strong>Factory SOP</strong>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div style="font-family:var(--font-d);font-size:16px;font-weight:700;color:var(--navy);margin-bottom:12px">Other Features</div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:24px">
+
+      <div style="padding:16px;background:white;border-radius:var(--r-md);border:1px solid var(--g2);text-align:center">
+        <div style="font-size:24px;margin-bottom:4px">🍕</div>
+        <div style="font-size:12px;font-weight:600;color:var(--navy)">Product Builds</div>
+        <div style="font-size:11px;color:var(--g4);margin-top:4px">Assembly specs for pizzas, sandwiches — with component costs and COGS %</div>
+      </div>
+
+      <div style="padding:16px;background:white;border-radius:var(--r-md);border:1px solid var(--g2);text-align:center">
+        <div style="font-size:24px;margin-bottom:4px">📋</div>
+        <div style="font-size:12px;font-weight:600;color:var(--navy)">Branch SOPs</div>
+        <div style="font-size:11px;color:var(--g4);margin-top:4px">Visual step cards with photos for store staff — colour-coded by brand</div>
+      </div>
+
+      <div style="padding:16px;background:white;border-radius:var(--r-md);border:1px solid var(--g2);text-align:center">
+        <div style="font-size:24px;margin-bottom:4px">⚙</div>
+        <div style="font-size:12px;font-weight:600;color:var(--navy)">Factory SOPs</div>
+        <div style="font-size:11px;color:var(--g4);margin-top:4px">Production steps with photos — generated from recipes, printable</div>
+      </div>
+
+      <div style="padding:16px;background:white;border-radius:var(--r-md);border:1px solid var(--g2);text-align:center">
+        <div style="font-size:24px;margin-bottom:4px">✓</div>
+        <div style="font-size:12px;font-weight:600;color:var(--navy)">QA Lab Results</div>
+        <div style="font-size:11px;color:var(--g4);margin-top:4px">Sign off trials, set shelf life, upload lab certificates</div>
+      </div>
+
+      <div style="padding:16px;background:white;border-radius:var(--r-md);border:1px solid var(--g2);text-align:center">
+        <div style="font-size:24px;margin-bottom:4px">✉</div>
+        <div style="font-size:12px;font-weight:600;color:var(--navy)">Communications</div>
+        <div style="font-size:11px;color:var(--g4);margin-top:4px">Send messages to teams by role — everyone except Viewers can send</div>
+      </div>
+
+      <div style="padding:16px;background:white;border-radius:var(--r-md);border:1px solid var(--g2);text-align:center">
+        <div style="font-size:24px;margin-bottom:4px">📁</div>
+        <div style="font-size:12px;font-weight:600;color:var(--navy)">Library</div>
+        <div style="font-size:11px;color:var(--g4);margin-top:4px">Upload and share documents — old recipes, lab reports, specs</div>
+      </div>
+
+    </div>
+
+    <div class="card" style="border:2px solid var(--gold)">
+      <div class="card-body" style="padding:20px">
+        <div style="font-size:14px;font-weight:700;color:var(--navy);margin-bottom:8px">💡 Quick Tips</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;color:var(--g4)">
+          <div>🔄 Click <strong>Refresh Data</strong> in sidebar to get the latest changes</div>
+          <div>💾 Click <strong>Save All Data</strong> to push your changes to the server</div>
+          <div>🖨 Use <strong>Print</strong> buttons for kitchen or factory versions</div>
+          <div>📷 Click any photo to zoom in full screen</div>
+          <div>⬆ Use <strong>▲ ▼</strong> arrows to reorder steps</div>
+          <div>💬 Leave comments on recipes for your team</div>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -4066,6 +4194,7 @@ const PAGES = {
   brands:         { title:'Brands',              actions:`<button class="btn btn-primary btn-sm" onclick="openBrandForm()">+ New Brand</button>` },
   workflow:       { title:'Workflow',             actions:'' },
   users:          { title:'Users & Access',      actions:`<button class="btn btn-gold btn-sm" onclick="toggleInviteForm()">+ Add User</button>` },
+  help:           { title:'How to Use RecipeHub', actions:'' },
   comms:          { title:'Communications',     actions:'' },
   library:        { title:'Library',            actions:'<button class="btn btn-gold btn-sm" onclick="toggleLibUpload()">+ Upload Document</button>' },
 };
