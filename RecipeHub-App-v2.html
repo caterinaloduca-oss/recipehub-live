@@ -9243,7 +9243,7 @@ function populateBuildsBrandStats() {
   var container = document.getElementById('builds-brand-stats');
   if (!container) return;
   container.innerHTML = BRANDS.map(function(b) {
-    return '<div style="text-align:center;padding:0 10px"><div style="font-size:20px;font-weight:600;color:' + b.text + ';font-family:var(--font-d)" id="builds-' + b.id + '">0</div><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.4)">' + b.name + '</div></div>';
+    return '<div style="text-align:center;padding:0 10px"><div style="font-size:20px;font-weight:700;color:' + b.text + ';font-family:var(--font-d);text-shadow:0 0 8px rgba(255,255,255,0.2)" id="builds-' + b.id + '">0</div><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.7);font-weight:500">' + b.name + '</div></div>';
   }).join('');
 }
 
