@@ -4182,8 +4182,16 @@ function forceRefreshFromServer() {
       if (!result.data) { showSaveToast('Server has no data', true); return; }
       _hasLoadedFromServer = true;
       console.log('Server libraryDocs:', (result.data.libraryDocs||[]).length);
+      console.log('Is array?', Array.isArray(result.data.libraryDocs));
+      console.log('First doc:', JSON.stringify((result.data.libraryDocs||[])[0])?.slice(0,100));
       _hydrateFromData(result.data);
       console.log('After hydrate LIBRARY_DOCS:', LIBRARY_DOCS.length);
+      // Force load if hydrate missed it
+      if (LIBRARY_DOCS.length === 0 && result.data.libraryDocs && result.data.libraryDocs.length) {
+        LIBRARY_DOCS.length = 0;
+        result.data.libraryDocs.forEach(function(doc){ LIBRARY_DOCS.push(doc); });
+        console.log('Force-loaded LIBRARY_DOCS:', LIBRARY_DOCS.length);
+      }
       _stripBlobUrls();
       try { localStorage.setItem(STORAGE_KEY, JSON.stringify(_buildDataBlob())); } catch(e) {}
       // Rebuild all UI
