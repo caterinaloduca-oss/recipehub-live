@@ -28,7 +28,7 @@ Node/Express API with SQLite storing the entire app state as a single JSON docum
 - **Gateway key**: `df_svc_ls8XudEeqGUeLMIF4nFBVYhjMO668s-T4nqbAYOHyqM` (IP-locked to VPS)
 - **USDA key**: `JJy37GOw4VaboMD3l8o1gyVlYMCQYUmkUjDEakl9`
 - **Systemd**: `recipehub-api.service` on VPS, auto-restarts, port 3002
-- **Nginx**: `/api/` proxied to `127.0.0.1:3002`, `/server/` blocked (403), `/docs/` serves library uploads
+- **Nginx**: `/api/` proxied to `127.0.0.1:3002`, `/server/` blocked (403), `/docs/` serves library uploads, no-cache headers on HTML to prevent stale deploys
 
 ### Server Endpoints
 
@@ -44,6 +44,9 @@ Node/Express API with SQLite storing the entire app state as a single JSON docum
 | `/api/comms/send` | POST | Yes | Send admin email to team |
 | `/api/library/upload` | POST | Yes | Upload document to library |
 | `/api/img/upload` | POST | Yes | Upload image file, returns URL path |
+| `/api/recipe/:npd` | POST | Yes | Save single recipe by NPD code (per-item save) |
+| `/api/build/:id` | POST | Yes | Save single build by ID (per-item save) |
+| `/api/branchsop/:id` | POST | Yes | Save single Branch SOP by ID (per-item save) |
 
 ### Sync Mechanism
 
@@ -55,6 +58,7 @@ Node/Express API with SQLite storing the entire app state as a single JSON docum
 - Sync skips if `_localDirty`, `_savingToServer`, or `_sopEditTimer` active
 - `beforeunload` uses `navigator.sendBeacon()` for last-save attempt
 - Auto-save timer DISABLED — only user actions trigger saves (prevents idle laptops overwriting data)
+- **Per-item saves**: recipes, builds, and Branch SOPs save individually via dedicated endpoints — prevents multi-user overwrites
 - Server deduplicates Branch SOPs (by ID + name), Builds (by ID), Users (by email, @dailyfoodsa.com only)
 
 ### Server-Side Merge (Multi-User)
@@ -112,14 +116,32 @@ Each recipe has a **Food Cost** section with 5 columns: Cost/kg, Portion Cost, S
 - **Components table**: Type, Item, Weight, Tool/Qty, 2nd Shelf Life, After Opening
 - **Portioning tools** (`PORTIONING_TOOLS`): Ladles, scoops, drizzles with auto-weight calculation
 - Print view is color-coded with full component details
+- Step photos can be uploaded and steps reordered with arrows
+
+## Production Plan
+
+- Shows sent date, days waiting, scheduled date with change tracking
+- Comments per production run
+- Batch size editable before scheduling
+
+## Ingredients DB — "Used In"
+
+- Each ingredient has a **Used in** button that finds all recipes and builds using that ingredient
+- Quick cross-reference for cost impact analysis
+
+## User Profile
+
+- Users can click their name in the sidebar to edit their own profile (name, phone, department, title)
+- No role change — that remains Admin-only
 
 ## Email Notifications
 
 Gmail via nodemailer (`caterina.loduca@dailyfoodsa.com`). Triggers:
-- Recipe status changes (review, trial, approved)
-- QA sign-offs
-- Production run scheduled/completed
-- Admin sends Communications
+- Recipe status changes (review, trial, approved) — notifies R&D + QA + Admin
+- QA sign-offs — notifies recipe creator + Admin
+- Production run scheduled/completed — notifies Factory + R&D + Admin
+- Admin sends Communications — notifies selected role group or individual
+- Production plan comments — notifies relevant parties
 
 ## Critical Rules
 
@@ -146,6 +168,7 @@ A one-time `localStorage.clear()` runs on first load (controlled by `_rh_cleaned
 - **Factory**: production plan, comms
 - **Purchasing**: ingredients, comms
 - **Viewer**: read-only everywhere, no comms
+- **KPI & Goals**: restricted to `caterina.loduca@dailyfoodsa.com` and `subhanshu.pathak@dailyfoodsa.com` only
 - Default for unknown/unauthenticated users: **Viewer**
 - "View as" dropdown hidden for non-admins
 - Modal buttons excluded from role stripping (`stripPageActions` skips `#modal-overlay`)

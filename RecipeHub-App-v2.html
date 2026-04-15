@@ -2015,25 +2015,65 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
       <span style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--bg);padding:0 16px;font-size:11px;color:var(--g3);text-transform:uppercase;letter-spacing:0.1em;font-weight:500">How to Use the App</span>
     </div>
 
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px">
+    <!-- Row 1: Big feature cards (3 columns) -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:14px">
       <div style="background:white;border-radius:16px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06)">
         <div style="font-size:32px;margin-bottom:8px">⚙</div>
         <div style="font-size:14px;font-weight:700;color:var(--navy);margin-bottom:4px">Factory SOP</div>
-        <div style="font-size:11px;color:var(--g4);line-height:1.6">1. Open recipe → <strong>Generate Factory SOP</strong><br>2. Steps pulled from recipe method<br>3. Add photos to each step<br>4. Print: Full (photos) or Text Only</div>
+        <div style="font-size:11px;color:var(--g4);line-height:1.6">1. Open recipe → <strong>Generate Factory SOP</strong><br>2. Steps pulled from recipe method<br>3. Add photos to each step<br>4. Print: Full (photos) or Text Only<br>5. Regenerate anytime from <strong>More ⋯</strong> menu</div>
       </div>
       <div style="background:white;border-radius:16px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06)">
         <div style="font-size:32px;margin-bottom:8px">📋</div>
         <div style="font-size:14px;font-weight:700;color:var(--navy);margin-bottom:4px">Branch SOP</div>
-        <div style="font-size:11px;color:var(--g4);line-height:1.6">1. Branch SOP → <strong>+ New</strong> or from Build<br>2. Upload step photos<br>3. Use <strong>▲ ▼</strong> to reorder steps<br>4. Print colour-coded cards for stores</div>
+        <div style="font-size:11px;color:var(--g4);line-height:1.6">1. Create from a Build or <strong>+ New</strong><br>2. Upload step photos<br>3. Use <strong>▲ ▼</strong> to reorder steps<br>4. Print colour-coded cards for stores</div>
       </div>
       <div style="background:white;border-radius:16px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06)">
         <div style="font-size:32px;margin-bottom:8px">🍕</div>
         <div style="font-size:14px;font-weight:700;color:var(--navy);margin-bottom:4px">Product Builds</div>
-        <div style="font-size:11px;color:var(--g4);line-height:1.6">1. Add components + tools + weights<br>2. Set <strong>Selling Price</strong> → see COGS %<br>3. Each size = its own build<br>4. Export PDF build sheet</div>
+        <div style="font-size:11px;color:var(--g4);line-height:1.6">1. Add components by type (Dough, Sauce, Cheese, Protein, Topping, Finish, Packaging, Bread, Seasoning)<br>2. Set <strong>Selling Price</strong> → see COGS %<br>3. Each size = its own build<br>4. Export PDF build sheet</div>
       </div>
     </div>
 
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:24px">
+    <!-- Row 2: Feature cards (3 columns) -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:14px">
+      <div style="background:white;border-radius:16px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06)">
+        <div style="font-size:32px;margin-bottom:8px">✅</div>
+        <div style="font-size:14px;font-weight:700;color:var(--navy);margin-bottom:4px">QA Sign-off</div>
+        <div style="font-size:11px;color:var(--g4);line-height:1.6">1. Open a recipe in Factory/Prod Trial<br>2. Sign off the trial (QA decides)<br>3. Set <strong>shelf life</strong> during sign-off<br>4. Upload lab certificates</div>
+      </div>
+      <div style="background:white;border-radius:16px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06)">
+        <div style="font-size:32px;margin-bottom:8px">🥕</div>
+        <div style="font-size:14px;font-weight:700;color:var(--navy);margin-bottom:4px">Ingredients DB</div>
+        <div style="font-size:11px;color:var(--g4);line-height:1.6">1. Browse all ingredients with costs<br>2. Click <strong>Used in</strong> to find every recipe &amp; build using that ingredient<br>3. Costs auto-sync from EBS</div>
+      </div>
+      <div style="background:white;border-radius:16px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06)">
+        <div style="font-size:32px;margin-bottom:8px">📅</div>
+        <div style="font-size:14px;font-weight:700;color:var(--navy);margin-bottom:4px">Production Plan</div>
+        <div style="font-size:11px;color:var(--g4);line-height:1.6">1. See sent date &amp; days waiting<br>2. Schedule with date change tracking<br>3. Add comments per production run<br>4. Edit batch size before scheduling</div>
+      </div>
+    </div>
+
+    <!-- Row 3: Feature cards (3 columns) -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px">
+      <div style="background:white;border-radius:16px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06)">
+        <div style="font-size:32px;margin-bottom:8px">✉</div>
+        <div style="font-size:14px;font-weight:700;color:var(--navy);margin-bottom:4px">Communications</div>
+        <div style="font-size:11px;color:var(--g4);line-height:1.6">1. Send messages by role or to everyone<br>2. Available to all roles except Viewers<br>3. Full message log with history</div>
+      </div>
+      <div style="background:white;border-radius:16px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06)">
+        <div style="font-size:32px;margin-bottom:8px">📁</div>
+        <div style="font-size:14px;font-weight:700;color:var(--navy);margin-bottom:4px">Library</div>
+        <div style="font-size:11px;color:var(--g4);line-height:1.6">1. Upload documents (Admin + R&amp;D only)<br>2. Everyone can view &amp; download<br>3. Organised by category</div>
+      </div>
+      <div style="background:white;border-radius:16px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06)">
+        <div style="font-size:32px;margin-bottom:8px">📝</div>
+        <div style="font-size:14px;font-weight:700;color:var(--navy);margin-bottom:4px">Import &amp; Reorder Steps</div>
+        <div style="font-size:11px;color:var(--g4);line-height:1.6">1. Paste multiple method steps at once<br>2. Use <strong>▲ ▼</strong> arrows to reorder<br>3. Works in recipe edit &amp; Branch SOP edit</div>
+      </div>
+    </div>
+
+    <!-- Quick Actions row (6 columns) -->
+    <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:24px">
       <div style="background:white;border-radius:12px;padding:14px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.06)">
         <div style="font-size:22px;margin-bottom:4px">🔄</div>
         <div style="font-size:11px;font-weight:600;color:var(--navy)">Refresh Data</div>
@@ -2046,13 +2086,32 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
       </div>
       <div style="background:white;border-radius:12px;padding:14px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.06)">
         <div style="font-size:22px;margin-bottom:4px">📷</div>
-        <div style="font-size:11px;font-weight:600;color:var(--navy)">Click Photos</div>
-        <div style="font-size:10px;color:var(--g3)">Zoom in full screen</div>
+        <div style="font-size:11px;font-weight:600;color:var(--navy)">Photos</div>
+        <div style="font-size:10px;color:var(--g3)">Click to zoom, upload to recipes/builds/SOPs</div>
       </div>
       <div style="background:white;border-radius:12px;padding:14px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.06)">
-        <div style="font-size:22px;margin-bottom:4px">▲▼</div>
-        <div style="font-size:11px;font-weight:600;color:var(--navy)">Reorder Steps</div>
-        <div style="font-size:10px;color:var(--g3)">Move steps up/down</div>
+        <div style="font-size:22px;margin-bottom:4px">💬</div>
+        <div style="font-size:11px;font-weight:600;color:var(--navy)">Comments</div>
+        <div style="font-size:10px;color:var(--g3)">On recipes &amp; production runs</div>
+      </div>
+      <div style="background:white;border-radius:12px;padding:14px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.06)">
+        <div style="font-size:22px;margin-bottom:4px">🔍</div>
+        <div style="font-size:11px;font-weight:600;color:var(--navy)">Used In</div>
+        <div style="font-size:10px;color:var(--g3)">Find recipes using an ingredient</div>
+      </div>
+      <div style="background:white;border-radius:12px;padding:14px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.06)">
+        <div style="font-size:22px;margin-bottom:4px">👤</div>
+        <div style="font-size:11px;font-weight:600;color:var(--navy)">Profile</div>
+        <div style="font-size:10px;color:var(--g3)">Click your name in sidebar</div>
+      </div>
+    </div>
+
+    <!-- Per-item save note -->
+    <div style="background:var(--navy-lt);border-radius:12px;padding:14px 18px;margin-bottom:24px;display:flex;align-items:center;gap:12px">
+      <div style="font-size:22px">🔒</div>
+      <div>
+        <div style="font-size:12px;font-weight:600;color:var(--navy);margin-bottom:2px">Per-Item Saves</div>
+        <div style="font-size:11px;color:var(--g4)">Recipes, builds, and SOPs save individually so multiple people can work at the same time without overwriting each other.</div>
       </div>
     </div>
 
