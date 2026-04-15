@@ -4645,6 +4645,41 @@ function renderAllergenBadges(allergens) {
   }).join('');
 }
 
+function showIngUsedIn(ingName) {
+  var lc = ingName.toLowerCase();
+  var recipes = [];
+  var builds = [];
+  Object.values(RECIPE_DB).forEach(function(r) {
+    if (r.ingredients && r.ingredients.some(function(i){ return i.name.toLowerCase().indexOf(lc) > -1 || lc.indexOf(i.name.toLowerCase()) > -1; })) {
+      var ing = r.ingredients.find(function(i){ return i.name.toLowerCase().indexOf(lc) > -1 || lc.indexOf(i.name.toLowerCase()) > -1; });
+      recipes.push({ name: r.name, npd: r.npd, brand: r.brand, status: r.status, pct: ing ? ing.pct : 0 });
+    }
+  });
+  BUILDS_DATA.forEach(function(b) {
+    if (b.components && b.components.some(function(c){ return c.item.toLowerCase().indexOf(lc) > -1 || lc.indexOf(c.item.toLowerCase()) > -1; })) {
+      var comp = b.components.find(function(c){ return c.item.toLowerCase().indexOf(lc) > -1 || lc.indexOf(c.item.toLowerCase()) > -1; });
+      builds.push({ name: b.name, id: b.id, brand: b.brand, weight: comp ? comp.weight : '—' });
+    }
+  });
+
+  var recipeRows = recipes.length ? recipes.map(function(r) {
+    return '<tr style="cursor:pointer" onclick="closeModal();viewRecipe(\''+r.npd+'\')"><td><strong>'+r.name+'</strong></td><td style="font-size:11px;color:var(--g3)">'+r.brand+'</td><td style="font-family:var(--font-m);font-size:12px">'+r.pct.toFixed(1)+'%</td><td><span class="badge badge-'+(r.status==='approved'?'approved':r.status==='draft'?'draft':'review')+'">'+r.status+'</span></td></tr>';
+  }).join('') : '<tr><td colspan="4" style="text-align:center;color:var(--g3);padding:12px">Not used in any recipes</td></tr>';
+
+  var buildRows = builds.length ? builds.map(function(b) {
+    return '<tr style="cursor:pointer" onclick="closeModal();viewBuild(\''+b.id+'\')"><td><strong>'+b.name+'</strong></td><td style="font-size:11px;color:var(--g3)">'+b.brand+'</td><td style="font-family:var(--font-m);font-size:12px">'+b.weight+'</td></tr>';
+  }).join('') : '';
+
+  openModal(
+    '<div class="card-head" style="background:var(--navy);border-radius:16px 16px 0 0"><span class="card-title" style="color:white">Where is "'+ingName+'" used?</span><button class="btn btn-sm" style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:none" onclick="closeModal()">✕</button></div>' +
+    '<div class="card-body" style="padding:16px;max-height:60vh;overflow-y:auto">' +
+      '<div style="font-size:12px;font-weight:600;color:var(--navy);margin-bottom:6px">Recipes ('+recipes.length+')</div>' +
+      '<table class="data-table" style="margin-bottom:16px"><thead><tr><th>Recipe</th><th>Brand</th><th>%</th><th>Status</th></tr></thead><tbody>'+recipeRows+'</tbody></table>' +
+      (builds.length ? '<div style="font-size:12px;font-weight:600;color:var(--navy);margin-bottom:6px">Builds ('+builds.length+')</div><table class="data-table"><thead><tr><th>Build</th><th>Brand</th><th>Weight</th></tr></thead><tbody>'+buildRows+'</tbody></table>' : '') +
+    '</div>'
+  );
+}
+
 function buildIngTable() {
   const tbody = document.getElementById('ing-db-tbody');
   if (!tbody) return;
@@ -4688,7 +4723,7 @@ function buildIngTable() {
       <td style="font-family:var(--font-m);font-size:12px;color:var(--g4)" id="ing-uom-${idx}">${displayUOM}</td>
       <td style="font-family:var(--font-m);font-weight:600;color:${costKgColor};cursor:pointer" onclick="editIngCostPerKg(${idx})" title="Click to set cost/kg">${costKgDisplay}</td>
       <td style="font-size:12px;color:var(--g4)">${storage}</td>
-      <td style="white-space:nowrap"><button class="btn btn-outline btn-sm" onclick="editIngredient(this)">Edit</button>${supplier !== 'Oracle EBS' ? ' <button class="btn btn-sm" style="background:var(--red-lt);color:var(--red);border:1px solid var(--red);margin-left:4px" onclick="deleteIngredient(this)">✕</button>' : ''}</td>
+      <td style="white-space:nowrap"><button class="btn btn-outline btn-sm" onclick="showIngUsedIn('${name.replace(/'/g,"\\'")}')">Used in</button> <button class="btn btn-outline btn-sm" onclick="editIngredient(this)">Edit</button>${supplier !== 'Oracle EBS' ? ' <button class="btn btn-sm" style="background:var(--red-lt);color:var(--red);border:1px solid var(--red);margin-left:4px" onclick="deleteIngredient(this)">✕</button>' : ''}</td>
     `;
     tbody.appendChild(tr);
   });
