@@ -4190,7 +4190,7 @@ function forceRefreshFromServer() {
         buildUsersTable(); buildPendingTable(); buildRoleCards(); buildAccessMatrix();
         buildFactorySOPTable(); buildBuildsTable(); buildBranchSOPTable();
         buildProductionTable(); populateQARecipeDropdown(); updateDashboardStats();
-        updateSidebarBadges(); addEmptyStates();
+        updateSidebarBadges(); addEmptyStates(); renderLibrary(); initCommsPage();
       } catch(e) {}
       showSaveToast('Data refreshed — ' + Object.keys(RECIPE_DB).length + ' recipes loaded');
     })
