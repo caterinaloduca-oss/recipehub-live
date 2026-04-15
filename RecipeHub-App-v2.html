@@ -2289,8 +2289,10 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
         </div>
         <div style="display:flex;gap:10px;justify-content:flex-end">
           <button class="btn btn-outline" onclick="clearCommsForm()">Clear</button>
+          <button class="btn btn-outline" onclick="saveCommsDraft()" style="color:var(--navy)">Save Draft</button>
           <button class="btn btn-gold" onclick="sendCommsMessage()">Send Email</button>
         </div>
+        <div id="comms-drafts" style="margin-top:12px"></div>
       </div>
     </div>
 
@@ -13921,6 +13923,7 @@ function initCommsPage() {
       }).join('');
   }
   renderCommsLog();
+  renderCommsDrafts();
 }
 
 function updateCommsRecipients() {
@@ -13950,6 +13953,55 @@ function clearCommsForm() {
   document.getElementById('comms-recipe').value = '';
   document.getElementById('comms-individual-wrap').style.display = 'none';
   document.getElementById('comms-recipients-preview').textContent = '';
+}
+
+var COMMS_DRAFTS = JSON.parse(localStorage.getItem('_commsDrafts') || '[]');
+
+function saveCommsDraft() {
+  var to = document.getElementById('comms-to').value;
+  var subject = document.getElementById('comms-subject').value.trim();
+  var body = document.getElementById('comms-body').value.trim();
+  var recipe = document.getElementById('comms-recipe').value;
+  if (!subject && !body) { showSaveToast('Nothing to save', true); return; }
+  COMMS_DRAFTS.push({ to: to, subject: subject, body: body, recipe: recipe, savedAt: new Date().toISOString() });
+  localStorage.setItem('_commsDrafts', JSON.stringify(COMMS_DRAFTS));
+  clearCommsForm();
+  renderCommsDrafts();
+  showSaveToast('Draft saved');
+}
+
+function renderCommsDrafts() {
+  var el = document.getElementById('comms-drafts');
+  if (!el) return;
+  if (!COMMS_DRAFTS.length) { el.innerHTML = ''; return; }
+  el.innerHTML = '<div style="font-size:11px;font-weight:600;color:var(--g3);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px">Drafts (' + COMMS_DRAFTS.length + ')</div>' +
+    COMMS_DRAFTS.map(function(d, i) {
+      var date = new Date(d.savedAt);
+      var ds = date.toLocaleDateString('en-GB',{day:'2-digit',month:'short'}) + ' ' + date.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+      return '<div style="display:flex;gap:8px;align-items:center;padding:8px 10px;background:var(--g1);border-radius:var(--r-sm);margin-bottom:4px;cursor:pointer" onclick="loadCommsDraft('+i+')">' +
+        '<div style="flex:1"><strong style="font-size:12px">' + (d.subject || '(no subject)') + '</strong><div style="font-size:10px;color:var(--g3)">' + ds + '</div></div>' +
+        '<button class="btn btn-outline btn-sm" style="font-size:10px;padding:2px 8px" onclick="event.stopPropagation();deleteCommsDraft('+i+')">✕</button></div>';
+    }).join('');
+}
+
+function loadCommsDraft(idx) {
+  var d = COMMS_DRAFTS[idx];
+  if (!d) return;
+  document.getElementById('comms-to').value = d.to || '';
+  document.getElementById('comms-subject').value = d.subject || '';
+  document.getElementById('comms-body').value = d.body || '';
+  document.getElementById('comms-recipe').value = d.recipe || '';
+  updateCommsRecipients();
+  COMMS_DRAFTS.splice(idx, 1);
+  localStorage.setItem('_commsDrafts', JSON.stringify(COMMS_DRAFTS));
+  renderCommsDrafts();
+  showSaveToast('Draft loaded — edit and send');
+}
+
+function deleteCommsDraft(idx) {
+  COMMS_DRAFTS.splice(idx, 1);
+  localStorage.setItem('_commsDrafts', JSON.stringify(COMMS_DRAFTS));
+  renderCommsDrafts();
 }
 
 function sendCommsMessage() {
