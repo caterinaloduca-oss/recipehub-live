@@ -6392,8 +6392,9 @@ function setRecipeStatus(npd, newStatus) {
       return pr.npd === npd && pr.runType === runType;
     });
     if (!alreadyExists) {
+      var _newRunId = 'PR-' + String(Date.now()).slice(-6);
       PRODUCTION_RUNS.push({
-        id: 'PR-' + String(PRODUCTION_RUNS.length + 1).padStart(3, '0'),
+        id: _newRunId,
         date: '',
         recipe: r.name,
         npd: npd,
@@ -6406,8 +6407,10 @@ function setRecipeStatus(npd, newStatus) {
         waste: '',
         notes: runType + ' — auto-scheduled from recipe workflow',
         createdAt: new Date().toISOString(),
+        comments: [],
       });
       logActivity('production', '📅', runType + ' scheduled for ' + r.name, 'Auto-created from recipe status change');
+      showSaveToast('Production run created for ' + r.name);
     }
   }
 
@@ -6419,7 +6422,7 @@ function setRecipeStatus(npd, newStatus) {
   logActivity('status', newStatus==='approved'?'✅':newStatus==='trial'?'🏭':newStatus==='prod-trial'?'🔬':'📤', r.name + ' moved to ' + labels[newStatus], 'By ' + _userName, notifyRole);
   viewRecipe(npd);
   showSaveToast('Recipe moved to ' + labels[newStatus]);
-  saveAllData();
+  saveAllDataNow();
 
   // Send email notification
   var _eventMap = {review:'recipe-review', trial:'recipe-factory-trial', 'prod-trial':'recipe-prod-trial', approved:'recipe-approved'};
