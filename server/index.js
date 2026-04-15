@@ -1,3 +1,4 @@
+require('dotenv').config();
 const dns = require('dns');
 dns.setDefaultResultOrder('ipv4first');
 const express = require('express');
@@ -6,17 +7,17 @@ const db = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-const API_KEY = process.env.API_KEY || 'Q6LuvWGdHgETdfv4kFSHnzcxthg0_LTGhGytrwn35uY';
-const GATEWAY_URL = 'https://gateway.dailyfoodsa.com/mcp';
-const GATEWAY_KEY = 'df_svc_ls8XudEeqGUeLMIF4nFBVYhjMO668s-T4nqbAYOHyqM';
-const USDA_API_KEY = process.env.USDA_API_KEY || 'JJy37GOw4VaboMD3l8o1gyVlYMCQYUmkUjDEakl9';
+const API_KEY = process.env.API_KEY || 'changeme';
+const GATEWAY_URL = process.env.GATEWAY_URL || 'https://gateway.dailyfoodsa.com/mcp';
+const GATEWAY_KEY = process.env.GATEWAY_KEY || 'changeme';
+const USDA_API_KEY = process.env.USDA_API_KEY || 'changeme';
 
 // ── EMAIL NOTIFICATIONS ──
 const nodemailer = require('nodemailer');
-const MAIL_FROM = 'caterina.loduca@dailyfoodsa.com';
+const MAIL_FROM = process.env.MAIL_FROM || 'caterina.loduca@dailyfoodsa.com';
 const MAIL_TRANSPORT = nodemailer.createTransport({
   service: 'gmail',
-  auth: { user: MAIL_FROM, pass: 'thqw gzkd wklg ovyf' },
+  auth: { user: MAIL_FROM, pass: process.env.GMAIL_APP_PASSWORD || 'changeme' },
 });
 
 function sendNotification(to, subject, html) {
@@ -55,8 +56,23 @@ function getEmailsByRole(roles) {
     .map(u => u.email);
 }
 
-app.use(cors());
-app.use(express.json({ limit: '50mb' }));
+app.use(cors({ origin: ['https://recipehub.dailyfoodsa.com', 'http://localhost:5500', 'http://127.0.0.1:5500'] }));
+app.use(express.json({ limit: '10mb' }));
+
+// Security headers
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  next();
+});
+
+// Rate limiting
+const rateLimit = require('express-rate-limit');
+app.use('/api/comms/', rateLimit({ windowMs: 60000, max: 10, message: { error: 'Too many requests' } }));
+app.use('/api/notify', rateLimit({ windowMs: 60000, max: 20, message: { error: 'Too many requests' } }));
+app.use('/api/ebs/', rateLimit({ windowMs: 60000, max: 60, message: { error: 'Too many requests' } }));
+app.use('/api/img/', rateLimit({ windowMs: 60000, max: 30, message: { error: 'Too many requests' } }));
 
 // Request logging
 app.use((req, res, next) => {
@@ -79,21 +95,24 @@ function requireAuth(req, res, next) {
 }
 
 // Query the MCP gateway (via curl to match the client fingerprint the key was locked to)
-const { execSync } = require('child_process');
-function queryGateway(source, sql) {
-  const payload = JSON.stringify({
+async function queryGateway(source, sql) {
+  const payload = {
     jsonrpc: '2.0',
     method: 'tools/call',
     params: { name: 'query', arguments: { source, sql } },
     id: Date.now(),
+  };
+  const resp = await fetch(GATEWAY_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json, text/event-stream',
+      'Authorization': 'Bearer ' + GATEWAY_KEY,
+    },
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(30000),
   });
-  const escaped = payload.replace(/'/g, "'\\''");
-  const cmd = `curl -s --max-time 30 -X POST "${GATEWAY_URL}" ` +
-    `-H "Content-Type: application/json" ` +
-    `-H "Accept: application/json, text/event-stream" ` +
-    `-H "Authorization: Bearer ${GATEWAY_KEY}" ` +
-    `-d '${escaped}'`;
-  const text = execSync(cmd, { encoding: 'utf8', timeout: 35000 });
+  const text = await resp.text();
   let json;
   try { json = JSON.parse(text); } catch (e) { throw new Error('Gateway returned non-JSON: ' + text.slice(0, 200)); }
   if (json.result?.content?.[0]?.text) {
@@ -426,10 +445,10 @@ app.post('/api/branchsop/:id', requireAuth, (req, res) => {
 // ── EBS PRICE ENDPOINTS ──
 
 // GET /api/ebs/prices — all ingredient prices with supplier info
-app.get('/api/ebs/prices', requireAuth, (req, res) => {
+app.get('/api/ebs/prices', requireAuth, async (req, res) => {
   try {
     // Get items with avg price
-    const items = queryGateway('RedShift', `
+    const items = await queryGateway('RedShift', `
       SELECT DISTINCT inv_item_id, description, recipe_unit, avg_purchase_price, allergens, expiry_days
       FROM maestroksa.v_inventory_items
       WHERE avg_purchase_price > 0 AND available = 'Y'
@@ -437,7 +456,7 @@ app.get('/api/ebs/prices', requireAuth, (req, res) => {
     `);
 
     // Get vendor prices
-    const vendors = queryGateway('RedShift', `
+    const vendors = await queryGateway('RedShift', `
       SELECT v.item_id, v.purchase_price, v.vendor_name
       FROM maestroksa.v_inventory_items_vendors v
       WHERE v.purchase_price > 0
@@ -485,12 +504,12 @@ app.get('/api/ebs/prices', requireAuth, (req, res) => {
 });
 
 // GET /api/ebs/search?q=tomato — search items by name, return per-kg price
-app.get('/api/ebs/search', requireAuth, (req, res) => {
+app.get('/api/ebs/search', requireAuth, async (req, res) => {
   try {
     const raw = (req.query.q || '').trim();
     if (!raw || raw.length < 2) return res.json({ results: [] });
-    // Sanitize: only allow letters, numbers, spaces, hyphens
-    const q = raw.replace(/[^a-zA-Z0-9 \-]/g, '').toLowerCase();
+    // Sanitize: only allow letters, numbers, spaces — no SQL-significant chars
+    const q = raw.replace(/[^a-zA-Z0-9 ]/g, '').toLowerCase().slice(0, 100);
     if (!q) return res.json({ results: [] });
 
     // Helper: try to extract weight in kg from description (e.g. "700g", "2.5KG", "10 Ltr", "4.25 kg/can")
@@ -515,7 +534,7 @@ app.get('/api/ebs/search', requireAuth, (req, res) => {
     }
 
     // Primary: vendor prices with equivalence → per-kg cost
-    const vendorData = queryGateway('RedShift', `
+    const vendorData = await queryGateway('RedShift', `
       SELECT DISTINCT i.inv_item_id, i.description, i.recipe_unit, i.equivalence,
              i.stockroom_unit, v.purchase_price, v.vendor_unit, v.vendor_name
       FROM maestroksa.v_inventory_items i
@@ -565,7 +584,7 @@ app.get('/api/ebs/search', requireAuth, (req, res) => {
 
     // Fallback: GL cost for items not found via vendor route
     try {
-      const glData = queryGateway('RedShift', `
+      const glData = await queryGateway('RedShift', `
         SELECT item, description, uom, gl_cost
         FROM erp.inv_item_cost
         WHERE LOWER(description) LIKE '%${q}%' AND gl_cost > 0
@@ -707,9 +726,10 @@ app.post('/api/img/upload', requireAuth, (req, res) => {
   try {
     const { key, data } = req.body;
     if (!key || !data) return res.status(400).json({ error: 'key and data required' });
-    const matches = data.match(/^data:(.+);base64,(.+)$/);
-    if (!matches) return res.status(400).json({ error: 'Invalid image data' });
-    const buffer = Buffer.from(matches[2], 'base64');
+    const matches = data.match(/^data:(image\/(jpeg|png|gif|webp));base64,(.+)$/);
+    if (!matches) return res.status(400).json({ error: 'Invalid image — only JPEG, PNG, GIF, WebP allowed' });
+    const buffer = Buffer.from(matches[3], 'base64');
+    if (buffer.length > 5 * 1024 * 1024) return res.status(400).json({ error: 'Image too large — max 5MB' });
     const safeName = key.replace(/[^a-zA-Z0-9._-]/g, '_') + '.jpg';
     fs.writeFileSync(IMG_DIR + '/' + safeName, buffer);
     res.json({ ok: true, url: '/docs/img/' + safeName });
@@ -727,8 +747,11 @@ app.post('/api/library/upload', requireAuth, (req, res) => {
     const matches = data.match(/^data:(.+);base64,(.+)$/);
     if (!matches) return res.status(400).json({ error: 'Invalid file data' });
     const buffer = Buffer.from(matches[2], 'base64');
+    if (buffer.length > 10 * 1024 * 1024) return res.status(400).json({ error: 'File too large — max 10MB' });
     const ext = fileName.split('.').pop().toLowerCase();
-    const safeName = id + '.' + ext;
+    const ALLOWED_EXTS = ['pdf','doc','docx','xls','xlsx','csv','txt','jpg','jpeg','png','gif'];
+    if (!ALLOWED_EXTS.includes(ext)) return res.status(400).json({ error: 'File type not allowed' });
+    const safeName = id.replace(/[^a-zA-Z0-9._-]/g, '_') + '.' + ext;
     fs.writeFileSync(DOCS_DIR + '/' + safeName, buffer);
     res.json({ ok: true, url: '/docs/' + safeName });
   } catch (err) {
@@ -740,6 +763,9 @@ app.post('/api/library/upload', requireAuth, (req, res) => {
 // ── COMMUNICATIONS ──
 
 // POST /api/comms/send — send email to recipients
+// Sanitize HTML to prevent injection in emails
+function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
 app.post('/api/comms/send', requireAuth, (req, res) => {
   try {
     const { to, subject, html, sentBy } = req.body;
@@ -747,10 +773,13 @@ app.post('/api/comms/send', requireAuth, (req, res) => {
       return res.status(400).json({ error: 'to and subject required' });
     }
     const recipients = Array.isArray(to) ? to : [to];
-    const fullHtml = `<h2 style="color:#1B2A4A;margin:0 0 12px">${subject}</h2>
-      ${html}
+    const safeSubject = escHtml(subject);
+    const safeBody = escHtml(html || '').replace(/\n/g, '<br>');
+    const safeSentBy = escHtml(sentBy || 'Admin');
+    const fullHtml = `<h2 style="color:#1B2A4A;margin:0 0 12px">${safeSubject}</h2>
+      <div style="font-size:14px;line-height:1.6;color:#333">${safeBody}</div>
       <hr style="border:none;border-top:1px solid #E8E6E1;margin:20px 0" />
-      <p style="font-size:11px;color:#999">Sent by ${sentBy || 'Admin'} via <a href="https://recipehub.dailyfoodsa.com">RecipeHub</a></p>`;
+      <p style="font-size:11px;color:#999">Sent by ${safeSentBy} via <a href="https://recipehub.dailyfoodsa.com">RecipeHub</a></p>`;
 
     sendNotification(recipients, subject, fullHtml);
     res.json({ ok: true, sent: recipients.length });

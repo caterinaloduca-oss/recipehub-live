@@ -3800,6 +3800,7 @@ function signOut() {
 })();
 
 function exportBackup() {
+  if (getCurrentUserRole() !== 'admin') { showSaveToast('Only admins can export backups', true); return; }
   var data = {
     recipes: RECIPE_DB, ingredients: ING_DATA, users: USERS_DATA, pending: PENDING_DATA,
     builds: BUILDS_DATA, branchSOPs: BRANCH_SOPS, productionRuns: PRODUCTION_RUNS, activityLog: ACTIVITY_LOG,
@@ -6289,7 +6290,7 @@ function viewRecipe(npd) {
               <div style="width:30px;height:30px;border-radius:50%;background:var(--navy-lt);color:var(--navy);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;flex-shrink:0">${c.by.split(' ').map(n=>n[0]).join('')}</div>
               <div style="flex:1">
                 <div style="font-size:12px"><strong>${c.by}</strong> <span style="color:var(--g3);font-size:10px;margin-left:4px">${new Date(c.date).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})} ${new Date(c.date).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</span></div>
-                <div style="font-size:12px;color:var(--g5);margin-top:2px">${c.text}</div>
+                <div style="font-size:12px;color:var(--g5);margin-top:2px">${esc(c.text)}</div>
               </div>
             </div>
           `).join('') : '<div style="text-align:center;color:var(--g3);font-size:12px;padding:12px">No comments yet</div>'}
@@ -6861,6 +6862,9 @@ function uploadImageToServer(file, key, cb) {
       .catch(function() { cb(dataUrl); }); // Fallback
   });
 }
+
+// Escape HTML to prevent XSS in user content
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
 function compressImage(file, maxSize, quality, cb) {
   var img = new Image();
