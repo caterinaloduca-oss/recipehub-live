@@ -3847,7 +3847,7 @@ function importBackup(input) {
       if (data.accessPermissions) { data.accessPermissions.forEach(function(sg){ var m=ACCESS_PERMISSIONS.find(function(g){return g.group===sg.group}); if(m&&sg.items) sg.items.forEach(function(si){ var it=m.items.find(function(i){return i.key===si.key}); if(it) ['admin','npd','qa','factory','purchasing','viewer'].forEach(function(r){if(si[r]!==undefined)it[r]=si[r]}); }); }); }
       if (Array.isArray(data.rejectedEmails)) REJECTED_EMAILS = data.rejectedEmails;
     if (Array.isArray(data.commsLog)) { COMMS_LOG.length = 0; data.commsLog.forEach(function(m){ COMMS_LOG.push(m); }); }
-    if (Array.isArray(data.libraryDocs)) { LIBRARY_DOCS.length = 0; data.libraryDocs.forEach(function(d){ LIBRARY_DOCS.push(d); }); }
+    if (Array.isArray(data.libraryDocs)) { LIBRARY_DOCS.length = 0; data.libraryDocs.forEach(function(doc){ LIBRARY_DOCS.push(doc); }); }
       // Rebuild all tables
       populateBrandUI();
       buildIngTable(); buildRecipesTable(); buildBrandCards(); buildUsersTable();
@@ -4084,7 +4084,7 @@ function loadAllData() {
     if (data.qaAllergenOverrides) { Object.keys(data.qaAllergenOverrides).forEach(function(k){ _qaAllergenOverrides[k] = data.qaAllergenOverrides[k]; }); }
     if (Array.isArray(data.rejectedEmails)) REJECTED_EMAILS = data.rejectedEmails;
     if (Array.isArray(data.commsLog)) { COMMS_LOG.length = 0; data.commsLog.forEach(function(m){ COMMS_LOG.push(m); }); }
-    if (Array.isArray(data.libraryDocs)) { LIBRARY_DOCS.length = 0; data.libraryDocs.forEach(function(d){ LIBRARY_DOCS.push(d); }); }
+    if (Array.isArray(data.libraryDocs)) { LIBRARY_DOCS.length = 0; data.libraryDocs.forEach(function(doc){ LIBRARY_DOCS.push(doc); }); }
     if (data.shelfLifeData) { SHELF_LIFE_DATA.points = data.shelfLifeData.points || []; SHELF_LIFE_DATA.notes = data.shelfLifeData.notes || ''; }
     if (Array.isArray(data.accessPermissions)) {
       data.accessPermissions.forEach(function(savedGroup) {
@@ -4181,7 +4181,9 @@ function forceRefreshFromServer() {
     .then(function(result) {
       if (!result.data) { showSaveToast('Server has no data', true); return; }
       _hasLoadedFromServer = true;
+      console.log('Server libraryDocs:', (result.data.libraryDocs||[]).length);
       _hydrateFromData(result.data);
+      console.log('After hydrate LIBRARY_DOCS:', LIBRARY_DOCS.length);
       _stripBlobUrls();
       try { localStorage.setItem(STORAGE_KEY, JSON.stringify(_buildDataBlob())); } catch(e) {}
       // Rebuild all UI
