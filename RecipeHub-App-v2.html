@@ -4314,6 +4314,14 @@ function applyRoleRestrictions() {
   if (role === 'admin') return;
   var page = _currentPage || 'dashboard';
 
+  // KPI & Goals: only Caterina + Subhanshu can edit
+  var _kpiEditors = ['caterina.loduca@dailyfoodsa.com','subhanshu.tripathi@dailyfoodsa.com'];
+  var _userEmail = '';
+  try { var _raw = sessionStorage.getItem(AUTH_KEY); if (_raw) _userEmail = (JSON.parse(_raw).email||'').toLowerCase(); } catch(e){}
+  if (page === 'cost-control' && _kpiEditors.indexOf(_userEmail) === -1) {
+    stripPageActions('page-cost-control');
+  }
+
   // Pages where this role can edit (topbar + inline buttons stay visible)
   var editablePages = {
     viewer:     [],
