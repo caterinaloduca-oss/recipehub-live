@@ -1565,11 +1565,25 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
       </div>
     </div>
     <div class="card-body" style="padding:0;overflow-x:auto">
-      <table class="data-table" style="min-width:1000px">
-        <colgroup><col style="width:85px"><col><col style="width:70px"><col style="width:85px"><col style="width:100px"><col style="width:70px"><col style="width:55px"><col style="width:95px"><col style="width:90px"><col style="width:160px"></colgroup>
-        <thead><tr><th>Sent</th><th>Recipe</th><th>Waiting</th><th>Scheduled</th><th>Stage</th><th>Batch</th><th>Changes</th><th>Responsible</th><th>Status</th><th></th></tr></thead>
+      <table class="data-table" style="min-width:900px">
+        <colgroup><col style="width:80px"><col><col style="width:60px"><col style="width:90px"><col style="width:100px"><col style="width:70px"><col style="width:90px"><col style="width:90px"><col style="width:160px"></colgroup>
+        <thead><tr><th>Sent</th><th>Recipe</th><th>Waiting</th><th>Scheduled</th><th>Stage</th><th>Batch</th><th>Responsible</th><th>Status</th><th></th></tr></thead>
         <tbody id="prod-tbody"></tbody>
       </table>
+    </div>
+  </div>
+
+  <!-- Production Comments -->
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-head"><span class="card-title">Production Comments</span><span style="font-size:11px;color:var(--g3)">Select a run above to comment</span></div>
+    <div class="card-body">
+      <div id="prod-run-comments" style="max-height:300px;overflow-y:auto;margin-bottom:12px">
+        <div style="text-align:center;color:var(--g3);font-size:12px;padding:20px">Click a production run to see and add comments</div>
+      </div>
+      <div id="prod-comment-input-wrap" style="display:none;gap:8px">
+        <input class="form-input" id="prod-comment-input" placeholder="Write a comment..." style="flex:1;padding:8px 12px;font-size:12px" onkeydown="if(event.key==='Enter')postProdComment()" />
+        <button class="btn btn-primary btn-sm" onclick="postProdComment()">Post</button>
+      </div>
     </div>
   </div>
 </div>
@@ -11721,7 +11735,7 @@ function buildProductionTable() {
       if (_daysDiff > 0) _daysWaiting = '<div style="font-size:10px;color:var(--red);font-weight:500;margin-top:2px">' + _daysDiff + 'd without date</div>';
     }
     var _dateChanges = (run.dateLog && run.dateLog.length) ? run.dateLog.length : 0;
-    var _dateChangeLink = _dateChanges ? '<span title="Date changed '+_dateChanges+' time'+(_dateChanges>1?'s':'')+'" style="font-size:10px;color:var(--amber);font-weight:600;cursor:pointer" onclick="event.stopPropagation();showDateLog(\''+run.id+'\')">'+_dateChanges+'x</span>' : '<span style="font-size:10px;color:var(--g3)">—</span>';
+    var _dateChangeSuffix = _dateChanges ? '<div style="font-size:9px;color:var(--amber);font-weight:600;cursor:pointer" onclick="event.stopPropagation();showDateLog(\''+run.id+'\')">+'+_dateChanges+' change'+(_dateChanges>1?'s':'')+'</div>' : '';
     var _runTypeBadge = {'Factory Trial':'badge-factory-trial','Production Trial':'badge-prod-trial-run'};
     var _runTypeLabel = run.runType || 'Production';
     // Sent date (when recipe was moved to this stage)
@@ -11738,15 +11752,15 @@ function buildProductionTable() {
     // Comments count
     var _commCount = (run.comments && run.comments.length) ? run.comments.length : 0;
     tr.style.cursor = 'pointer';
-    tr.onclick = function(){ viewProductionRun(run.id); };
+    tr.onclick = function(){ selectProdRun(run.id); };
+    var _commCount = (run.comments && run.comments.length) ? run.comments.length : 0;
     tr.innerHTML =
       '<td style="font-size:11px;color:var(--g4)">' + _sentDate + '</td>' +
-      '<td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><strong title="' + run.recipe + '">' + run.recipe + '</strong><br><span style="font-size:11px;color:var(--g3)">' + (run.brand || '') + '</span></td>' +
+      '<td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><strong title="' + run.recipe + '">' + run.recipe + '</strong><br><span style="font-size:11px;color:var(--g3)">' + (run.brand || '') + (_commCount ? ' · <span style="color:var(--navy)">'+_commCount+' comment'+(_commCount>1?'s':'')+'</span>' : '') + '</span></td>' +
       '<td style="text-align:center">' + _waitingDays + '</td>' +
-      '<td style="font-family:var(--font-m);font-size:12px">' + _fmtDate + '</td>' +
+      '<td style="font-family:var(--font-m);font-size:12px">' + _fmtDate + _dateChangeSuffix + '</td>' +
       '<td><span class="badge ' + (_runTypeBadge[run.runType] || 'badge-production') + '">' + _runTypeLabel + '</span></td>' +
       '<td style="font-family:var(--font-m);font-size:12px">' + run.batchSize + '</td>' +
-      '<td style="text-align:center">' + _dateChangeLink + '</td>' +
       '<td style="font-size:12px;color:var(--g4)">' + (run.operator || '—') + '</td>' +
       '<td><span class="badge ' + (statusMap[displayStatus] || 'badge-draft') + '">' + (statusLabel[displayStatus] || displayStatus) + '</span></td>' +
       '<td onclick="event.stopPropagation()"><div style="display:flex;gap:4px;white-space:nowrap">' + actions + '</div></td>';
@@ -11899,6 +11913,48 @@ function saveCompleteRun(id) {
     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + API_KEY },
     body: JSON.stringify({ event: 'run-completed', recipe: run.recipe, user: getCurrentUserName() }),
   }).catch(function() {});
+}
+
+var _selectedRunId = null;
+function selectProdRun(id) {
+  _selectedRunId = id;
+  var run = PRODUCTION_RUNS.find(function(r){return r.id===id});
+  if (!run) return;
+  if (!run.comments) run.comments = [];
+  var panel = document.getElementById('prod-run-comments');
+  var inputWrap = document.getElementById('prod-comment-input-wrap');
+  if (inputWrap) inputWrap.style.display = 'flex';
+  // Highlight selected row
+  document.querySelectorAll('#prod-tbody tr').forEach(function(tr){tr.style.background='';});
+  var rows = document.querySelectorAll('#prod-tbody tr');
+  var idx = PRODUCTION_RUNS.filter(function(r){return !r.archived || _showArchived}).indexOf(run);
+  if (idx >= 0 && rows[idx]) rows[idx].style.background = 'var(--navy-lt)';
+  // Update header
+  var head = panel.closest('.card').querySelector('.card-head');
+  if (head) head.innerHTML = '<span class="card-title">Comments — '+run.recipe+'</span><span style="font-size:11px;color:var(--g3)">'+run.comments.length+' comments</span>';
+  // Render comments
+  if (run.comments.length) {
+    panel.innerHTML = run.comments.map(function(c) {
+      return '<div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--g1)"><div style="width:28px;height:28px;border-radius:50%;background:var(--navy-lt);color:var(--navy);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;flex-shrink:0">'+c.by.split(' ').map(function(n){return n[0]}).join('')+'</div><div style="flex:1"><div style="font-size:12px"><strong>'+c.by+'</strong> <span style="color:var(--g3);font-size:10px;margin-left:4px">'+new Date(c.date).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})+' '+new Date(c.date).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})+'</span></div><div style="font-size:12px;color:var(--g5);margin-top:2px">'+c.text+'</div></div></div>';
+    }).join('');
+  } else {
+    panel.innerHTML = '<div style="text-align:center;color:var(--g3);font-size:12px;padding:12px">No comments yet — be the first</div>';
+  }
+  panel.scrollTop = panel.scrollHeight;
+}
+
+function postProdComment() {
+  if (!_selectedRunId) return;
+  var run = PRODUCTION_RUNS.find(function(r){return r.id===_selectedRunId});
+  if (!run) return;
+  var input = document.getElementById('prod-comment-input');
+  if (!input || !input.value.trim()) return;
+  if (!run.comments) run.comments = [];
+  run.comments.push({by:getCurrentUserName(), date:new Date().toISOString(), text:input.value.trim()});
+  input.value = '';
+  saveAllData();
+  buildProductionTable();
+  selectProdRun(_selectedRunId);
 }
 
 function viewProductionRun(id) {
