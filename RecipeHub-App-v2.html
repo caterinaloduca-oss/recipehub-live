@@ -4226,6 +4226,13 @@ function forceRefreshFromServer() {
         if (_serverNpds.indexOf(k) === -1 || _deletedIds.indexOf(k) > -1) delete RECIPE_DB[k];
       });
       _hydrateFromData(result.data);
+      // Clean orphan production runs (for deleted recipes)
+      var _validNpds = new Set(Object.keys(RECIPE_DB));
+      var _delIds = new Set(result.data.deletedRecipeIds || []);
+      for (var _pi = PRODUCTION_RUNS.length - 1; _pi >= 0; _pi--) {
+        var _pr = PRODUCTION_RUNS[_pi];
+        if (_pr.npd && (!_validNpds.has(_pr.npd) || _delIds.has(_pr.npd))) PRODUCTION_RUNS.splice(_pi, 1);
+      }
       // Force-load library docs and comms from server (hydrate often misses these)
       if (result.data.libraryDocs && result.data.libraryDocs.length) {
         LIBRARY_DOCS.length = 0;
