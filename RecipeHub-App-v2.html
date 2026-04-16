@@ -7474,7 +7474,8 @@ function filterRecipes() {
 function filterIngredients() {
   const q = (document.getElementById('ing-search').value || '').toLowerCase();
   const cat = document.getElementById('ing-filter-cat').value;
-  const supplier = document.getElementById('ing-filter-supplier').value;
+  const supplierEl = document.getElementById('ing-filter-supplier');
+  const supplier = supplierEl ? supplierEl.value : 'All Sources';
   const rows = document.getElementById('ing-db-tbody').querySelectorAll('tr');
   rows.forEach(row => {
     const text = row.textContent.toLowerCase();
