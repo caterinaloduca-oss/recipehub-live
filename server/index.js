@@ -291,6 +291,11 @@ app.post('/api/data', requireAuth, (req, res) => {
       const deletedRecipes = new Set(body.deletedRecipeIds || []);
       body.productionRuns = body.productionRuns.filter(r => !r.npd || (validRecipes.has(r.npd) && !deletedRecipes.has(r.npd)));
     }
+    // Auto-clean: remove deleted Branch SOPs
+    if (body.branchSOPs && body.deletedSOPIds && body.deletedSOPIds.length) {
+      const deletedSOPs = new Set(body.deletedSOPIds);
+      body.branchSOPs = body.branchSOPs.filter(s => !deletedSOPs.has(s.id));
+    }
     const savedAt = db.setState(JSON.stringify(body), body.dataVersion || 0);
     res.json({ ok: true, savedAt });
   } catch (err) {
