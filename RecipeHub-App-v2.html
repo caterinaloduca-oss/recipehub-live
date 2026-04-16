@@ -4268,7 +4268,15 @@ function syncFromServer() {
         buildUsersTable(); buildPendingTable(); buildRoleCards(); buildAccessMatrix();
         buildFactorySOPTable(); buildBuildsTable(); buildBranchSOPTable();
         buildProductionTable(); populateQARecipeDropdown(); updateDashboardStats();
-        updateSidebarBadges();
+        updateSidebarBadges(); renderLibrary(); initCommsPage();
+        // Force-load library/comms if hydrate missed them
+        if (serverData.libraryDocs && serverData.libraryDocs.length && LIBRARY_DOCS.length === 0) {
+          serverData.libraryDocs.forEach(function(doc){ LIBRARY_DOCS.push(doc); });
+          renderLibrary();
+        }
+        if (serverData.commsLog && serverData.commsLog.length && COMMS_LOG.length === 0) {
+          serverData.commsLog.forEach(function(m){ COMMS_LOG.push(m); });
+        }
         window.scrollTo(0, _scrollY);
         if (_mainEl) _mainEl.scrollTop = _mainScroll;
       } catch(e) { console.error('UI refresh after sync error:', e); }
