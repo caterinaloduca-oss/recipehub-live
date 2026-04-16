@@ -5871,7 +5871,7 @@ function viewRecipe(npd) {
         <div>
           <div style="font-size:10px;font-weight:500;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.4);margin-bottom:4px">${r.brand} · ${r.type}</div>
           <div class="recipe-detail-title" style="font-family:var(--font-d);font-size:26px;font-weight:500;color:white;font-weight:700">${r.name}</div>
-          <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-top:4px">${r.npd} · ${r.version} · Updated ${r.updated}</div>
+          <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-top:4px">${r.npd} · ${r.version} · Updated ${r.updated}${r.createdBy ? ' · Created by '+r.createdBy : ''}</div>
           ${(r.tags&&r.tags.length)?'<div style="margin-top:6px">'+r.tags.map(t=>'<span style="display:inline-block;padding:2px 8px;border-radius:40px;font-size:9px;font-weight:500;border:1px solid rgba(255,255,255,0.3);color:rgba(255,255,255,0.7);margin:2px">'+t+'</span>').join('')+'</div>':''}
         </div>
         <div style="display:flex;gap:8px;align-items:center">
@@ -7614,6 +7614,8 @@ function saveNewRecipe() {
     catClass: catMap[type]||'cat-base', storage, shelfLife:shelf, yield:yld,
     ingredients:[], method:[{title:'Step 1',text:'Add your first step here.'}],
     sopSteps:[],
+    createdBy: getCurrentUserName(),
+    createdAt: new Date().toISOString(),
   };
   const tbody = document.getElementById('recipes-tbody');
   tbody.innerHTML = '';
@@ -14536,6 +14538,8 @@ function duplicateRecipe(npd) {
   copy.sopStatus = null;
   copy.comments = [];
   copy.changeLog = [];
+  copy.createdBy = getCurrentUserName();
+  copy.createdAt = new Date().toISOString();
 
   RECIPE_DB[nextCode] = copy;
   buildRecipesTable();
