@@ -6798,15 +6798,30 @@ function generateFactorySOP(npd) {
     return;
   }
   // Generate SOP steps from recipe method
+  var isSauce = (r.type || '').toLowerCase().indexOf('sauce') > -1 || ['Sauce','Dip','Blend','Marinade','Dressing','Spread'].indexOf(r.type) > -1;
+  var isDough = (r.type || '').toLowerCase().indexOf('dough') > -1;
+
   var steps = r.method.map(function(m) {
-    return { title: m.title, text: m.text, icons: autoDetectIcons(m.title, m.text), params: [], ccp: null, warning: null, media: [] };
+    var text = m.text;
+    // For sauces, reference the Tetra Pak machine
+    if (isSauce && (text.toLowerCase().indexOf('mix') > -1 || text.toLowerCase().indexOf('blend') > -1 || text.toLowerCase().indexOf('shear') > -1 || text.toLowerCase().indexOf('emulsif') > -1 || text.toLowerCase().indexOf('whisk') > -1 || text.toLowerCase().indexOf('combine') > -1)) {
+      text = text + ' — Use Tetra Pak High Shear Batch Mixer B200-200VAA.';
+    }
+    return { title: m.title, text: text, icons: autoDetectIcons(m.title, m.text), params: [], ccp: null, warning: null, media: [] };
   });
   // Prepend equipment prep step
+  var equipmentText = 'Ensure all mixing vessels, pipelines and equipment are CIP-cleaned and sanitised per SAN-001 protocol. Verify calibration logs.';
+  var equipmentParams = [{l:'CIP Temperature', v:'85°C minimum'}, {l:'Hold Time', v:'20 minutes'}];
+  if (isSauce) {
+    equipmentText = 'Prepare Tetra Pak High Shear Batch Mixer B200-200VAA. Run CIP cleaning cycle. Verify vessel, rotor-stator, and feed hopper are sanitised. Check calibration logs and seals.';
+    equipmentParams.push({l:'Machine', v:'Tetra Pak B200-200VAA'});
+    equipmentParams.push({l:'Vessel Capacity', v:'200L'});
+  }
   steps.unshift({
     title: 'Equipment Preparation & Sanitation',
-    text: 'Ensure all mixing vessels, pipelines and equipment are CIP-cleaned and sanitised per SAN-001 protocol. Verify calibration logs.',
+    text: equipmentText,
     icons: ['hygiene', 'temp'],
-    params: [{l:'CIP Temperature', v:'85°C minimum'}, {l:'Hold Time', v:'20 minutes'}],
+    params: equipmentParams,
     ccp: null, warning: null, media: []
   });
   // Append QC check
