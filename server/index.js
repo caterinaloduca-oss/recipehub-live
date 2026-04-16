@@ -189,10 +189,11 @@ app.post('/api/data', requireAuth, (req, res) => {
     const existing = db.getState();
     if (existing && existing.data) {
       const old = existing.data;
-      // Never lose recipes — merge missing ones back
+      // Never lose recipes — merge missing ones back (unless explicitly deleted)
       if (old.recipes && body.recipes) {
+        const deleted = new Set(body.deletedRecipeIds || []);
         Object.keys(old.recipes).forEach(npd => {
-          if (!body.recipes[npd]) body.recipes[npd] = old.recipes[npd];
+          if (!body.recipes[npd] && !deleted.has(npd)) body.recipes[npd] = old.recipes[npd];
         });
       }
       // Merge recipe images
