@@ -7,7 +7,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>Recipe Hub</title>
-<meta name="app-version" content="20260414-1600">
+<meta name="app-version" content="20260416-1200">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -2541,6 +2541,22 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
 </div>
 
 <script>
+// ──────────── AUTO-UPDATE: clear stale caches ────────────
+(function() {
+  // Unregister any service workers
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(function(regs) {
+      regs.forEach(function(r) { r.unregister(); });
+    });
+  }
+  // Clear all caches (Cache API)
+  if ('caches' in window) {
+    caches.keys().then(function(names) {
+      names.forEach(function(n) { caches.delete(n); });
+    });
+  }
+})();
+
 // ──────────── FORCE CLEAN OLD DATA (one-time) ────────────
 (function() {
   var _forceCleanVersion = 3; // bump this to force another wipe
