@@ -4728,6 +4728,14 @@ function downloadPDF(npd, mode) {
   setTimeout(function(){ w.print(); }, 500);
 }
 
+function deleteRecipeComment(npd, idx) {
+  var r = RECIPE_DB[npd];
+  if (!r || !r.comments) return;
+  r.comments.splice(idx, 1);
+  viewRecipe(npd);
+  saveRecipeToServer(npd);
+}
+
 function addRecipeComment(npd) {
   var r = RECIPE_DB[npd];
   if (!r) return;
@@ -6339,13 +6347,14 @@ function viewRecipe(npd) {
       <div class="card-head"><span class="card-title">💬 Comments</span><span style="font-size:11px;color:var(--g3)">${(r.comments||[]).length} comments</span></div>
       <div class="card-body">
         <div id="recipe-comments-${r.npd}" style="max-height:250px;overflow-y:auto;margin-bottom:12px">
-          ${(r.comments&&r.comments.length) ? r.comments.map(c => `
+          ${(r.comments&&r.comments.length) ? r.comments.map((c,ci) => `
             <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--g1)">
               <div style="width:30px;height:30px;border-radius:50%;background:var(--navy-lt);color:var(--navy);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;flex-shrink:0">${c.by.split(' ').map(n=>n[0]).join('')}</div>
               <div style="flex:1">
                 <div style="font-size:12px"><strong>${c.by}</strong> <span style="color:var(--g3);font-size:10px;margin-left:4px">${new Date(c.date).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})} ${new Date(c.date).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</span></div>
                 <div style="font-size:12px;color:var(--g5);margin-top:2px">${esc(c.text)}</div>
               </div>
+              <button style="background:none;border:none;cursor:pointer;color:var(--g3);font-size:12px;flex-shrink:0" onclick="deleteRecipeComment('${r.npd}',${ci})" title="Delete">✕</button>
             </div>
           `).join('') : '<div style="text-align:center;color:var(--g3);font-size:12px;padding:12px">No comments yet</div>'}
         </div>
@@ -14519,6 +14528,8 @@ function duplicateRecipe(npd) {
   copy['prod-trialQA'] = null;
   copy.sopSteps = [];
   copy.sopStatus = null;
+  copy.comments = [];
+  copy.changeLog = [];
 
   RECIPE_DB[nextCode] = copy;
   buildRecipesTable();
