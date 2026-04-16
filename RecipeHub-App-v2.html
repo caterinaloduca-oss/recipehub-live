@@ -4219,6 +4219,12 @@ function forceRefreshFromServer() {
     .then(function(result) {
       if (!result.data) { showSaveToast('Server has no data', true); return; }
       _hasLoadedFromServer = true;
+      // Clear stale recipes before hydrating — server is the source of truth
+      var _serverNpds = Object.keys(result.data.recipes || {});
+      var _deletedIds = result.data.deletedRecipeIds || [];
+      Object.keys(RECIPE_DB).forEach(function(k) {
+        if (_serverNpds.indexOf(k) === -1 || _deletedIds.indexOf(k) > -1) delete RECIPE_DB[k];
+      });
       _hydrateFromData(result.data);
       // Force-load library docs and comms from server (hydrate often misses these)
       if (result.data.libraryDocs && result.data.libraryDocs.length) {
