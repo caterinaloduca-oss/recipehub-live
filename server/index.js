@@ -272,11 +272,17 @@ app.post('/api/data', requireAuth, (req, res) => {
         old.activityLog.forEach(a => { if (a.time && !existingAct.has(a.time)) body.activityLog.push(a); });
         body.activityLog = body.activityLog.slice(-200);
       }
-      // Merge production runs by ID
+      // Merge production runs by ID (skip runs for deleted recipes)
       if (old.productionRuns && old.productionRuns.length) {
         if (!body.productionRuns) body.productionRuns = [];
         const existingIds = new Set(body.productionRuns.map(r => r.id));
-        old.productionRuns.forEach(r => { if (r.id && !existingIds.has(r.id)) body.productionRuns.push(r); });
+        const recipeIds = new Set(Object.keys(body.recipes || {}));
+        const deletedIds = new Set(body.deletedRecipeIds || []);
+        old.productionRuns.forEach(r => {
+          if (r.id && !existingIds.has(r.id) && (!r.npd || recipeIds.has(r.npd)) && !deletedIds.has(r.npd)) {
+            body.productionRuns.push(r);
+          }
+        });
       }
     }
     const savedAt = db.setState(JSON.stringify(body), body.dataVersion || 0);
