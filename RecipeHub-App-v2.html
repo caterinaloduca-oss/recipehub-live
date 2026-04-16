@@ -12134,13 +12134,22 @@ function selectProdRun(id) {
   if (head) head.innerHTML = '<span class="card-title">Comments — '+run.recipe+'</span><span style="font-size:11px;color:var(--g3)">'+run.comments.length+' comments</span>';
   // Render comments
   if (run.comments.length) {
-    panel.innerHTML = run.comments.map(function(c) {
-      return '<div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--g1)"><div style="width:28px;height:28px;border-radius:50%;background:var(--navy-lt);color:var(--navy);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;flex-shrink:0">'+c.by.split(' ').map(function(n){return n[0]}).join('')+'</div><div style="flex:1"><div style="font-size:12px"><strong>'+c.by+'</strong> <span style="color:var(--g3);font-size:10px;margin-left:4px">'+new Date(c.date).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})+' '+new Date(c.date).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})+'</span></div><div style="font-size:12px;color:var(--g5);margin-top:2px">'+c.text+'</div></div></div>';
+    panel.innerHTML = run.comments.map(function(c, ci) {
+      return '<div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--g1)"><div style="width:28px;height:28px;border-radius:50%;background:var(--navy-lt);color:var(--navy);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;flex-shrink:0">'+c.by.split(' ').map(function(n){return n[0]}).join('')+'</div><div style="flex:1"><div style="font-size:12px"><strong>'+c.by+'</strong> <span style="color:var(--g3);font-size:10px;margin-left:4px">'+new Date(c.date).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})+' '+new Date(c.date).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})+'</span></div><div style="font-size:12px;color:var(--g5);margin-top:2px">'+c.text+'</div></div><button style="background:none;border:none;cursor:pointer;color:var(--g3);font-size:12px;flex-shrink:0" onclick="deleteProdComment('+ci+')" title="Delete">✕</button></div>';
     }).join('');
   } else {
     panel.innerHTML = '<div style="text-align:center;color:var(--g3);font-size:12px;padding:12px">No comments yet — be the first</div>';
   }
   panel.scrollTop = panel.scrollHeight;
+}
+
+function deleteProdComment(idx) {
+  if (!_selectedRunId) return;
+  var run = PRODUCTION_RUNS.find(function(r){return r.id===_selectedRunId});
+  if (!run || !run.comments) return;
+  run.comments.splice(idx, 1);
+  saveAllData();
+  selectProdRun(_selectedRunId);
 }
 
 function postProdComment() {
