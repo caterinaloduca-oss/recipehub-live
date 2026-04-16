@@ -10,7 +10,7 @@ Hosted at `recipehub.dailyfoodsa.com`. Internal tool for `@dailyfoodsa.com` empl
 
 ## Architecture
 
-Single-file HTML application (`RecipeHub-App-v2.html`, ~14K lines) + Node/Express backend (`server/`, ~750 lines).
+Single-file HTML application (`RecipeHub-App-v2.html`, ~15K lines) + Node/Express backend (`server/`, ~850 lines).
 
 - **State**: Dual persistence — `localStorage` (instant/offline) + shared server via `saveAllData()` / `syncFromServer()`
 - **Backend**: Node/Express + SQLite on VPS at port 3002, proxied via nginx at `/api/`
@@ -172,6 +172,57 @@ A one-time `localStorage.clear()` runs on first load (controlled by `_rh_cleaned
 - Default for unknown/unauthenticated users: **Viewer**
 - "View as" dropdown hidden for non-admins
 - Modal buttons excluded from role stripping (`stripPageActions` skips `#modal-overlay`)
+
+
+## Deletion Protection
+
+- **Recipes**: server never loses recipes on full-blob save. `deletedRecipeIds` array tracks explicitly deleted recipes so they don't resurrect from stale browser pushes.
+- **Branch SOPs**: `deletedSOPIds` array tracks deleted SOPs. Server auto-strips them on every save.
+- **Production Runs**: server auto-cleans orphan runs (for deleted recipes) on every save.
+
+## Ingredient Database
+
+- **599 items** from Oracle EBS / Redshift with real vendor prices
+- Categories from Redshift: Food, Sauce, Dough, Cheese, Meat, Vegetable, Dip, Side, Drink, Packing Material, Non-Food, Smallware, Disposable, Stationery, Marketing, Uniform
+- **438 items with per-kg cost** calculated from `purchase_price / equivalence`
+- "Used in" button shows all recipes/builds using an ingredient
+- Prices sourced from `maestroksa.v_inventory_items` joined with `v_inventory_items_vendors`
+- GL cost fallback from `erp.inv_item_cost`
+
+## Recipe Import
+
+- Recipes can be imported from HTML files with ingredient tables and method steps
+- Format: ingredient name + percentage per line, steps as Title: Description
+- POS sub-recipes available from `maestroksa.v_recipes` (23 formulations for crusts, sauces, toppings, sides)
+- Creator tracked via `createdBy` and `createdAt` fields
+
+## Branch SOP Import
+
+- Can extract from PDF files using PyMuPDF (fitz)
+- Images extracted by size (top 8 = step photos, skip logos)
+- Product name extracted by largest font size on page
+- Uploaded to server via `/api/img/upload`
+- SOP code, version, date parsed from footer text (e.g. "M-PS-225 V-01 dt 27/11/2025")
+
+## Factory SOP Generation
+
+- Sauce recipes auto-reference **Tetra Pak High Shear Batch Mixer B200-200VAA**
+- Equipment prep step includes machine name, CIP temp, vessel capacity
+- Mixing/blending/emulsification steps auto-append machine reference
+- Applies to types: Sauce, Dip, Blend, Marinade, Dressing, Spread
+
+## Cache Prevention
+
+- Nginx: `no-cache, no-store, must-revalidate` + `Pragma: no-cache` + `Expires: 0` on all HTML
+- ETag disabled, `if_modified_since off` — always returns 200, never 304
+- Frontend clears service workers and Cache API on every page load
+- "Refresh Data" button force-pulls from server without page reload
+
+## Communications
+
+- Draft system: save drafts to localStorage, load and send later
+- Send targets: Everyone, All Team (no viewers), by role, All Viewers, Individual
+- Viewer access: can see comms page and receive emails, cannot send
 
 ## Security
 
