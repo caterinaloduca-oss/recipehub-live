@@ -7478,8 +7478,10 @@ function filterIngredients() {
   const rows = document.getElementById('ing-db-tbody').querySelectorAll('tr');
   rows.forEach(row => {
     const text = row.textContent.toLowerCase();
+    const catTag = row.querySelector('.cat-tag');
+    const rowCat = catTag ? catTag.textContent.trim() : '';
     const matchQ = !q || text.includes(q);
-    const matchCat = cat === 'All Categories' || text.includes(cat.toLowerCase());
+    const matchCat = cat === 'All Categories' || rowCat === cat;
     const matchSup = supplier === 'All Sources' || text.includes(supplier.toLowerCase());
     row.style.display = (matchQ && matchCat && matchSup) ? '' : 'none';
   });
