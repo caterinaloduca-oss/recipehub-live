@@ -4220,11 +4220,13 @@ function forceRefreshFromServer() {
       if (!result.data) { showSaveToast('Server has no data', true); return; }
       _hasLoadedFromServer = true;
       _hydrateFromData(result.data);
-      // Force-load library docs and comms if hydrate missed them
-      if (result.data.libraryDocs && result.data.libraryDocs.length && LIBRARY_DOCS.length === 0) {
+      // Force-load library docs and comms from server (hydrate often misses these)
+      if (result.data.libraryDocs && result.data.libraryDocs.length) {
+        LIBRARY_DOCS.length = 0;
         result.data.libraryDocs.forEach(function(doc){ LIBRARY_DOCS.push(doc); });
       }
-      if (result.data.commsLog && result.data.commsLog.length && COMMS_LOG.length === 0) {
+      if (result.data.commsLog && result.data.commsLog.length) {
+        COMMS_LOG.length = 0;
         result.data.commsLog.forEach(function(m){ COMMS_LOG.push(m); });
       }
       _stripBlobUrls();
