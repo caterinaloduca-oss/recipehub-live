@@ -285,6 +285,12 @@ app.post('/api/data', requireAuth, (req, res) => {
         });
       }
     }
+    // Auto-clean: remove production runs for deleted recipes
+    if (body.productionRuns && body.recipes) {
+      const validRecipes = new Set(Object.keys(body.recipes));
+      const deletedRecipes = new Set(body.deletedRecipeIds || []);
+      body.productionRuns = body.productionRuns.filter(r => !r.npd || (validRecipes.has(r.npd) && !deletedRecipes.has(r.npd)));
+    }
     const savedAt = db.setState(JSON.stringify(body), body.dataVersion || 0);
     res.json({ ok: true, savedAt });
   } catch (err) {
