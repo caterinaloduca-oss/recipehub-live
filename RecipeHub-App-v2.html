@@ -11212,7 +11212,7 @@ function viewBuild(id) {
         <div>
           <div style="font-size:12px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.7);margin-bottom:4px">${b.brand} · ${b.type || 'Build'} · ${b.size}</div>
           <div style="font-family:var(--font-d);font-size:26px;font-weight:700;color:white">${b.name}</div>
-          <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-top:4px">${b.id} · Updated ${b.updated}</div>
+          <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-top:4px">${b.id} · Updated ${b.updated}${b.createdBy ? ' · Created by '+b.createdBy : ''}${b.createdAt ? ' · '+new Date(b.createdAt).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : ''}</div>
           ${(b.tags&&b.tags.length)?'<div style="margin-top:6px">'+b.tags.map(t=>'<span style="display:inline-block;padding:2px 8px;border-radius:40px;font-size:9px;font-weight:500;border:1px solid rgba(255,255,255,0.3);color:rgba(255,255,255,0.7);margin:2px">'+t+'</span>').join('')+'</div>':''}
         </div>
         <div style="display:flex;gap:8px;align-items:center">
@@ -11545,6 +11545,8 @@ function saveBuild() {
     bakeTemp: document.getElementById('nb-build-temp').value || '—',
     bakeTime: document.getElementById('nb-build-time').value || '—',
     updated: 'Just now',
+    createdBy: getCurrentUserName(),
+    createdAt: new Date().toISOString(),
   };
   BUILDS_DATA.push(build);
   closeModal();
@@ -11874,6 +11876,8 @@ function duplicateBuild(id) {
   copy.name = b.name + ' (Copy)';
   copy.status = 'draft';
   copy.updated = 'Just now';
+  copy.createdBy = getCurrentUserName();
+  copy.createdAt = new Date().toISOString();
   BUILDS_DATA.push(copy);
   buildBuildsTable();
   viewBuild(copy.id);
