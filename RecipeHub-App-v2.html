@@ -258,6 +258,10 @@ body { font-family:var(--font-b); background:var(--cream); color:var(--g5); font
 .ebs-ac-meta { font-size:10px; color:rgba(255,255,255,0.5); font-family:var(--font-m); display:flex; align-items:center; gap:6px; }
 .ebs-ac-badge { background:linear-gradient(135deg,var(--gold),#d4a843); color:var(--navy); font-size:8px; font-weight:700; padding:2px 6px; border-radius:4px; letter-spacing:0.05em; }
 .ebs-ac-empty { padding:12px; text-align:center; font-size:12px; color:rgba(255,255,255,0.4); }
+.cat-food   { background:#EBF5EE; color:#2D6A4F; }
+.cat-drink  { background:#E6F1FB; color:#0C6BA8; }
+.cat-pkg    { background:#F5F4F2; color:#7F8C8D; }
+.cat-consumable { background:#FEF3E2; color:#B8820A; }
 .cat-spice  { background:#FEF0E6; color:#B25A00; }
 .cat-dairy  { background:#EEF2FC; color:#2D4FA0; }
 .cat-base   { background:var(--navy-lt); color:var(--navy); }
@@ -925,7 +929,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
       <span class="search-icon">⌕</span>
       <input class="search-input" placeholder="Search ingredients, suppliers, codes…" id="ing-search" oninput="filterIngredients()" />
     </div>
-    <select class="filter-select" id="ing-filter-cat" onchange="filterIngredients()"><option>All Categories</option><option>Spice / Herb</option><option>Base / Starch</option><option>Oil / Fat</option><option>Acid</option><option>Dairy</option><option>Vegetable</option><option>Additive</option><option>Packaging</option></select>
+    <select class="filter-select" id="ing-filter-cat" onchange="filterIngredients()"><option>All Categories</option><option>Food</option><option>Drink</option><option>Packaging</option><option>Consumable</option></select>
   </div>
 
   <div class="card">
@@ -4560,7 +4564,7 @@ let ING_DATA = [
   [22,'Carton Box (12-pack)','Saudi Carton Co.','PK-007','Packaging','SAR 1.80','Ambient','—','3 weeks ago'],
 ];
 
-const CAT_CLASS = { 'Spice / Herb':'cat-spice','Oil / Fat':'cat-oil','Acid':'cat-acid','Base / Starch':'cat-base','Additive':'cat-additive','Dairy':'cat-dairy','Vegetable':'cat-veg','Packaging':'cat-pkg' };
+const CAT_CLASS = { 'Food':'cat-food','Drink':'cat-drink','Packaging':'cat-pkg','Consumable':'cat-consumable','Spice / Herb':'cat-spice','Oil / Fat':'cat-oil','Acid':'cat-acid','Base / Starch':'cat-base','Additive':'cat-additive','Dairy':'cat-dairy','Vegetable':'cat-veg' };
 
 // ──────────── ALLERGEN SYSTEM ────────────
 const ALLERGEN_LIST = ['Gluten','Milk','Eggs','Fish','Crustaceans','Tree Nuts','Peanuts','Soy','Sesame','Celery','Mustard','Sulphites','Lupin','Molluscs'];
