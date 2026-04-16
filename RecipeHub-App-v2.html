@@ -10406,7 +10406,8 @@ function deleteRecipe(npd) {
     '<div class="card-body" style="padding:24px;text-align:center">' +
       '<div style="font-size:36px;margin-bottom:12px">⚠</div>' +
       '<div style="font-size:14px;font-weight:500;margin-bottom:6px">Delete <strong>'+r.name+'</strong>?</div>' +
-      '<div style="font-size:13px;color:var(--g4);margin-bottom:20px">This will permanently remove this recipe and all its data. This cannot be undone.</div>' +
+      '<div style="font-size:13px;color:var(--g4);margin-bottom:8px">This will permanently remove this recipe, its Factory SOP, and any production runs linked to it.</div>' +
+      (PRODUCTION_RUNS.filter(function(pr){return pr.npd===npd}).length ? '<div style="font-size:12px;color:var(--red);font-weight:500;margin-bottom:20px">'+PRODUCTION_RUNS.filter(function(pr){return pr.npd===npd}).length+' production run(s) will also be deleted</div>' : '<div style="margin-bottom:20px"></div>') +
       '<div style="display:flex;gap:10px;justify-content:center">' +
         '<button class="btn btn-outline" onclick="closeModal()">Cancel</button>' +
         '<button class="btn" style="background:var(--red);color:white" onclick="confirmDeleteRecipe(\''+npd+'\')">Delete Recipe</button>' +
@@ -10419,14 +10420,19 @@ function confirmDeleteRecipe(npd) {
   var name = RECIPE_DB[npd] ? RECIPE_DB[npd].name : npd;
   delete RECIPE_DB[npd];
   if (_deletedRecipeIds.indexOf(npd) === -1) _deletedRecipeIds.push(npd);
+  // Clean up production runs linked to this recipe
+  var removedRuns = PRODUCTION_RUNS.filter(function(pr){ return pr.npd === npd; }).length;
+  PRODUCTION_RUNS = PRODUCTION_RUNS.filter(function(pr){ return pr.npd !== npd; });
   var tbody = document.getElementById('recipes-tbody');
   if (tbody) { tbody.innerHTML = ''; buildRecipesTable(); }
+  buildProductionTable();
   closeModal();
   updateDashboardStats();
   updateSidebarBadges();
-  logActivity('recipe', '🗑️', 'Deleted recipe: ' + name);
+  logActivity('recipe', '🗑️', 'Deleted recipe: ' + name + (removedRuns ? ' + ' + removedRuns + ' production run(s)' : ''));
   saveAllData();
-  showSaveToast('Recipe deleted');
+  showSaveToast('Recipe deleted' + (removedRuns ? ' + ' + removedRuns + ' run(s)' : ''));
+  nav('recipes');
 }
 
 // ──────────── DELETE QA SHELF LIFE ROWS ────────────
