@@ -4656,12 +4656,26 @@ function detectAllergens(ingredientName) {
   return found;
 }
 
-function getRecipeAllergens(npd) {
+function getRecipeAllergens(npd, _seen) {
   var r = RECIPE_DB[npd];
-  if (!r || !r.ingredients) return [];
+  if (!r) return [];
+  _seen = _seen || {};
+  if (_seen[npd]) return []; // cycle guard
+  _seen[npd] = 1;
   var allergens = [];
-  r.ingredients.forEach(function(ing) {
-    // Check ING_DATA for manual allergen tags
+  function addAll(arr) { (arr||[]).forEach(function(a){ if (a && allergens.indexOf(a) === -1) allergens.push(a); }); }
+
+  // Composite recipes: roll up from main material + sub-recipes
+  if (r.recipeKind === 'composite') {
+    if (r.mainMaterial && r.mainMaterial.name) addAll(detectAllergens(r.mainMaterial.name));
+    (r.components || []).forEach(function(c) {
+      if (c.subNpd) addAll(getRecipeAllergens(c.subNpd, _seen));
+    });
+    return allergens;
+  }
+
+  // Flat recipes: scan ingredients
+  (r.ingredients || []).forEach(function(ing) {
     var dbMatch = ING_DATA.find(function(row) {
       return row[1].toLowerCase().indexOf(ing.name.toLowerCase().split(',')[0].split('(')[0].trim()) > -1;
     });
@@ -4671,12 +4685,61 @@ function getRecipeAllergens(npd) {
         if (a && allergens.indexOf(a) === -1) allergens.push(a);
       });
     }
-    // Auto-detect from name
-    detectAllergens(ing.name).forEach(function(a) {
-      if (allergens.indexOf(a) === -1) allergens.push(a);
-    });
+    addAll(detectAllergens(ing.name));
   });
   return allergens;
+}
+
+// Returns detailed provenance for composite recipes: which allergen came from where
+function getRecipeAllergensWithSource(npd) {
+  var r = RECIPE_DB[npd]; if (!r) return [];
+  if (r.recipeKind !== 'composite') {
+    return getRecipeAllergens(npd).map(function(a){ return { allergen:a, source:'ingredient' }; });
+  }
+  var out = [];
+  function push(a, source) { if (a && !out.some(function(x){ return x.allergen===a && x.source===source; })) out.push({ allergen:a, source:source }); }
+  if (r.mainMaterial && r.mainMaterial.name) {
+    detectAllergens(r.mainMaterial.name).forEach(function(a){ push(a, r.mainMaterial.name); });
+  }
+  (r.components || []).forEach(function(c){
+    var sub = RECIPE_DB[c.subNpd];
+    var stage = c.stage || (sub && sub.name) || c.subNpd;
+    getRecipeAllergens(c.subNpd).forEach(function(a){ push(a, stage); });
+  });
+  return out;
+}
+
+// Nutrition roll-up for composite recipes.
+// Weighted per 100g of finished product.
+// Each sub-recipe contributes its nutrition × (applyG / portionTotalG).
+// Main material contributes if r.mainMaterial.nutrition is set.
+function getRecipeNutrition(npd) {
+  var r = RECIPE_DB[npd]; if (!r) return null;
+  if (r.recipeKind !== 'composite') return r.nutrition || null;
+  var totalG = compositePortionTotalG(r) || 0;
+  if (!totalG) return r.nutrition || null;
+  var keys = ['energy','protein','fat','satfat','carbs','sugars','fibre','sodium','salt'];
+  var out = {}; keys.forEach(function(k){ out[k] = 0; });
+  var any = false;
+  function add(nut, g) {
+    if (!nut || !g) return;
+    any = true;
+    // nut is per 100g; g/100 is the multiplier per this mass; divide by totalG/100 to get per-100g-of-product
+    var factor = (g / 100) / (totalG / 100);
+    keys.forEach(function(k){
+      var v = parseFloat(nut[k]); if (!isNaN(v)) out[k] += v * factor;
+    });
+  }
+  if (r.mainMaterial && r.mainMaterial.nutrition && r.mainMaterial.g) add(r.mainMaterial.nutrition, r.mainMaterial.g);
+  (r.components || []).forEach(function(c){
+    var sub = RECIPE_DB[c.subNpd];
+    if (sub && sub.nutrition && c.applyG) add(sub.nutrition, c.applyG);
+  });
+  if (!any) return r.nutrition || null;
+  // Round
+  keys.forEach(function(k){ out[k] = Math.round(out[k] * 10) / 10; });
+  out._rolledUp = true;
+  return out;
 }
 
 // ──────────── RECIPE TAGS ────────────
@@ -7886,6 +7949,7 @@ function renderSOPAnnexure(r) {
 
 function toggleRecipeStandardBlock(npd, blockId) {
   var r = RECIPE_DB[npd]; if (!r) return;
+  _markSOPChanged(npd);
   if (!Array.isArray(r.sopStandardBlocks)) r.sopStandardBlocks = _defaultEnabledBlockIds();
   var i = r.sopStandardBlocks.indexOf(blockId);
   if (i >= 0) r.sopStandardBlocks.splice(i, 1);
@@ -8161,6 +8225,7 @@ function refreshSOPSteps(npd) {
 }
 
 function updateSOPStepField(npd, idx, field, val) {
+  _markSOPChanged(npd);
   RECIPE_DB[npd].sopSteps[idx][field] = val;
   _localDirty = true;
   if (_sopEditTimer) clearTimeout(_sopEditTimer);
@@ -8233,6 +8298,7 @@ function toggleSOPCCP(npd, idx) {
   const step = RECIPE_DB[npd].sopSteps[idx];
   const val = prompt('CCP text (leave empty to remove):', step.ccp || '');
   if (val === null) return;
+  _markSOPChanged(npd);
   step.ccp = val || null;
   refreshSOPSteps(npd);
   saveAllData();
@@ -8242,12 +8308,14 @@ function toggleSOPWarning(npd, idx) {
   const step = RECIPE_DB[npd].sopSteps[idx];
   const val = prompt('Warning text (leave empty to remove):', step.warning || '');
   if (val === null) return;
+  _markSOPChanged(npd);
   step.warning = val || null;
   refreshSOPSteps(npd);
   saveAllData();
 }
 
 function addSOPStep(npd) {
+  _markSOPChanged(npd);
   const r = RECIPE_DB[npd];
   r.sopSteps.push({title:'New Step', text:'Describe this step...', icons:[], params:[], ccp:null, warning:null});
   refreshSOPSteps(npd);
@@ -8257,6 +8325,7 @@ function addSOPStep(npd) {
 }
 
 function removeSOPStep(npd, idx) {
+  _markSOPChanged(npd);
   const r = RECIPE_DB[npd];
   r.sopSteps.splice(idx, 1);
   refreshSOPSteps(npd);
@@ -8301,6 +8370,33 @@ function updateSOPStatusBadge(r) {
 function _getSOPApproval(r) {
   if (!r.sopApproval) r.sopApproval = { prepared:null, reviewed:null, approved:null };
   return r.sopApproval;
+}
+
+// Called when SOP content (steps, blocks, params, ccp) changes. If the SOP is
+// already approved, this bumps the version and resets the approval chain —
+// audit-safe, no silent changes to live documents.
+function _markSOPChanged(npd) {
+  var r = RECIPE_DB[npd]; if (!r) return;
+  var wasApproved = r.sopStatus === 'approved' || (r.sopApproval && r.sopApproval.approved);
+  if (!wasApproved) return;
+  if (!r.sopVersion) r.sopVersion = '1.0';
+  if (!r.sopApprovalHistory) r.sopApprovalHistory = [];
+  r.sopApprovalHistory.push({
+    version: r.sopVersion,
+    prepared: (r.sopApproval && r.sopApproval.prepared) || null,
+    reviewed: (r.sopApproval && r.sopApproval.reviewed) || null,
+    approved: (r.sopApproval && r.sopApproval.approved) || null,
+    bumpedAt: new Date().toISOString(),
+    bumpedBy: getCurrentUserName(),
+  });
+  var parts = String(r.sopVersion).split('.');
+  r.sopVersion = (parseInt(parts[0],10) + 1) + '.0';
+  r.sopApproval = { prepared:null, reviewed:null, approved:null };
+  r.sopStatus = 'draft';
+  showSaveToast('🔒 Approved SOP edited — bumped to v' + r.sopVersion + ', approval chain reset', true);
+  var body = document.getElementById('sop-approval-body');
+  if (body) body.innerHTML = renderSOPApprovalStages(r);
+  updateSOPStatusBadge(r);
 }
 
 function _canSignStage(stage) {
@@ -9964,12 +10060,110 @@ function editIngredient(btn) {
   window._editIngRow = row;
 }
 
+function _parseCost(raw) { var n = parseFloat(String(raw||'').replace(/[^0-9.]/g,'')); return isNaN(n) ? null : n; }
+
+// For a given ingredient name, compute how a cost change affects every recipe.
+// Scans flat recipes directly, and composite recipes via their sub-recipes.
+function computeIngredientImpact(ingName, oldCost, newCost) {
+  if (oldCost == null || newCost == null || ingName == null) return [];
+  var delta = newCost - oldCost;
+  if (!delta) return [];
+  var n = String(ingName).toLowerCase().replace(/[^a-z0-9]/g,'');
+  function matches(x) { var xn = String(x||'').toLowerCase().replace(/[^a-z0-9]/g,''); return xn && (xn.includes(n) || n.includes(xn)); }
+
+  // For a flat recipe: contribution to cost/kg = (pct/totalPct) × delta
+  function flatDeltaPerKg(r) {
+    if (!r.ingredients || !r.ingredients.length) return 0;
+    var total = r.ingredients.reduce(function(s,i){return s+(i.pct||0)},0) || 100;
+    var sum = 0;
+    r.ingredients.forEach(function(i){
+      if (matches(i.name)) sum += (i.pct / total) * delta;
+    });
+    return sum;
+  }
+
+  // Map sub-recipe npd → delta/kg for that sub (so composite roll-up uses it)
+  var subDeltas = {};
+  Object.values(RECIPE_DB).forEach(function(r){
+    if (r.recipeKind !== 'composite') {
+      var d = flatDeltaPerKg(r);
+      if (d) subDeltas[r.npd] = d;
+    }
+  });
+
+  var rows = [];
+  Object.values(RECIPE_DB).forEach(function(r){
+    if (r.recipeKind === 'composite') {
+      var portionG = compositePortionTotalG(r) || 0;
+      if (!portionG) return;
+      var dPortion = 0;
+      (r.components||[]).forEach(function(c){
+        var d = subDeltas[c.subNpd] || 0;
+        if (d && c.applyG) dPortion += (c.applyG / 1000) * d;
+      });
+      // Main material match (name contains)
+      if (r.mainMaterial && matches(r.mainMaterial.name) && r.mainMaterial.g) {
+        dPortion += (r.mainMaterial.g / 1000) * delta;
+      }
+      if (dPortion) rows.push({ npd:r.npd, name:r.name, kind:'composite', perPortion:dPortion, perKg:null });
+    } else {
+      var d = subDeltas[r.npd];
+      if (d) rows.push({ npd:r.npd, name:r.name, kind:'flat', perKg:d, perPortion: r.portionSize ? d * r.portionSize / 1000 : null });
+    }
+  });
+  // Sort by absolute impact desc
+  rows.sort(function(a,b){ return Math.abs(b.perPortion||b.perKg||0) - Math.abs(a.perPortion||a.perKg||0); });
+  return rows;
+}
+
+function showIngredientImpactModal(ingName, oldCost, newCost, rows) {
+  var delta = newCost - oldCost;
+  var direction = delta > 0 ? 'up' : 'down';
+  var color = delta > 0 ? 'var(--red)' : 'var(--sage)';
+  var pct = oldCost > 0 ? Math.abs(delta) / oldCost * 100 : 0;
+  var body = rows.length
+    ? '<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>' +
+        '<th style="text-align:left;padding:6px 10px;border-bottom:1px solid var(--g2);font-size:10px;text-transform:uppercase;color:var(--g3)">Recipe</th>' +
+        '<th style="padding:6px 10px;border-bottom:1px solid var(--g2);font-size:10px;text-transform:uppercase;color:var(--g3);text-align:right">Δ per kg</th>' +
+        '<th style="padding:6px 10px;border-bottom:1px solid var(--g2);font-size:10px;text-transform:uppercase;color:var(--g3);text-align:right">Δ per portion</th>' +
+      '</tr></thead><tbody>' +
+      rows.map(function(x){
+        var kg = x.perKg != null ? 'SAR ' + (x.perKg >= 0 ? '+' : '') + x.perKg.toFixed(3) : '—';
+        var po = x.perPortion != null ? 'SAR ' + (x.perPortion >= 0 ? '+' : '') + x.perPortion.toFixed(3) : '—';
+        return '<tr><td style="padding:6px 10px;border-bottom:1px solid var(--g1)">'+x.name+' <span style="color:var(--g3);font-size:10px">('+x.kind+')</span></td>' +
+               '<td style="padding:6px 10px;border-bottom:1px solid var(--g1);font-family:var(--font-m);text-align:right;color:'+color+'">'+kg+'</td>' +
+               '<td style="padding:6px 10px;border-bottom:1px solid var(--g1);font-family:var(--font-m);text-align:right;color:'+color+'">'+po+'</td></tr>';
+      }).join('') +
+      '</tbody></table>'
+    : '<div style="padding:20px;text-align:center;color:var(--g3);font-size:12px">No recipes currently use this ingredient.</div>';
+  openModal(
+    '<div class="card-head" style="background:var(--navy);border-radius:16px 16px 0 0">' +
+      '<span class="card-title" style="color:white">💰 Price change impact — '+ingName+'</span>' +
+      '<button class="btn btn-sm" style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:none" onclick="closeModal()">✕</button>' +
+    '</div>' +
+    '<div style="padding:18px 22px">' +
+      '<div style="display:flex;gap:20px;padding:12px 16px;background:var(--g1);border-radius:var(--r-sm);margin-bottom:14px;font-size:13px">' +
+        '<div><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:var(--g3);font-weight:600">Old price</div><div style="font-family:var(--font-m);font-weight:600">SAR ' + oldCost.toFixed(2) + '/kg</div></div>' +
+        '<div><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:var(--g3);font-weight:600">New price</div><div style="font-family:var(--font-m);font-weight:600">SAR ' + newCost.toFixed(2) + '/kg</div></div>' +
+        '<div><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:var(--g3);font-weight:600">Change</div><div style="font-family:var(--font-m);font-weight:600;color:'+color+'">' + (delta>=0?'+':'') + 'SAR ' + delta.toFixed(2) + ' (' + (delta>=0?'+':'-') + pct.toFixed(1) + '%) ' + direction + '</div></div>' +
+        '<div style="margin-left:auto"><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:var(--g3);font-weight:600">Recipes affected</div><div style="font-family:var(--font-m);font-weight:600">'+rows.length+'</div></div>' +
+      '</div>' +
+      '<div style="max-height:420px;overflow-y:auto">' + body + '</div>' +
+      '<div style="display:flex;justify-content:flex-end;margin-top:14px"><button class="btn btn-gold" onclick="closeModal()">Got it</button></div>' +
+    '</div>',
+    '720px'
+  );
+}
+
 function saveEditIngredient() {
   const row = window._editIngRow;
   if (!row) return;
   // Find the ingredient in ING_DATA by row index
   var idx = Array.from(row.parentElement.children).indexOf(row);
+  var oldName = '', oldCost = null, newName = '', newCost = null;
   if (idx >= 0 && idx < ING_DATA.length) {
+    oldName = ING_DATA[idx][1];
+    oldCost = _parseCost(ING_DATA[idx][5]);
     ING_DATA[idx][1] = document.getElementById('ei-name').value;
     ING_DATA[idx][2] = document.getElementById('ei-supplier').value;
     ING_DATA[idx][3] = document.getElementById('ei-code').value;
@@ -9977,11 +10171,19 @@ function saveEditIngredient() {
     ING_DATA[idx][6] = document.getElementById('ei-storage').value;
     ING_DATA[idx][7] = document.getElementById('ei-shelf').value;
     ING_DATA[idx][8] = 'Just now';
+    newName = ING_DATA[idx][1];
+    newCost = _parseCost(ING_DATA[idx][5]);
   }
   buildIngTable();
   saveAllData();
   closeModal();
-  showSaveToast('Ingredient updated');
+  // If cost changed, show impact
+  if (oldCost != null && newCost != null && oldCost !== newCost) {
+    var rows = computeIngredientImpact(newName || oldName, oldCost, newCost);
+    setTimeout(function(){ showIngredientImpactModal(newName || oldName, oldCost, newCost, rows); }, 80);
+  } else {
+    showSaveToast('Ingredient updated');
+  }
 }
 
 // ──────────── EDIT USER ────────────
@@ -11224,12 +11426,30 @@ function _finishBuildNutrition(buildId, totals, totalWeight) {
 
 function loadNutrition(npd) {
   var r = RECIPE_DB[npd];
-  if (!r || !r.nutrition) return;
+  if (!r) return;
+  var nut = getRecipeNutrition(npd);
+  if (!nut) return;
   var fields = ['energy','fat','satfat','transfat','carbs','sugars','fibre','protein','sodium'];
   fields.forEach(function(f) {
     var el = document.getElementById('qa-nut-'+f);
-    if (el && r.nutrition[f]) el.value = r.nutrition[f];
+    if (el && nut[f] != null) el.value = nut[f];
   });
+  // Show a banner if composite roll-up
+  var bannerId = 'qa-nut-rollup-banner';
+  var existing = document.getElementById(bannerId);
+  if (nut._rolledUp) {
+    if (!existing) {
+      var energyEl = document.getElementById('qa-nut-energy');
+      if (energyEl) {
+        var row = energyEl.closest('table');
+        var banner = document.createElement('div');
+        banner.id = bannerId;
+        banner.style.cssText = 'padding:8px 12px;background:#FBF3E0;border:1px solid var(--gold);border-radius:var(--r-sm);font-size:11px;color:var(--gold);margin-bottom:10px;font-weight:500';
+        banner.textContent = '🧩 Rolled up per 100 g of finished product from sub-recipes. Edit sub-recipe nutrition to update.';
+        if (row && row.parentNode) row.parentNode.insertBefore(banner, row);
+      }
+    }
+  } else if (existing) { existing.remove(); }
   calcNutDV();
 }
 
@@ -12956,12 +13176,59 @@ function openProductionRun() {
   openModal('<div class="card-head" style="background:var(--navy);border-radius:16px 16px 0 0"><span class="card-title" style="color:white">Schedule Production Run</span><button class="btn btn-sm" style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:none" onclick="closeModal()">✕</button></div><div class="card-body" style="padding:24px"><div class="form-grid form-grid-2" style="margin-bottom:16px"><div class="form-group"><label class="form-label">Recipe</label><select class="form-select" id="np-recipe">'+recipeOpts+'</select></div><div class="form-group"><label class="form-label">Run Type</label><select class="form-select" id="np-runtype"><option>Production</option><option>Factory Trial</option><option>Production Trial</option></select></div></div><div class="form-grid form-grid-2" style="margin-bottom:16px"><div class="form-group"><label class="form-label">Date</label><input class="form-input" type="date" id="np-date" value="'+new Date().toISOString().split('T')[0]+'" /></div><div class="form-group"><label class="form-label">Batch Size (kg)</label><input class="form-input" type="number" id="np-batch" value="400" /></div></div><div class="form-grid form-grid-2" style="margin-bottom:16px"><div class="form-group"><label class="form-label">Responsible</label><select class="form-select" id="np-operator"><option value="">— Select —</option>'+operatorOpts+'</select></div><div class="form-group"><label class="form-label">Notes</label><input class="form-input" id="np-notes" placeholder="Special instructions…" /></div></div><div style="display:flex;gap:10px;justify-content:flex-end"><button class="btn btn-outline" onclick="closeModal()">Cancel</button><button class="btn btn-gold" onclick="saveProductionRun()">Schedule</button></div></div>');
 }
 
+function _nextPRId() {
+  var maxN = PRODUCTION_RUNS.reduce(function(m,r){ var n=parseInt((r.id||'').replace(/[^0-9]/g,''))||0; return n>m?n:m; }, 0);
+  return 'PR-' + String(maxN + 1).padStart(3, '0');
+}
+
 function saveProductionRun() {
   var npd = document.getElementById('np-recipe').value;
   var r = RECIPE_DB[npd];
   var _newDate = document.getElementById('np-date').value;
-  PRODUCTION_RUNS.push({id:'PR-'+String((PRODUCTION_RUNS.reduce(function(m,r){var n=parseInt(r.id.replace(/[^0-9]/g,''))||0;return n>m?n:m},0))+1).padStart(3,'0'), date:_newDate, recipe:r?r.name:npd, npd:npd, brand:r?r.brand:'', runType:document.getElementById('np-runtype').value, batchSize:document.getElementById('np-batch').value+' kg', operator:document.getElementById('np-operator').value, status:_newDate ? 'scheduled' : 'pending', yield:'', waste:'', notes:document.getElementById('np-notes').value, createdAt:new Date().toISOString()});
-  closeModal(); buildProductionTable(); logActivity('production','📅','Run scheduled: '+(r?r.name:npd)); showSaveToast('Run scheduled');
+  var batchKg = parseFloat(document.getElementById('np-batch').value) || 0;
+  var runType = document.getElementById('np-runtype').value;
+  var operator = document.getElementById('np-operator').value;
+  var notes = document.getElementById('np-notes').value;
+
+  var parentId = _nextPRId();
+  PRODUCTION_RUNS.push({
+    id: parentId, date:_newDate, recipe:r?r.name:npd, npd:npd, brand:r?r.brand:'',
+    runType:runType, batchSize:batchKg+' kg', operator:operator,
+    status:_newDate ? 'scheduled' : 'pending', yield:'', waste:'', notes:notes,
+    createdAt: new Date().toISOString(),
+  });
+
+  // If this is a composite recipe, auto-create child runs for each sub-recipe
+  var childIds = [];
+  if (r && r.recipeKind === 'composite') {
+    var portionG = compositePortionTotalG(r) || 185;
+    (r.components || []).forEach(function(c) {
+      var sub = RECIPE_DB[c.subNpd]; if (!sub || !c.applyG) return;
+      // Scale: parent batchKg produces (batchKg * 1000 / portionG) portions; each needs applyG of this stage
+      var stageKg = (batchKg * 1000 / portionG) * c.applyG / 1000;
+      stageKg = Math.ceil(stageKg * 10) / 10; // round up to nearest 100g
+      var childId = _nextPRId();
+      childIds.push(childId);
+      PRODUCTION_RUNS.push({
+        id: childId, date:_newDate, recipe: sub.name, npd: sub.npd, brand: sub.brand,
+        runType: runType, batchSize: stageKg + ' kg', operator: operator,
+        status:_newDate ? 'scheduled' : 'pending', yield:'', waste:'',
+        notes: '↳ Auto-scheduled for ' + r.name + ' (' + parentId + ') — ' + (c.stage || sub.name),
+        parentRunId: parentId, stageLabel: c.stage || sub.name,
+        createdAt: new Date().toISOString(),
+      });
+    });
+    if (childIds.length) {
+      // Store child refs on the parent for the production view
+      var parent = PRODUCTION_RUNS[PRODUCTION_RUNS.length - 1 - childIds.length];
+      parent.childRunIds = childIds;
+    }
+  }
+
+  closeModal();
+  buildProductionTable();
+  logActivity('production','📅','Run scheduled: '+(r?r.name:npd) + (childIds.length ? ' (+ ' + childIds.length + ' sub-batches)' : ''));
+  showSaveToast(childIds.length ? 'Run scheduled + ' + childIds.length + ' sub-batches auto-created' : 'Run scheduled');
   saveAllData();
 }
 
