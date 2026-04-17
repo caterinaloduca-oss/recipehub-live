@@ -5471,14 +5471,18 @@ function openPrint(npd, mode) {
   if (!r) return;
   const sheet = document.getElementById('print-sheet');
   const defaultBatch = 0.5;
-  if (mode === 'kitchen') {
-    sheet.innerHTML = renderKitchen(r, defaultBatch);
-  } else if (mode === 'sop-only') {
-    sheet.innerHTML = renderSOPOnly(r);
-  } else if (mode === 'factory-text') {
-    sheet.innerHTML = renderFactory(r, 400, true);
-  } else {
-    sheet.innerHTML = renderFactory(r, 400, false);
+  const factoryBatch = 400;
+  switch (mode) {
+    case 'kitchen':      sheet.innerHTML = renderKitchen(r, defaultBatch); break;
+    case 'sop-only':     sheet.innerHTML = renderSOPOnly(r); break;
+    case 'factory-text': sheet.innerHTML = renderFactory(r, factoryBatch, true); break;
+    case 'full':         sheet.innerHTML = renderFactoryFull(r, factoryBatch, false); break;
+    case 'full-text':    sheet.innerHTML = renderFactoryFull(r, factoryBatch, true); break;
+    case 'flowchart':    sheet.innerHTML = renderFlowchartOnly(r); break;
+    case 'batch':        sheet.innerHTML = renderBatchTicketOnly(r, factoryBatch); break;
+    case 'cover':        sheet.innerHTML = renderCoverSignoff(r); break;
+    case 'annexure':     sheet.innerHTML = renderAnnexureOnly(r); break;
+    default:             sheet.innerHTML = renderFactory(r, factoryBatch, false);
   }
   document.getElementById('print-overlay').classList.add('active');
   document.body.classList.add('print-active');
@@ -5679,6 +5683,221 @@ function renderSOPOnly(r) {
       <span>${r.npd} · ${r.version} · SOP Only</span>
     </div>
   `;
+}
+
+function _printHeader(r, subtitle, meta) {
+  var metaHTML = (meta || ['Brand','Batch','Storage','Shelf Life','Date']).map(function(k){
+    var v = '';
+    if (k==='Brand') v = r.brand;
+    else if (k==='Storage') v = r.storage;
+    else if (k==='Shelf Life') v = r.shelfLife;
+    else if (k==='Yield') v = (r.yield * 100).toFixed(0) + '%';
+    else if (k==='Date') v = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+    else if (k.indexOf('=')>0) { var p=k.split('='); return '<div><span class="ps-meta-label">'+p[0]+'</span>'+p[1]+'</div>'; }
+    else v = k;
+    return '<div><span class="ps-meta-label">'+k+'</span>'+v+'</div>';
+  }).join('');
+  return '<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1a1a1a;padding-bottom:8px;margin-bottom:12px">' +
+    '<div><div class="ps-title">'+r.name+'</div><div class="ps-subtitle">'+subtitle+' — '+r.npd+' · '+r.version+'</div></div>' +
+    '<div style="display:flex;gap:16px;flex-wrap:wrap;text-align:right;font-size:8pt">'+metaHTML+'</div>' +
+  '</div>';
+}
+
+function _printFlowchartHTML(r, compact) {
+  var nodes = _getFlowchartNodes(r);
+  if (!nodes.length) return '<div style="padding:20px;text-align:center;color:#888;font-size:9pt">No flowchart steps.</div>';
+  return nodes.map(function(n, i){
+    var isLast = i === nodes.length - 1;
+    var bg = n.kind==='shared' ? '#F0F6FF' : (n.kind==='custom' ? '#F2F8F4' : '#FFF8E6');
+    var bd = n.kind==='shared' ? '#C9DBF7' : (n.kind==='custom' ? '#C8DDD0' : '#E8D89A');
+    var tag = '';
+    if (n.ccp) tag = '<span style="display:inline-block;padding:1px 6px;border-radius:30px;font-size:7pt;font-weight:600;background:#F5C2C2;color:#8C1A1A;margin-left:6px">🛑 '+n.ccp+'</span>';
+    else if (n.oprp) tag = '<span style="display:inline-block;padding:1px 6px;border-radius:30px;font-size:7pt;font-weight:600;background:#FFD9A8;color:#8C5A1A;margin-left:6px">'+n.oprp+'</span>';
+    var pad = compact ? '5px 10px' : '8px 14px';
+    var minW = compact ? '260px' : '320px';
+    return '<div style="display:flex;flex-direction:column;align-items:center">' +
+      '<div style="display:flex;align-items:center;gap:8px;padding:'+pad+';background:'+bg+';border:1px solid '+bd+';border-radius:4px;min-width:'+minW+';max-width:480px">' +
+        '<span style="font-size:8pt;color:#888;font-family:monospace;min-width:28px">'+(n.num||'')+'</span>' +
+        '<span style="flex:1;font-size:9.5pt;font-weight:600;color:#1A2B4E">'+n.title+'</span>' +
+        tag +
+      '</div>' +
+      (isLast ? '' : '<div style="color:#888;font-size:13pt;line-height:1;padding:1px 0">↓</div>') +
+    '</div>';
+  }).join('');
+}
+
+function _printStandardBlocksHTML(r, position, label, noImages) {
+  var enabledIds = getRecipeStandardBlocks(r);
+  var blocks = SOP_STANDARD_BLOCKS.filter(function(b){ return b.position===position && enabledIds.indexOf(b.id)>-1; });
+  if (!blocks.length) return '';
+  return '<div class="ps-section" style="margin-top:14px">' +
+    '<div class="ps-section-title">'+label+'</div>' +
+    blocks.map(function(b, i){
+      var tag = '';
+      if (b.ccp) tag = '<span style="display:inline-block;padding:1px 6px;border-radius:30px;font-size:7pt;font-weight:600;background:#F5C2C2;color:#8C1A1A;margin-left:6px">🛑 '+b.ccp+'</span>';
+      else if (b.oprp) tag = '<span style="display:inline-block;padding:1px 6px;border-radius:30px;font-size:7pt;font-weight:600;background:#FFD9A8;color:#8C5A1A;margin-left:6px">'+b.oprp+'</span>';
+      return '<div class="ps-step" style="break-inside:avoid">' +
+        '<div class="ps-step-num" style="background:#C9DBF7;color:#1A4A8C">'+(b.num||String(i+1))+'</div>' +
+        '<div class="ps-step-body">' +
+          '<div class="ps-step-title">'+b.title+tag+'</div>' +
+          '<div class="ps-step-text">'+(b.body||'')+'</div>' +
+          ((b.annexures||[]).length ? '<div style="margin-top:3px;font-size:7.5pt;color:#666">Forms: '+b.annexures.map(function(a){return a.code}).join(', ')+'</div>' : '') +
+        '</div>' +
+      '</div>';
+    }).join('') +
+  '</div>';
+}
+
+function _printRecipeStepsHTML(r, noImages) {
+  var steps = (r.sopSteps && r.sopSteps.length) ? r.sopSteps : r.method.map(function(m){return {title:m.title, text:m.text, params:[], icons:[]}});
+  return steps.map(function(s, i){
+    return '<div class="ps-step" style="break-inside:avoid">' +
+      '<div class="ps-step-num">'+(i+1)+'</div>' +
+      (!noImages && s.visualImg ? '<div style="width:80px;height:60px;border-radius:4px;overflow:hidden;flex-shrink:0;background:#f5f5f5"><img src="'+s.visualImg+'" style="width:100%;height:100%;object-fit:cover" /></div>' : '') +
+      '<div class="ps-step-body">' +
+        (s.icons && s.icons.length ? '<div style="margin-bottom:2px;font-size:8pt">'+s.icons.map(function(k){ var ic=SOP_ICONS[k]; return ic ? '<span style="margin-right:4px">'+ic.emoji+'</span>' : ''; }).join('')+'</div>' : '') +
+        '<div class="ps-step-title">'+s.title+'</div>' +
+        '<div class="ps-step-text">'+s.text+'</div>' +
+        (s.params && s.params.length ? '<div class="ps-params">'+s.params.map(function(p){return '<div class="ps-param"><div class="ps-param-label">'+p.l+'</div><div class="ps-param-value">'+p.v+'</div></div>'}).join('')+'</div>' : '') +
+        (s.ccp ? '<div class="ps-ccp">🛑 '+s.ccp+'</div>' : '') +
+        (s.warning ? '<div class="ps-warning">⚠️ '+s.warning+'</div>' : '') +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function _printBatchTicketHTML(r, batchKg) {
+  var scaled = scaleIngredients(r.ingredients, batchKg);
+  var totalKg = scaled.reduce(function(s,i){return s + i.kg}, 0);
+  return '<div class="ps-section">' +
+    '<div class="ps-section-title">Batch Ticket — '+formatWeight(batchKg)+' target</div>' +
+    '<table class="ps-table">' +
+      '<thead><tr><th>Ingredient</th><th style="text-align:right">%</th><th style="text-align:right">kg</th><th style="text-align:center;width:40px">✓</th><th style="text-align:right;width:70px">Actual</th></tr></thead>' +
+      '<tbody>' +
+        scaled.map(function(i){return '<tr><td>'+i.name+'</td><td class="num">'+i.pct.toFixed(1)+'%</td><td class="num">'+i.kg.toFixed(3)+'</td><td style="text-align:center"><span class="ps-batch-check"></span></td><td style="border-bottom:1px dotted #ccc"></td></tr>'}).join('') +
+        '<tr class="total-row"><td>Total</td><td class="num">100%</td><td class="num">'+totalKg.toFixed(3)+'</td><td></td><td></td></tr>' +
+      '</tbody>' +
+    '</table>' +
+  '</div>';
+}
+
+function _printAnnexureHTML(r) {
+  var enabledIds = getRecipeStandardBlocks(r);
+  var rows = [];
+  SOP_STANDARD_BLOCKS.forEach(function(b){
+    if (enabledIds.indexOf(b.id) === -1) return;
+    (b.annexures||[]).forEach(function(a){ rows.push({ code:a.code, name:a.name, source:b.title }); });
+  });
+  var seen = {}; rows = rows.filter(function(x){ if (seen[x.code]) return false; seen[x.code]=1; return true; });
+  if (!rows.length) return '';
+  var romans = ['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII','XIII','XIV','XV','XVI','XVII','XVIII','XIX','XX'];
+  return '<div class="ps-section" style="margin-top:14px">' +
+    '<div class="ps-section-title">Annexure</div>' +
+    '<table class="ps-table">' +
+      '<thead><tr><th style="width:50px">#</th><th style="width:140px">Doc No</th><th>Document Name</th><th>Source</th></tr></thead>' +
+      '<tbody>'+rows.map(function(x,i){return '<tr><td>'+(romans[i]||(i+1))+'</td><td class="num">'+x.code+'</td><td>'+x.name+'</td><td style="font-size:7.5pt;color:#666">'+x.source+'</td></tr>'}).join('')+'</tbody>' +
+    '</table>' +
+  '</div>';
+}
+
+function _printSignoffHTML() {
+  return '<div class="ps-signoff">' +
+    '<div class="ps-signoff-item"><label>Production Supervisor</label><div class="sign-line"></div></div>' +
+    '<div class="ps-signoff-item"><label>QA Technician</label><div class="sign-line"></div></div>' +
+    '<div class="ps-signoff-item"><label>Date / Batch No.</label><div class="sign-line"></div></div>' +
+  '</div>';
+}
+
+// ── Full document (all in) ──
+function renderFactoryFull(r, batchKg, noImages) {
+  return _printHeader(r, 'Factory SOP — Full Document', ['Brand','Storage','Shelf Life','Yield','Date']) +
+    '<div class="ps-section"><div class="ps-section-title">1. Product Description</div><div style="font-size:9pt;line-height:1.6">'+(r.description || r.name + ' — see recipe master for full description.')+'</div></div>' +
+    '<div class="ps-section" style="margin-top:14px;break-inside:avoid"><div class="ps-section-title">2. Process Flowchart</div>' +
+      '<div style="display:flex;flex-direction:column;align-items:center;padding:10px 0">'+_printFlowchartHTML(r, true)+'</div>' +
+    '</div>' +
+    '<div class="ps-section" style="margin-top:14px"><div class="ps-section-title">3. Process Description</div></div>' +
+    _printStandardBlocksHTML(r, 'pre', '3a. Pre-Production — Standard Blocks', noImages) +
+    _printBatchTicketHTML(r, batchKg) +
+    '<div class="ps-section" style="margin-top:14px"><div class="ps-section-title">3b. Production Steps (Recipe-Specific)</div>' + _printRecipeStepsHTML(r, noImages) + '</div>' +
+    _printStandardBlocksHTML(r, 'post', '3c. Post-Production — Standard Blocks', noImages) +
+    _printAnnexureHTML(r) +
+    _printSignoffHTML() +
+    '<div class="ps-footer"><span>RecipeHub · '+r.brand+' · CONFIDENTIAL</span><span>'+r.npd+' · '+r.version+' · Full Document</span></div>';
+}
+
+// ── Flowchart only (A4 portrait) ──
+function renderFlowchartOnly(r) {
+  return _printHeader(r, 'Process Flowchart', ['Brand','Storage','Shelf Life','Date']) +
+    '<div style="display:flex;flex-direction:column;align-items:center;padding:20px 0;gap:0">'+_printFlowchartHTML(r, false)+'</div>' +
+    '<div class="ps-footer"><span>RecipeHub · '+r.brand+'</span><span>'+r.npd+' · '+r.version+' · Flowchart</span></div>';
+}
+
+// ── Batch ticket only ──
+function renderBatchTicketOnly(r, batchKg) {
+  return '<div class="ps-batch-size-bar">' +
+      '<label>Batch Size</label>' +
+      '<input type="number" min="1" step="10" value="'+batchKg+'" onchange="rescaleFactory(\''+r.npd+'\', this.value)" id="factory-batch" />' +
+      '<span class="unit">kg</span>' +
+    '</div>' +
+    _printHeader(r, 'Batch Ticket', ['Brand','Batch='+formatWeight(batchKg),'Storage','Shelf Life','Date']) +
+    '<div id="factory-batch-label" style="display:none">'+formatWeight(batchKg)+'</div>' +
+    '<div class="ps-section">' +
+      '<div class="ps-section-title">Ingredients</div>' +
+      '<table class="ps-table">' +
+        '<thead><tr><th>Ingredient</th><th style="text-align:right">%</th><th style="text-align:right">kg</th><th style="text-align:center;width:40px">✓</th><th style="text-align:right;width:90px">Actual</th></tr></thead>' +
+        '<tbody id="factory-ing-body">' +
+          scaleIngredients(r.ingredients, batchKg).map(function(i){return '<tr><td>'+i.name+'</td><td class="num">'+i.pct.toFixed(1)+'%</td><td class="num">'+i.kg.toFixed(3)+'</td><td style="text-align:center"><span class="ps-batch-check"></span></td><td style="border-bottom:1px dotted #ccc"></td></tr>'}).join('') +
+          '<tr class="total-row"><td>Total</td><td class="num">100%</td><td class="num">'+scaleIngredients(r.ingredients, batchKg).reduce(function(s,i){return s+i.kg},0).toFixed(3)+'</td><td></td><td></td></tr>' +
+        '</tbody>' +
+      '</table>' +
+    '</div>' +
+    _printSignoffHTML() +
+    '<div class="ps-footer"><span>RecipeHub · '+r.brand+'</span><span>'+r.npd+' · '+r.version+' · Batch Ticket</span></div>';
+}
+
+// ── Cover & sign-off (document control) ──
+function renderCoverSignoff(r) {
+  var changes = (r.changeLog || []).slice().reverse();
+  var cell = 'padding:10px 14px;border:1px solid #ccc;vertical-align:top';
+  return _printHeader(r, 'Factory SOP — Controlled Document', ['Brand','Storage','Shelf Life','Yield','Date']) +
+    '<div style="margin-top:20px">' +
+      '<table style="width:100%;border-collapse:collapse;font-size:9pt">' +
+        '<thead><tr>' +
+          '<th style="'+cell+';background:#f5f5f5">Prepared by</th>' +
+          '<th style="'+cell+';background:#f5f5f5">Reviewed by</th>' +
+          '<th style="'+cell+';background:#f5f5f5">Approved by</th>' +
+        '</tr></thead>' +
+        '<tbody>' +
+          '<tr>' +
+            '<td style="'+cell+';height:50px"><div style="font-size:8pt;color:#666">Document Control Team / NPD</div><div style="margin-top:28px;border-top:1px dotted #999;padding-top:4px;font-size:8pt;color:#666">Signature</div></td>' +
+            '<td style="'+cell+';height:50px"><div style="font-size:8pt;color:#666">Quality Manager / Factory Manager</div><div style="margin-top:28px;border-top:1px dotted #999;padding-top:4px;font-size:8pt;color:#666">Signature</div></td>' +
+            '<td style="'+cell+';height:50px"><div style="font-size:8pt;color:#666">Head-Quality Assurance / Production Manager</div><div style="margin-top:28px;border-top:1px dotted #999;padding-top:4px;font-size:8pt;color:#666">Signature</div></td>' +
+          '</tr>' +
+          '<tr>' +
+            '<td style="'+cell+'"><span style="font-size:8pt;color:#666">Date:</span> ____________________</td>' +
+            '<td style="'+cell+'"><span style="font-size:8pt;color:#666">Date:</span> ____________________</td>' +
+            '<td style="'+cell+'"><span style="font-size:8pt;color:#666">Date:</span> ____________________</td>' +
+          '</tr>' +
+        '</tbody>' +
+      '</table>' +
+    '</div>' +
+    '<div class="ps-section" style="margin-top:20px">' +
+      '<div class="ps-section-title">Version History</div>' +
+      '<table class="ps-table">' +
+        '<thead><tr><th style="width:80px">Version</th><th>Reason for Change</th><th style="width:110px">By</th><th style="width:120px">Date</th></tr></thead>' +
+        '<tbody>' +
+          (changes.length ? changes.map(function(c){ return '<tr><td class="num">'+(c.version||r.version)+'</td><td>'+(c.changes||c.reason||'')+'</td><td>'+(c.by||'')+'</td><td class="num">'+(c.date ? new Date(c.date).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '')+'</td></tr>'}).join('') : '<tr><td class="num">'+r.version+'</td><td>Original</td><td></td><td class="num">'+new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})+'</td></tr>') +
+        '</tbody>' +
+      '</table>' +
+    '</div>' +
+    '<div class="ps-footer"><span>RecipeHub · '+r.brand+' · CONFIDENTIAL</span><span>'+r.npd+' · '+r.version+' · Cover &amp; Sign-off</span></div>';
+}
+
+// ── Annexure only ──
+function renderAnnexureOnly(r) {
+  return _printHeader(r, 'SOP Annexure — Form References', ['Brand','Storage','Date']) +
+    (_printAnnexureHTML(r) || '<div style="padding:20px;text-align:center;color:#888;font-size:9pt">No annexure references on enabled standard blocks.</div>') +
+    '<div class="ps-footer"><span>RecipeHub · '+r.brand+'</span><span>'+r.npd+' · '+r.version+' · Annexure</span></div>';
 }
 
 function rescaleFactory(npd, val) {
@@ -7482,8 +7701,20 @@ function exportToSOP(npd) {
           <div style="display:flex;gap:6px">
             <button class="btn btn-sm" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15)" onclick="saveAllData();showSaveToast('SOP saved')">💾 Save</button>
             <button class="btn btn-sm" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15)" onclick="openSOPFlowchart('${r.npd}')">🔀 Flowchart</button>
-            <button class="btn btn-sm" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15)" onclick="openPrint('${r.npd}','factory')">🖨️ Full Print</button>
-            <button class="btn btn-sm" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15)" onclick="openPrint('${r.npd}','factory-text')">🖨️ Text Only</button>
+            <div class="print-dd" id="dd-sop-${r.npd}" style="position:relative">
+              <button class="btn btn-sm" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15)" onclick="event.stopPropagation();document.getElementById('dd-sop-${r.npd}').classList.toggle('open')">🖨️ Print ▾</button>
+              <div class="print-dd-menu" style="color:var(--g5)">
+                <button class="print-dd-item" onclick="event.stopPropagation();openPrint('${r.npd}','full')"><span class="dd-icon">📘</span> Full document (all-in)</button>
+                <div class="print-dd-divider"></div>
+                <button class="print-dd-item" onclick="event.stopPropagation();openPrint('${r.npd}','factory')"><span class="dd-icon">📸</span> SOP with pictures</button>
+                <button class="print-dd-item" onclick="event.stopPropagation();openPrint('${r.npd}','factory-text')"><span class="dd-icon">📝</span> SOP text only</button>
+                <div class="print-dd-divider"></div>
+                <button class="print-dd-item" onclick="event.stopPropagation();openPrint('${r.npd}','flowchart')"><span class="dd-icon">🔀</span> Flowchart only</button>
+                <button class="print-dd-item" onclick="event.stopPropagation();openPrint('${r.npd}','batch')"><span class="dd-icon">⚖️</span> Batch ticket only</button>
+                <button class="print-dd-item" onclick="event.stopPropagation();openPrint('${r.npd}','cover')"><span class="dd-icon">🗂️</span> Cover &amp; sign-off</button>
+                <button class="print-dd-item" onclick="event.stopPropagation();openPrint('${r.npd}','annexure')"><span class="dd-icon">📑</span> Annexure list</button>
+              </div>
+            </div>
             <button class="btn btn-sm" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15)" onclick="viewRecipe('${r.npd}')">← Recipe</button>
           </div>
         </div>
