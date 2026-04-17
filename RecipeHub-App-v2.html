@@ -7838,28 +7838,9 @@ function exportToSOP(npd) {
           </div>
         </div>
 
-        <div class="card">
-          <div class="card-head"><span class="card-title">Sign-off</span></div>
-          <div class="card-body">
-            <div class="form-group" style="margin-bottom:12px">
-              <label class="form-label">Production Supervisor</label>
-              <input class="form-input" placeholder="Signature / Name" id="sop-sign-supervisor" />
-            </div>
-            <div class="form-group" style="margin-bottom:12px">
-              <label class="form-label">QA Technician</label>
-              <input class="form-input" placeholder="Signature / Name" id="sop-sign-qa" />
-            </div>
-            <div class="form-group" style="margin-bottom:16px">
-              <label class="form-label">Date & Batch No.</label>
-              <input class="form-input" type="date" value="${new Date().toISOString().slice(0,10)}" id="sop-sign-date" />
-            </div>
-            <div style="display:flex;flex-direction:column;gap:8px">
-              <button class="btn btn-outline" style="width:100%" onclick="saveSOPDraft('${r.npd}')">💾 Save Draft</button>
-              <button class="btn btn-gold" style="width:100%" onclick="submitSOPForApproval('${r.npd}')">📤 Submit for Approval</button>
-              <button class="btn btn-sage" style="width:100%" onclick="approveSOPRelease('${r.npd}')">✓ Approve & Release</button>
-            </div>
-            <div id="sop-save-msg" style="display:none;margin-top:12px;padding:10px 14px;border-radius:var(--r-md);font-size:12px;font-weight:500;text-align:center"></div>
-          </div>
+        <div class="card" id="sop-approval-card">
+          <div class="card-head"><span class="card-title">Document Approval</span></div>
+          <div class="card-body" id="sop-approval-body">${renderSOPApprovalStages(r)}</div>
         </div>
       </div>
     </div>
@@ -7876,6 +7857,7 @@ function exportToSOP(npd) {
   document.getElementById('sop-content').style.display = 'block';
   showPage('sop');
   applyRoleRestrictions();
+  updateSOPStatusBadge(r);
 }
 
 function renderEditableSOPStep(s, idx, npd) {
@@ -8080,67 +8062,138 @@ function showSOPMsg(text, type) {
 function updateSOPStatusBadge(r) {
   const el = document.getElementById('sop-status-badge');
   if (!el) return;
-  if (r.sopStatus === 'approved') { el.className = 'badge badge-approved'; el.style.fontSize = '11px'; el.textContent = 'Approved for Production'; }
-  else if (r.sopStatus === 'pending') { el.className = 'badge badge-review'; el.style.fontSize = '11px'; el.textContent = 'Pending Approval'; }
-  else { el.className = 'badge badge-draft'; el.style.fontSize = '11px'; el.textContent = 'Draft — Review Required'; }
+  var s = r.sopStatus;
+  if (s === 'approved') { el.className = 'badge badge-approved'; el.style.fontSize = '11px'; el.textContent = 'Approved for Production'; }
+  else if (s === 'pending-approval') { el.className = 'badge badge-review'; el.style.fontSize = '11px'; el.textContent = 'Pending Final Approval'; }
+  else if (s === 'pending-review' || s === 'pending') { el.className = 'badge badge-review'; el.style.fontSize = '11px'; el.textContent = 'Pending Review'; }
+  else { el.className = 'badge badge-draft'; el.style.fontSize = '11px'; el.textContent = 'Draft'; }
+}
+
+// ────── SOP DOCUMENT APPROVAL — 3-stage chain ──────
+function _getSOPApproval(r) {
+  if (!r.sopApproval) r.sopApproval = { prepared:null, reviewed:null, approved:null };
+  return r.sopApproval;
+}
+
+function _canSignStage(stage) {
+  var role = getCurrentUserRole();
+  if (role === 'admin') return true;
+  if (stage === 'prepared') return role === 'npd';
+  if (stage === 'reviewed') return role === 'qa' || role === 'factory';
+  if (stage === 'approved') return false; // admin-only
+  return false;
+}
+
+function renderSOPApprovalStages(r) {
+  var a = _getSOPApproval(r);
+  function _fmtDate(iso) { try { return new Date(iso).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}); } catch(e) { return iso; } }
+  function _stage(num, stage, role, label, next) {
+    var rec = a[stage];
+    var done = !!rec;
+    var prevDone = stage === 'prepared' ? true : (stage === 'reviewed' ? !!a.prepared : !!a.reviewed);
+    var current = !done && prevDone;
+    var locked = !done && !prevDone;
+    var bg = done ? '#F0F7F2' : (current ? '#FFF8E6' : 'white');
+    var bd = done ? '#C8DDD0' : (current ? '#E8D89A' : 'var(--g2)');
+    var numBg = done ? 'var(--sage)' : (current ? 'var(--gold)' : 'var(--g3)');
+    var body = '';
+    if (done) {
+      body = '<div style="font-size:13px;font-weight:600;color:var(--navy)">'+rec.by+'</div>' +
+             '<div style="font-size:11px;color:var(--g4);margin-top:2px"><span style="color:var(--sage);font-weight:600">✓</span> Signed '+_fmtDate(rec.at)+'</div>';
+    } else if (current) {
+      body = '<div style="font-size:13px;font-weight:600;color:var(--navy)">Awaiting '+label.toLowerCase()+'</div>' +
+             '<div style="font-size:11px;color:var(--g4);margin-top:2px">Notified: '+role+'</div>';
+    } else {
+      body = '<div style="font-size:13px;font-weight:600;color:var(--g3)">Locked until previous stage complete</div>';
+    }
+    var btnHTML = '';
+    if (current && _canSignStage(stage)) {
+      var btnClass = stage === 'approved' ? 'btn-sage' : 'btn-gold';
+      var btnLabel = stage === 'approved' ? '✓ Final Approve' : '✓ Sign & ' + label;
+      btnHTML = '<button class="btn btn-sm '+btnClass+'" style="margin-top:8px;width:100%" onclick="signSOPStage(\''+r.npd+'\',\''+stage+'\')">'+btnLabel+'</button>';
+    } else if (current && !_canSignStage(stage)) {
+      btnHTML = '<div style="margin-top:8px;padding:6px 10px;font-size:11px;color:var(--g3);background:var(--g1);border-radius:var(--r-sm);text-align:center">Only '+role+' can sign</div>';
+    }
+    var opacity = locked ? 'opacity:0.55;' : '';
+    return '<div style="border:1px solid '+bd+';border-radius:var(--r-sm);padding:12px 14px;margin-bottom:8px;background:'+bg+';'+opacity+'">' +
+      '<div style="display:flex;gap:10px;align-items:flex-start">' +
+        '<div style="width:24px;height:24px;border-radius:50%;background:'+numBg+';color:white;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:11px;flex-shrink:0">'+num+'</div>' +
+        '<div style="flex:1">' +
+          '<div style="font-size:9px;text-transform:uppercase;letter-spacing:0.08em;color:var(--g3);font-weight:600;margin-bottom:2px">'+label+' · '+role+'</div>' +
+          body +
+          btnHTML +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }
+  var extras = '';
+  if (r.sopStatus !== 'approved') {
+    extras = '<button class="btn btn-outline" style="width:100%;margin-top:6px" onclick="saveSOPDraft(\''+r.npd+'\')">💾 Save Draft</button>';
+  } else {
+    extras = '<div style="margin-top:10px;padding:10px 12px;font-size:11px;background:#F0F7F2;color:var(--sage);border-radius:var(--r-sm);text-align:center;font-weight:500">🔒 Approved — edits will create a new version</div>';
+  }
+  return _stage(1, 'prepared', 'R&D / NPD', 'Prepared by') +
+         _stage(2, 'reviewed', 'QA / Factory Manager', 'Reviewed by') +
+         _stage(3, 'approved', 'Head QA / Production Manager', 'Approved by') +
+         extras +
+         '<div id="sop-save-msg" style="display:none;margin-top:10px;padding:10px 14px;border-radius:var(--r-md);font-size:12px;font-weight:500;text-align:center"></div>';
+}
+
+function signSOPStage(npd, stage) {
+  var r = RECIPE_DB[npd]; if (!r) return;
+  if (!_canSignStage(stage)) { showSOPMsg('Your role cannot sign this stage.', 'error'); return; }
+  var a = _getSOPApproval(r);
+  // Guard against out-of-order signing
+  if (stage === 'reviewed' && !a.prepared) { showSOPMsg('Preparer must sign first.', 'error'); return; }
+  if (stage === 'approved' && !a.reviewed) { showSOPMsg('Reviewer must sign first.', 'error'); return; }
+  if (a[stage]) { showSOPMsg('Already signed.', 'error'); return; }
+  if (stage === 'prepared' && (!r.sopSteps || !r.sopSteps.length)) { showSOPMsg('Cannot submit — no production steps defined.', 'error'); return; }
+  var name = getCurrentUserName();
+  var email = (window._currentUserEmail || (window.AUTH_USER && AUTH_USER.email) || '');
+  a[stage] = { by: name, email: email, at: new Date().toISOString() };
+  // Advance status
+  if (stage === 'prepared')      r.sopStatus = 'pending-review';
+  else if (stage === 'reviewed') r.sopStatus = 'pending-approval';
+  else if (stage === 'approved') {
+    r.sopStatus = 'approved';
+    r.status = 'approved';
+    r.approvedAt = new Date().toISOString();
+  }
+  // Fire email notification (best effort)
+  try {
+    var nextLabel = stage === 'prepared' ? 'ready for QA / Factory Manager review' : stage === 'reviewed' ? 'ready for Head QA / Production Manager final approval' : 'APPROVED for production';
+    fetch(API_BASE + '/api/notify', {
+      method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+API_KEY},
+      body: JSON.stringify({ event:'sop-stage', recipe: r.name+' ('+r.npd+')', user: name, stage: stage, message: 'SOP '+nextLabel })
+    });
+  } catch(e) {}
+  updateSOPStatusBadge(r);
+  var body = document.getElementById('sop-approval-body'); if (body) body.innerHTML = renderSOPApprovalStages(r);
+  showSOPMsg('✓ '+(stage==='approved'?'SOP approved and released for production':'Signed as '+stage)+' — '+name, 'success');
+  if (stage === 'approved') {
+    var tbody = document.getElementById('recipes-tbody'); if (tbody) { tbody.innerHTML=''; buildRecipesTable(); }
+  }
+  saveRecipeToServer(npd);
 }
 
 function saveSOPDraft(npd) {
   const r = RECIPE_DB[npd];
   if (!r) return;
-  r.sopStatus = 'draft';
+  if (r.sopStatus !== 'approved') r.sopStatus = r.sopStatus || 'draft';
   r.sopSavedAt = new Date().toLocaleString('en-GB');
   updateSOPStatusBadge(r);
   showSOPMsg('✓ Draft saved — ' + r.sopSavedAt, 'success');
   saveAllData();
 }
 
-function submitSOPForApproval(npd) {
-  const r = RECIPE_DB[npd];
-  if (!r) return;
-  if (!r.sopSteps || r.sopSteps.length === 0) {
-    showSOPMsg('Cannot submit — no production steps defined.', 'error');
-    return;
-  }
-  r.sopStatus = 'pending';
-  r.sopSubmittedAt = new Date().toLocaleString('en-GB');
-  r.sopSubmittedBy = 'Current User';
-  updateSOPStatusBadge(r);
-  showSOPMsg('📤 Submitted for approval — awaiting Admin review.', 'warning');
-  saveAllData();
-}
-
+// ── Back-compat shims (old buttons may still be in memory or old code paths) ──
+function submitSOPForApproval(npd) { signSOPStage(npd, 'prepared'); }
 function approveSOPRelease(npd) {
-  const r = RECIPE_DB[npd];
-  if (!r) return;
-
-  // Check sign-off fields
-  const supervisor = document.getElementById('sop-sign-supervisor')?.value;
-  const qa = document.getElementById('sop-sign-qa')?.value;
-  if (!supervisor || !qa) {
-    showSOPMsg('Please fill in both sign-off fields before approving.', 'error');
-    if (!supervisor) document.getElementById('sop-sign-supervisor').style.borderColor = '#C0392B';
-    if (!qa) document.getElementById('sop-sign-qa').style.borderColor = '#C0392B';
-    return;
-  }
-
-  r.sopStatus = 'approved';
-  r.sopApprovedAt = new Date().toLocaleString('en-GB');
-  r.sopApprovedBy = getCurrentUserName();
-  r.sopSupervisor = supervisor;
-  r.sopQATech = qa;
-
-  // Also update the recipe status to approved
-  r.status = 'approved';
-  r.approvedAt = new Date().toISOString();
-
-  updateSOPStatusBadge(r);
-  showSOPMsg('✓ SOP approved and released for production by ' + getCurrentUserName() + ' — ' + r.sopApprovedAt, 'success');
-
-  // Rebuild recipes table to reflect new status
-  const tbody = document.getElementById('recipes-tbody');
-  if (tbody) { tbody.innerHTML = ''; buildRecipesTable(); }
-  saveAllData();
+  var r = RECIPE_DB[npd]; if (!r) return;
+  var a = _getSOPApproval(r);
+  if (!a.prepared) signSOPStage(npd, 'prepared');
+  else if (!a.reviewed) signSOPStage(npd, 'reviewed');
+  else if (!a.approved) signSOPStage(npd, 'approved');
 }
 
 // ──────────── FILTER: RECIPES ────────────
