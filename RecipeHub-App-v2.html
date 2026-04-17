@@ -7206,6 +7206,39 @@ function renderSOPStandardBlocksSection(r, position, label) {
   '</div>';
 }
 
+function renderSOPFlowchart(r) {
+  var enabledIds = getRecipeStandardBlocks(r);
+  var pre = SOP_STANDARD_BLOCKS.filter(function(b){ return b.position==='pre' && enabledIds.indexOf(b.id)>-1; });
+  var post = SOP_STANDARD_BLOCKS.filter(function(b){ return b.position==='post' && enabledIds.indexOf(b.id)>-1; });
+  var nodes = [];
+  pre.forEach(function(b){ nodes.push({ kind:'shared', num:b.num||'', title:b.title, oprp:b.oprp, ccp:b.ccp }); });
+  (r.sopSteps||[]).forEach(function(s, i){ nodes.push({ kind:'recipe', num:'3.'+(pre.length+i+1), title:s.title, oprp:null, ccp:s.ccp ? 'CCP' : null }); });
+  post.forEach(function(b){ nodes.push({ kind:'shared', num:b.num||'', title:b.title, oprp:b.oprp, ccp:b.ccp }); });
+  if (!nodes.length) return '';
+
+  var boxes = nodes.map(function(n, i){
+    var isLast = i === nodes.length - 1;
+    var bg = n.kind==='shared' ? '#F0F6FF' : '#FFF8E6';
+    var bd = n.kind==='shared' ? '#C9DBF7' : '#E8D89A';
+    var tag = '';
+    if (n.ccp)  tag = '<span style="display:inline-block;padding:1px 7px;border-radius:40px;font-size:9px;font-weight:600;background:#F5C2C2;color:#8C1A1A;margin-left:6px">🛑 '+n.ccp+'</span>';
+    else if (n.oprp) tag = '<span style="display:inline-block;padding:1px 7px;border-radius:40px;font-size:9px;font-weight:600;background:#FFD9A8;color:#8C5A1A;margin-left:6px">'+n.oprp+'</span>';
+    return '<div style="display:flex;flex-direction:column;align-items:center">' +
+      '<div style="display:flex;align-items:center;gap:10px;padding:10px 16px;background:'+bg+';border:1px solid '+bd+';border-radius:var(--r-sm);min-width:320px;max-width:480px">' +
+        '<span style="font-size:10px;color:var(--g3);font-family:var(--font-m);min-width:30px">'+n.num+'</span>' +
+        '<span style="flex:1;font-size:12.5px;font-weight:500;color:var(--navy)">'+n.title+'</span>' +
+        tag +
+      '</div>' +
+      (isLast ? '' : '<div style="color:var(--g3);font-size:16px;line-height:1">↓</div>') +
+    '</div>';
+  }).join('');
+
+  return '<div class="card" style="margin-bottom:20px">' +
+    '<div class="card-head"><span class="card-title">Process Flowchart</span><span style="font-size:11px;color:var(--g3)">Auto-generated from enabled blocks + recipe steps</span></div>' +
+    '<div class="card-body" style="padding:24px;display:flex;flex-direction:column;align-items:center;gap:4px">' + boxes + '</div>' +
+  '</div>';
+}
+
 function renderSOPAnnexure(r) {
   var enabledIds = getRecipeStandardBlocks(r);
   var rows = [];
@@ -7239,6 +7272,7 @@ function toggleRecipeStandardBlock(npd, blockId) {
   // Re-render the two blocks sections and annexure in place
   var preWrap = document.getElementById('sop-pre-blocks'); if (preWrap) preWrap.innerHTML = renderSOPStandardBlocksSection(r, 'pre', 'Pre-Production — Standard Blocks');
   var postWrap = document.getElementById('sop-post-blocks'); if (postWrap) postWrap.innerHTML = renderSOPStandardBlocksSection(r, 'post', 'Post-Production — Standard Blocks');
+  var flow = document.getElementById('sop-flowchart'); if (flow) flow.innerHTML = renderSOPFlowchart(r);
   var annex = document.getElementById('sop-annexure'); if (annex) annex.innerHTML = renderSOPAnnexure(r);
   saveRecipeToServer(npd);
 }
@@ -7366,6 +7400,8 @@ function exportToSOP(npd) {
         <div style="padding:12px 18px"><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3);margin-bottom:3px">Yield</div><div style="font-size:13px;font-weight:500">${(r.yield*100).toFixed(0)}%</div></div>
       </div>
     </div>
+
+    <div id="sop-flowchart">${renderSOPFlowchart(r)}</div>
 
     <div id="sop-pre-blocks">${renderSOPStandardBlocksSection(r, 'pre', 'Pre-Production — Standard Blocks')}</div>
 
