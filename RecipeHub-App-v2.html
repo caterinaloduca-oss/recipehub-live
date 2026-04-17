@@ -7206,37 +7206,133 @@ function renderSOPStandardBlocksSection(r, position, label) {
   '</div>';
 }
 
-function renderSOPFlowchart(r) {
+function _autoFlowchartNodes(r) {
   var enabledIds = getRecipeStandardBlocks(r);
   var pre = SOP_STANDARD_BLOCKS.filter(function(b){ return b.position==='pre' && enabledIds.indexOf(b.id)>-1; });
   var post = SOP_STANDARD_BLOCKS.filter(function(b){ return b.position==='post' && enabledIds.indexOf(b.id)>-1; });
   var nodes = [];
-  pre.forEach(function(b){ nodes.push({ kind:'shared', num:b.num||'', title:b.title, oprp:b.oprp, ccp:b.ccp }); });
+  pre.forEach(function(b){ nodes.push({ kind:'shared', num:b.num||'', title:b.title, oprp:b.oprp||null, ccp:b.ccp||null }); });
   (r.sopSteps||[]).forEach(function(s, i){ nodes.push({ kind:'recipe', num:'3.'+(pre.length+i+1), title:s.title, oprp:null, ccp:s.ccp ? 'CCP' : null }); });
-  post.forEach(function(b){ nodes.push({ kind:'shared', num:b.num||'', title:b.title, oprp:b.oprp, ccp:b.ccp }); });
-  if (!nodes.length) return '';
+  post.forEach(function(b){ nodes.push({ kind:'shared', num:b.num||'', title:b.title, oprp:b.oprp||null, ccp:b.ccp||null }); });
+  return nodes;
+}
 
-  var boxes = nodes.map(function(n, i){
+function _getFlowchartNodes(r) {
+  if (Array.isArray(r.sopFlowchart) && r.sopFlowchart.length) return r.sopFlowchart;
+  return _autoFlowchartNodes(r);
+}
+
+function _renderFlowchartBox(n, editable, idx, npd) {
+  var bg = n.kind==='shared' ? '#F0F6FF' : (n.kind==='custom' ? '#F2F8F4' : '#FFF8E6');
+  var bd = n.kind==='shared' ? '#C9DBF7' : (n.kind==='custom' ? '#C8DDD0' : '#E8D89A');
+  var tag = '';
+  if (n.ccp)  tag = '<span style="display:inline-block;padding:1px 7px;border-radius:40px;font-size:9px;font-weight:600;background:#F5C2C2;color:#8C1A1A;margin-left:6px;white-space:nowrap">🛑 '+n.ccp+'</span>';
+  else if (n.oprp) tag = '<span style="display:inline-block;padding:1px 7px;border-radius:40px;font-size:9px;font-weight:600;background:#FFD9A8;color:#8C5A1A;margin-left:6px;white-space:nowrap">'+n.oprp+'</span>';
+  if (!editable) {
+    return '<div style="display:flex;align-items:center;gap:10px;padding:10px 16px;background:'+bg+';border:1px solid '+bd+';border-radius:var(--r-sm);min-width:320px;max-width:480px">' +
+      '<span style="font-size:10px;color:var(--g3);font-family:var(--font-m);min-width:30px">'+(n.num||'')+'</span>' +
+      '<span style="flex:1;font-size:12.5px;font-weight:500;color:var(--navy)">'+n.title+'</span>' +
+      tag +
+    '</div>';
+  }
+  return '<div style="display:flex;align-items:center;gap:6px;padding:8px 12px;background:'+bg+';border:1px solid '+bd+';border-radius:var(--r-sm);width:640px;box-sizing:border-box">' +
+    '<input class="form-input" value="'+(n.num||'').replace(/"/g,'&quot;')+'" placeholder="#" style="width:60px;padding:4px 6px;font-size:11px;font-family:var(--font-m)" onchange="updateFlowchartField(\''+npd+'\','+idx+',\'num\',this.value)" />' +
+    '<input class="form-input" value="'+(n.title||'').replace(/"/g,'&quot;')+'" placeholder="Step title" style="flex:1;padding:4px 8px;font-size:12.5px;font-weight:500" onchange="updateFlowchartField(\''+npd+'\','+idx+',\'title\',this.value)" />' +
+    '<select class="form-input" style="width:100px;padding:4px 6px;font-size:11px" onchange="updateFlowchartTag(\''+npd+'\','+idx+',this.value)">' +
+      '<option value=""'+(!n.ccp&&!n.oprp?' selected':'')+'>No tag</option>' +
+      '<option value="oprp:OPRP 1"'+(n.oprp==='OPRP 1'?' selected':'')+'>OPRP 1</option>' +
+      '<option value="oprp:OPRP 2"'+(n.oprp==='OPRP 2'?' selected':'')+'>OPRP 2</option>' +
+      '<option value="oprp:OPRP 3"'+(n.oprp==='OPRP 3'?' selected':'')+'>OPRP 3</option>' +
+      '<option value="oprp:OPRP 4"'+(n.oprp==='OPRP 4'?' selected':'')+'>OPRP 4</option>' +
+      '<option value="ccp:CCP 1"'+(n.ccp==='CCP 1'?' selected':'')+'>CCP 1</option>' +
+      '<option value="ccp:CCP 2"'+(n.ccp==='CCP 2'?' selected':'')+'>CCP 2</option>' +
+      '<option value="ccp:CCP 3"'+(n.ccp==='CCP 3'?' selected':'')+'>CCP 3</option>' +
+    '</select>' +
+    '<button class="btn btn-ghost-sm" style="width:auto;margin:0;padding:2px 6px;font-size:12px" onclick="moveFlowchartNode(\''+npd+'\','+idx+',-1)">↑</button>' +
+    '<button class="btn btn-ghost-sm" style="width:auto;margin:0;padding:2px 6px;font-size:12px" onclick="moveFlowchartNode(\''+npd+'\','+idx+',1)">↓</button>' +
+    '<button class="btn btn-danger-sm" onclick="removeFlowchartNode(\''+npd+'\','+idx+')">✕</button>' +
+  '</div>';
+}
+
+function renderFlowchartView(r, editable) {
+  var nodes = _getFlowchartNodes(r);
+  if (!nodes.length) return '<div style="padding:40px;text-align:center;color:var(--g3);font-size:13px">No steps yet. Enable standard blocks or add recipe steps.</div>';
+  return nodes.map(function(n, i){
     var isLast = i === nodes.length - 1;
-    var bg = n.kind==='shared' ? '#F0F6FF' : '#FFF8E6';
-    var bd = n.kind==='shared' ? '#C9DBF7' : '#E8D89A';
-    var tag = '';
-    if (n.ccp)  tag = '<span style="display:inline-block;padding:1px 7px;border-radius:40px;font-size:9px;font-weight:600;background:#F5C2C2;color:#8C1A1A;margin-left:6px">🛑 '+n.ccp+'</span>';
-    else if (n.oprp) tag = '<span style="display:inline-block;padding:1px 7px;border-radius:40px;font-size:9px;font-weight:600;background:#FFD9A8;color:#8C5A1A;margin-left:6px">'+n.oprp+'</span>';
     return '<div style="display:flex;flex-direction:column;align-items:center">' +
-      '<div style="display:flex;align-items:center;gap:10px;padding:10px 16px;background:'+bg+';border:1px solid '+bd+';border-radius:var(--r-sm);min-width:320px;max-width:480px">' +
-        '<span style="font-size:10px;color:var(--g3);font-family:var(--font-m);min-width:30px">'+n.num+'</span>' +
-        '<span style="flex:1;font-size:12.5px;font-weight:500;color:var(--navy)">'+n.title+'</span>' +
-        tag +
-      '</div>' +
-      (isLast ? '' : '<div style="color:var(--g3);font-size:16px;line-height:1">↓</div>') +
+      _renderFlowchartBox(n, editable, i, r.npd) +
+      (isLast ? '' : '<div style="color:var(--g3);font-size:16px;line-height:1;padding:3px 0">↓</div>') +
     '</div>';
   }).join('');
+}
 
-  return '<div class="card" style="margin-bottom:20px">' +
-    '<div class="card-head"><span class="card-title">Process Flowchart</span><span style="font-size:11px;color:var(--g3)">Auto-generated from enabled blocks + recipe steps</span></div>' +
-    '<div class="card-body" style="padding:24px;display:flex;flex-direction:column;align-items:center;gap:4px">' + boxes + '</div>' +
+function openSOPFlowchart(npd) {
+  var r = RECIPE_DB[npd]; if (!r) return;
+  // Seed sopFlowchart from auto if not set, so user edits persist
+  if (!Array.isArray(r.sopFlowchart)) r.sopFlowchart = _autoFlowchartNodes(r);
+  var html = '<div style="padding:10px 4px 20px">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:12px">' +
+      '<h2 style="margin:0;font-family:var(--font-d);color:var(--navy);font-size:20px">Process Flowchart — '+r.name+'</h2>' +
+      '<div style="display:flex;gap:6px">' +
+        '<button class="btn btn-outline btn-sm" onclick="regenerateFlowchart(\''+npd+'\')">↻ Regenerate from steps</button>' +
+        '<button class="btn btn-outline btn-sm" onclick="addFlowchartNode(\''+npd+'\')">+ Add step</button>' +
+        '<button class="btn btn-gold btn-sm" onclick="saveRecipeToServer(\''+npd+'\');showSaveToast(\'Flowchart saved\');closeModal()">💾 Save & Close</button>' +
+      '</div>' +
+    '</div>' +
+    '<div style="font-size:12px;color:var(--g3);margin-bottom:14px">Edit titles, tags, order. Blue = shared block · Yellow = recipe step · Green = custom. Changes are saved on this recipe.</div>' +
+    '<div id="sop-flowchart-body" style="display:flex;flex-direction:column;align-items:center;gap:0;max-height:70vh;overflow-y:auto;padding:14px;background:var(--g1);border-radius:var(--r-sm)">' +
+      renderFlowchartView(r, true) +
+    '</div>' +
   '</div>';
+  openModal(html, '760px');
+}
+
+function refreshFlowchartModal(npd) {
+  var r = RECIPE_DB[npd]; if (!r) return;
+  var body = document.getElementById('sop-flowchart-body');
+  if (body) body.innerHTML = renderFlowchartView(r, true);
+}
+
+function updateFlowchartField(npd, idx, field, val) {
+  var r = RECIPE_DB[npd]; if (!r || !r.sopFlowchart) return;
+  r.sopFlowchart[idx][field] = val;
+}
+
+function updateFlowchartTag(npd, idx, val) {
+  var r = RECIPE_DB[npd]; if (!r || !r.sopFlowchart) return;
+  var n = r.sopFlowchart[idx];
+  n.oprp = null; n.ccp = null;
+  if (val.indexOf('oprp:')===0) n.oprp = val.slice(5);
+  else if (val.indexOf('ccp:')===0) n.ccp = val.slice(4);
+  refreshFlowchartModal(npd);
+}
+
+function moveFlowchartNode(npd, idx, dir) {
+  var r = RECIPE_DB[npd]; if (!r || !r.sopFlowchart) return;
+  var j = idx + dir;
+  if (j < 0 || j >= r.sopFlowchart.length) return;
+  var tmp = r.sopFlowchart[idx]; r.sopFlowchart[idx] = r.sopFlowchart[j]; r.sopFlowchart[j] = tmp;
+  refreshFlowchartModal(npd);
+}
+
+function removeFlowchartNode(npd, idx) {
+  var r = RECIPE_DB[npd]; if (!r || !r.sopFlowchart) return;
+  r.sopFlowchart.splice(idx, 1);
+  refreshFlowchartModal(npd);
+}
+
+function addFlowchartNode(npd) {
+  var r = RECIPE_DB[npd]; if (!r) return;
+  if (!Array.isArray(r.sopFlowchart)) r.sopFlowchart = _autoFlowchartNodes(r);
+  r.sopFlowchart.push({ kind:'custom', num:'', title:'New step', oprp:null, ccp:null });
+  refreshFlowchartModal(npd);
+}
+
+function regenerateFlowchart(npd) {
+  if (!confirm('Rebuild flowchart from current blocks + recipe steps? Your custom edits will be lost.')) return;
+  var r = RECIPE_DB[npd]; if (!r) return;
+  r.sopFlowchart = _autoFlowchartNodes(r);
+  refreshFlowchartModal(npd);
 }
 
 function renderSOPAnnexure(r) {
@@ -7272,7 +7368,6 @@ function toggleRecipeStandardBlock(npd, blockId) {
   // Re-render the two blocks sections and annexure in place
   var preWrap = document.getElementById('sop-pre-blocks'); if (preWrap) preWrap.innerHTML = renderSOPStandardBlocksSection(r, 'pre', 'Pre-Production — Standard Blocks');
   var postWrap = document.getElementById('sop-post-blocks'); if (postWrap) postWrap.innerHTML = renderSOPStandardBlocksSection(r, 'post', 'Post-Production — Standard Blocks');
-  var flow = document.getElementById('sop-flowchart'); if (flow) flow.innerHTML = renderSOPFlowchart(r);
   var annex = document.getElementById('sop-annexure'); if (annex) annex.innerHTML = renderSOPAnnexure(r);
   saveRecipeToServer(npd);
 }
@@ -7386,6 +7481,7 @@ function exportToSOP(npd) {
           <span class="badge ${r.sopStatus==='approved'?'badge-approved':r.sopStatus==='pending'?'badge-review':'badge-draft'}" style="font-size:11px" id="sop-status-badge">${r.sopStatus==='approved'?'Approved for Production':r.sopStatus==='pending'?'Pending Approval':'Draft — Review Required'}</span>
           <div style="display:flex;gap:6px">
             <button class="btn btn-sm" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15)" onclick="saveAllData();showSaveToast('SOP saved')">💾 Save</button>
+            <button class="btn btn-sm" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15)" onclick="openSOPFlowchart('${r.npd}')">🔀 Flowchart</button>
             <button class="btn btn-sm" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15)" onclick="openPrint('${r.npd}','factory')">🖨️ Full Print</button>
             <button class="btn btn-sm" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15)" onclick="openPrint('${r.npd}','factory-text')">🖨️ Text Only</button>
             <button class="btn btn-sm" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15)" onclick="viewRecipe('${r.npd}')">← Recipe</button>
@@ -7400,8 +7496,6 @@ function exportToSOP(npd) {
         <div style="padding:12px 18px"><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3);margin-bottom:3px">Yield</div><div style="font-size:13px;font-weight:500">${(r.yield*100).toFixed(0)}%</div></div>
       </div>
     </div>
-
-    <div id="sop-flowchart">${renderSOPFlowchart(r)}</div>
 
     <div id="sop-pre-blocks">${renderSOPStandardBlocksSection(r, 'pre', 'Pre-Production — Standard Blocks')}</div>
 
