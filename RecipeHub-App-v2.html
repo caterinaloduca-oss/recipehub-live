@@ -8079,8 +8079,8 @@ function _canSignStage(stage) {
   var role = getCurrentUserRole();
   if (role === 'admin') return true;
   if (stage === 'prepared') return role === 'npd';
-  if (stage === 'reviewed') return role === 'qa' || role === 'factory';
-  if (stage === 'approved') return false; // admin-only
+  if (stage === 'reviewed') return role === 'factory';
+  if (stage === 'approved') return role === 'qa';
   return false;
 }
 
@@ -8133,8 +8133,8 @@ function renderSOPApprovalStages(r) {
     extras = '<div style="margin-top:10px;padding:10px 12px;font-size:11px;background:#F0F7F2;color:var(--sage);border-radius:var(--r-sm);text-align:center;font-weight:500">🔒 Approved — edits will create a new version</div>';
   }
   return _stage(1, 'prepared', 'R&D / NPD', 'Prepared by') +
-         _stage(2, 'reviewed', 'QA / Factory Manager', 'Reviewed by') +
-         _stage(3, 'approved', 'Head QA / Production Manager', 'Approved by') +
+         _stage(2, 'reviewed', 'Factory Manager', 'Reviewed by') +
+         _stage(3, 'approved', 'QA Manager', 'Approved by') +
          extras +
          '<div id="sop-save-msg" style="display:none;margin-top:10px;padding:10px 14px;border-radius:var(--r-md);font-size:12px;font-weight:500;text-align:center"></div>';
 }
