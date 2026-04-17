@@ -110,6 +110,47 @@ Each recipe has a **Food Cost** section with 5 columns: Cost/kg, Portion Cost, S
 - **`updateFoodCost(npd)`**: live updates, debounced save (1s)
 - Ingredient costs are clickable in the recipe detail view
 
+## Factory SOPs
+
+Factory SOP lives on each recipe as three composable layers, printed/viewed via **Factory SOP → click recipe**.
+
+### Layers
+
+- **Standard Blocks** (`SOP_STANDARD_BLOCKS`) — shared preamble/closing blocks (Receiving, Re-palletizing, Sifting, Weighing, CIP, Metal Detector, FG Freezer/Chiller). Edited once by admin in the "Edit Library" modal, toggled on/off per recipe via `r.sopStandardBlocks` (array of block IDs). Each block carries `position: 'pre' | 'post'`, `oprp`, `ccp`, `body`, and `annexures[{code, name}]`.
+- **Recipe-specific steps** (`r.sopSteps`) — the variable middle. Each step has `params[]`, `icons[]`, `ccp`, `warning`, `visualImg`, `media[]`.
+- **Flowchart** (`r.sopFlowchart`) — auto-generated from enabled blocks + sopSteps, editable in a modal (🔀 Flowchart button). User overrides persist; "↻ Regenerate" rebuilds from scratch. Numbering (3.1, 3.2, …) is **computed sequentially** by `_computeSOPNumbering(r)` — never trust a block's static `num` for display.
+
+### Approval chain (`r.sopApproval`)
+
+Three-stage document approval — each signer authenticates from their own account.
+
+| Stage | Field | Role | Advances status to |
+|---|---|---|---|
+| 1 | `prepared` | R&D / NPD (or admin) | `pending-review` |
+| 2 | `reviewed` | Factory Manager (or admin) | `pending-approval` |
+| 3 | `approved` | QA Manager (or admin) | `approved` (recipe also set to `approved`) |
+
+Each stage stores `{by, email, at}`. Stages lock until the previous is signed. Approved SOPs lock; edits spawn a new version. Use `signSOPStage(npd, stage)` — not legacy `submitSOPForApproval` / `approveSOPRelease` (still present as back-compat shims). Role gate: `_canSignStage(stage)`.
+
+**Batch sign-off** (Supervisor / QA Tech / Batch No.) is NOT in app state — it's pen-and-paper on the printed Batch Ticket.
+
+### Print modes
+
+Single "🖨️ Print ▾" dropdown on the SOP header → 7 modes via `openPrint(npd, mode)`:
+
+| Mode | Content | Orientation |
+|---|---|---|
+| `full` | Cover + flowchart + standard blocks + batch ticket + recipe steps + annexure + sign-off | Portrait |
+| `full-text` | Same, no images | Portrait |
+| `factory` | Classic 2-col SOP with pictures (existing layout) | Landscape |
+| `factory-text` | Same, no images | Landscape |
+| `flowchart` | Flowchart only | Portrait |
+| `batch` | Ingredient weigh-sheet with **Code** (from ING_DATA lookup), Lot, Expiry, Weighed-by | Landscape |
+| `cover` | Prepared/Reviewed/Approved signature table + version history | Portrait |
+| `annexure` | Auto-compiled DFC-* form references from enabled blocks | Portrait |
+
+Orientation is set via a dynamically injected `<style id="print-page-style">` — browsers can't selector `@page` by class. Default `.print-sheet` is portrait (210×297mm); `.print-sheet.landscape` switches to 297×210mm.
+
 ## Branch SOPs
 
 - **Brand colors** (`BSOP_BRAND_COLORS`): Maestro/Maestro KSA=green, Pinzatta=pink, Tivo=purple, Telliano=yellow, Mano di Pasta=navy, Mad=red
@@ -140,6 +181,7 @@ Gmail via nodemailer (`caterina.loduca@dailyfoodsa.com`). Triggers:
 - Recipe status changes (review, trial, approved) — notifies R&D + QA + Admin
 - QA sign-offs — notifies recipe creator + Admin
 - Production run scheduled/completed — notifies Factory + R&D + Admin
+- **Factory SOP stage signed** (`sop-stage` event) — each stage notifies the next signer
 - Admin sends Communications — notifies selected role group or individual
 - Production plan comments — notifies relevant parties
 
