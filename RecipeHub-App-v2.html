@@ -833,18 +833,6 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
     <div class="card">
       <div class="card-head">
-        <span class="card-title">Pending Actions</span>
-        <span style="font-size:11px;color:var(--g3);font-weight:500" id="dash-pending-count"></span>
-      </div>
-      <div class="card-body" style="padding:0;max-height:360px;overflow-y:auto">
-        <div id="dash-pending-list" style="padding:0">
-          <div style="padding:20px;text-align:center;color:var(--g3);font-size:13px">Nothing pending</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-head">
         <span class="card-title">Recent Recipes</span>
         <button class="btn btn-outline btn-sm" onclick="nav('recipes')">View all</button>
       </div>
@@ -853,6 +841,18 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
           <thead><tr><th>Recipe</th><th>Brand</th><th>Version</th><th>Status</th></tr></thead>
           <tbody id="dash-recent-tbody"></tbody>
         </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <span class="card-title">Pending Actions</span>
+        <span style="font-size:11px;color:var(--g3);font-weight:500" id="dash-pending-count"></span>
+      </div>
+      <div class="card-body" style="padding:0;max-height:360px;overflow-y:auto">
+        <div id="dash-pending-list" style="padding:0">
+          <div style="padding:20px;text-align:center;color:var(--g3);font-size:13px">Nothing pending</div>
+        </div>
       </div>
     </div>
   </div>
