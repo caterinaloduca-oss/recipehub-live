@@ -7775,7 +7775,7 @@ function exportToSOP(npd) {
           <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-top:4px">SOP-${r.npd} · Based on Recipe ${r.version} · Generated ${new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div>
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px">
-          <span class="badge ${r.sopStatus==='approved'?'badge-approved':r.sopStatus==='pending'?'badge-review':'badge-draft'}" style="font-size:11px" id="sop-status-badge">${r.sopStatus==='approved'?'Approved for Production':r.sopStatus==='pending'?'Pending Approval':'Draft — Review Required'}</span>
+          <span class="badge ${r.sopStatus==='approved'?'badge-approved':(r.sopStatus==='pending-review'||r.sopStatus==='pending-approval'||r.sopStatus==='pending')?'badge-review':'badge-draft'}" style="font-size:11px" id="sop-status-badge">${r.sopStatus==='approved'?'Approved for Production':r.sopStatus==='pending-approval'?'Pending Final Approval':(r.sopStatus==='pending-review'||r.sopStatus==='pending')?'Pending Review':'Draft'}</span>
           <div style="display:flex;gap:6px">
             <button class="btn btn-sm" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15)" onclick="saveAllData();showSaveToast('SOP saved')">💾 Save</button>
             <button class="btn btn-sm" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15)" onclick="openSOPFlowchart('${r.npd}')">🔀 Flowchart</button>
@@ -11513,9 +11513,12 @@ function updateDashboardStats() {
       items.push({icon:'🔬', text:r.name, detail:'Production Trial — QA not signed off', badge:'QA Pending', badgeClass:'badge-pending', action:"viewRecipe('"+r.npd+"')"});
     });
     // Factory SOPs in draft or pending
-    recipes.filter(r => r.sop && r.sop.length && r.sopStatus && r.sopStatus !== 'approved').forEach(r => {
-      var sopLbl = r.sopStatus === 'pending' ? 'Pending Approval' : 'Draft';
-      var sopCls = r.sopStatus === 'pending' ? 'badge-review' : 'badge-draft';
+    recipes.filter(r => r.sopSteps && r.sopSteps.length && r.sopStatus && r.sopStatus !== 'approved').forEach(r => {
+      var sopLbl, sopCls;
+      if (r.sopStatus === 'pending-approval')     { sopLbl = 'Pending Final Approval'; sopCls = 'badge-review'; }
+      else if (r.sopStatus === 'pending-review' ||
+               r.sopStatus === 'pending')         { sopLbl = 'Pending Review';         sopCls = 'badge-review'; }
+      else                                        { sopLbl = 'Draft';                   sopCls = 'badge-draft'; }
       items.push({icon:'📋', text:r.name + ' SOP', detail:'Factory SOP — ' + sopLbl.toLowerCase(), badge:sopLbl, badgeClass:sopCls, action:"viewRecipe('"+r.npd+"')"});
     });
     // Production runs without a date
