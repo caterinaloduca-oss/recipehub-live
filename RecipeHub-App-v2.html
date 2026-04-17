@@ -676,15 +676,14 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
   </div>
 
   <div style="flex:1;overflow-y:auto;overflow-x:hidden">
-  <div style="padding:8px 16px">
-    <button class="nav-item" style="border-left:none;padding:8px 12px;border-radius:var(--r-sm);position:relative" onclick="toggleNotifications()">
-      <span class="nav-icon">🔔</span> Notifications <span class="nav-badge visible" id="nav-badge-notif" style="display:none">0</span>
-    </button>
-  </div>
-  <div class="nav-section-label">Main</div>
   <button class="nav-item active" data-page="dashboard" onclick="nav('dashboard')">
     <span class="nav-icon">⊞</span> Overview
   </button>
+  <button class="nav-item" style="position:relative" onclick="toggleNotifications()">
+    <span class="nav-icon">🔔</span> Notifications <span class="nav-badge visible" id="nav-badge-notif" style="display:none">0</span>
+  </button>
+
+  <div class="nav-section-label">NPD</div>
   <button class="nav-item" data-page="recipes" onclick="nav('recipes')">
     <span class="nav-icon">◈</span> Recipes <span class="nav-badge" id="nav-badge-recipes"></span>
   </button>
