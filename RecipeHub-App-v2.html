@@ -396,7 +396,8 @@ body { font-family:var(--font-b); background:var(--cream); color:var(--g5); font
 .print-overlay { display:none; position:fixed; inset:0; z-index:500; background:#1B2A4A; overflow-y:auto; }
 .print-overlay.active { display:flex; justify-content:center; padding:40px 20px; }
 body.print-active .sidebar, body.print-active .main { visibility:hidden !important; }
-.print-sheet { background:white; width:297mm; min-height:210mm; padding:12mm 14mm; font-family:'DM Sans',system-ui,sans-serif; font-size:9pt; color:#1a1a1a; line-height:1.45; position:relative; box-shadow:0 8px 40px rgba(0,0,0,0.2); }
+.print-sheet { background:white; width:210mm; min-height:297mm; padding:14mm 14mm; font-family:'DM Sans',system-ui,sans-serif; font-size:9pt; color:#1a1a1a; line-height:1.45; position:relative; box-shadow:0 8px 40px rgba(0,0,0,0.2); }
+.print-sheet.landscape { width:297mm; min-height:210mm; padding:12mm 14mm; }
 .print-close { position:fixed; top:20px; right:20px; z-index:600; background:white; border:none; width:40px; height:40px; border-radius:50%; font-size:20px; cursor:pointer; box-shadow:0 2px 12px rgba(0,0,0,0.2); display:flex; align-items:center; justify-content:center; }
 .print-close:hover { background:#f0f0f0; }
 .print-btn-bar { position:fixed; top:20px; left:50%; transform:translateX(-50%); z-index:600; display:flex; gap:8px; }
@@ -449,7 +450,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
   .print-overlay .print-btn-bar,
   .print-overlay .ps-batch-size-bar { display:none !important; }
   .print-sheet { box-shadow:none !important; width:100% !important; padding:8mm 10mm !important; min-height:auto !important; }
-  @page { size:A4 landscape; margin:8mm; }
+  @page { size:A4 portrait; margin:10mm; }
 }
 
 /* ──────────── MOBILE RESPONSIVE ──────────── */
@@ -5472,6 +5473,9 @@ function openPrint(npd, mode) {
   const sheet = document.getElementById('print-sheet');
   const defaultBatch = 0.5;
   const factoryBatch = 400;
+  // Orientation per mode — most are portrait, batch/SOP-with-2-col-grid are landscape
+  var landscapeModes = ['batch','factory','factory-text','sop-only','kitchen'];
+  var landscape = landscapeModes.indexOf(mode) > -1;
   switch (mode) {
     case 'kitchen':      sheet.innerHTML = renderKitchen(r, defaultBatch); break;
     case 'sop-only':     sheet.innerHTML = renderSOPOnly(r); break;
@@ -5484,9 +5488,22 @@ function openPrint(npd, mode) {
     case 'annexure':     sheet.innerHTML = renderAnnexureOnly(r); break;
     default:             sheet.innerHTML = renderFactory(r, factoryBatch, false);
   }
+  sheet.classList.toggle('landscape', landscape);
+  // Inject per-print @page rule to match orientation (browsers can't selector @page by class)
+  var styleEl = document.getElementById('print-page-style');
+  if (!styleEl) { styleEl = document.createElement('style'); styleEl.id = 'print-page-style'; document.head.appendChild(styleEl); }
+  styleEl.textContent = '@media print { @page { size: A4 ' + (landscape ? 'landscape' : 'portrait') + '; margin: 10mm; } }';
   document.getElementById('print-overlay').classList.add('active');
   document.body.classList.add('print-active');
   document.body.style.overflow = 'hidden';
+}
+
+// Lookup EBS code for an ingredient name (fuzzy). Returns '' if no match.
+function _lookupIngredientCode(name) {
+  if (!name) return '';
+  var n = String(name).toLowerCase().replace(/[^a-z0-9]/g, '');
+  var row = ING_DATA.find(function(row){ var dn = String(row[1]||'').toLowerCase().replace(/[^a-z0-9]/g, ''); return dn && (dn.includes(n) || n.includes(dn)); });
+  return row ? (row[3] || '') : '';
 }
 
 function scaleIngredients(ingredients, batchKg) {
@@ -5727,17 +5744,18 @@ function _printFlowchartHTML(r, compact) {
 }
 
 function _printStandardBlocksHTML(r, position, label, noImages) {
-  var enabledIds = getRecipeStandardBlocks(r);
-  var blocks = SOP_STANDARD_BLOCKS.filter(function(b){ return b.position===position && enabledIds.indexOf(b.id)>-1; });
-  if (!blocks.length) return '';
+  var num = _computeSOPNumbering(r);
+  var items = position === 'pre' ? num.pre : num.post;
+  if (!items.length) return '';
   return '<div class="ps-section" style="margin-top:14px">' +
     '<div class="ps-section-title">'+label+'</div>' +
-    blocks.map(function(b, i){
+    items.map(function(x){
+      var b = x.block;
       var tag = '';
       if (b.ccp) tag = '<span style="display:inline-block;padding:1px 6px;border-radius:30px;font-size:7pt;font-weight:600;background:#F5C2C2;color:#8C1A1A;margin-left:6px">🛑 '+b.ccp+'</span>';
       else if (b.oprp) tag = '<span style="display:inline-block;padding:1px 6px;border-radius:30px;font-size:7pt;font-weight:600;background:#FFD9A8;color:#8C5A1A;margin-left:6px">'+b.oprp+'</span>';
       return '<div class="ps-step" style="break-inside:avoid">' +
-        '<div class="ps-step-num" style="background:#C9DBF7;color:#1A4A8C">'+(b.num||String(i+1))+'</div>' +
+        '<div class="ps-step-num" style="background:#C9DBF7;color:#1A4A8C;font-size:9pt">'+x.num+'</div>' +
         '<div class="ps-step-body">' +
           '<div class="ps-step-title">'+b.title+tag+'</div>' +
           '<div class="ps-step-text">'+(b.body||'')+'</div>' +
@@ -5749,10 +5767,16 @@ function _printStandardBlocksHTML(r, position, label, noImages) {
 }
 
 function _printRecipeStepsHTML(r, noImages) {
-  var steps = (r.sopSteps && r.sopSteps.length) ? r.sopSteps : r.method.map(function(m){return {title:m.title, text:m.text, params:[], icons:[]}});
-  return steps.map(function(s, i){
+  var num = _computeSOPNumbering(r);
+  if (!num.steps.length && r.method && r.method.length) {
+    return r.method.map(function(m, i){
+      return '<div class="ps-step" style="break-inside:avoid"><div class="ps-step-num">'+(i+1)+'</div><div class="ps-step-body"><div class="ps-step-title">'+m.title+'</div><div class="ps-step-text">'+m.text+'</div></div></div>';
+    }).join('');
+  }
+  return num.steps.map(function(x){
+    var s = x.step;
     return '<div class="ps-step" style="break-inside:avoid">' +
-      '<div class="ps-step-num">'+(i+1)+'</div>' +
+      '<div class="ps-step-num" style="font-size:9pt">'+x.num+'</div>' +
       (!noImages && s.visualImg ? '<div style="width:80px;height:60px;border-radius:4px;overflow:hidden;flex-shrink:0;background:#f5f5f5"><img src="'+s.visualImg+'" style="width:100%;height:100%;object-fit:cover" /></div>' : '') +
       '<div class="ps-step-body">' +
         (s.icons && s.icons.length ? '<div style="margin-bottom:2px;font-size:8pt">'+s.icons.map(function(k){ var ic=SOP_ICONS[k]; return ic ? '<span style="margin-right:4px">'+ic.emoji+'</span>' : ''; }).join('')+'</div>' : '') +
@@ -5811,14 +5835,14 @@ function _printSignoffHTML() {
 // ── Full document (all in) ──
 function renderFactoryFull(r, batchKg, noImages) {
   return _printHeader(r, 'Factory SOP — Full Document', ['Brand','Storage','Shelf Life','Yield','Date']) +
-    '<div class="ps-section"><div class="ps-section-title">1. Product Description</div><div style="font-size:9pt;line-height:1.6">'+(r.description || r.name + ' — see recipe master for full description.')+'</div></div>' +
-    '<div class="ps-section" style="margin-top:14px;break-inside:avoid"><div class="ps-section-title">2. Process Flowchart</div>' +
-      '<div style="display:flex;flex-direction:column;align-items:center;padding:10px 0">'+_printFlowchartHTML(r, true)+'</div>' +
+    '<div class="ps-section"><div class="ps-section-title">1. Product Description</div><div style="font-size:9pt;line-height:1.55">'+(r.description || r.name + ' — see recipe master for full description.')+'</div></div>' +
+    '<div class="ps-section" style="margin-top:10px"><div class="ps-section-title">2. Process Flowchart</div>' +
+      '<div style="display:flex;flex-direction:column;align-items:center;padding:4px 0">'+_printFlowchartHTML(r, true)+'</div>' +
     '</div>' +
-    '<div class="ps-section" style="margin-top:14px"><div class="ps-section-title">3. Process Description</div></div>' +
+    '<div class="ps-section" style="margin-top:12px;page-break-before:always"><div class="ps-section-title">3. Process Description</div></div>' +
     _printStandardBlocksHTML(r, 'pre', '3a. Pre-Production — Standard Blocks', noImages) +
     _printBatchTicketHTML(r, batchKg) +
-    '<div class="ps-section" style="margin-top:14px"><div class="ps-section-title">3b. Production Steps (Recipe-Specific)</div>' + _printRecipeStepsHTML(r, noImages) + '</div>' +
+    '<div class="ps-section" style="margin-top:12px"><div class="ps-section-title">3b. Production Steps (Recipe-Specific)</div>' + _printRecipeStepsHTML(r, noImages) + '</div>' +
     _printStandardBlocksHTML(r, 'post', '3c. Post-Production — Standard Blocks', noImages) +
     _printAnnexureHTML(r) +
     _printSignoffHTML() +
@@ -5832,27 +5856,67 @@ function renderFlowchartOnly(r) {
     '<div class="ps-footer"><span>RecipeHub · '+r.brand+'</span><span>'+r.npd+' · '+r.version+' · Flowchart</span></div>';
 }
 
-// ── Batch ticket only ──
+// ── Batch ticket only (landscape) ──
 function renderBatchTicketOnly(r, batchKg) {
+  var scaled = scaleIngredients(r.ingredients, batchKg);
+  var totalKg = scaled.reduce(function(s,i){return s + i.kg}, 0);
+  var rows = scaled.map(function(i, idx){
+    var code = _lookupIngredientCode(i.name);
+    return '<tr>' +
+      '<td style="text-align:center;color:#999">'+(idx+1)+'</td>' +
+      '<td class="num" style="text-align:left;font-family:\'DM Mono\',monospace;color:#555">'+(code || '—')+'</td>' +
+      '<td>'+i.name+'</td>' +
+      '<td class="num">'+i.pct.toFixed(2)+'%</td>' +
+      '<td class="num">'+i.kg.toFixed(3)+'</td>' +
+      '<td style="text-align:center"><span class="ps-batch-check"></span></td>' +
+      '<td style="border-bottom:1px dotted #ccc;min-width:70px"></td>' +
+      '<td style="border-bottom:1px dotted #ccc;min-width:70px"></td>' +
+      '<td style="border-bottom:1px dotted #ccc;min-width:80px"></td>' +
+      '<td style="border-bottom:1px dotted #ccc;min-width:90px"></td>' +
+    '</tr>';
+  }).join('');
   return '<div class="ps-batch-size-bar">' +
       '<label>Batch Size</label>' +
-      '<input type="number" min="1" step="10" value="'+batchKg+'" onchange="rescaleFactory(\''+r.npd+'\', this.value)" id="factory-batch" />' +
+      '<input type="number" min="1" step="10" value="'+batchKg+'" onchange="rescaleBatchTicket(\''+r.npd+'\', this.value)" id="factory-batch" />' +
       '<span class="unit">kg</span>' +
     '</div>' +
     _printHeader(r, 'Batch Ticket', ['Brand','Batch='+formatWeight(batchKg),'Storage','Shelf Life','Date']) +
     '<div id="factory-batch-label" style="display:none">'+formatWeight(batchKg)+'</div>' +
     '<div class="ps-section">' +
-      '<div class="ps-section-title">Ingredients</div>' +
-      '<table class="ps-table">' +
-        '<thead><tr><th>Ingredient</th><th style="text-align:right">%</th><th style="text-align:right">kg</th><th style="text-align:center;width:40px">✓</th><th style="text-align:right;width:90px">Actual</th></tr></thead>' +
+      '<div class="ps-section-title">Ingredients — weigh sheet</div>' +
+      '<table class="ps-table" style="font-size:9pt">' +
+        '<thead><tr>' +
+          '<th style="width:28px;text-align:center">#</th>' +
+          '<th style="width:90px">Code</th>' +
+          '<th>Ingredient</th>' +
+          '<th style="text-align:right;width:60px">%</th>' +
+          '<th style="text-align:right;width:70px">kg (target)</th>' +
+          '<th style="text-align:center;width:36px">✓</th>' +
+          '<th style="width:70px">Actual kg</th>' +
+          '<th style="width:70px">Lot / Batch No.</th>' +
+          '<th style="width:80px">Expiry</th>' +
+          '<th style="width:90px">Weighed by</th>' +
+        '</tr></thead>' +
         '<tbody id="factory-ing-body">' +
-          scaleIngredients(r.ingredients, batchKg).map(function(i){return '<tr><td>'+i.name+'</td><td class="num">'+i.pct.toFixed(1)+'%</td><td class="num">'+i.kg.toFixed(3)+'</td><td style="text-align:center"><span class="ps-batch-check"></span></td><td style="border-bottom:1px dotted #ccc"></td></tr>'}).join('') +
-          '<tr class="total-row"><td>Total</td><td class="num">100%</td><td class="num">'+scaleIngredients(r.ingredients, batchKg).reduce(function(s,i){return s+i.kg},0).toFixed(3)+'</td><td></td><td></td></tr>' +
+          rows +
+          '<tr class="total-row"><td></td><td></td><td>Total</td><td class="num">100%</td><td class="num">'+totalKg.toFixed(3)+'</td><td></td><td></td><td></td><td></td><td></td></tr>' +
         '</tbody>' +
       '</table>' +
     '</div>' +
-    _printSignoffHTML() +
-    '<div class="ps-footer"><span>RecipeHub · '+r.brand+'</span><span>'+r.npd+' · '+r.version+' · Batch Ticket</span></div>';
+    '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-top:16px;padding-top:12px;border-top:1.5px solid #ccc">' +
+      '<div><div style="font-size:6.5pt;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:#999;margin-bottom:3px">Production Supervisor</div><div style="border-bottom:1px solid #ccc;height:22px"></div></div>' +
+      '<div><div style="font-size:6.5pt;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:#999;margin-bottom:3px">QA Technician</div><div style="border-bottom:1px solid #ccc;height:22px"></div></div>' +
+      '<div><div style="font-size:6.5pt;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:#999;margin-bottom:3px">Date / Batch No.</div><div style="border-bottom:1px solid #ccc;height:22px"></div></div>' +
+    '</div>' +
+    '<div class="ps-footer"><span>RecipeHub · '+r.brand+'</span><span>'+r.npd+' · '+r.version+' · Batch Ticket · Landscape</span></div>';
+}
+
+function rescaleBatchTicket(npd, val) {
+  var batchKg = parseFloat(val);
+  if (!batchKg || batchKg <= 0) return;
+  var r = RECIPE_DB[npd];
+  var sheet = document.getElementById('print-sheet');
+  if (sheet) sheet.innerHTML = renderBatchTicketOnly(r, batchKg);
 }
 
 // ── Cover & sign-off (document control) ──
@@ -7430,10 +7494,24 @@ function _autoFlowchartNodes(r) {
   var pre = SOP_STANDARD_BLOCKS.filter(function(b){ return b.position==='pre' && enabledIds.indexOf(b.id)>-1; });
   var post = SOP_STANDARD_BLOCKS.filter(function(b){ return b.position==='post' && enabledIds.indexOf(b.id)>-1; });
   var nodes = [];
-  pre.forEach(function(b){ nodes.push({ kind:'shared', num:b.num||'', title:b.title, oprp:b.oprp||null, ccp:b.ccp||null }); });
-  (r.sopSteps||[]).forEach(function(s, i){ nodes.push({ kind:'recipe', num:'3.'+(pre.length+i+1), title:s.title, oprp:null, ccp:s.ccp ? 'CCP' : null }); });
-  post.forEach(function(b){ nodes.push({ kind:'shared', num:b.num||'', title:b.title, oprp:b.oprp||null, ccp:b.ccp||null }); });
+  var n = 1;
+  pre.forEach(function(b){ nodes.push({ kind:'shared', num:'3.'+(n++), title:b.title, oprp:b.oprp||null, ccp:b.ccp||null }); });
+  (r.sopSteps||[]).forEach(function(s){ nodes.push({ kind:'recipe', num:'3.'+(n++), title:s.title, oprp:null, ccp:s.ccp ? 'CCP' : null }); });
+  post.forEach(function(b){ nodes.push({ kind:'shared', num:'3.'+(n++), title:b.title, oprp:b.oprp||null, ccp:b.ccp||null }); });
   return nodes;
+}
+
+function _computeSOPNumbering(r) {
+  var enabledIds = getRecipeStandardBlocks(r);
+  var pre = SOP_STANDARD_BLOCKS.filter(function(b){ return b.position==='pre' && enabledIds.indexOf(b.id)>-1; });
+  var post = SOP_STANDARD_BLOCKS.filter(function(b){ return b.position==='post' && enabledIds.indexOf(b.id)>-1; });
+  var steps = r.sopSteps || [];
+  var n = 1;
+  return {
+    pre:   pre.map(function(b){   return { block:b, num:'3.'+(n++) }; }),
+    steps: steps.map(function(s){ return { step:s,  num:'3.'+(n++) }; }),
+    post:  post.map(function(b){  return { block:b, num:'3.'+(n++) }; }),
+  };
 }
 
 function _getFlowchartNodes(r) {
