@@ -7157,28 +7157,17 @@ function setRecipeStatus(npd, newStatus) {
   if (newStatus === 'trial' || newStatus === 'prod-trial') {
     var runType = newStatus === 'trial' ? 'Factory Trial' : 'Production Trial';
     var alreadyExists = PRODUCTION_RUNS.some(function(pr) {
-      return pr.npd === npd && pr.runType === runType;
+      return pr.npd === npd && pr.runType === runType && !pr.parentRunId;
     });
     if (!alreadyExists) {
-      var _newRunId = 'PR-' + String(Date.now()).slice(-6);
-      PRODUCTION_RUNS.push({
-        id: _newRunId,
-        date: '',
-        recipe: r.name,
-        npd: npd,
-        brand: r.brand || '',
-        batchSize: newStatus === 'trial' ? '150 kg' : '400 kg',
-        operator: '',
-        status: 'pending',
-        runType: runType,
-        yield: '',
-        waste: '',
+      var batch = newStatus === 'trial' ? '150 kg' : '400 kg';
+      var result = createProductionRunWithSubBatches(r, {
+        runType: runType, batchSize: batch, status: 'pending',
         notes: runType + ' — auto-scheduled from recipe workflow',
-        createdAt: new Date().toISOString(),
-        comments: [],
       });
-      logActivity('production', '📅', runType + ' scheduled for ' + r.name, 'Auto-created from recipe status change');
-      showSaveToast('Production run created for ' + r.name);
+      var childN = result.children.length;
+      logActivity('production', '📅', runType + ' scheduled for ' + r.name, 'Auto-created from recipe status change' + (childN ? ' — '+childN+' sub-batches' : ''));
+      showSaveToast(childN ? runType + ' run created + '+childN+' sub-batches for '+r.name : 'Production run created for ' + r.name);
     }
   }
 
@@ -13181,54 +13170,67 @@ function _nextPRId() {
   return 'PR-' + String(maxN + 1).padStart(3, '0');
 }
 
-function saveProductionRun() {
-  var npd = document.getElementById('np-recipe').value;
-  var r = RECIPE_DB[npd];
-  var _newDate = document.getElementById('np-date').value;
-  var batchKg = parseFloat(document.getElementById('np-batch').value) || 0;
-  var runType = document.getElementById('np-runtype').value;
-  var operator = document.getElementById('np-operator').value;
-  var notes = document.getElementById('np-notes').value;
-
-  var parentId = _nextPRId();
-  PRODUCTION_RUNS.push({
-    id: parentId, date:_newDate, recipe:r?r.name:npd, npd:npd, brand:r?r.brand:'',
-    runType:runType, batchSize:batchKg+' kg', operator:operator,
-    status:_newDate ? 'scheduled' : 'pending', yield:'', waste:'', notes:notes,
+// Creates a parent production run + auto-child runs for each component if the recipe is composite.
+// Returns { parent, children } where children is the array of child run objects (possibly empty).
+function createProductionRunWithSubBatches(r, opts) {
+  opts = opts || {};
+  var batchKg = parseFloat(String(opts.batchSize||'').replace(/[^0-9.]/g,'')) || 0;
+  var parentId = opts.id || _nextPRId();
+  var parent = {
+    id: parentId,
+    date: opts.date || '',
+    recipe: r.name, npd: r.npd, brand: r.brand || '',
+    runType: opts.runType || 'Production',
+    batchSize: opts.batchSize || (batchKg ? batchKg + ' kg' : ''),
+    operator: opts.operator || '',
+    status: opts.status || (opts.date ? 'scheduled' : 'pending'),
+    yield:'', waste:'', notes: opts.notes || '',
     createdAt: new Date().toISOString(),
-  });
-
-  // If this is a composite recipe, auto-create child runs for each sub-recipe
-  var childIds = [];
-  if (r && r.recipeKind === 'composite') {
-    var portionG = compositePortionTotalG(r) || 185;
-    (r.components || []).forEach(function(c) {
-      var sub = RECIPE_DB[c.subNpd]; if (!sub || !c.applyG) return;
-      // Scale: parent batchKg produces (batchKg * 1000 / portionG) portions; each needs applyG of this stage
-      var stageKg = (batchKg * 1000 / portionG) * c.applyG / 1000;
-      stageKg = Math.ceil(stageKg * 10) / 10; // round up to nearest 100g
-      var childId = _nextPRId();
-      childIds.push(childId);
-      PRODUCTION_RUNS.push({
-        id: childId, date:_newDate, recipe: sub.name, npd: sub.npd, brand: sub.brand,
-        runType: runType, batchSize: stageKg + ' kg', operator: operator,
-        status:_newDate ? 'scheduled' : 'pending', yield:'', waste:'',
-        notes: '↳ Auto-scheduled for ' + r.name + ' (' + parentId + ') — ' + (c.stage || sub.name),
-        parentRunId: parentId, stageLabel: c.stage || sub.name,
-        createdAt: new Date().toISOString(),
+    comments: [],
+  };
+  PRODUCTION_RUNS.push(parent);
+  var children = [];
+  if (r.recipeKind === 'composite' && batchKg) {
+    var portionG = compositePortionTotalG(r) || 0;
+    if (portionG > 0) {
+      (r.components || []).forEach(function(c){
+        var sub = RECIPE_DB[c.subNpd]; if (!sub || !c.applyG) return;
+        var stageKg = (batchKg * 1000 / portionG) * c.applyG / 1000;
+        stageKg = Math.ceil(stageKg * 10) / 10;
+        var childId = _nextPRId();
+        var child = {
+          id: childId,
+          date: parent.date, recipe: sub.name, npd: sub.npd, brand: sub.brand || '',
+          runType: parent.runType, batchSize: stageKg + ' kg', operator: parent.operator,
+          status: parent.status, yield:'', waste:'',
+          notes: '↳ Auto-scheduled for ' + r.name + ' (' + parentId + ') — ' + (c.stage || sub.name),
+          parentRunId: parentId, stageLabel: c.stage || sub.name,
+          createdAt: new Date().toISOString(), comments: [],
+        };
+        PRODUCTION_RUNS.push(child);
+        children.push(child);
       });
-    });
-    if (childIds.length) {
-      // Store child refs on the parent for the production view
-      var parent = PRODUCTION_RUNS[PRODUCTION_RUNS.length - 1 - childIds.length];
-      parent.childRunIds = childIds;
+      if (children.length) parent.childRunIds = children.map(function(x){ return x.id; });
     }
   }
+  return { parent: parent, children: children };
+}
 
+function saveProductionRun() {
+  var npd = document.getElementById('np-recipe').value;
+  var r = RECIPE_DB[npd]; if (!r) return;
+  var result = createProductionRunWithSubBatches(r, {
+    date:     document.getElementById('np-date').value,
+    batchSize:(parseFloat(document.getElementById('np-batch').value) || 0) + ' kg',
+    runType:  document.getElementById('np-runtype').value,
+    operator: document.getElementById('np-operator').value,
+    notes:    document.getElementById('np-notes').value,
+  });
   closeModal();
   buildProductionTable();
-  logActivity('production','📅','Run scheduled: '+(r?r.name:npd) + (childIds.length ? ' (+ ' + childIds.length + ' sub-batches)' : ''));
-  showSaveToast(childIds.length ? 'Run scheduled + ' + childIds.length + ' sub-batches auto-created' : 'Run scheduled');
+  var childN = result.children.length;
+  logActivity('production','📅','Run scheduled: '+r.name + (childN ? ' (+ '+childN+' sub-batches)' : ''));
+  showSaveToast(childN ? 'Run scheduled + '+childN+' sub-batches auto-created' : 'Run scheduled');
   saveAllData();
 }
 
