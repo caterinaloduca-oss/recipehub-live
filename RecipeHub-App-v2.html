@@ -3923,6 +3923,7 @@ function _buildDataBlob() {
     deletedRecipeIds: _deletedRecipeIds,
     commsLog: COMMS_LOG,
     libraryDocs: LIBRARY_DOCS,
+    sopStandardBlocks: SOP_STANDARD_BLOCKS,
     savedAt: new Date().toISOString(),
     dataVersion: DATA_VERSION,
   };
@@ -4392,6 +4393,14 @@ function _hydrateFromData(data) {
         if (it) ['admin','npd','qa','factory','purchasing','viewer'].forEach(function(r){ if(si[r]!==undefined) it[r]=si[r]; });
       });
     });
+  }
+  if (Array.isArray(data.sopStandardBlocks) && data.sopStandardBlocks.length) {
+    // Merge by id: server wins for fields, keep local blocks not in server
+    var serverIds = data.sopStandardBlocks.map(function(b){return b.id});
+    var localExtras = SOP_STANDARD_BLOCKS.filter(function(b){ return serverIds.indexOf(b.id) === -1 });
+    SOP_STANDARD_BLOCKS.length = 0;
+    data.sopStandardBlocks.forEach(function(b){ SOP_STANDARD_BLOCKS.push(b); });
+    localExtras.forEach(function(b){ SOP_STANDARD_BLOCKS.push(b); });
   }
 }
 
@@ -5248,6 +5257,55 @@ var _RECIPE_DB_SEED_REMOVED = {
 var _deletedRecipeIds = [];
 var COMMS_LOG = [];
 var LIBRARY_DOCS = [];
+
+// ──────────── FACTORY SOP STANDARD BLOCKS ────────────
+// Shared preamble/closing blocks used across most Factory SOPs.
+// Edited once in the Standard Blocks Library (admin), toggled per recipe via r.sopStandardBlocks.
+// position: 'pre' (before recipe steps) or 'post' (after recipe steps)
+var SOP_STANDARD_BLOCKS = [
+  { id:'receiving', num:'3.1', title:'Receiving of Raw Materials', position:'pre', defaultOn:true,
+    oprp:null, ccp:null,
+    body:'Raw materials (flour, yeast, sugar, oil etc.) received must be verified by Quality Inspector. After approval of QA, raw materials are transferred to Dry Warehouse / appropriate storage as per temperature requirement.',
+    annexures:[{code:'DFC-QA-F035', name:'Material Receiving & Initial Inspection Records'}] },
+  { id:'rePalletizing', num:'3.2', title:'Re-Palletizing', position:'pre', defaultOn:true,
+    oprp:null, ccp:null,
+    body:'Food products are placed on plastic pallets before transferring to warehouse.',
+    annexures:[] },
+  { id:'sifting', num:'3.3', title:'Sifting of Flour', position:'pre', defaultOn:false,
+    oprp:'OPRP 2', ccp:null,
+    body:'Bring the flour bags into production area and ensure bags are clean and free of pest infestation. Ensure the sifter is clean and intact. Open the flour bag and pour into the sifter, sifting until the required quantity is reached.',
+    annexures:[] },
+  { id:'weighing', num:'3.4', title:'Preparing and Weighing of Ingredients', position:'pre', defaultOn:true,
+    oprp:null, ccp:null,
+    body:'Prepare and weigh ingredients (yeast, oil, sugar, etc.) according to the approved recipe production report. The amount should match the size being produced. Record all amounts in the Batching Checklist and the production/expiry date in the Ingredient Traceability Record.',
+    annexures:[{code:'DFC-BK-F002', name:'Batching Checklist'},{code:'DFC-QA-F001', name:'Ingredient Traceability Record'}] },
+  { id:'metalDet', num:'3.16', title:'Foreign Material Detection (Metal Detector)', position:'post', defaultOn:true,
+    oprp:null, ccp:'CCP 2',
+    body:'Place one green basket near the exit of the metal detector. Set the program per product. Ensure packing area is ready and obtain QA approval before starting. Check the metal detector every hour using standard probes and record details. Pass the packed product through. Collect approved packets in green baskets. If a packet is rejected, pass it through again; if rejected a second time, stop and inform QA and Production Manager — resume only after QA approval. Clean the Metal Detector after the run per cleaning instructions.',
+    annexures:[{code:'DFC-QA-F002', name:'Metal Detector Verification Record'},{code:'DFC-TI004', name:'Metal Detector Technical Instruction'},{code:'DFC-CI042', name:'Metal Detector Cleaning Instructions'}] },
+  { id:'fgFreezer', num:'3.17', title:'Storage in FG Freezer', position:'post', defaultOn:true,
+    oprp:null, ccp:'CCP 3',
+    body:'Store finished product in frozen condition. Freezer temperature must be maintained between −18 °C and −24 °C. Record temperatures as per monitoring schedule.',
+    annexures:[{code:'DFC-QA-F016', name:'Finished Goods Monitoring Report'}] },
+  { id:'fgChiller', num:'3.17', title:'Storage in FG Chiller', position:'post', defaultOn:false,
+    oprp:null, ccp:null,
+    body:'Store finished product in chilled condition at 0–4 °C. Record temperatures as per monitoring schedule.',
+    annexures:[{code:'DFC-QA-F016', name:'Finished Goods Monitoring Report'}] },
+  { id:'cipSanitation', num:'3.0', title:'Equipment CIP & Sanitation', position:'pre', defaultOn:false,
+    oprp:null, ccp:null,
+    body:'Ensure all mixing vessels, pipelines and equipment are CIP-cleaned and sanitised per SAN-001 protocol before commencing production. Verify equipment calibration logs are up to date. CIP temp: 85 °C minimum / Hold time: 20 minutes.',
+    annexures:[] },
+];
+
+function _defaultEnabledBlockIds() {
+  return SOP_STANDARD_BLOCKS.filter(function(b){return b.defaultOn}).map(function(b){return b.id});
+}
+
+function getRecipeStandardBlocks(r) {
+  if (!r) return [];
+  if (!Array.isArray(r.sopStandardBlocks)) r.sopStandardBlocks = _defaultEnabledBlockIds();
+  return r.sopStandardBlocks;
+}
 
 // ──────────── BUILD RECIPES TABLE ────────────
 var _showArchivedRecipes = false;
@@ -7108,6 +7166,129 @@ function backToSOPList() {
   buildFactorySOPTable();
 }
 
+// ── SOP Standard Blocks (shared preamble / closing) ──
+function _sopBlockTag(b) {
+  if (b.ccp)  return '<span style="display:inline-block;padding:2px 8px;border-radius:40px;font-size:10px;font-weight:600;background:#F5C2C2;color:#8C1A1A;margin-right:6px">🛑 '+b.ccp+'</span>';
+  if (b.oprp) return '<span style="display:inline-block;padding:2px 8px;border-radius:40px;font-size:10px;font-weight:600;background:#FFD9A8;color:#8C5A1A;margin-right:6px">'+b.oprp+'</span>';
+  return '';
+}
+
+function renderSOPStandardBlock(b, npd, enabled) {
+  var annex = (b.annexures||[]).map(function(a){ return '<span style="font-size:10px;color:var(--g3);margin-right:10px">'+a.code+' — '+a.name+'</span>'; }).join('');
+  return '<div style="padding:14px 16px;border:1px solid '+(enabled?'#C9DBF7':'var(--g2)')+';background:'+(enabled?'#F0F6FF':'#FAFBFC')+';border-radius:var(--r-sm);margin-bottom:10px;'+(enabled?'':'opacity:0.55')+'">' +
+    '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">' +
+      '<input type="checkbox" '+(enabled?'checked':'')+' onchange="toggleRecipeStandardBlock(\''+npd+'\',\''+b.id+'\')" style="width:16px;height:16px;accent-color:var(--navy)" />' +
+      '<span style="font-size:11px;color:var(--g3);font-family:var(--font-m)">'+(b.num||'')+'</span>' +
+      '<strong style="font-size:14px;color:var(--navy);flex:1">'+b.title+'</strong>' +
+      _sopBlockTag(b) +
+      '<span style="font-size:10px;color:var(--g3);text-transform:uppercase;letter-spacing:0.08em">Shared block</span>' +
+    '</div>' +
+    '<div style="font-size:12.5px;line-height:1.7;color:var(--g4);margin-left:26px">'+b.body+'</div>' +
+    (annex ? '<div style="margin-top:8px;margin-left:26px">'+annex+'</div>' : '') +
+  '</div>';
+}
+
+function renderSOPStandardBlocksSection(r, position, label) {
+  var enabledIds = getRecipeStandardBlocks(r);
+  var blocks = SOP_STANDARD_BLOCKS.filter(function(b){ return b.position === position; });
+  if (!blocks.length) return '';
+  return '<div class="card" style="margin-bottom:20px">' +
+    '<div class="card-head">' +
+      '<span class="card-title">'+label+'</span>' +
+      '<div style="display:flex;gap:8px;align-items:center">' +
+        '<span style="font-size:11px;color:var(--g3)">Toggle blocks on/off for this recipe</span>' +
+        (getCurrentUserRole()==='admin' ? '<button class="btn btn-outline btn-sm" onclick="openStandardBlocksLibrary()">✎ Edit Library</button>' : '') +
+      '</div>' +
+    '</div>' +
+    '<div class="card-body" style="padding:18px 22px">' +
+      blocks.map(function(b){ return renderSOPStandardBlock(b, r.npd, enabledIds.indexOf(b.id) > -1); }).join('') +
+    '</div>' +
+  '</div>';
+}
+
+function renderSOPAnnexure(r) {
+  var enabledIds = getRecipeStandardBlocks(r);
+  var rows = [];
+  SOP_STANDARD_BLOCKS.forEach(function(b){
+    if (enabledIds.indexOf(b.id) === -1) return;
+    (b.annexures||[]).forEach(function(a){
+      rows.push({ code:a.code, name:a.name, source:b.title });
+    });
+  });
+  // Dedupe by code
+  var seen = {}; rows = rows.filter(function(x){ if (seen[x.code]) return false; seen[x.code]=1; return true; });
+  if (!rows.length) return '';
+  var romans = ['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII','XIII','XIV','XV','XVI','XVII','XVIII','XIX','XX'];
+  return '<div class="card" style="margin-top:20px;margin-bottom:20px">' +
+    '<div class="card-head"><span class="card-title">Annexure</span><span style="font-size:11px;color:var(--g3)">Auto-compiled from enabled blocks</span></div>' +
+    '<div class="card-body" style="padding:0">' +
+      '<table class="data-table" style="font-size:12.5px">' +
+        '<thead><tr><th style="width:60px">#</th><th style="width:160px">Doc No</th><th>Document Name</th><th>Source</th></tr></thead>' +
+        '<tbody>' + rows.map(function(x,i){ return '<tr><td>'+(romans[i]||(i+1))+'</td><td style="font-family:var(--font-m)">'+x.code+'</td><td>'+x.name+'</td><td style="color:var(--g3);font-size:11px">'+x.source+'</td></tr>'; }).join('') + '</tbody>' +
+      '</table>' +
+    '</div>' +
+  '</div>';
+}
+
+function toggleRecipeStandardBlock(npd, blockId) {
+  var r = RECIPE_DB[npd]; if (!r) return;
+  if (!Array.isArray(r.sopStandardBlocks)) r.sopStandardBlocks = _defaultEnabledBlockIds();
+  var i = r.sopStandardBlocks.indexOf(blockId);
+  if (i >= 0) r.sopStandardBlocks.splice(i, 1);
+  else r.sopStandardBlocks.push(blockId);
+  // Re-render the two blocks sections and annexure in place
+  var preWrap = document.getElementById('sop-pre-blocks'); if (preWrap) preWrap.innerHTML = renderSOPStandardBlocksSection(r, 'pre', 'Pre-Production — Standard Blocks');
+  var postWrap = document.getElementById('sop-post-blocks'); if (postWrap) postWrap.innerHTML = renderSOPStandardBlocksSection(r, 'post', 'Post-Production — Standard Blocks');
+  var annex = document.getElementById('sop-annexure'); if (annex) annex.innerHTML = renderSOPAnnexure(r);
+  saveRecipeToServer(npd);
+}
+
+function openStandardBlocksLibrary() {
+  if (getCurrentUserRole() !== 'admin') { showSaveToast('Admin only', true); return; }
+  var body = SOP_STANDARD_BLOCKS.map(function(b, i){
+    return '<div style="border:1px solid var(--g2);border-radius:var(--r-sm);padding:12px 14px;margin-bottom:10px">' +
+      '<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">' +
+        '<input class="form-input" value="'+b.num+'" placeholder="Num" style="width:70px;padding:4px 8px;font-size:12px" onchange="SOP_STANDARD_BLOCKS['+i+'].num=this.value" />' +
+        '<input class="form-input" value="'+b.title+'" placeholder="Title" style="flex:1;padding:4px 8px;font-size:13px;font-weight:500" onchange="SOP_STANDARD_BLOCKS['+i+'].title=this.value" />' +
+        '<select class="form-input" style="width:80px;padding:4px 8px;font-size:12px" onchange="SOP_STANDARD_BLOCKS['+i+'].position=this.value">' +
+          '<option value="pre"'+(b.position==='pre'?' selected':'')+'>Pre</option>' +
+          '<option value="post"'+(b.position==='post'?' selected':'')+'>Post</option>' +
+        '</select>' +
+        '<label style="font-size:11px;display:flex;align-items:center;gap:4px"><input type="checkbox" '+(b.defaultOn?'checked':'')+' onchange="SOP_STANDARD_BLOCKS['+i+'].defaultOn=this.checked" /> Default on</label>' +
+        '<button class="btn btn-danger-sm" onclick="deleteStandardBlock('+i+')">✕</button>' +
+      '</div>' +
+      '<div style="display:flex;gap:8px;margin-bottom:8px">' +
+        '<input class="form-input" value="'+(b.oprp||'')+'" placeholder="OPRP (e.g. OPRP 2)" style="width:140px;padding:4px 8px;font-size:12px" onchange="SOP_STANDARD_BLOCKS['+i+'].oprp=this.value||null" />' +
+        '<input class="form-input" value="'+(b.ccp||'')+'" placeholder="CCP (e.g. CCP 2)" style="width:140px;padding:4px 8px;font-size:12px" onchange="SOP_STANDARD_BLOCKS['+i+'].ccp=this.value||null" />' +
+      '</div>' +
+      '<textarea class="form-textarea" placeholder="Body text" style="width:100%;min-height:70px;font-size:12.5px;line-height:1.6;padding:8px 10px;box-sizing:border-box" onchange="SOP_STANDARD_BLOCKS['+i+'].body=this.value">'+b.body+'</textarea>' +
+      '<div style="margin-top:8px">' +
+        '<div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3);margin-bottom:4px">Annexure references</div>' +
+        (b.annexures||[]).map(function(a, ai){ return '<div style="display:flex;gap:6px;margin-bottom:4px"><input class="form-input" value="'+a.code+'" placeholder="Doc No" style="width:140px;padding:3px 7px;font-size:11px" onchange="SOP_STANDARD_BLOCKS['+i+'].annexures['+ai+'].code=this.value" /><input class="form-input" value="'+a.name+'" placeholder="Name" style="flex:1;padding:3px 7px;font-size:11px" onchange="SOP_STANDARD_BLOCKS['+i+'].annexures['+ai+'].name=this.value" /><button class="btn btn-danger-sm" onclick="SOP_STANDARD_BLOCKS['+i+'].annexures.splice('+ai+',1);openStandardBlocksLibrary()">✕</button></div>'; }).join('') +
+        '<button class="btn btn-ghost-sm" style="width:auto;margin:0;padding:3px 10px;font-size:11px" onclick="SOP_STANDARD_BLOCKS['+i+'].annexures=(SOP_STANDARD_BLOCKS['+i+'].annexures||[]);SOP_STANDARD_BLOCKS['+i+'].annexures.push({code:\'\',name:\'\'});openStandardBlocksLibrary()">+ Annexure</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+  var html = '<div style="padding:8px 4px 20px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><h2 style="margin:0;font-family:var(--font-d);color:var(--navy)">Standard Blocks Library</h2><div><button class="btn btn-outline btn-sm" onclick="addStandardBlock()">+ New Block</button><button class="btn btn-gold btn-sm" style="margin-left:6px" onclick="saveAllData();showSaveToast(\'Library saved\');closeModal()">💾 Save & Close</button></div></div>' +
+    '<div style="font-size:12px;color:var(--g3);margin-bottom:14px">Edit shared SOP preamble/closing blocks. Changes apply to all recipes that have these blocks enabled.</div>' +
+    body +
+  '</div>';
+  openModal(html, '900px');
+}
+
+function addStandardBlock() {
+  SOP_STANDARD_BLOCKS.push({ id:'block-'+Date.now(), num:'', title:'New Block', position:'pre', defaultOn:false, oprp:null, ccp:null, body:'', annexures:[] });
+  openStandardBlocksLibrary();
+}
+
+function deleteStandardBlock(i) {
+  if (!confirm('Delete this block? It will be removed from all recipes.')) return;
+  var id = SOP_STANDARD_BLOCKS[i].id;
+  SOP_STANDARD_BLOCKS.splice(i, 1);
+  Object.values(RECIPE_DB).forEach(function(r){ if (Array.isArray(r.sopStandardBlocks)) { var k = r.sopStandardBlocks.indexOf(id); if (k>=0) r.sopStandardBlocks.splice(k,1); } });
+  openStandardBlocksLibrary();
+}
+
 function exportToSOP(npd) {
   const r = RECIPE_DB[npd];
   if (!r) return;
@@ -7186,11 +7367,13 @@ function exportToSOP(npd) {
       </div>
     </div>
 
+    <div id="sop-pre-blocks">${renderSOPStandardBlocksSection(r, 'pre', 'Pre-Production — Standard Blocks')}</div>
+
     <div style="display:grid;grid-template-columns:1fr 340px;gap:24px">
       <div>
         <div class="card" style="margin-bottom:20px">
           <div class="card-head">
-            <span class="card-title">Production Steps</span>
+            <span class="card-title">Production Steps (Recipe-Specific)</span>
             <div style="display:flex;gap:8px;align-items:center">
               <span class="badge badge-navy">${steps.length} Steps</span>
               <button class="btn btn-outline btn-sm" onclick="addSOPStep('${r.npd}')">+ Add Step</button>
@@ -7241,6 +7424,9 @@ function exportToSOP(npd) {
         </div>
       </div>
     </div>
+
+    <div id="sop-post-blocks">${renderSOPStandardBlocksSection(r, 'post', 'Post-Production — Standard Blocks')}</div>
+    <div id="sop-annexure">${renderSOPAnnexure(r)}</div>
   `;
 
   document.getElementById('sop-content').innerHTML = sopHTML;
@@ -7571,14 +7757,18 @@ function filterUsers() {
 }
 
 // ──────────── MODAL SYSTEM ────────────
-function openModal(html) {
-  document.getElementById('modal-box').innerHTML = html;
+function openModal(html, width) {
+  var box = document.getElementById('modal-box');
+  box.innerHTML = html;
+  box.style.width = width || '600px';
   document.getElementById('modal-overlay').style.display = 'flex';
   document.body.style.overflow = 'hidden';
 }
 function closeModal() {
   document.getElementById('modal-overlay').style.display = 'none';
   document.body.style.overflow = '';
+  var box = document.getElementById('modal-box');
+  if (box) box.style.width = '';
 }
 // Modal only closes via X button — no accidental close on background click
 
