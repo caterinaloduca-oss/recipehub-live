@@ -4532,14 +4532,27 @@ function canAccessPage(pageId) {
   return true;
 }
 
+function getRealUserRole() {
+  try {
+    var raw = sessionStorage.getItem(AUTH_KEY);
+    if (raw) {
+      var user = JSON.parse(raw);
+      if (user.email && user.email.toLowerCase() === 'caterina.loduca@dailyfoodsa.com') return 'admin';
+      var found = USERS_DATA.find(function(u){ return u.email.toLowerCase() === user.email.toLowerCase(); });
+      return found ? found.role : 'viewer';
+    }
+  } catch(e) {}
+  return 'viewer';
+}
+
 function applySidebarPermissions() {
   document.querySelectorAll('.nav-item[data-page]').forEach(function(btn) {
     var pageId = btn.getAttribute('data-page');
     btn.style.display = canAccessPage(pageId) ? '' : 'none';
   });
-  // Hide "View as" role switcher for non-admins
+  // "View as" role switcher: always visible to real admins, even while previewing
   var previewSelect = document.getElementById('preview-role-select');
-  if (previewSelect) previewSelect.parentElement.style.display = getCurrentUserRole() === 'admin' ? '' : 'none';
+  if (previewSelect) previewSelect.parentElement.style.display = getRealUserRole() === 'admin' ? '' : 'none';
 }
 
 function nav(id) {
