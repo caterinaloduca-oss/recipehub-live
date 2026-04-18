@@ -4503,14 +4503,17 @@ function stripPageActions(pageId) {
     if (t === 'edit' || t === 'delete' || t.indexOf('status') > -1 || t === 'archive' || t === 'restore' || t === 'duplicate' || t === 'discontinue' || t === 'reactivate') b.style.display = 'none';
   });
   // Hide buttons by onclick keyword (for buttons without standard classes)
+  var UI_SKIP = ['nav(','view','print','filter','search','toggledd','togglenotif','togglearchived','togglebaker','togglenutrition','togglebuildnutrition','toggleqa','toggleimport','toggleinvite','togglelib','togglesopccp','togglesopicon','togglesopwarning','toggleall','goback','backto','closebuild','closeprint','closemodal','closeimport','zoomimage','copyinvite','clearnotif','showingusedin','compareversion','signout','emailsignin','downloadpdf','downloadbuildpdf','refreshreports','forcerefresh',"display='none'"];
+  var HIDE_KW = ['delete','remove','save','edit','add','create','new','open','duplicate','submit','approve','upload','convert','revert','archive','unarchive','generate','regenerate','send','import','change','restore','reject','confirm','sync','calc','reset','sign','schedule','complete','set'];
   el.querySelectorAll('button[onclick]').forEach(function(b) {
     if (inModal(b)) return;
     var oc = (b.getAttribute('onclick') || '').toLowerCase();
-    // Skip nav/view/print/filter/search/toggle-UI buttons
-    if (oc.indexOf('nav(') > -1 || oc.indexOf('view') > -1 || oc.indexOf('print') > -1 || oc.indexOf('filter') > -1 || oc.indexOf('search') > -1 || oc.indexOf('toggledd') > -1 || oc.indexOf('togglenotif') > -1 || oc.indexOf('togglearchived') > -1 || oc.indexOf('goback') > -1 || oc.indexOf('closebuild') > -1 || oc.indexOf("display='none'") > -1) return;
-    // Hide action buttons
-    if (oc.indexOf('delete') > -1 || oc.indexOf('remove') > -1 || oc.indexOf('save') > -1 || oc.indexOf('edit') > -1 || oc.indexOf('add') > -1 || oc.indexOf('create') > -1 || oc.indexOf('open') > -1 || oc.indexOf('duplicate') > -1 || oc.indexOf('submit') > -1 || oc.indexOf('approve') > -1 || oc.indexOf('upload') > -1) {
-      b.style.display = 'none';
+    // Skip UI-only handlers first (order matters — skip wins over hide)
+    for (var s = 0; s < UI_SKIP.length; s++) { if (oc.indexOf(UI_SKIP[s]) > -1) return; }
+    // setIngMode is UI-only; setRecipeStatus / setRunStatus are writes — check explicitly
+    if (oc.indexOf('setingmode') > -1) return;
+    for (var h = 0; h < HIDE_KW.length; h++) {
+      if (oc.indexOf(HIDE_KW[h]) > -1) { b.style.display = 'none'; return; }
     }
   });
   // Hide standalone X / delete buttons
@@ -7110,6 +7113,7 @@ function viewRecipe(npd) {
   }
   PAGES['recipe-detail'].actions = _detailActions;
   showPage('recipe-detail');
+  applyRoleRestrictions();
   // Restore scroll if re-rendering same page (not navigating fresh)
   if (_wasOnDetail) {
     window.scrollTo(0, _scrollY);
