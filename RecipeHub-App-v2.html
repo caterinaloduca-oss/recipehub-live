@@ -9541,7 +9541,10 @@ function editRecipe(npd) {
           </div>`;
         }).join('')}
       </div>
-      <button class="btn btn-ghost-sm" onclick="addEditIngRow()">+ Add Ingredient</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost-sm" onclick="addEditIngRow()">+ Add Ingredient</button>
+        <button class="btn btn-ghost-sm" onclick="openImportIngredients()">⬆ Import Ingredients</button>
+      </div>
 
       <div class="sec-divider" style="margin-top:20px"><span class="sec-divider-label">Method Steps</span><span class="sec-divider-line"></span></div>
       <div id="er-method">
@@ -9758,32 +9761,148 @@ function doImportStepsToRecipe(npd) {
   showSaveToast(lines.length + ' steps imported');
 }
 
-function openImportSteps() {
-  var overlay = document.getElementById('modal-overlay');
-  var box = document.getElementById('modal-box');
-  box.innerHTML =
-    '<div class="card-head" style="background:var(--navy);border-radius:16px 16px 0 0">' +
-      '<span class="card-title" style="color:white">Import Method Steps</span>' +
-      '<button class="btn btn-sm" style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:none" onclick="closeModal()">✕</button>' +
-    '</div>' +
-    '<div class="card-body" style="padding:24px">' +
-      '<div style="font-size:12px;color:var(--g4);margin-bottom:12px">Paste your steps below. Each line becomes a step. Use <strong>Title: Description</strong> format, or just the description (auto-numbered).</div>' +
-      '<textarea class="form-textarea" id="import-steps-text" style="min-height:200px;width:100%;font-size:13px;line-height:1.8;padding:12px 14px;box-sizing:border-box" placeholder="Mix dry ingredients together\nAdd water slowly: Combine until smooth\nBake at 180°C for 25 minutes"></textarea>' +
-      '<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">' +
-        '<button class="btn btn-outline" onclick="closeModal()">Cancel</button>' +
-        '<button class="btn btn-gold" onclick="doImportSteps()">Import</button>' +
+function openImportIngredients() {
+  closeImportIngOverlay();
+  var ov = document.createElement('div');
+  ov.id = 'import-ing-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(10,18,32,0.55);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.innerHTML =
+    '<div style="background:white;border-radius:16px;width:min(640px,100%);max-height:90vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,0.35)">' +
+      '<div class="card-head" style="background:var(--navy);border-radius:16px 16px 0 0">' +
+        '<span class="card-title" style="color:white">Import Ingredients</span>' +
+        '<button class="btn btn-sm" style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:none" onclick="closeImportIngOverlay()">✕</button>' +
+      '</div>' +
+      '<div class="card-body" style="padding:24px">' +
+        '<div style="font-size:12px;color:var(--g4);margin-bottom:12px">One ingredient per line. Separate name and % with a tab, comma, or two+ spaces. Header rows and % signs are ignored.</div>' +
+        '<div style="font-size:11px;color:var(--g3);margin-bottom:8px;font-family:var(--font-m)">Beef Eye Round&nbsp;&nbsp;&nbsp;92.94<br>Salt&nbsp;&nbsp;&nbsp;0.93<br>Soy Sauce, 0.70</div>' +
+        '<textarea class="form-textarea" id="import-ing-text" style="min-height:240px;width:100%;font-size:13px;line-height:1.7;padding:12px 14px;box-sizing:border-box;font-family:var(--font-m)" placeholder="Beef Eye Round   92.94\nSalt             0.93\nSoy Sauce        0.70"></textarea>' +
+        '<div style="display:flex;gap:16px;align-items:center;margin-top:12px;font-size:12px;color:var(--g3)">' +
+          '<label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="radio" name="import-ing-mode" value="replace" checked /> Replace existing</label>' +
+          '<label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="radio" name="import-ing-mode" value="append" /> Append to list</label>' +
+        '</div>' +
+        '<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">' +
+          '<button class="btn btn-outline" onclick="closeImportIngOverlay()">Cancel</button>' +
+          '<button class="btn btn-gold" onclick="doImportIngredients()">Import</button>' +
+        '</div>' +
       '</div>' +
     '</div>';
-  overlay.style.display = 'flex';
-  document.body.style.overflow = 'hidden';
+  document.body.appendChild(ov);
+  setTimeout(function(){ var t = document.getElementById('import-ing-text'); if (t) t.focus(); }, 50);
+}
+
+function closeImportIngOverlay() {
+  var ov = document.getElementById('import-ing-overlay');
+  if (ov) ov.remove();
+}
+
+function doImportIngredients() {
+  var textEl = document.getElementById('import-ing-text');
+  if (!textEl) return;
+  var text = textEl.value;
+  if (!text.trim()) { closeImportIngOverlay(); return; }
+  var container = document.getElementById('er-ingredients');
+  if (!container) { closeImportIngOverlay(); showSaveToast('Edit form not open', true); return; }
+  var modeEl = document.querySelector('input[name="import-ing-mode"]:checked');
+  var mode = modeEl ? modeEl.value : 'replace';
+
+  var parsed = [];
+  text.split('\n').forEach(function(raw) {
+    var line = raw.trim();
+    if (!line) return;
+    // Strip leading list numbers like "1." or "1)"
+    line = line.replace(/^\s*\d+[\.\)]\s+/, '');
+    // Skip obvious header rows
+    if (/^(ingredient|name|item)\b/i.test(line) && !/\d/.test(line)) return;
+    // Split by tab, comma, or 2+ spaces
+    var parts = line.split(/\t+|,|\s{2,}/).map(function(p){ return p.trim(); }).filter(Boolean);
+    if (parts.length < 2) return;
+    // Find numeric part (last token that parses as number)
+    var pct = null, name = '';
+    for (var i = parts.length - 1; i >= 0; i--) {
+      var cleaned = parts[i].replace(/%/g, '').replace(/,/g, '.').trim();
+      var n = parseFloat(cleaned);
+      if (!isNaN(n) && /^-?\d*\.?\d+$/.test(cleaned)) {
+        pct = n;
+        name = parts.slice(0, i).join(' ').trim();
+        break;
+      }
+    }
+    if (!name || pct === null || pct <= 0) return;
+    parsed.push({ name: name, pct: pct });
+  });
+
+  if (!parsed.length) { showSaveToast('No valid rows found', true); return; }
+
+  // Force % mode so saveEditRecipe doesn't overwrite pct from empty grams fields
+  if (typeof setIngMode === 'function' && _erIngMode !== 'pct') setIngMode('pct');
+
+  if (mode === 'replace') {
+    container.innerHTML = '';
+  }
+
+  var isPct = true;
+  parsed.forEach(function(ing) {
+    var div = document.createElement('div');
+    div.className = 'er-ing-row';
+    div.style.cssText = 'display:flex;gap:8px;align-items:center;margin-bottom:6px';
+    var nameEsc = ing.name.replace(/"/g, '&quot;');
+    div.innerHTML =
+      '<input class="form-input" value="' + nameEsc + '" style="flex:2;padding:6px 10px" placeholder="Ingredient name" data-field="name" />' +
+      '<input class="form-input er-ing-pct" value="' + ing.pct + '" type="number" step="0.1" min="0" style="width:80px;padding:6px 10px;text-align:right;' + (isPct ? '' : 'display:none') + '" placeholder="%" data-field="pct" />' +
+      '<span class="er-unit-label" style="font-size:12px;color:var(--g3);width:16px;' + (isPct ? '' : 'display:none') + '">%</span>' +
+      '<input class="form-input er-ing-g" value="" type="number" step="0.1" min="0" style="width:80px;padding:6px 10px;text-align:right;' + (isPct ? 'display:none' : '') + '" placeholder="g" data-field="grams" />' +
+      '<span class="er-unit-label-g" style="font-size:12px;color:var(--g3);' + (isPct ? 'display:none' : '') + ';width:16px">g</span>' +
+      '<button style="background:none;border:none;cursor:pointer;color:var(--red);font-size:16px" onclick="this.closest(\'.er-ing-row\').remove()">✕</button>';
+    container.appendChild(div);
+    var nameInput = div.querySelector('input[data-field="name"]');
+    if (typeof ebsAutocomplete === 'function') ebsAutocomplete(nameInput);
+  });
+
+  closeImportIngOverlay();
+  var total = parsed.reduce(function(s,x){ return s + x.pct; }, 0);
+  showSaveToast(parsed.length + ' ingredients imported (' + total.toFixed(2) + '%)');
+}
+
+function openImportSteps() {
+  closeImportStepsOverlay();
+  var ov = document.createElement('div');
+  ov.id = 'import-steps-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(10,18,32,0.55);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.innerHTML =
+    '<div style="background:white;border-radius:16px;width:min(600px,100%);max-height:90vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,0.35)">' +
+      '<div class="card-head" style="background:var(--navy);border-radius:16px 16px 0 0">' +
+        '<span class="card-title" style="color:white">Import Method Steps</span>' +
+        '<button class="btn btn-sm" style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:none" onclick="closeImportStepsOverlay()">✕</button>' +
+      '</div>' +
+      '<div class="card-body" style="padding:24px">' +
+        '<div style="font-size:12px;color:var(--g4);margin-bottom:12px">Paste your steps below. Each line becomes a step. Use <strong>Title: Description</strong> format, or just the description (auto-numbered).</div>' +
+        '<textarea class="form-textarea" id="import-steps-text" style="min-height:200px;width:100%;font-size:13px;line-height:1.8;padding:12px 14px;box-sizing:border-box" placeholder="Mix dry ingredients together\nAdd water slowly: Combine until smooth\nBake at 180°C for 25 minutes"></textarea>' +
+        '<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">' +
+          '<button class="btn btn-outline" onclick="closeImportStepsOverlay()">Cancel</button>' +
+          '<button class="btn btn-gold" onclick="doImportSteps()">Import</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(ov);
+  setTimeout(function(){ var t = document.getElementById('import-steps-text'); if (t) t.focus(); }, 50);
+}
+
+function closeImportStepsOverlay() {
+  var ov = document.getElementById('import-steps-overlay');
+  if (ov) ov.remove();
 }
 
 function doImportSteps() {
-  var text = document.getElementById('import-steps-text').value.trim();
-  if (!text) return;
+  var textEl = document.getElementById('import-steps-text');
+  if (!textEl) return;
+  var text = textEl.value.trim();
+  if (!text) { closeImportStepsOverlay(); return; }
   var lines = text.split('\n').filter(function(l) { return l.trim(); });
   var container = document.getElementById('er-method');
+  if (!container) { closeImportStepsOverlay(); showSaveToast('Edit form not open', true); return; }
   lines.forEach(function(line) {
+    line = line.replace(/^\s*\d+[\.\)\s\t-]+/, '').trim();
+    if (!line) return;
     var title, desc;
     var colonIdx = line.indexOf(':');
     if (colonIdx > 0 && colonIdx < 60) {
@@ -9791,7 +9910,7 @@ function doImportSteps() {
       desc = line.slice(colonIdx + 1).trim();
     } else {
       title = 'Step ' + (container.querySelectorAll('.er-method-row').length + 1);
-      desc = line.trim();
+      desc = line;
     }
     var num = container.querySelectorAll('.er-method-row').length + 1;
     var div = document.createElement('div');
@@ -9806,7 +9925,7 @@ function doImportSteps() {
       '<button style="background:none;border:none;cursor:pointer;color:var(--red);font-size:16px;margin-top:6px" onclick="this.closest(\'.er-method-row\').remove();renumberEditSteps()">✕</button>';
     container.appendChild(div);
   });
-  closeModal();
+  closeImportStepsOverlay();
   showSaveToast(lines.length + ' steps imported');
 }
 
