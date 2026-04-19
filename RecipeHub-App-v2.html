@@ -947,7 +947,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
     <div class="card-body" style="padding:0">
       <table class="data-table">
         <thead><tr>
-          <th>#</th><th>Ingredient Name</th><th>Vendor</th><th>Item Code</th><th>Category</th><th>Cost</th><th>UOM</th><th>Cost/kg</th><th></th>
+          <th>#</th><th>Ingredient Name</th><th>Vendor</th><th>Item Code</th><th>Category</th><th title="Raw EBS price per stockroom unit (e.g. BAG, XO4)">Stockroom Price</th><th title="How the item is purchased — e.g. 1 BAG = 2 kg">Stockroom → Recipe</th><th title="Cost normalised to the unit the recipe uses">Recipe Price</th><th>Cost/kg</th><th></th>
         </tr></thead>
         <tbody id="ing-db-tbody">
           <!-- populated by JS -->
@@ -3593,6 +3593,26 @@ function _codeIsERP(code) {
   return /^[A-Za-z]/.test(String(code).trim());
 }
 
+// Stockroom price cell: "SAR 121.22 / XO6" (raw per stockroom UOM from EBS)
+function _renderStockroomCost(cost, uom) {
+  if (cost == null || isNaN(cost)) return '<span style="color:var(--g3)">—</span>';
+  return 'SAR ' + Number(cost).toFixed(2) + (uom ? ' <span style="color:var(--g4);font-size:10px">/ ' + uom + '</span>' : '');
+}
+
+// Conversion cell: "1 XO6 = 3.1 kg" (shows how recipe_unit relates to stockroom_unit)
+function _renderConversion(stockroomUnit, recipeUnit, equivalence) {
+  if (!stockroomUnit && !recipeUnit) return '<span style="color:var(--g3)">—</span>';
+  if (!equivalence || equivalence <= 0) return '<span style="color:var(--g3)">no conversion</span>';
+  if (equivalence == 1 && stockroomUnit === recipeUnit) return '<span style="color:var(--g3)">1:1 ' + (recipeUnit||'') + '</span>';
+  return '1 ' + (stockroomUnit||'?') + ' = ' + Number(equivalence) + ' ' + (recipeUnit||'?');
+}
+
+// Recipe price cell: "SAR 39.10 / kg" (normalised to recipe UOM)
+function _renderRecipeCost(costStr, recipeUnit) {
+  if (!costStr || costStr === '—') return '<span style="color:var(--g3)">—</span>';
+  return costStr + (recipeUnit && recipeUnit !== '—' ? ' <span style="color:var(--g4);font-size:10px;font-weight:400">/ ' + recipeUnit + '</span>' : '');
+}
+
 // Render ERP + POS codes in one table cell. If only one exists, show just that one.
 function _renderItemCodes(primary, posId) {
   if (!primary && !posId) return '—';
@@ -3774,28 +3794,32 @@ function loadFromPOSRecipes(skipConfirm) {
       var uom = lc.recipeUnit || it.recipeUnit || lc.stockroomUom || it.stockroomUnit || '—';
       var freshCostPerKg = (lc.pricePerKg) ? Number(lc.pricePerKg).toFixed(4) : '';
       var supplier = it.erpCode ? 'Oracle EBS' : 'POS (unmapped)';
-      // Find existing row: prefer ERP-code match, fall back to POS-id match
+      var stockroomUom = lc.stockroomUom || it.stockroomUnit || '';
+      var stockroomCostNum = (lc.stockroomCost != null) ? Number(lc.stockroomCost) : null;
+      var equivalence = it.equivalence != null ? Number(it.equivalence) : null;
       var existingIdx = (it.erpCode && byErp[it.erpCode] != null) ? byErp[it.erpCode]
                       : (byPos[String(it.invItemId)] != null) ? byPos[String(it.invItemId)]
                       : -1;
       if (existingIdx >= 0) {
         var row = ING_DATA[existingIdx];
-        // Preserve manual costPerKg override if user set one previously
         var keepCostPerKg = row[11] && row[11] !== freshCostPerKg && row[2] !== 'Oracle EBS' ? row[11] : freshCostPerKg;
-        row[1] = it.name || row[1];                    // name
-        row[2] = supplier;                              // vendor
-        row[3] = code;                                  // ERP (or POS if unmapped)
+        row[1] = it.name || row[1];
+        row[2] = supplier;
+        row[3] = code;
         row[4] = cat;
         row[5] = cost;
         row[6] = row[6] || 'Ambient';
         row[8] = 'POS Sync';
-        row[10] = uom;
+        row[10] = uom;               // recipe unit
         row[11] = keepCostPerKg;
         row[12] = it.invItemId;
+        row[13] = stockroomUom;      // stockroom unit
+        row[14] = stockroomCostNum;  // raw EBS cost per stockroom unit
+        row[15] = equivalence;       // recipe units per stockroom unit
         updated++;
       } else {
         var num = ING_DATA.length + 1;
-        ING_DATA.push([num, it.name, supplier, code, cat, cost, 'Ambient', '—', 'POS Sync', '', uom, freshCostPerKg, it.invItemId]);
+        ING_DATA.push([num, it.name, supplier, code, cat, cost, 'Ambient', '—', 'POS Sync', '', uom, freshCostPerKg, it.invItemId, stockroomUom, stockroomCostNum, equivalence]);
         added++;
       }
       if (freshCostPerKg) priced++;
@@ -5247,8 +5271,9 @@ function buildIngTable() {
       <td style="color:var(--g4);font-size:12px" id="ing-vendor-${idx}">${displayVendor}</td>
       <td style="font-family:var(--font-m);font-size:12px;color:var(--g3)">${_renderItemCodes(code, row[12])}</td>
       <td><span class="cat-tag ${catClass}">${cat}</span></td>
-      <td style="font-family:var(--font-m);font-weight:500;color:${costColor}" id="ing-cost-${idx}">${displayCost}</td>
-      <td style="font-family:var(--font-m);font-size:12px;color:var(--g4)" id="ing-uom-${idx}">${displayUOM}</td>
+      <td style="font-family:var(--font-m);font-size:12px">${_renderStockroomCost(row[14], row[13])}</td>
+      <td style="font-family:var(--font-m);font-size:11px;color:var(--g4)">${_renderConversion(row[13], displayUOM, row[15])}</td>
+      <td style="font-family:var(--font-m);font-weight:500;color:${costColor}" id="ing-cost-${idx}">${_renderRecipeCost(displayCost, displayUOM)}</td>
       <td style="font-family:var(--font-m);font-weight:600;color:${costKgColor};cursor:pointer" onclick="editIngCostPerKg(${idx})" title="Click to set cost/kg">${costKgDisplay}</td>
       <td style="white-space:nowrap"><button class="btn btn-outline btn-sm" style="color:var(--blue);font-weight:700;border-color:var(--blue)" onclick="showIngUsedIn('${name.replace(/'/g,"\\'")}')">Used in</button>${_codeIsERP(code) ? ` <button class="btn btn-outline btn-sm" title="Oracle EBS price history" onclick="openPriceHistory('${code}','${name.replace(/'/g,"\\'")}')">📈 History</button>` : (supplier === 'POS (unmapped)' ? ` <button class="btn btn-sm" style="background:#FFE8A3;color:#8a4500;border:1px solid #d47000" title="Map this POS item to an Oracle EBS item so it gets priced" onclick="openMapModal('${code}','${name.replace(/'/g,"\\'")}')">🔗 Map to EBS</button>` : '')} <button class="btn btn-outline btn-sm" onclick="editIngredient(this)">Edit</button>${supplier !== 'Oracle EBS' ? ' <button class="btn btn-sm" style="background:var(--red-lt);color:var(--red);border:1px solid var(--red);margin-left:4px" onclick="deleteIngredient(this)">✕</button>' : ''}</td>
     `;
