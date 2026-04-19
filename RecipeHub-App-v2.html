@@ -3673,16 +3673,18 @@ function loadFromPOSRecipes_silent() {
     headers: { 'Authorization': 'Bearer ' + API_KEY }
   }).then(function(r){ return r.json(); }).then(function(data){
     if (!data.items) return;
-    // Update existing rows' costs based on the new mapping
+    // Update existing rows' costs based on the new mapping — use recipe-UOM normalised price
     data.items.forEach(function(it){
       var code = it.erpCode || it.invItemId;
-      var idx = ING_DATA.findIndex(function(row){ return row[3] === String(code) || row[3] === String(it.invItemId); });
+      var idx = ING_DATA.findIndex(function(row){ return row[3] === String(code) || row[3] === String(it.invItemId) || row[12] === String(it.invItemId); });
       if (idx === -1) return;
-      if (it.latestCost && it.latestCost.accountingCost) {
+      var lc = it.latestCost || {};
+      var costNum = (lc.costPerRecipeUnit != null) ? lc.costPerRecipeUnit : lc.stockroomCost;
+      if (costNum != null) {
         ING_DATA[idx][3] = it.erpCode || ING_DATA[idx][3];
-        ING_DATA[idx][5] = 'SAR ' + Number(it.latestCost.accountingCost).toFixed(2);
-        ING_DATA[idx][10] = it.latestCost.uom || ING_DATA[idx][10];
-        ING_DATA[idx][11] = it.latestCost.pricePerKg ? Number(it.latestCost.pricePerKg).toFixed(4) : ING_DATA[idx][11];
+        ING_DATA[idx][5] = 'SAR ' + Number(costNum).toFixed(2);
+        ING_DATA[idx][10] = lc.recipeUnit || it.recipeUnit || lc.stockroomUom || ING_DATA[idx][10];
+        ING_DATA[idx][11] = lc.pricePerKg ? Number(lc.pricePerKg).toFixed(4) : ING_DATA[idx][11];
         ING_DATA[idx][2] = 'Oracle EBS';
       }
     });
@@ -3726,11 +3728,14 @@ function loadFromPOSRecipes(skipConfirm) {
       if (existingCodes.has(code)) return;
       var cat = (it.families && it.families[0]) || 'Food';
       if (cat === 'Non-food') cat = 'Packing Material';
-      var cost = it.latestCost && it.latestCost.accountingCost
-        ? 'SAR ' + Number(it.latestCost.accountingCost).toFixed(2)
-        : '—';
-      var uom = (it.latestCost && it.latestCost.uom) || it.recipeUnit || it.stockroomUnit || '—';
-      var costPerKg = (it.latestCost && it.latestCost.pricePerKg) ? Number(it.latestCost.pricePerKg).toFixed(4) : '';
+      // Display cost in RECIPE UOM terms: stockroom cost ÷ equivalence (recipe units per stockroom unit).
+      // Falls back to stockroom cost if no conversion is defined.
+      var lc = it.latestCost || {};
+      var costNum = (lc.costPerRecipeUnit != null) ? lc.costPerRecipeUnit
+                   : (lc.stockroomCost != null ? lc.stockroomCost : null);
+      var cost = (costNum != null) ? 'SAR ' + Number(costNum).toFixed(2) : '—';
+      var uom = lc.recipeUnit || it.recipeUnit || lc.stockroomUom || it.stockroomUnit || '—';
+      var costPerKg = (lc.pricePerKg) ? Number(lc.pricePerKg).toFixed(4) : '';
       var num = ING_DATA.length + 1;
       var supplier = it.erpCode ? 'Oracle EBS' : 'POS (unmapped)';
       // Row shape: [num, name, supplier, code, cat, cost, storage, shelf, updated, _, uom, costPerKg, posInvItemId]

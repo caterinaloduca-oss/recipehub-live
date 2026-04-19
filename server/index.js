@@ -474,65 +474,50 @@ app.post('/api/branchsop/:id', requireAuth, (req, res) => {
 
 // ── EBS PRICE ENDPOINTS (Oracle EBS — Riyadh org, cached in SQLite) ──
 
-// Parse pack-size in kg from an EBS item description.
-// Handles: "1.5 Lit", "18 Liters", "5Kg", "700g", "10ml", and multi-pack "12 x 1L".
-function parsePackKg(desc) {
-  if (!desc) return null;
-  // Multi-pack: "12 x 1L", "6x500g"
-  const mp = desc.match(/(\d+)\s*[xX]\s*(\d+\.?\d*)\s*(kg|kgs|g|gr|grams?|ltr|litres?|liters?|ml)\b/i);
-  if (mp) {
-    const count = parseInt(mp[1], 10);
-    const per = parseFloat(mp[2]);
-    const u = mp[3].toLowerCase();
-    const kg = unitToKg(per, u);
-    if (kg) return count * kg;
-  }
-  const m = desc.match(/(\d+\.?\d*)\s*(kg|kgs|g|gr|grams?|ltr|litres?|liters?|ml)\b/i);
-  if (!m) return null;
-  return unitToKg(parseFloat(m[1]), m[2].toLowerCase());
-}
-
-function unitToKg(val, unit) {
-  if (!val || val <= 0) return null;
-  if (unit === 'kg' || unit === 'kgs') return val;
-  if (unit === 'g' || unit === 'gr' || unit === 'gram' || unit === 'grams') return val / 1000;
-  if (unit === 'ltr' || unit.startsWith('lit')) return val; // 1L ≈ 1kg for food liquids
-  if (unit === 'ml') return val / 1000;
-  return null;
-}
-
-// Normalise an EBS accounting_cost (SAR per pack) + UOM string + description → SAR per kg or per piece
-function normalisePrice(cost, uom, desc) {
-  const u = String(uom || '').toUpperCase();
-  if (u === 'KG') return { unit: 'kg', perUnit: cost };
-  if (u === 'G' || u === 'GR' || u === 'GRAM') return { unit: 'kg', perUnit: cost * 1000 };
-  if (u === 'LTR' || u === 'LITRE' || u === 'LITER' || u === 'LIT') return { unit: 'kg', perUnit: cost }; // 1L ≈ 1kg for food liquids
-  if (u === 'ML') return { unit: 'kg', perUnit: cost * 1000 };
-  if (u === 'PCE' || u === 'EACH' || u === 'EA' || u === 'PC' || u === 'PCS') return { unit: 'piece', perUnit: cost };
-  // Pack UOMs (BAG, BOT, CAN, PAL, X10, XO4, XO2, PCK, BOX, etc.) — infer kg from description pack size
-  const packKg = parsePackKg(desc);
-  if (packKg && packKg > 0) return { unit: 'kg', perUnit: cost / packKg };
-  return { unit: u || 'pack', perUnit: cost };
+// Given an EBS accounting_cost (SAR per stockroom UOM) and the v_inventory_items conversion
+// (recipe_unit + equivalence = recipe_units per stockroom_unit), compute the cost per recipe
+// unit AND — where the recipe unit implies a mass/volume — a per-kg figure for costing.
+//
+// Example: Sunflower Oil, stockroom_cost=9.347 SAR/BOT, equivalence=1.5 (1 Bottle = 1.5 Ltr),
+//          recipe_unit='ltr' → cost_per_recipe_unit = 9.347/1.5 = 6.23 SAR/Ltr → per_kg ≈ 6.23.
+function priceForRecipe(cost, stockroomUom, recipeUnit, equivalence) {
+  const out = {
+    stockroomCost: cost != null ? Number(cost) : null,
+    stockroomUom: stockroomUom || null,
+    recipeUnit: recipeUnit || null,
+    equivalence: equivalence != null ? Number(equivalence) : null,
+    costPerRecipeUnit: null,
+    pricePerKg: null,
+    pricePerPiece: null,
+  };
+  if (out.stockroomCost == null || !out.equivalence || out.equivalence <= 0) return out;
+  const perRecipe = out.stockroomCost / out.equivalence;
+  out.costPerRecipeUnit = perRecipe;
+  const u = String(recipeUnit || '').toLowerCase().trim();
+  if (u === 'kg' || u === 'kgs')                                        out.pricePerKg = perRecipe;
+  else if (u === 'gramm' || u === 'gram' || u === 'g' || u === 'grams') out.pricePerKg = perRecipe * 1000;
+  else if (u === 'ltr' || u === 'lit' || u === 'litre' || u === 'liter' || u === 'liters' || u === 'litres') out.pricePerKg = perRecipe; // 1L ≈ 1kg for food liquids
+  else if (u === 'ml')                                                  out.pricePerKg = perRecipe * 1000;
+  else if (u === 'each' || u === 'pce' || u === 'pc' || u === 'pcs' || u === 'piece' || u === 'package' || u === 'pack') out.pricePerPiece = perRecipe;
+  return out;
 }
 
 // GET /api/ebs/prices — all ingredient prices (latest period per item, cached)
 app.get('/api/ebs/prices', requireAuth, (req, res) => {
   try {
     const rows = db.getLatestPrices();
-    const prices = rows.map(r => {
-      const n = normalisePrice(r.accounting_cost, r.uom, r.item_desc);
-      return {
-        code: r.item_number,
-        name: r.item_desc,
-        unit: n.unit,
-        uomSource: r.uom,
-        periodCode: r.period_code,
-        pricePerKg: n.unit === 'kg' ? n.perUnit : null,
-        pricePerPiece: n.unit === 'piece' ? n.perUnit : null,
-        accountingCost: r.accounting_cost,
-        compnentCost: r.compnent_cost,
-      };
-    });
+    // For /api/ebs/prices we don't have a recipe_unit context (these are raw EBS items) — return
+    // stockroom cost + UOM as the canonical fields. Consumers that have a POS mapping should hit
+    // /api/ingredients/from-pos which normalises to recipe UOM.
+    const prices = rows.map(r => ({
+      code: r.item_number,
+      name: r.item_desc,
+      unit: r.uom,
+      uomSource: r.uom,
+      periodCode: r.period_code,
+      accountingCost: r.accounting_cost,
+      compnentCost: r.compnent_cost,
+    }));
     const log = db.getSyncLog(1)[0];
     res.json({
       count: prices.length,
@@ -546,7 +531,8 @@ app.get('/api/ebs/prices', requireAuth, (req, res) => {
   }
 });
 
-// GET /api/ebs/search?q=tomato — search by name or item_number, return normalised per-kg/piece cost
+// GET /api/ebs/search?q=tomato — search by name or item_number, return raw stockroom price.
+// Callers that need recipe-unit cost should pair this with pos_erp_item_map / ebs_item_map.
 app.get('/api/ebs/search', requireAuth, (req, res) => {
   try {
     const raw = (req.query.q || '').trim();
@@ -554,25 +540,20 @@ app.get('/api/ebs/search', requireAuth, (req, res) => {
     const q = raw.replace(/[^a-zA-Z0-9 ]/g, '').slice(0, 100);
     if (!q) return res.json({ results: [] });
     const rows = db.searchPrices(q);
-    const results = rows.map(r => {
-      const n = normalisePrice(r.accounting_cost, r.uom, r.item_desc);
-      return {
-        code: r.item_number,
-        name: r.item_desc,
-        unit: n.unit,
-        uomSource: r.uom,
-        periodCode: r.period_code,
-        pricePerKg: n.unit === 'kg' ? n.perUnit : null,
-        pricePerPiece: n.unit === 'piece' ? n.perUnit : null,
-        accountingCost: r.accounting_cost,
-        // Back-compat shape for existing frontend callers:
-        avgPrice: n.perUnit,
-        purchasePrice: r.accounting_cost,
-        originalUnit: r.uom,
-        vendor: '',
-        vendors: [],
-      };
-    });
+    const results = rows.map(r => ({
+      code: r.item_number,
+      name: r.item_desc,
+      unit: r.uom,
+      uomSource: r.uom,
+      periodCode: r.period_code,
+      accountingCost: r.accounting_cost,
+      // Back-compat for the autocomplete/ingredient form — avgPrice = raw stockroom cost:
+      avgPrice: r.accounting_cost,
+      purchasePrice: r.accounting_cost,
+      originalUnit: r.uom,
+      vendor: '',
+      vendors: [],
+    }));
     res.json({ results });
   } catch (err) {
     console.error('EBS search error:', err);
@@ -625,54 +606,94 @@ app.post('/api/ebs/sync-prices', requireAuth, async (req, res) => {
       n += db.upsertCostRows(costRows);
     }
 
-    // POS→ERP bridge. Primary source: pos_erp_item_map (Oracle-maintained, canonical).
-    // Fallback: v_inventory_items.export_id for items not in the map (denormalised copy, can lag).
+    // Build the POS→ERP map by merging TWO sources:
+    //   - v_inventory_items (RedShift): carries the real recipe_unit / stockroom_unit / equivalence
+    //     conversion factors that the kitchen uses. Pick the branch row with a letter-prefixed
+    //     export_id and non-null equivalence.
+    //   - pos_erp_item_map (Oracle_EBS): the canonical ERP_ITEM_ID bridge. When present it wins
+    //     over v_inventory_items.export_id for the export_id field, but we keep v_inventory_items'
+    //     recipe_unit / equivalence because pos_erp_item_map's CONV_FACTOR is POS↔ERP UOM
+    //     (usually 1:1) not recipe↔stockroom.
+    // 1) Canonical POS→ERP bridge from pos_erp_item_map (usually small, ~1,255 rows)
     const bridgeRes = await queryGateway('pos_erp_item_map', `
-      SELECT POS_ITEM_ID, POS_ITEM_DESCRIPTION, ERP_ITEM_ID, ERP_ITEM_UNIT,
-             PG_ITEM_UNIT, PRIMARY_UOM, CONV_FACTOR_PG_UOM_TO_ERP_PUOM, STATUS, ITEM_TYPE
+      SELECT POS_ITEM_ID, ERP_ITEM_ID
       FROM data
       WHERE STATUS = 'Active' AND ERP_ITEM_ID IS NOT NULL
     `);
-    const bridgeRows = (bridgeRes.rows || []).map(r => ({
-      inv_item_id: String(r.POS_ITEM_ID || r.pos_item_id),
-      description: r.POS_ITEM_DESCRIPTION || r.pos_item_description,
-      recipe_unit: r.PG_ITEM_UNIT || r.pg_item_unit,
-      stockroom_unit: r.PRIMARY_UOM || r.primary_uom,
-      equivalence: r.CONV_FACTOR_PG_UOM_TO_ERP_PUOM || r.conv_factor_pg_uom_to_erp_puom,
-      export_id: String(r.ERP_ITEM_ID || r.erp_item_id || '').trim(),
-    })).filter(r => r.inv_item_id && r.export_id);
+    const bridgeByPos = {};
+    for (const b of (bridgeRes.rows || [])) {
+      const pos = String(b.POS_ITEM_ID || b.pos_item_id || '');
+      const erp = String(b.ERP_ITEM_ID || b.erp_item_id || '').trim();
+      if (pos && erp) bridgeByPos[pos] = erp;
+    }
 
-    // Fallback rows from v_inventory_items for POS items NOT in the bridge (covers legacy items)
-    const knownIds = new Set(bridgeRows.map(r => r.inv_item_id));
-    const fallbackRes = await queryGateway('RedShift', `
-      SELECT inv_item_id, description, recipe_unit, stockroom_unit, equivalence, export_id
-      FROM (
-        SELECT inv_item_id, description, recipe_unit, stockroom_unit, equivalence,
-               TRIM(export_id) AS export_id, ts,
-               ROW_NUMBER() OVER (
-                 PARTITION BY inv_item_id
-                 ORDER BY
-                   CASE WHEN TRIM(export_id) ~ '^[A-Za-z]' THEN 0 ELSE 1 END,
-                   ts DESC NULLS LAST,
-                   branch_id
-               ) AS rn
-        FROM maestroksa.v_inventory_items
-        WHERE export_id IS NOT NULL AND TRIM(export_id) <> ''
-      ) t
-      WHERE rn = 1
+    // 2) v_inventory_items: keep every (inv_item_id, export_id) pair with its conversion factors
+    //    so we can match the exact row whose export_id == bridge ERP code (same pack size = correct equivalence).
+    const invRes = await queryGateway('RedShift', `
+      SELECT inv_item_id, MAX(description) AS description, recipe_unit, stockroom_unit,
+             equivalence, TRIM(export_id) AS export_id
+      FROM maestroksa.v_inventory_items
+      WHERE description IS NOT NULL
+        AND TRIM(export_id) IS NOT NULL
+        AND TRIM(export_id) <> ''
+      GROUP BY inv_item_id, recipe_unit, stockroom_unit, equivalence, TRIM(export_id)
     `);
-    const fallbackRows = (fallbackRes.rows || [])
-      .map(r => ({
-        inv_item_id: String(r.inv_item_id),
+    // Group by inv_item_id
+    const invByPos = {};
+    for (const r of (invRes.rows || [])) {
+      const invId = String(r.inv_item_id);
+      if (!invByPos[invId]) invByPos[invId] = [];
+      invByPos[invId].push({
         description: r.description,
         recipe_unit: r.recipe_unit,
         stockroom_unit: r.stockroom_unit,
-        equivalence: r.equivalence,
+        equivalence: Number(r.equivalence) || 0,
         export_id: (r.export_id || '').trim(),
-      }))
-      .filter(r => !knownIds.has(r.inv_item_id));
+      });
+    }
 
-    const mapRows = bridgeRows.concat(fallbackRows);
+    // 3) Combine: prefer the variant whose export_id has actual cost data in our local cache
+    //    (Riyadh org 110 may not stock the bridge's canonical ERP code — e.g. POS 942 → bridge
+    //    RMOLT0012 (1.5L pack) but Riyadh only carries RMOLT0001 (1.8L) / RMOLT0002 (18L tin)).
+    const pricedErpCodes = new Set(
+      db.getLatestPrices().map(p => p.item_number)
+    );
+    const allPosIds = new Set([...Object.keys(bridgeByPos), ...Object.keys(invByPos)]);
+    const mapRows = [];
+    for (const invId of allPosIds) {
+      const bridgeErp = bridgeByPos[invId];
+      const variants = invByPos[invId] || [];
+      // Rank candidates: [has cost in cache? 0:1, matches bridge? 0:1, has equivalence>0? 0:1]
+      const sorted = variants.slice().sort((a, b) => {
+        const aPriced = pricedErpCodes.has(a.export_id) ? 0 : 1;
+        const bPriced = pricedErpCodes.has(b.export_id) ? 0 : 1;
+        if (aPriced !== bPriced) return aPriced - bPriced;
+        const aBridge = (bridgeErp && a.export_id === bridgeErp) ? 0 : 1;
+        const bBridge = (bridgeErp && b.export_id === bridgeErp) ? 0 : 1;
+        if (aBridge !== bBridge) return aBridge - bBridge;
+        const aEq = (a.equivalence > 0) ? 0 : 1;
+        const bEq = (b.equivalence > 0) ? 0 : 1;
+        return aEq - bEq;
+      });
+      let pick = sorted[0] || null;
+      // If no v_inventory_items variant at all, still emit a map row using the bridge code (no conversion data)
+      if (!pick && bridgeErp) {
+        mapRows.push({ inv_item_id: invId, description: null, recipe_unit: null, stockroom_unit: null, equivalence: null, export_id: bridgeErp });
+        continue;
+      }
+      if (!pick) continue;
+      // Prefer the picked row's export_id when it's priced; else fall back to the bridge
+      let exportId = pricedErpCodes.has(pick.export_id) ? pick.export_id : (bridgeErp || pick.export_id);
+      if (!exportId) continue;
+      mapRows.push({
+        inv_item_id: invId,
+        description: pick.description,
+        recipe_unit: pick.recipe_unit,
+        stockroom_unit: pick.stockroom_unit,
+        equivalence: pick.equivalence,
+        export_id: exportId,
+      });
+    }
     const m = db.upsertItemMap(mapRows);
 
     db.logSyncEnd(logId, n + m, null);
@@ -755,10 +776,10 @@ app.get('/api/ingredients/from-pos', requireAuth, async (req, res) => {
   try {
     // Pull distinct (inv_item_id, family) pairs from v_recipes (template branch only).
     // Exclusions:
-    //  - sub-recipe components (items that are themselves sale_items) — composite recipe stages, not raw ingredients
     //  - finished goods (FG* prefix) — sale items, not ingredients
-    //  - orphan test IDs (7xx legacy) — null description / available='N' / dead rows
+    //  - sub-recipe stages (inv_item_id ending in 'R' per POS naming convention)
     //  - explicit placeholders containing FAKE
+    //  - inv_item_ids that themselves have an ingredient BOM (i.e. they're composite recipes, not raw items)
     const r = await queryGateway('RedShift', `
       SELECT DISTINCT r.inv_item_id, r.inv_item_description, r.sale_item_family_group
       FROM maestroksa.v_recipes r
@@ -766,9 +787,15 @@ app.get('/api/ingredients/from-pos', requireAuth, async (req, res) => {
         AND r.inv_item_description IS NOT NULL
         AND TRIM(r.inv_item_description) <> ''
         AND r.inv_item_id NOT LIKE 'FG%'
+        AND r.inv_item_id NOT LIKE '%R'
         AND UPPER(r.inv_item_description) NOT LIKE '%FAKE%'
         AND r.inv_item_id NOT IN (
-          SELECT DISTINCT sale_item_id FROM maestroksa.v_recipes WHERE branch_id = -1
+          SELECT sale_item_id
+          FROM maestroksa.v_recipes
+          WHERE branch_id = -1
+          GROUP BY sale_item_id
+          HAVING COUNT(DISTINCT inv_item_id) > 1
+             OR MAX(CASE WHEN sale_item_id <> inv_item_id THEN 1 ELSE 0 END) = 1
         )
     `);
     // Aggregate by inv_item_id: collect families + pick any description
@@ -788,7 +815,10 @@ app.get('/api/ingredients/from-pos', requireAuth, async (req, res) => {
         const mat = hist.find(h => (h.cost_component_class || 'MATERIAL') === 'MATERIAL');
         if (mat) latest = mat;
       }
-      const price = latest ? normalisePrice(latest.accounting_cost, latest.uom, latest.item_desc) : null;
+      // Normalise EBS cost (per stockroom UOM) → recipe-unit price using v_inventory_items equivalence
+      const p = latest
+        ? priceForRecipe(latest.accounting_cost, latest.uom, map && map.recipe_unit, map && map.equivalence)
+        : null;
       return {
         invItemId: invId,
         name: a.name,
@@ -799,10 +829,15 @@ app.get('/api/ingredients/from-pos', requireAuth, async (req, res) => {
         equivalence: map ? map.equivalence : null,
         latestCost: latest ? {
           periodCode: latest.period_code,
+          stockroomCost: latest.accounting_cost,  // raw EBS price per stockroom UOM
+          stockroomUom: latest.uom,
+          costPerRecipeUnit: p ? p.costPerRecipeUnit : null,  // price normalised to recipe UOM
+          recipeUnit: p ? p.recipeUnit : null,
+          pricePerKg: p ? p.pricePerKg : null,
+          pricePerPiece: p ? p.pricePerPiece : null,
+          // Back-compat field name still used by some callers:
           accountingCost: latest.accounting_cost,
           uom: latest.uom,
-          pricePerKg: price && price.unit === 'kg' ? price.perUnit : null,
-          pricePerPiece: price && price.unit === 'piece' ? price.perUnit : null,
         } : null,
       };
     }).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
@@ -837,15 +872,19 @@ app.get('/api/pos-recipe/:saleItemId', requireAuth, async (req, res) => {
         const hist = db.getPriceHistory(map.export_id);
         const latest = hist && hist.length ? hist[0] : null;
         if (latest) {
-          const n = normalisePrice(latest.accounting_cost, latest.uom, latest.item_desc);
+          const p = priceForRecipe(latest.accounting_cost, latest.uom, map.recipe_unit, map.equivalence);
           price = {
             itemNumber: map.export_id,
             itemDesc: latest.item_desc,
             uom: latest.uom,
             periodCode: latest.period_code,
+            stockroomCost: latest.accounting_cost,
+            costPerRecipeUnit: p.costPerRecipeUnit,
+            recipeUnit: p.recipeUnit,
+            pricePerKg: p.pricePerKg,
+            pricePerPiece: p.pricePerPiece,
+            // Back-compat:
             accountingCost: latest.accounting_cost,
-            pricePerKg: n.unit === 'kg' ? n.perUnit : null,
-            pricePerPiece: n.unit === 'piece' ? n.perUnit : null,
           };
         }
       }
