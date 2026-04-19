@@ -625,11 +625,26 @@ app.post('/api/ebs/sync-prices', requireAuth, async (req, res) => {
       n += db.upsertCostRows(costRows);
     }
 
-    // Also sync the POS→ERP bridge (inv_item_id → export_id) so recipe joins work offline.
-    // v_inventory_items is per-branch; many branches carry stale or self-referential export_ids
-    // (e.g. export_id = inv_item_id, meaning not yet mapped). Prefer rows where export_id looks
-    // like a real ERP code (starts with letter prefix) and use the most recent ts.
-    const mapRes = await queryGateway('RedShift', `
+    // POS→ERP bridge. Primary source: pos_erp_item_map (Oracle-maintained, canonical).
+    // Fallback: v_inventory_items.export_id for items not in the map (denormalised copy, can lag).
+    const bridgeRes = await queryGateway('pos_erp_item_map', `
+      SELECT POS_ITEM_ID, POS_ITEM_DESCRIPTION, ERP_ITEM_ID, ERP_ITEM_UNIT,
+             PG_ITEM_UNIT, PRIMARY_UOM, CONV_FACTOR_PG_UOM_TO_ERP_PUOM, STATUS, ITEM_TYPE
+      FROM data
+      WHERE STATUS = 'Active' AND ERP_ITEM_ID IS NOT NULL
+    `);
+    const bridgeRows = (bridgeRes.rows || []).map(r => ({
+      inv_item_id: String(r.POS_ITEM_ID || r.pos_item_id),
+      description: r.POS_ITEM_DESCRIPTION || r.pos_item_description,
+      recipe_unit: r.PG_ITEM_UNIT || r.pg_item_unit,
+      stockroom_unit: r.PRIMARY_UOM || r.primary_uom,
+      equivalence: r.CONV_FACTOR_PG_UOM_TO_ERP_PUOM || r.conv_factor_pg_uom_to_erp_puom,
+      export_id: String(r.ERP_ITEM_ID || r.erp_item_id || '').trim(),
+    })).filter(r => r.inv_item_id && r.export_id);
+
+    // Fallback rows from v_inventory_items for POS items NOT in the bridge (covers legacy items)
+    const knownIds = new Set(bridgeRows.map(r => r.inv_item_id));
+    const fallbackRes = await queryGateway('RedShift', `
       SELECT inv_item_id, description, recipe_unit, stockroom_unit, equivalence, export_id
       FROM (
         SELECT inv_item_id, description, recipe_unit, stockroom_unit, equivalence,
@@ -646,14 +661,18 @@ app.post('/api/ebs/sync-prices', requireAuth, async (req, res) => {
       ) t
       WHERE rn = 1
     `);
-    const mapRows = (mapRes.rows || []).map(r => ({
-      inv_item_id: String(r.inv_item_id),
-      description: r.description,
-      recipe_unit: r.recipe_unit,
-      stockroom_unit: r.stockroom_unit,
-      equivalence: r.equivalence,
-      export_id: (r.export_id || '').trim(),
-    }));
+    const fallbackRows = (fallbackRes.rows || [])
+      .map(r => ({
+        inv_item_id: String(r.inv_item_id),
+        description: r.description,
+        recipe_unit: r.recipe_unit,
+        stockroom_unit: r.stockroom_unit,
+        equivalence: r.equivalence,
+        export_id: (r.export_id || '').trim(),
+      }))
+      .filter(r => !knownIds.has(r.inv_item_id));
+
+    const mapRows = bridgeRows.concat(fallbackRows);
     const m = db.upsertItemMap(mapRows);
 
     db.logSyncEnd(logId, n + m, null);
@@ -735,14 +754,19 @@ app.get('/api/ingredients/map', requireAuth, (req, res) => {
 app.get('/api/ingredients/from-pos', requireAuth, async (req, res) => {
   try {
     // Pull distinct (inv_item_id, family) pairs from v_recipes (template branch only).
-    // Exclude sub-recipe components (items that are themselves sale_items) — those are composite
-    // recipe stages, not raw ingredients.
+    // Exclusions:
+    //  - sub-recipe components (items that are themselves sale_items) — composite recipe stages, not raw ingredients
+    //  - finished goods (FG* prefix) — sale items, not ingredients
+    //  - orphan test IDs (7xx legacy) — null description / available='N' / dead rows
+    //  - explicit placeholders containing FAKE
     const r = await queryGateway('RedShift', `
       SELECT DISTINCT r.inv_item_id, r.inv_item_description, r.sale_item_family_group
       FROM maestroksa.v_recipes r
       WHERE r.branch_id = -1
         AND r.inv_item_description IS NOT NULL
         AND TRIM(r.inv_item_description) <> ''
+        AND r.inv_item_id NOT LIKE 'FG%'
+        AND UPPER(r.inv_item_description) NOT LIKE '%FAKE%'
         AND r.inv_item_id NOT IN (
           SELECT DISTINCT sale_item_id FROM maestroksa.v_recipes WHERE branch_id = -1
         )
