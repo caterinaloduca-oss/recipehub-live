@@ -3713,17 +3713,26 @@ function refreshFromOracle() {
 
 // Load the ingredients list from POS recipes (v_recipes) — the source of truth for what's
 // actually used in sale items. Filters out non-recipe items (furniture, cleaning, etc.).
-// UPDATES existing rows with fresh Oracle data and adds any missing ones.
+// Clears legacy auto-synced rows, preserves manual entries, then writes in the fresh POS list.
 function loadFromPOSRecipes(skipConfirm) {
-  if (!skipConfirm && !confirm('Refresh the Ingredients list from POS sale-item recipes and pull the latest Oracle EBS pricing? Manual cost/kg overrides are preserved.')) return;
+  if (!skipConfirm && !confirm('Refresh the Ingredients list from POS sale-item recipes and pull the latest Oracle EBS pricing?\n\nItems no longer in POS recipes will be removed. Manually-created ingredients are preserved.')) return;
   showSaveToast('Loading POS recipe items…');
   fetch(API_BASE + '/api/ingredients/from-pos', {
     headers: { 'Authorization': 'Bearer ' + API_KEY }
   }).then(function(r){ return r.json(); }).then(function(data){
     if (!data.items) { showSaveToast('Load failed: ' + (data.error || 'no items'), true); return; }
-    // Build two lookup maps over the existing ING_DATA so we can match either by ERP code
-    // (row[3]) or by POS inv_item_id (row[12]). Matching by either handles both legacy rows
-    // and previously-loaded POS rows.
+    // Clear out legacy auto-synced rows (the old 806-item Oracle EBS dump + previous POS syncs)
+    // but keep rows created manually so the user's own entries survive a refresh.
+    var autoSuppliers = { 'Oracle EBS': 1, 'EBS Sync': 1, 'POS Sync': 1, 'POS (unmapped)': 1 };
+    var removed = 0;
+    for (var i = ING_DATA.length - 1; i >= 0; i--) {
+      var supplier = ING_DATA[i][2];
+      var marker = ING_DATA[i][8]; // [8] = "updated" column which we set to 'EBS Sync' / 'POS Sync'
+      if (autoSuppliers[supplier] || marker === 'EBS Sync' || marker === 'POS Sync') {
+        ING_DATA.splice(i, 1);
+        removed++;
+      }
+    }
     var byErp = {}, byPos = {};
     ING_DATA.forEach(function(row, idx){
       if (row[3]) byErp[String(row[3])] = idx;
