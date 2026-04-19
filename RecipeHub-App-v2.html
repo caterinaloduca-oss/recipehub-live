@@ -3710,17 +3710,22 @@ function refreshFromOracle() {
     body: '{}',
   }).then(function(r){
     console.log('[refresh] sync HTTP status', r.status);
-    return r.json();
+    return r.json().catch(function(){ return { ok: false, error: 'HTTP ' + r.status }; });
   }).then(function(data){
     console.log('[refresh] sync response', data);
-    if (!data.ok) { showSaveToast('Sync failed: ' + (data.error||'unknown'), true); return; }
+    if (!data.ok) {
+      // Sync failed — usually rate-limited. Fall back to loading from the already-cached data.
+      showSaveToast('Sync skipped (' + (data.error||'error') + ') — loading from cache', true);
+    } else {
+      showSaveToast('Step 2/2: loading ingredient list from POS recipes…');
+    }
     _ebsPriceCache = {};
-    showSaveToast('Step 2/2: loading ingredient list from POS recipes…');
     try { loadFromPOSRecipes(true); }
     catch (e) { console.error('[refresh] loadFromPOSRecipes threw', e); showSaveToast('Load step error: ' + e.message, true); }
   }).catch(function(e){
     console.error('[refresh] sync chain error', e);
-    showSaveToast('Sync error: ' + e.message, true);
+    showSaveToast('Sync error: ' + e.message + ' — trying cached load', true);
+    try { loadFromPOSRecipes(true); } catch (e2) { console.error('[refresh] cached load threw', e2); }
   });
 }
 
