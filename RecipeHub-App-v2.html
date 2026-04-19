@@ -935,13 +935,6 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
      PAGE: INGREDIENTS DB
 ══════════════════════════════════════════ -->
 <div id="page-ingredients" class="page-hidden">
-  <!-- Oracle EBS Sync Bar -->
-  <div class="ebs-sync-bar">
-    <span class="ebs-label">Oracle EBS</span>
-    <span class="ebs-status" id="ebs-sync-status">Not synced — click to pull raw materials from Oracle EBS</span>
-    <button id="ebs-sync-btn" onclick="syncFromEBS()">🔄 Sync from Oracle EBS</button>
-  </div>
-
   <div class="filter-bar">
     <div class="search-wrap">
       <span class="search-icon">⌕</span>
@@ -3684,10 +3677,28 @@ function loadFromPOSRecipes_silent() {
   }).catch(function(){});
 }
 
+// Combined one-click refresh: pull latest EBS cost history into the local cache, then rebuild
+// the Ingredients list from POS recipes (v_recipes). This is the canonical "refresh everything
+// from Oracle" action the user sees.
+function refreshFromOracle() {
+  if (!confirm('Pull latest Oracle EBS prices (Riyadh org 110) and refresh the ingredient list from POS recipes?\n\nThis takes ~3 minutes and preserves manual entries.')) return;
+  showSaveToast('Step 1/2: syncing EBS prices from Oracle…');
+  fetch(API_BASE + '/api/ebs/sync-prices', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + API_KEY, 'Content-Type': 'application/json' },
+    body: '{}',
+  }).then(function(r){ return r.json(); }).then(function(data){
+    if (!data.ok) { showSaveToast('Sync failed: ' + (data.error||'unknown'), true); return; }
+    _ebsPriceCache = {};
+    showSaveToast('Step 2/2: loading ingredient list from POS recipes…');
+    loadFromPOSRecipes(true);
+  }).catch(function(e){ showSaveToast('Sync error: ' + e.message, true); });
+}
+
 // Load the ingredients list from POS recipes (v_recipes) — the source of truth for what's
 // actually used in sale items. Filters out non-recipe items (furniture, cleaning, etc.).
-function loadFromPOSRecipes() {
-  if (!confirm('Replace the Ingredients list with items pulled from POS sale-item recipes (food + packaging)? Existing manual entries are preserved.')) return;
+function loadFromPOSRecipes(skipConfirm) {
+  if (!skipConfirm && !confirm('Replace the Ingredients list with items pulled from POS sale-item recipes (food + packaging)? Existing manual entries are preserved.')) return;
   showSaveToast('Loading POS recipe items…');
   fetch(API_BASE + '/api/ingredients/from-pos', {
     headers: { 'Authorization': 'Bearer ' + API_KEY }
@@ -4620,7 +4631,7 @@ const PAGES = {
   dashboard:      { title:'Overview',           actions:'' },
   recipes:        { title:'Recipes',             actions:`<button class="btn btn-gold btn-sm" onclick="openRecipeForm()">+ New Recipe</button>` },
   'recipe-detail':{ title:'Recipe Detail',       actions:'' },
-  ingredients:    { title:'Ingredients Database',actions:`<button class="btn btn-outline btn-sm" onclick="loadFromPOSRecipes()" title="Pull only items used in POS sale-item recipes (food + packaging)">🍽️ Load from POS Recipes</button><button class="btn btn-outline btn-sm" style="margin-left:6px" onclick="syncEBSPrices()">↻ Sync EBS Prices</button><button class="btn btn-gold btn-sm" style="margin-left:6px" onclick="openIngredientForm()">+ Add Ingredient</button>` },
+  ingredients:    { title:'Ingredients Database',actions:`<button class="btn btn-outline btn-sm" onclick="refreshFromOracle()" title="Sync EBS prices from Oracle (Riyadh org 110), then load the ingredient list from POS recipes (food + packaging only)">↻ Refresh from Oracle</button><button class="btn btn-gold btn-sm" style="margin-left:6px" onclick="openIngredientForm()">+ Add Ingredient</button>` },
   builds:         { title:'Product Builds',       actions:`<button class="btn btn-gold btn-sm" onclick="openBuildForm()">+ New Build</button>` },
   qa:             { title:'QA Lab Results',      actions:`<button class="btn btn-outline btn-sm" onclick="printQALabReport()">🖨️ Lab Report</button><button class="btn btn-outline btn-sm" style="margin-left:6px" onclick="printCOA()">📄 COA</button><button class="btn btn-sage btn-sm" style="margin-left:6px" onclick="addTestPoint()">+ New Test</button>` },
   'branch-sop':   { title:'Branch SOP',           actions:`<button class="btn btn-gold btn-sm" onclick="openBranchSOPForm()">+ New Branch SOP</button>` },
@@ -12343,19 +12354,6 @@ function viewBrandRecipe(npd) {
 
 // Table init moved after loadAllData() — see after BRANCH_SOPS declaration
 
-// Check if EBS items are already loaded from localStorage
-(function checkEbsStatus() {
-  const ebsCount = ING_DATA.filter(row => row[8] === 'EBS Sync').length;
-  const status = document.getElementById('ebs-sync-status');
-  const btn = document.getElementById('ebs-sync-btn');
-  if (ebsCount > 0 && status) {
-    status.innerHTML = '✅ <strong>' + ebsCount + '</strong> Oracle EBS items loaded (' + EBS_RAW_ITEMS.length + ' available)';
-    status.style.color = '#2D6A4F';
-    if (btn) btn.innerHTML = '✅ Synced';
-  } else if (status) {
-    status.textContent = EBS_RAW_ITEMS.length + ' items available from Oracle EBS — click to load';
-  }
-})();
 updateQAAllergenDisplay('2025-009');
 
 function updateDashboardStats() {
