@@ -3593,6 +3593,44 @@ function _prefetchRecipePrices(r) {
   });
 }
 
+// Load the ingredients list from POS recipes (v_recipes) — the source of truth for what's
+// actually used in sale items. Filters out non-recipe items (furniture, cleaning, etc.).
+function loadFromPOSRecipes() {
+  if (!confirm('Replace the Ingredients list with items pulled from POS sale-item recipes (food + packaging)? Existing manual entries are preserved.')) return;
+  showSaveToast('Loading POS recipe items…');
+  fetch(API_BASE + '/api/ingredients/from-pos', {
+    headers: { 'Authorization': 'Bearer ' + API_KEY }
+  }).then(function(r){ return r.json(); }).then(function(data){
+    if (!data.items) { showSaveToast('Load failed: ' + (data.error || 'no items'), true); return; }
+    var existingCodes = new Set(ING_DATA.map(function(row){ return row[3]; }));
+    var added = 0, priced = 0;
+    data.items.forEach(function(it){
+      // Use ERP code as canonical identifier; fall back to POS inv_item_id if unmapped
+      var code = it.erpCode || it.invItemId;
+      if (existingCodes.has(code)) return;
+      var cat = (it.families && it.families[0]) || 'Food';
+      if (cat === 'Non-food') cat = 'Packing Material';
+      var cost = it.latestCost && it.latestCost.accountingCost
+        ? 'SAR ' + Number(it.latestCost.accountingCost).toFixed(2)
+        : '—';
+      var uom = (it.latestCost && it.latestCost.uom) || it.recipeUnit || it.stockroomUnit || '—';
+      var costPerKg = (it.latestCost && it.latestCost.pricePerKg) ? Number(it.latestCost.pricePerKg).toFixed(4) : '';
+      var num = ING_DATA.length + 1;
+      var supplier = it.erpCode ? 'Oracle EBS' : 'POS (unmapped)';
+      // Row shape: [num, name, supplier, code, cat, cost, storage, shelf, updated, _, uom, costPerKg]
+      ING_DATA.push([num, it.name, supplier, code, cat, cost, 'Ambient', '—', 'POS Sync', '', uom, costPerKg]);
+      existingCodes.add(code);
+      added++;
+      if (costPerKg) priced++;
+    });
+    buildIngTable();
+    if (typeof filterIngredients === 'function') filterIngredients();
+    saveAllData();
+    showSaveToast(added + ' POS recipe items loaded · ' + priced + ' priced from EBS · ' + (data.count - added) + ' already present');
+    if (typeof logActivity === 'function') logActivity('ingredients', '🍽️', 'Loaded ' + added + ' items from POS recipes', priced + ' priced, ' + (data.count - priced) + ' unmapped');
+  }).catch(function(e){ showSaveToast('Load failed: ' + e.message, true); });
+}
+
 // ──────────── EBS PRICE SYNC + HISTORY ────────────
 function syncEBSPrices() {
   if (!confirm('Pull latest Oracle EBS cost history (Riyadh org 110) into local cache? This may take 10–30 seconds.')) return;
@@ -4491,7 +4529,7 @@ const PAGES = {
   dashboard:      { title:'Overview',           actions:'' },
   recipes:        { title:'Recipes',             actions:`<button class="btn btn-gold btn-sm" onclick="openRecipeForm()">+ New Recipe</button>` },
   'recipe-detail':{ title:'Recipe Detail',       actions:'' },
-  ingredients:    { title:'Ingredients Database',actions:`<button class="btn btn-outline btn-sm" onclick="syncEBSPrices()">↻ Sync EBS Prices</button><button class="btn btn-gold btn-sm" style="margin-left:6px" onclick="openIngredientForm()">+ Add Ingredient</button>` },
+  ingredients:    { title:'Ingredients Database',actions:`<button class="btn btn-outline btn-sm" onclick="loadFromPOSRecipes()" title="Pull only items used in POS sale-item recipes (food + packaging)">🍽️ Load from POS Recipes</button><button class="btn btn-outline btn-sm" style="margin-left:6px" onclick="syncEBSPrices()">↻ Sync EBS Prices</button><button class="btn btn-gold btn-sm" style="margin-left:6px" onclick="openIngredientForm()">+ Add Ingredient</button>` },
   builds:         { title:'Product Builds',       actions:`<button class="btn btn-gold btn-sm" onclick="openBuildForm()">+ New Build</button>` },
   qa:             { title:'QA Lab Results',      actions:`<button class="btn btn-outline btn-sm" onclick="printQALabReport()">🖨️ Lab Report</button><button class="btn btn-outline btn-sm" style="margin-left:6px" onclick="printCOA()">📄 COA</button><button class="btn btn-sage btn-sm" style="margin-left:6px" onclick="addTestPoint()">+ New Test</button>` },
   'branch-sop':   { title:'Branch SOP',           actions:`<button class="btn btn-gold btn-sm" onclick="openBranchSOPForm()">+ New Branch SOP</button>` },

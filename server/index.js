@@ -626,12 +626,21 @@ app.post('/api/ebs/sync-prices', requireAuth, async (req, res) => {
     }
 
     // Also sync the POS→ERP bridge (inv_item_id → export_id) so recipe joins work offline.
-    // v_inventory_items is per-branch; pick branch_id = 1 (or first available) as the canonical map.
+    // v_inventory_items is per-branch; many branches carry stale or self-referential export_ids
+    // (e.g. export_id = inv_item_id, meaning not yet mapped). Prefer rows where export_id looks
+    // like a real ERP code (starts with letter prefix) and use the most recent ts.
     const mapRes = await queryGateway('RedShift', `
-      SELECT inv_item_id, description, recipe_unit, stockroom_unit, equivalence, TRIM(export_id) AS export_id
+      SELECT inv_item_id, description, recipe_unit, stockroom_unit, equivalence, export_id
       FROM (
-        SELECT inv_item_id, description, recipe_unit, stockroom_unit, equivalence, export_id, branch_id,
-               ROW_NUMBER() OVER (PARTITION BY inv_item_id ORDER BY branch_id) AS rn
+        SELECT inv_item_id, description, recipe_unit, stockroom_unit, equivalence,
+               TRIM(export_id) AS export_id, ts,
+               ROW_NUMBER() OVER (
+                 PARTITION BY inv_item_id
+                 ORDER BY
+                   CASE WHEN TRIM(export_id) ~ '^[A-Za-z]' THEN 0 ELSE 1 END,
+                   ts DESC NULLS LAST,
+                   branch_id
+               ) AS rn
         FROM maestroksa.v_inventory_items
         WHERE export_id IS NOT NULL AND TRIM(export_id) <> ''
       ) t
@@ -671,6 +680,69 @@ function periodToDate(period) {
 // GET /api/ebs/sync-log — recent sync runs for admin UI
 app.get('/api/ebs/sync-log', requireAuth, (req, res) => {
   res.json({ log: db.getSyncLog(10) });
+});
+
+// GET /api/ingredients/from-pos — distinct items used in POS recipes (food + packaging only),
+// each joined to v_inventory_items export_id + latest EBS cost
+app.get('/api/ingredients/from-pos', requireAuth, async (req, res) => {
+  try {
+    // Pull distinct (inv_item_id, family) pairs from v_recipes (template branch only).
+    // Exclude sub-recipe components (items that are themselves sale_items) — those are composite
+    // recipe stages, not raw ingredients.
+    const r = await queryGateway('RedShift', `
+      SELECT DISTINCT r.inv_item_id, r.inv_item_description, r.sale_item_family_group
+      FROM maestroksa.v_recipes r
+      WHERE r.branch_id = -1
+        AND r.inv_item_description IS NOT NULL
+        AND TRIM(r.inv_item_description) <> ''
+        AND r.inv_item_id NOT IN (
+          SELECT DISTINCT sale_item_id FROM maestroksa.v_recipes WHERE branch_id = -1
+        )
+    `);
+    // Aggregate by inv_item_id: collect families + pick any description
+    const agg = {};
+    for (const row of (r.rows || [])) {
+      const id = String(row.inv_item_id);
+      if (!agg[id]) agg[id] = { name: row.inv_item_description, families: new Set() };
+      if (row.sale_item_family_group) agg[id].families.add(row.sale_item_family_group);
+    }
+    const items = Object.keys(agg).map(invId => {
+      const a = agg[invId];
+      const map = db.getItemMap(invId);
+      const erpCode = map && map.export_id ? map.export_id : null;
+      let latest = null;
+      if (erpCode) {
+        const hist = db.getPriceHistory(erpCode);
+        const mat = hist.find(h => (h.cost_component_class || 'MATERIAL') === 'MATERIAL');
+        if (mat) latest = mat;
+      }
+      const price = latest ? normalisePrice(latest.accounting_cost, latest.uom, latest.item_desc) : null;
+      return {
+        invItemId: invId,
+        name: a.name,
+        families: Array.from(a.families),
+        erpCode,
+        recipeUnit: map ? map.recipe_unit : null,
+        stockroomUnit: map ? map.stockroom_unit : null,
+        equivalence: map ? map.equivalence : null,
+        latestCost: latest ? {
+          periodCode: latest.period_code,
+          accountingCost: latest.accounting_cost,
+          uom: latest.uom,
+          pricePerKg: price && price.unit === 'kg' ? price.perUnit : null,
+          pricePerPiece: price && price.unit === 'piece' ? price.perUnit : null,
+        } : null,
+      };
+    }).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    res.json({
+      count: items.length,
+      source: 'maestroksa.v_recipes (branch_id=-1) + ebs_item_map + ebs_cost_history',
+      items,
+    });
+  } catch (err) {
+    console.error('ingredients/from-pos error:', err);
+    res.status(500).json({ error: 'Failed: ' + err.message });
+  }
 });
 
 // GET /api/pos-recipe/:saleItemId — full BOM from v_recipes with EBS pricing joined via export_id
