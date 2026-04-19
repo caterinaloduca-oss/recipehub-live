@@ -3697,29 +3697,47 @@ function loadFromPOSRecipes_silent() {
 // the Ingredients list from POS recipes (v_recipes). This is the canonical "refresh everything
 // from Oracle" action the user sees.
 function refreshFromOracle() {
-  if (!confirm('Pull latest Oracle EBS prices (Riyadh org 110) and refresh the ingredient list from POS recipes?\n\nThis takes ~3 minutes and preserves manual entries.')) return;
+  console.log('[refresh] clicked');
+  if (!confirm('Pull latest Oracle EBS prices (Riyadh org 110) and refresh the ingredient list from POS recipes?\n\nThis takes ~3 minutes and preserves manual entries.')) {
+    console.log('[refresh] cancelled at confirm');
+    return;
+  }
+  console.log('[refresh] confirmed → POST /api/ebs/sync-prices');
   showSaveToast('Step 1/2: syncing EBS prices from Oracle…');
   fetch(API_BASE + '/api/ebs/sync-prices', {
     method: 'POST',
     headers: { 'Authorization': 'Bearer ' + API_KEY, 'Content-Type': 'application/json' },
     body: '{}',
-  }).then(function(r){ return r.json(); }).then(function(data){
+  }).then(function(r){
+    console.log('[refresh] sync HTTP status', r.status);
+    return r.json();
+  }).then(function(data){
+    console.log('[refresh] sync response', data);
     if (!data.ok) { showSaveToast('Sync failed: ' + (data.error||'unknown'), true); return; }
     _ebsPriceCache = {};
     showSaveToast('Step 2/2: loading ingredient list from POS recipes…');
-    loadFromPOSRecipes(true);
-  }).catch(function(e){ showSaveToast('Sync error: ' + e.message, true); });
+    try { loadFromPOSRecipes(true); }
+    catch (e) { console.error('[refresh] loadFromPOSRecipes threw', e); showSaveToast('Load step error: ' + e.message, true); }
+  }).catch(function(e){
+    console.error('[refresh] sync chain error', e);
+    showSaveToast('Sync error: ' + e.message, true);
+  });
 }
 
 // Load the ingredients list from POS recipes (v_recipes) — the source of truth for what's
 // actually used in sale items. Filters out non-recipe items (furniture, cleaning, etc.).
 // Clears legacy auto-synced rows, preserves manual entries, then writes in the fresh POS list.
 function loadFromPOSRecipes(skipConfirm) {
+  console.log('[loadPOS] called, skipConfirm=', skipConfirm);
   if (!skipConfirm && !confirm('Refresh the Ingredients list from POS sale-item recipes and pull the latest Oracle EBS pricing?\n\nItems no longer in POS recipes will be removed. Manually-created ingredients are preserved.')) return;
   showSaveToast('Loading POS recipe items…');
   fetch(API_BASE + '/api/ingredients/from-pos', {
     headers: { 'Authorization': 'Bearer ' + API_KEY }
-  }).then(function(r){ return r.json(); }).then(function(data){
+  }).then(function(r){
+    console.log('[loadPOS] HTTP', r.status);
+    return r.json();
+  }).then(function(data){
+    console.log('[loadPOS] received', data && data.count, 'items');
     if (!data.items) { showSaveToast('Load failed: ' + (data.error || 'no items'), true); return; }
     // Clear out legacy auto-synced rows (the old 806-item Oracle EBS dump + previous POS syncs)
     // but keep rows created manually so the user's own entries survive a refresh.
@@ -3778,12 +3796,16 @@ function loadFromPOSRecipes(skipConfirm) {
     });
     // Renumber rows so the # column stays sequential
     ING_DATA.forEach(function(row, i){ row[0] = i + 1; });
-    buildIngTable();
+    console.log('[loadPOS] removed=', removed, 'updated=', updated, 'added=', added, 'priced=', priced, 'total=', ING_DATA.length);
+    try { buildIngTable(); } catch (e) { console.error('[loadPOS] buildIngTable threw', e); }
     if (typeof filterIngredients === 'function') filterIngredients();
-    saveAllData();
-    showSaveToast(updated + ' updated, ' + added + ' added, ' + priced + ' priced from Oracle EBS');
-    if (typeof logActivity === 'function') logActivity('ingredients', '🍽️', 'Refreshed ' + (updated+added) + ' items from POS recipes', updated + ' updated, ' + added + ' new, ' + priced + ' priced');
-  }).catch(function(e){ showSaveToast('Load failed: ' + e.message, true); });
+    try { saveAllData(); } catch (e) { console.error('[loadPOS] saveAllData threw', e); }
+    showSaveToast(removed + ' cleared · ' + added + ' added · ' + updated + ' updated · ' + priced + ' priced');
+    if (typeof logActivity === 'function') logActivity('ingredients', '🍽️', 'Refreshed ' + (updated+added) + ' items from POS recipes', removed + ' cleared, ' + updated + ' updated, ' + added + ' new, ' + priced + ' priced');
+  }).catch(function(e){
+    console.error('[loadPOS] chain error', e);
+    showSaveToast('Load failed: ' + e.message, true);
+  });
 }
 
 // ──────────── EBS PRICE SYNC + HISTORY ────────────
