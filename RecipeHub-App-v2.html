@@ -3593,6 +3593,85 @@ function _prefetchRecipePrices(r) {
   });
 }
 
+// ──────────── EBS PRICE SYNC + HISTORY ────────────
+function syncEBSPrices() {
+  if (!confirm('Pull latest Oracle EBS cost history (Riyadh org 110) into local cache? This may take 10–30 seconds.')) return;
+  showSaveToast('Syncing EBS prices… this may take a moment');
+  fetch(API_BASE + '/api/ebs/sync-prices', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + API_KEY, 'Content-Type': 'application/json' },
+    body: '{}',
+  }).then(function(resp){ return resp.json(); }).then(function(data){
+    if (data.ok) {
+      showSaveToast('EBS sync complete — ' + (data.costRows||0) + ' cost rows, ' + (data.mapRows||0) + ' item mappings');
+      _ebsPriceCache = {};
+    } else {
+      showSaveToast('Sync failed: ' + (data.error || 'unknown'), true);
+    }
+  }).catch(function(e){ showSaveToast('Sync error: ' + e.message, true); });
+}
+
+function openPriceHistory(itemNumber, itemName) {
+  if (!itemNumber) { showSaveToast('No ERP item code for this ingredient', true); return; }
+  var header = '<div class="card-head" style="background:var(--navy);border-radius:16px 16px 0 0"><span class="card-title" style="color:white">Price History — ' + (itemName || itemNumber) + '</span><button class="btn btn-sm" style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:none" onclick="closeModal()">✕</button></div>';
+  openModal(header + '<div id="ph-body" style="padding:30px;text-align:center;color:var(--g3);font-size:12px">Loading history for ' + itemNumber + '…</div>', '900px');
+  fetch(API_BASE + '/api/ebs/price-history/' + encodeURIComponent(itemNumber), {
+    headers: { 'Authorization': 'Bearer ' + API_KEY }
+  }).then(function(r){ return r.json(); }).then(function(data){
+    var rows = (data.history || []).filter(function(h){ return (h.cost_component_class||'MATERIAL') === 'MATERIAL'; });
+    var phBody = document.getElementById('ph-body');
+    if (!rows.length) {
+      if (phBody) phBody.innerHTML = '<div style="padding:30px;text-align:center;color:var(--g3);font-size:13px">No MATERIAL cost history for <strong>' + itemNumber + '</strong> in Oracle EBS (Riyadh). Run ↻ Sync EBS Prices first.</div>';
+      return;
+    }
+    // Build min/max and sparkline
+    var minC = Math.min.apply(null, rows.map(function(r){return r.accounting_cost||0}));
+    var maxC = Math.max.apply(null, rows.map(function(r){return r.accounting_cost||0}));
+    var latest = rows[0];
+    var desc = latest.item_desc || '';
+    var uom = latest.uom || '';
+    // Sparkline from oldest → newest
+    var ordered = rows.slice().reverse();
+    var w = 600, h = 80, pad = 4;
+    var span = maxC - minC || 1;
+    var points = ordered.map(function(r, i){
+      var x = pad + (i / Math.max(ordered.length - 1, 1)) * (w - 2*pad);
+      var y = h - pad - ((r.accounting_cost - minC) / span) * (h - 2*pad);
+      return x.toFixed(1) + ',' + y.toFixed(1);
+    }).join(' ');
+    var delta = rows.length > 1 ? (rows[0].accounting_cost - rows[rows.length-1].accounting_cost) : 0;
+    var deltaPct = rows.length > 1 && rows[rows.length-1].accounting_cost ? (delta / rows[rows.length-1].accounting_cost) * 100 : 0;
+    var body =
+      '<div style="padding:16px 20px">' +
+        '<div style="display:flex;gap:24px;flex-wrap:wrap;align-items:center;margin-bottom:16px">' +
+          '<div><div style="font-size:11px;color:var(--g3);text-transform:uppercase;letter-spacing:0.5px">Item</div><div style="font-size:14px;font-weight:600">' + itemNumber + '</div></div>' +
+          '<div><div style="font-size:11px;color:var(--g3);text-transform:uppercase;letter-spacing:0.5px">UOM</div><div style="font-size:14px;font-weight:600">' + uom + '</div></div>' +
+          '<div><div style="font-size:11px;color:var(--g3);text-transform:uppercase;letter-spacing:0.5px">Latest</div><div style="font-size:14px;font-weight:600;color:var(--sage)">SAR ' + (latest.accounting_cost||0).toFixed(3) + ' <span style="font-size:10px;color:var(--g3);font-weight:400">(' + latest.period_code + ')</span></div></div>' +
+          '<div><div style="font-size:11px;color:var(--g3);text-transform:uppercase;letter-spacing:0.5px">Min / Max</div><div style="font-size:12px;font-family:var(--font-m)">' + minC.toFixed(3) + ' / ' + maxC.toFixed(3) + '</div></div>' +
+          '<div><div style="font-size:11px;color:var(--g3);text-transform:uppercase;letter-spacing:0.5px">Change vs first</div><div style="font-size:14px;font-weight:600;color:' + (delta>=0?'#C0392B':'#2E7D32') + '">' + (delta>=0?'+':'') + delta.toFixed(3) + ' SAR (' + (deltaPct>=0?'+':'') + deltaPct.toFixed(1) + '%)</div></div>' +
+        '</div>' +
+        (desc ? '<div style="font-size:12px;color:var(--g4);margin-bottom:12px">' + desc + '</div>' : '') +
+        '<div style="background:var(--g1);border-radius:var(--r-sm);padding:10px;margin-bottom:16px"><svg viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;height:80px"><polyline fill="none" stroke="var(--navy)" stroke-width="1.5" points="' + points + '" /></svg></div>' +
+        '<div style="max-height:360px;overflow:auto;border:1px solid var(--g1);border-radius:var(--r-sm)">' +
+          '<table class="data-table" style="margin:0;width:100%">' +
+            '<thead><tr><th>Period</th><th>Start Date</th><th style="text-align:right">Accounting Cost</th><th style="text-align:right">Component Cost</th><th>UOM</th></tr></thead>' +
+            '<tbody>' + rows.map(function(r, i){
+              var prev = rows[i+1];
+              var d = prev ? (r.accounting_cost - prev.accounting_cost) : 0;
+              var dStr = prev ? ' <span style="font-size:10px;color:' + (d>=0?'#C0392B':'#2E7D32') + '">(' + (d>=0?'+':'') + d.toFixed(3) + ')</span>' : '';
+              return '<tr><td style="font-family:var(--font-m)">' + (r.period_code||'') + '</td><td style="font-size:11px;color:var(--g3)">' + (r.start_date||'').slice(0,10) + '</td><td style="text-align:right;font-family:var(--font-m);font-weight:500">' + (r.accounting_cost||0).toFixed(3) + dStr + '</td><td style="text-align:right;font-family:var(--font-m);color:var(--g3)">' + (r.compnent_cost||0).toFixed(3) + '</td><td style="font-size:11px">' + (r.uom||'') + '</td></tr>';
+            }).join('') + '</tbody>' +
+          '</table>' +
+        '</div>' +
+        '<div style="font-size:10px;color:var(--g3);margin-top:10px;text-align:right">Source: Oracle EBS · apps.XXDFC_GL_ITEM_COST_V · DFC Warehouses — Riyadh (org 110) · ' + rows.length + ' periods</div>' +
+      '</div>';
+    if (phBody) phBody.innerHTML = body;
+  }).catch(function(e){
+    var phBody = document.getElementById('ph-body');
+    if (phBody) phBody.innerHTML = '<div style="padding:30px;text-align:center;color:var(--red)">Failed: ' + e.message + '</div>';
+  });
+}
+
 function _renderACDropdown(dropdown, input, results, onSelect) {
   if (results.length === 0) {
     dropdown.innerHTML = '<div class="ebs-ac-empty">No matches found</div>';
@@ -4412,7 +4491,7 @@ const PAGES = {
   dashboard:      { title:'Overview',           actions:'' },
   recipes:        { title:'Recipes',             actions:`<button class="btn btn-gold btn-sm" onclick="openRecipeForm()">+ New Recipe</button>` },
   'recipe-detail':{ title:'Recipe Detail',       actions:'' },
-  ingredients:    { title:'Ingredients Database',actions:`<button class="btn btn-gold btn-sm" onclick="openIngredientForm()">+ Add Ingredient</button>` },
+  ingredients:    { title:'Ingredients Database',actions:`<button class="btn btn-outline btn-sm" onclick="syncEBSPrices()">↻ Sync EBS Prices</button><button class="btn btn-gold btn-sm" style="margin-left:6px" onclick="openIngredientForm()">+ Add Ingredient</button>` },
   builds:         { title:'Product Builds',       actions:`<button class="btn btn-gold btn-sm" onclick="openBuildForm()">+ New Build</button>` },
   qa:             { title:'QA Lab Results',      actions:`<button class="btn btn-outline btn-sm" onclick="printQALabReport()">🖨️ Lab Report</button><button class="btn btn-outline btn-sm" style="margin-left:6px" onclick="printCOA()">📄 COA</button><button class="btn btn-sage btn-sm" style="margin-left:6px" onclick="addTestPoint()">+ New Test</button>` },
   'branch-sop':   { title:'Branch SOP',           actions:`<button class="btn btn-gold btn-sm" onclick="openBranchSOPForm()">+ New Branch SOP</button>` },
@@ -4950,7 +5029,7 @@ function buildIngTable() {
       <td style="font-family:var(--font-m);font-weight:500;color:${costColor}" id="ing-cost-${idx}">${displayCost}</td>
       <td style="font-family:var(--font-m);font-size:12px;color:var(--g4)" id="ing-uom-${idx}">${displayUOM}</td>
       <td style="font-family:var(--font-m);font-weight:600;color:${costKgColor};cursor:pointer" onclick="editIngCostPerKg(${idx})" title="Click to set cost/kg">${costKgDisplay}</td>
-      <td style="white-space:nowrap"><button class="btn btn-outline btn-sm" style="color:var(--blue);font-weight:700;border-color:var(--blue)" onclick="showIngUsedIn('${name.replace(/'/g,"\\'")}')">Used in</button> <button class="btn btn-outline btn-sm" onclick="editIngredient(this)">Edit</button>${supplier !== 'Oracle EBS' ? ' <button class="btn btn-sm" style="background:var(--red-lt);color:var(--red);border:1px solid var(--red);margin-left:4px" onclick="deleteIngredient(this)">✕</button>' : ''}</td>
+      <td style="white-space:nowrap"><button class="btn btn-outline btn-sm" style="color:var(--blue);font-weight:700;border-color:var(--blue)" onclick="showIngUsedIn('${name.replace(/'/g,"\\'")}')">Used in</button>${code ? ` <button class="btn btn-outline btn-sm" title="Oracle EBS price history" onclick="openPriceHistory('${code}','${name.replace(/'/g,"\\'")}')">📈 History</button>` : ''} <button class="btn btn-outline btn-sm" onclick="editIngredient(this)">Edit</button>${supplier !== 'Oracle EBS' ? ' <button class="btn btn-sm" style="background:var(--red-lt);color:var(--red);border:1px solid var(--red);margin-left:4px" onclick="deleteIngredient(this)">✕</button>' : ''}</td>
     `;
     tbody.appendChild(tr);
   });

@@ -472,59 +472,72 @@ app.post('/api/branchsop/:id', requireAuth, (req, res) => {
   }
 });
 
-// ── EBS PRICE ENDPOINTS ──
+// ── EBS PRICE ENDPOINTS (Oracle EBS — Riyadh org, cached in SQLite) ──
 
-// GET /api/ebs/prices — all ingredient prices with supplier info
-app.get('/api/ebs/prices', requireAuth, async (req, res) => {
+// Parse pack-size in kg from an EBS item description.
+// Handles: "1.5 Lit", "18 Liters", "5Kg", "700g", "10ml", and multi-pack "12 x 1L".
+function parsePackKg(desc) {
+  if (!desc) return null;
+  // Multi-pack: "12 x 1L", "6x500g"
+  const mp = desc.match(/(\d+)\s*[xX]\s*(\d+\.?\d*)\s*(kg|kgs|g|gr|grams?|ltr|litres?|liters?|ml)\b/i);
+  if (mp) {
+    const count = parseInt(mp[1], 10);
+    const per = parseFloat(mp[2]);
+    const u = mp[3].toLowerCase();
+    const kg = unitToKg(per, u);
+    if (kg) return count * kg;
+  }
+  const m = desc.match(/(\d+\.?\d*)\s*(kg|kgs|g|gr|grams?|ltr|litres?|liters?|ml)\b/i);
+  if (!m) return null;
+  return unitToKg(parseFloat(m[1]), m[2].toLowerCase());
+}
+
+function unitToKg(val, unit) {
+  if (!val || val <= 0) return null;
+  if (unit === 'kg' || unit === 'kgs') return val;
+  if (unit === 'g' || unit === 'gr' || unit === 'gram' || unit === 'grams') return val / 1000;
+  if (unit === 'ltr' || unit.startsWith('lit')) return val; // 1L ≈ 1kg for food liquids
+  if (unit === 'ml') return val / 1000;
+  return null;
+}
+
+// Normalise an EBS accounting_cost (SAR per pack) + UOM string + description → SAR per kg or per piece
+function normalisePrice(cost, uom, desc) {
+  const u = String(uom || '').toUpperCase();
+  if (u === 'KG') return { unit: 'kg', perUnit: cost };
+  if (u === 'G' || u === 'GR' || u === 'GRAM') return { unit: 'kg', perUnit: cost * 1000 };
+  if (u === 'LTR' || u === 'LITRE' || u === 'LITER' || u === 'LIT') return { unit: 'kg', perUnit: cost }; // 1L ≈ 1kg for food liquids
+  if (u === 'ML') return { unit: 'kg', perUnit: cost * 1000 };
+  if (u === 'PCE' || u === 'EACH' || u === 'EA' || u === 'PC' || u === 'PCS') return { unit: 'piece', perUnit: cost };
+  // Pack UOMs (BAG, BOT, CAN, PAL, X10, XO4, XO2, PCK, BOX, etc.) — infer kg from description pack size
+  const packKg = parsePackKg(desc);
+  if (packKg && packKg > 0) return { unit: 'kg', perUnit: cost / packKg };
+  return { unit: u || 'pack', perUnit: cost };
+}
+
+// GET /api/ebs/prices — all ingredient prices (latest period per item, cached)
+app.get('/api/ebs/prices', requireAuth, (req, res) => {
   try {
-    // Get items with avg price
-    const items = await queryGateway('RedShift', `
-      SELECT DISTINCT inv_item_id, description, recipe_unit, avg_purchase_price, allergens, expiry_days
-      FROM maestroksa.v_inventory_items
-      WHERE avg_purchase_price > 0 AND available = 'Y'
-      ORDER BY description
-    `);
-
-    // Get vendor prices
-    const vendors = await queryGateway('RedShift', `
-      SELECT v.item_id, v.purchase_price, v.vendor_name
-      FROM maestroksa.v_inventory_items_vendors v
-      WHERE v.purchase_price > 0
-      ORDER BY v.item_id
-    `);
-
-    // Build vendor map (item_id -> [{vendor, price}])
-    const vendorMap = {};
-    for (const v of vendors.rows) {
-      if (!vendorMap[v.item_id]) vendorMap[v.item_id] = [];
-      // Avoid duplicate vendor entries
-      const exists = vendorMap[v.item_id].find(x => x.vendor === v.vendor_name && x.price === v.purchase_price);
-      if (!exists) {
-        vendorMap[v.item_id].push({ vendor: v.vendor_name, price: v.purchase_price });
-      }
-    }
-
-    // Merge into a clean response
-    const prices = [];
-    const seen = new Set();
-    for (const item of items.rows) {
-      const key = item.inv_item_id + '|' + item.description;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      prices.push({
-        code: item.inv_item_id,
-        name: item.description,
-        unit: item.recipe_unit,
-        avgPrice: item.avg_purchase_price,
-        allergens: item.allergens,
-        expiryDays: item.expiry_days,
-        vendors: vendorMap[item.inv_item_id] || [],
-      });
-    }
-
+    const rows = db.getLatestPrices();
+    const prices = rows.map(r => {
+      const n = normalisePrice(r.accounting_cost, r.uom, r.item_desc);
+      return {
+        code: r.item_number,
+        name: r.item_desc,
+        unit: n.unit,
+        uomSource: r.uom,
+        periodCode: r.period_code,
+        pricePerKg: n.unit === 'kg' ? n.perUnit : null,
+        pricePerPiece: n.unit === 'piece' ? n.perUnit : null,
+        accountingCost: r.accounting_cost,
+        compnentCost: r.compnent_cost,
+      };
+    });
+    const log = db.getSyncLog(1)[0];
     res.json({
       count: prices.length,
-      updatedAt: new Date().toISOString(),
+      lastSync: log ? log.finished_at : null,
+      source: 'erp_item_cost_riyadh (Oracle EBS, org 110)',
       prices,
     });
   } catch (err) {
@@ -533,124 +546,183 @@ app.get('/api/ebs/prices', requireAuth, async (req, res) => {
   }
 });
 
-// GET /api/ebs/search?q=tomato — search items by name, return per-kg price
-app.get('/api/ebs/search', requireAuth, async (req, res) => {
+// GET /api/ebs/search?q=tomato — search by name or item_number, return normalised per-kg/piece cost
+app.get('/api/ebs/search', requireAuth, (req, res) => {
   try {
     const raw = (req.query.q || '').trim();
     if (!raw || raw.length < 2) return res.json({ results: [] });
-    // Sanitize: only allow letters, numbers, spaces — no SQL-significant chars
-    const q = raw.replace(/[^a-zA-Z0-9 ]/g, '').toLowerCase().slice(0, 100);
+    const q = raw.replace(/[^a-zA-Z0-9 ]/g, '').slice(0, 100);
     if (!q) return res.json({ results: [] });
-
-    // Helper: try to extract weight in kg from description (e.g. "700g", "2.5KG", "10 Ltr", "4.25 kg/can")
-    function parseWeightKg(desc) {
-      // Match patterns like "700g", "700 g", "2.5kg", "10 Ltr", "4.25 kg/can"
-      const m = desc.match(/(\d+\.?\d*)\s*(kg|g|gr|gram|ltr|litre|liter|ml)\b/i);
-      if (!m) return null;
-      const val = parseFloat(m[1]);
-      const unit = m[2].toLowerCase();
-      if (unit === 'kg') return val;
-      if (unit === 'g' || unit === 'gr' || unit === 'gram') return val / 1000;
-      if (unit === 'ltr' || unit === 'litre' || unit === 'liter') return val; // 1 ltr ≈ 1 kg
-      if (unit === 'ml') return val / 1000;
-      return null;
-    }
-
-    // Also check for multiplier like "X12", "6x", etc.
-    function parseMultiplier(desc) {
-      const m = desc.match(/\b[xX](\d+)\b|\b(\d+)\s*[xX]\s*\d/);
-      if (m) return parseInt(m[1] || m[2]) || 1;
-      return 1;
-    }
-
-    // Primary: vendor prices with equivalence → per-kg cost
-    const vendorData = await queryGateway('RedShift', `
-      SELECT DISTINCT i.inv_item_id, i.description, i.recipe_unit, i.equivalence,
-             i.stockroom_unit, v.purchase_price, v.vendor_unit, v.vendor_name
-      FROM maestroksa.v_inventory_items i
-      JOIN maestroksa.v_inventory_items_vendors v ON v.item_id = i.inv_item_id
-      WHERE v.purchase_price > 0 AND i.equivalence > 0
-        AND LOWER(i.description) LIKE '%${q}%'
-      LIMIT 40
-    `);
-
-    const map = {};
-    for (const r of vendorData.rows) {
-      let pricePerKg = null;
-      if (r.recipe_unit === 'kg' && r.equivalence > 0) {
-        // Direct: purchase_price / equivalence = SAR per kg
-        pricePerKg = r.purchase_price / r.equivalence;
-      } else if (r.recipe_unit === 'ltr' && r.equivalence > 0) {
-        // 1 ltr ≈ 1 kg for most food liquids
-        pricePerKg = r.purchase_price / r.equivalence;
-      } else {
-        // Try to parse weight from description
-        const wt = parseWeightKg(r.description);
-        const mult = parseMultiplier(r.stockroom_unit || '');
-        if (wt && wt > 0) {
-          const totalKg = wt * mult * (r.equivalence || 1);
-          pricePerKg = r.purchase_price / totalKg;
-        }
-      }
-
-      const key = r.inv_item_id;
-      if (!map[key] || (pricePerKg && pricePerKg > (map[key].pricePerKg || 0))) {
-        map[key] = {
-          code: r.inv_item_id,
-          name: r.description,
-          unit: 'kg',
-          originalUnit: r.recipe_unit,
-          equivalence: r.equivalence,
-          purchasePrice: r.purchase_price,
-          pricePerKg: pricePerKg,
-          avgPrice: pricePerKg || r.purchase_price,
-          vendor: r.vendor_name,
-          vendors: [],
-        };
-      }
-      const exists = map[key].vendors.find(x => x.vendor === r.vendor_name);
-      if (!exists) map[key].vendors.push({ vendor: r.vendor_name, price: r.purchase_price });
-    }
-
-    // Fallback: GL cost for items not found via vendor route
-    try {
-      const glData = await queryGateway('RedShift', `
-        SELECT item, description, uom, gl_cost
-        FROM erp.inv_item_cost
-        WHERE LOWER(description) LIKE '%${q}%' AND gl_cost > 0
-        ORDER BY start_date DESC
-        LIMIT 20
-      `);
-      for (const r of glData.rows) {
-        if (!map[r.item]) {
-          const cost = parseFloat(r.gl_cost) || 0;
-          let pricePerKg = null;
-          const uom = (r.uom || '').toUpperCase();
-          if (uom === 'KG') {
-            pricePerKg = cost;
-          } else {
-            // Try weight from description
-            const wt = parseWeightKg(r.description);
-            if (wt && wt > 0) pricePerKg = cost / wt;
-          }
-          map[r.item] = {
-            code: r.item,
-            name: r.description,
-            unit: pricePerKg ? 'kg' : (r.uom || 'unit'),
-            originalUnit: r.uom,
-            pricePerKg: pricePerKg,
-            avgPrice: pricePerKg || cost,
-            vendor: '',
-            vendors: [],
-          };
-        }
-      }
-    } catch (e) { /* GL fallback is optional */ }
-
-    res.json({ results: Object.values(map) });
+    const rows = db.searchPrices(q);
+    const results = rows.map(r => {
+      const n = normalisePrice(r.accounting_cost, r.uom, r.item_desc);
+      return {
+        code: r.item_number,
+        name: r.item_desc,
+        unit: n.unit,
+        uomSource: r.uom,
+        periodCode: r.period_code,
+        pricePerKg: n.unit === 'kg' ? n.perUnit : null,
+        pricePerPiece: n.unit === 'piece' ? n.perUnit : null,
+        accountingCost: r.accounting_cost,
+        // Back-compat shape for existing frontend callers:
+        avgPrice: n.perUnit,
+        purchasePrice: r.accounting_cost,
+        originalUnit: r.uom,
+        vendor: '',
+        vendors: [],
+      };
+    });
+    res.json({ results });
   } catch (err) {
     console.error('EBS search error:', err);
     res.status(500).json({ error: 'Failed to search EBS: ' + err.message });
+  }
+});
+
+// GET /api/ebs/price-history/:itemNumber — all periods for one item
+app.get('/api/ebs/price-history/:itemNumber', requireAuth, (req, res) => {
+  try {
+    const item = String(req.params.itemNumber || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40);
+    if (!item) return res.status(400).json({ error: 'itemNumber required' });
+    const rows = db.getPriceHistory(item);
+    res.json({ itemNumber: item, count: rows.length, history: rows });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch history: ' + err.message });
+  }
+});
+
+// POST /api/ebs/sync-prices — pull full history from Oracle EBS into local cache
+app.post('/api/ebs/sync-prices', requireAuth, async (req, res) => {
+  const logId = db.logSyncStart();
+  try {
+    // Gateway caps result sets at 5,000 rows — paginate by period_code (each period ~800 MATERIAL rows)
+    const periodsRes = await queryGateway('erp_item_cost_riyadh', `
+      SELECT DISTINCT period_code FROM data WHERE cost_component_class = 'MATERIAL' ORDER BY period_code
+    `);
+    const periods = (periodsRes.rows || []).map(r => r.period_code || r.PERIOD_CODE).filter(Boolean);
+
+    let n = 0;
+    for (const period of periods) {
+      const priced = await queryGateway('erp_item_cost_riyadh', `
+        SELECT item_number, item_desc, uom, cost_component_class,
+               compnent_cost, accounting_cost, period_code, organization_code
+        FROM data
+        WHERE cost_component_class = 'MATERIAL' AND period_code = '${period.replace(/'/g, "''")}'
+      `);
+      const costRows = (priced.rows || []).map(r => ({
+        item_number: r.item_number || r.ITEM_NUMBER,
+        item_desc: r.item_desc || r.ITEM_DESC,
+        uom: r.uom || r.UOM,
+        cost_component_class: r.cost_component_class || r.COST_COMPONENT_CLASS || 'MATERIAL',
+        compnent_cost: r.compnent_cost != null ? r.compnent_cost : r.COMPNENT_COST,
+        accounting_cost: r.accounting_cost != null ? r.accounting_cost : r.ACCOUNTING_COST,
+        period_code: r.period_code || r.PERIOD_CODE,
+        organization_code: r.organization_code || r.ORGANIZATION_CODE,
+        // Derive start_date from period_code (MMM-YY) so latest-per-item sort works chronologically
+        start_date: periodToDate(r.period_code || r.PERIOD_CODE),
+      }));
+      n += db.upsertCostRows(costRows);
+    }
+
+    // Also sync the POS→ERP bridge (inv_item_id → export_id) so recipe joins work offline.
+    // v_inventory_items is per-branch; pick branch_id = 1 (or first available) as the canonical map.
+    const mapRes = await queryGateway('RedShift', `
+      SELECT inv_item_id, description, recipe_unit, stockroom_unit, equivalence, TRIM(export_id) AS export_id
+      FROM (
+        SELECT inv_item_id, description, recipe_unit, stockroom_unit, equivalence, export_id, branch_id,
+               ROW_NUMBER() OVER (PARTITION BY inv_item_id ORDER BY branch_id) AS rn
+        FROM maestroksa.v_inventory_items
+        WHERE export_id IS NOT NULL AND TRIM(export_id) <> ''
+      ) t
+      WHERE rn = 1
+    `);
+    const mapRows = (mapRes.rows || []).map(r => ({
+      inv_item_id: String(r.inv_item_id),
+      description: r.description,
+      recipe_unit: r.recipe_unit,
+      stockroom_unit: r.stockroom_unit,
+      equivalence: r.equivalence,
+      export_id: (r.export_id || '').trim(),
+    }));
+    const m = db.upsertItemMap(mapRows);
+
+    db.logSyncEnd(logId, n + m, null);
+    res.json({ ok: true, costRows: n, mapRows: m, finishedAt: new Date().toISOString() });
+  } catch (err) {
+    db.logSyncEnd(logId, 0, String(err.message || err));
+    console.error('EBS sync error:', err);
+    res.status(500).json({ error: 'Sync failed: ' + err.message });
+  }
+});
+
+// Convert Oracle period_code "MMM-YY" into an ISO date on day 01 (so lexicographic sort works)
+function periodToDate(period) {
+  if (!period) return null;
+  const m = String(period).match(/^([A-Z]{3})-(\d{2})$/i);
+  if (!m) return null;
+  const months = { JAN:'01',FEB:'02',MAR:'03',APR:'04',MAY:'05',JUN:'06',JUL:'07',AUG:'08',SEP:'09',OCT:'10',NOV:'11',DEC:'12' };
+  const mm = months[m[1].toUpperCase()]; if (!mm) return null;
+  const yy = parseInt(m[2], 10);
+  const yyyy = yy < 70 ? 2000 + yy : 1900 + yy;
+  return yyyy + '-' + mm + '-01';
+}
+
+// GET /api/ebs/sync-log — recent sync runs for admin UI
+app.get('/api/ebs/sync-log', requireAuth, (req, res) => {
+  res.json({ log: db.getSyncLog(10) });
+});
+
+// GET /api/pos-recipe/:saleItemId — full BOM from v_recipes with EBS pricing joined via export_id
+app.get('/api/pos-recipe/:saleItemId', requireAuth, async (req, res) => {
+  try {
+    const raw = String(req.params.saleItemId || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 20);
+    if (!raw) return res.status(400).json({ error: 'saleItemId required' });
+    // Template BOM (branch_id = -1)
+    const bom = await queryGateway('RedShift', `
+      SELECT sale_item_id, sale_item_description, sale_item_family_group, line_nbr,
+             inv_item_id, inv_item_description, quantity, recipe_unit, optional, order_type, charged, yield
+      FROM maestroksa.v_recipes
+      WHERE sale_item_id = '${raw}' AND branch_id = -1
+      ORDER BY line_nbr, inv_item_id
+    `);
+    const lines = (bom.rows || []).map(r => {
+      const map = db.getItemMap(String(r.inv_item_id));
+      let price = null;
+      if (map && map.export_id) {
+        const hist = db.getPriceHistory(map.export_id);
+        const latest = hist && hist.length ? hist[0] : null;
+        if (latest) {
+          const n = normalisePrice(latest.accounting_cost, latest.uom, latest.item_desc);
+          price = {
+            itemNumber: map.export_id,
+            itemDesc: latest.item_desc,
+            uom: latest.uom,
+            periodCode: latest.period_code,
+            accountingCost: latest.accounting_cost,
+            pricePerKg: n.unit === 'kg' ? n.perUnit : null,
+            pricePerPiece: n.unit === 'piece' ? n.perUnit : null,
+          };
+        }
+      }
+      return {
+        line: r.line_nbr,
+        posInvItemId: r.inv_item_id,
+        name: r.inv_item_description,
+        quantity: r.quantity,
+        recipeUnit: r.recipe_unit,
+        optional: r.optional === 'Y',
+        orderType: r.order_type,
+        yield: r.yield,
+        saleItem: { id: r.sale_item_id, name: r.sale_item_description, family: r.sale_item_family_group },
+        erpMap: map ? { exportId: map.export_id, equivalence: map.equivalence, stockroomUnit: map.stockroom_unit } : null,
+        price,
+      };
+    });
+    res.json({ saleItemId: raw, count: lines.length, lines });
+  } catch (err) {
+    console.error('pos-recipe error:', err);
+    res.status(500).json({ error: 'Failed to fetch BOM: ' + err.message });
   }
 });
 
