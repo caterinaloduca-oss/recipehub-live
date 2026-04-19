@@ -940,7 +940,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
       <span class="search-icon">⌕</span>
       <input class="search-input" placeholder="Search ingredients, suppliers, codes…" id="ing-search" oninput="filterIngredients()" />
     </div>
-    <select class="filter-select" id="ing-filter-cat" onchange="filterIngredients()"><option>All Categories</option><optgroup label="Food"><option>Food</option><option>Sauces</option><option>Toppings</option><option>Side Dishes</option><option>Crusts</option><option>Beverages</option></optgroup><optgroup label="Non-food"><option>Packing Material</option><option>Cleaning</option><option>Tool</option><option>Equipment</option><option>Uniform</option></optgroup></select>
+    <select class="filter-select" id="ing-filter-cat" onchange="filterIngredients()"><option>All Categories</option><optgroup label="Food — raw"><option>Oil</option><option>Meat & Protein</option><option>Dairy</option><option>Grain & Flour</option><option>Bread & Crumbs</option><option>Seasoning</option><option>Additive</option></optgroup><optgroup label="Food — sauces & sides"><option>Sauce</option><option>Dip</option><option>Topping</option><option>Side Dish</option><option>Salad</option></optgroup><optgroup label="Food — finished"><option>Crust</option><option>Dough</option><option>Burger Dough</option><option>Pasta</option><option>Pizza</option><option>Mac & Cheese</option><option>Dessert</option><option>Appetizer</option></optgroup><optgroup label="Beverages"><option>Beverage</option></optgroup><optgroup label="Non-food"><option>Packing Material</option><option>Operating Supply</option><option>Equipment</option><option>Service</option></optgroup><optgroup label="Name-only fallback"><option>Cleaning</option><option>Tool</option><option>Uniform</option><option>Food</option></optgroup></select>
   </div>
 
   <div class="card">
@@ -4962,7 +4962,18 @@ let ING_DATA = [
   [22,'Carton Box (12-pack)','Saudi Carton Co.','PK-007','Packaging','SAR 1.80','Ambient','—','3 weeks ago'],
 ];
 
-const CAT_CLASS = { 'Food':'cat-food','Sauce':'cat-sauce','Sauces':'cat-sauce','Toppings':'cat-veg','Crusts':'cat-dough','Side Dishes':'cat-side','Beverages':'cat-drink','Dough':'cat-dough','Cheese':'cat-cheese','Meat':'cat-meat','Vegetable':'cat-veg','Dip':'cat-dip','Side':'cat-side','Drink':'cat-drink','Chiller':'cat-chiller','Packing Material':'cat-pkg','Critical':'cat-critical','Non-Food':'cat-nonfood','Smallware':'cat-smallware','Disposable (Consumables)':'cat-consumable','Stationery':'cat-stationery','Marketing':'cat-marketing','Uniform':'cat-uniform','Tool':'cat-smallware','Equipment':'cat-smallware','Cleaning':'cat-consumable' };
+const CAT_CLASS = {
+  // ERP-prefix-driven food categories
+  'Oil':'cat-food','Meat & Protein':'cat-meat','Dairy':'cat-cheese','Grain & Flour':'cat-dough','Bread & Crumbs':'cat-dough','Seasoning':'cat-food','Additive':'cat-food',
+  'Sauce':'cat-sauce','Dip':'cat-dip','Topping':'cat-veg','Side Dish':'cat-side','Salad':'cat-veg',
+  'Crust':'cat-dough','Dough':'cat-dough','Burger Dough':'cat-dough','Pasta':'cat-dough','Pizza':'cat-dough','Mac & Cheese':'cat-cheese','Dessert':'cat-food','Appetizer':'cat-meat',
+  'Beverage':'cat-drink',
+  // ERP-prefix-driven non-food
+  'Packing Material':'cat-pkg','Operating Supply':'cat-consumable','Equipment':'cat-smallware','Service':'cat-nonfood',
+  // Legacy / keyword fallback categories (kept for backward compat)
+  'Food':'cat-food','Sauces':'cat-sauce','Toppings':'cat-veg','Crusts':'cat-dough','Side Dishes':'cat-side','Beverages':'cat-drink','Cleaning':'cat-consumable','Tool':'cat-smallware','Uniform':'cat-uniform',
+  'Cheese':'cat-cheese','Vegetable':'cat-veg','Meat':'cat-meat','Side':'cat-side','Drink':'cat-drink','Chiller':'cat-chiller','Critical':'cat-critical','Non-Food':'cat-nonfood','Smallware':'cat-smallware','Disposable (Consumables)':'cat-consumable','Stationery':'cat-stationery','Marketing':'cat-marketing'
+};
 
 // ──────────── ALLERGEN SYSTEM ────────────
 const ALLERGEN_LIST = ['Gluten','Milk','Eggs','Fish','Crustaceans','Tree Nuts','Peanuts','Soy','Sesame','Celery','Mustard','Sulphites','Lupin','Molluscs'];

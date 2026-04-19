@@ -770,25 +770,81 @@ app.get('/api/ingredients/map', requireAuth, (req, res) => {
   res.json({ maps: db.listLocalMaps() });
 });
 
-// Override the POS sale_item_family_group with a description-based category when the name
-// clearly indicates a tool / uniform / cleaning item / beverage etc. The POS family tag is
-// unreliable for non-food lines (a "Sauces" sale item may reference Can Opener as a recipe
-// line, tagging it Sauces). Keyword order matters — first match wins.
-const CATEGORY_RULES = [
+// ERP item-code prefix → category. Oracle EBS item codes are 10-char codes whose first 4
+// chars encode the item's true type (RMOL = Raw Material → Oil, SFSA = Semi-Finished → Sauce,
+// FGBE = Finished Good → Beverage, PMPX = Packing Material, COHC = Cleaning/Hygiene, etc.).
+// This is authoritative — when an item is mapped to an ERP code we trust the prefix over
+// the POS sale_item_family_group (which is misleading — e.g. Can Opener tagged "Sauces"
+// because it appears as a line in a sauce sale item's recipe).
+const ERP_PREFIX_CATEGORIES = {
+  // Raw Materials
+  RMOL: 'Oil',
+  RMMP: 'Meat & Protein',
+  RMDP: 'Dairy',
+  RMSA: 'Sauce',
+  RMTO: 'Topping',
+  RMSE: 'Seasoning',
+  RMAD: 'Additive',
+  RMGP: 'Grain & Flour',
+  RMBR: 'Bread & Crumbs',
+  RMPD: 'Dough',
+  RMSD: 'Side Dish',
+  RMDS: 'Dessert',
+  RMBV: 'Beverage',
+  // Semi-Finished (CPP-made)
+  SFSA: 'Sauce',
+  SFTO: 'Topping',
+  SFCR: 'Crust',
+  SFSD: 'Side Dish',
+  SFDS: 'Dessert',
+  SFPA: 'Pasta',
+  SFSL: 'Salad',
+  SFDP: 'Dip',
+  SFPZ: 'Pizza',
+  SFBD: 'Burger Dough',
+  SFMA: 'Mac & Cheese',
+  SFSE: 'Seasoning',
+  // Finished Goods
+  FGBE: 'Beverage',
+  FGSA: 'Dip',
+  FGAP: 'Appetizer',
+  // Non-food families (all PM*/CO*/CA*/SV* prefixes collapse to these)
+};
+const ERP_PREFIX2_NONFOOD = {
+  PM: 'Packing Material',
+  CO: 'Operating Supply',  // covers cleaning (COHC), uniforms (COUN), tools (COOT), marketing (COMA, COMF), stationery (COPS), etc.
+  CA: 'Equipment',
+  SV: 'Service',
+};
+
+// Lightweight keyword fallback — used only when we have no ERP code (POS-only items)
+const NAME_KEYWORD_RULES = [
   { cat: 'Equipment',        re: /\b(chair|table|bench|shelf|rack|door|ladder|oven|heater|power supply|adapter|lighter|fridge|freezer|scale)\b/i },
   { cat: 'Uniform',          re: /\b(t-shirt|tshirt|apron|cap( |$)|hair net|beard net|arm sleeve|uniform|coat)\b/i },
   { cat: 'Cleaning',         re: /\b(cleaner|soap|sanitizer|sanitiser|detergent|degreaser|ecoshine|oasis|food saf|vanoquad|solitare|dishwash|hydrion|scoring pad)\b/i },
-  { cat: 'Beverages',        re: /\b(7up|7 up|pepsi|mirinda|mountain dew|cetrus|coke|sprite|fanta|juice|lipton|aqua|tropicana|water 20|water aqua)\b/i },
+  { cat: 'Beverage',         re: /\b(7up|7 up|pepsi|mirinda|mountain dew|cetrus|coke|sprite|fanta|juice|lipton|aqua|tropicana|water 20|water aqua)\b/i },
   { cat: 'Tool',             re: /\b(opener|cutter|timer|thermometer|pan cover|pan (?:large|medium|small)|ring|tongs?|ladle|spatula|spoon|scoop|gripper|scrapper|board|tray|measuring cup|shovel|showel|plier|screwdriver|wiper|brush|broom|bin|bucket|mop|dispenser|basket|screen|stand|spray bottle|peel|server|sieve|whisk|knife|pi(?:e)? server|dust pan|glove|flycatcher)\b/i },
   { cat: 'Packing Material', re: /\b(bag|box|container|foil|paper|wrap|plastic roll|plastic spoon|sticker|inliner|flyer|napkin|thermal roll|cashier roll|tissue|roll \(|packaging|pouch|sleeve|cling|carton|label|cup ?\&|solo cup|bottles? \(sauce)\b/i },
 ];
-function classifyCategory(name, families) {
+
+function classifyCategory(name, families, erpCode) {
+  // 1) ERP prefix wins when we have a real ERP code (letter-prefixed)
+  if (erpCode && /^[A-Za-z]/.test(String(erpCode))) {
+    const s4 = String(erpCode).substr(0, 4).toUpperCase();
+    if (ERP_PREFIX_CATEGORIES[s4]) return ERP_PREFIX_CATEGORIES[s4];
+    const s2 = s4.substr(0, 2);
+    if (ERP_PREFIX2_NONFOOD[s2]) return ERP_PREFIX2_NONFOOD[s2];
+  }
+  // 2) Name keyword fallback (for POS-only items without an ERP code)
   const n = String(name || '');
-  for (const rule of CATEGORY_RULES) { if (rule.re.test(n)) return rule.cat; }
-  // Fall back to the POS family (first non-Non-food wins; Non-food → Packing Material)
+  for (const rule of NAME_KEYWORD_RULES) { if (rule.re.test(n)) return rule.cat; }
+  // 3) POS family fallback — first real food family wins
   const fams = Array.isArray(families) ? families : [];
   const firstFood = fams.find(f => f && f !== 'Non-food');
-  if (firstFood) return firstFood;
+  if (firstFood) {
+    const foodMap = { 'Sauces': 'Sauce', 'Toppings': 'Topping', 'Side Dishes': 'Side Dish', 'Crusts': 'Crust', 'Beverages': 'Beverage' };
+    return foodMap[firstFood] || firstFood;
+  }
   if (fams.indexOf('Non-food') > -1) return 'Packing Material';
   return 'Food';
 }
@@ -847,7 +903,7 @@ app.get('/api/ingredients/from-pos', requireAuth, async (req, res) => {
         invItemId: invId,
         name: a.name,
         families: famsArr,
-        category: classifyCategory(a.name, famsArr),
+        category: classifyCategory(a.name, famsArr, erpCode),
         erpCode,
         recipeUnit: map ? map.recipe_unit : null,
         stockroomUnit: map ? map.stockroom_unit : null,
