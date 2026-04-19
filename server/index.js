@@ -682,6 +682,54 @@ app.get('/api/ebs/sync-log', requireAuth, (req, res) => {
   res.json({ log: db.getSyncLog(10) });
 });
 
+// GET /api/ingredients/ebs-catalog?q=... — search the full EBS cost cache for mapping UI
+app.get('/api/ingredients/ebs-catalog', requireAuth, (req, res) => {
+  try {
+    const raw = (req.query.q || '').trim();
+    const q = raw.replace(/[^a-zA-Z0-9 _-]/g, '').slice(0, 60);
+    if (!q || q.length < 1) return res.json({ results: [] });
+    const rows = db.searchPrices(q);
+    res.json({
+      results: rows.map(r => ({
+        itemNumber: r.item_number,
+        description: r.item_desc,
+        uom: r.uom,
+        latestCost: r.accounting_cost,
+        periodCode: r.period_code,
+      })),
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Search failed: ' + err.message });
+  }
+});
+
+// POST /api/ingredients/map  { invItemId, erpItemNumber, notes } — user maps POS item → ERP
+app.post('/api/ingredients/map', requireAuth, (req, res) => {
+  try {
+    const { invItemId, erpItemNumber, notes, mappedBy } = req.body || {};
+    if (!invItemId || !erpItemNumber) return res.status(400).json({ error: 'invItemId and erpItemNumber required' });
+    db.setLocalMap(String(invItemId), String(erpItemNumber), mappedBy || null, notes || null);
+    res.json({ ok: true, invItemId: String(invItemId), erpItemNumber: String(erpItemNumber) });
+  } catch (err) {
+    res.status(500).json({ error: 'Save failed: ' + err.message });
+  }
+});
+
+// DELETE /api/ingredients/map/:invItemId — clear a user-set mapping
+app.delete('/api/ingredients/map/:invItemId', requireAuth, (req, res) => {
+  try {
+    db.deleteLocalMap(String(req.params.invItemId));
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Delete failed: ' + err.message });
+  }
+});
+
+// GET /api/ingredients/map — list all user-set mappings
+app.get('/api/ingredients/map', requireAuth, (req, res) => {
+  res.json({ maps: db.listLocalMaps() });
+});
+
 // GET /api/ingredients/from-pos — distinct items used in POS recipes (food + packaging only),
 // each joined to v_inventory_items export_id + latest EBS cost
 app.get('/api/ingredients/from-pos', requireAuth, async (req, res) => {

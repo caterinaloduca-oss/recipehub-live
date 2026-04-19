@@ -58,6 +58,16 @@ function init() {
       synced_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_ebs_map_export ON ebs_item_map(export_id);
+
+    -- User-maintained POS→ERP mapping. Overrides ebs_item_map.export_id when present.
+    CREATE TABLE IF NOT EXISTS local_item_map (
+      inv_item_id TEXT PRIMARY KEY,
+      erp_item_number TEXT NOT NULL,
+      mapped_by TEXT,
+      mapped_at TEXT NOT NULL DEFAULT (datetime('now')),
+      notes TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_local_map_erp ON local_item_map(erp_item_number);
   `);
 
   return db;
@@ -153,7 +163,41 @@ function upsertItemMap(rows) {
 }
 
 function getItemMap(invItemId) {
-  return db.prepare('SELECT * FROM ebs_item_map WHERE inv_item_id = ?').get(invItemId);
+  // Local user mapping wins over the synced POS mapping
+  const local = db.prepare('SELECT * FROM local_item_map WHERE inv_item_id = ?').get(invItemId);
+  const base = db.prepare('SELECT * FROM ebs_item_map WHERE inv_item_id = ?').get(invItemId);
+  if (!local) return base;
+  return {
+    inv_item_id: invItemId,
+    description: base ? base.description : null,
+    recipe_unit: base ? base.recipe_unit : null,
+    stockroom_unit: base ? base.stockroom_unit : null,
+    equivalence: base ? base.equivalence : null,
+    export_id: local.erp_item_number,
+    mapped_by: local.mapped_by,
+    mapped_at: local.mapped_at,
+    local: true,
+  };
+}
+
+function setLocalMap(invItemId, erpItemNumber, mappedBy, notes) {
+  return db.prepare(`
+    INSERT INTO local_item_map (inv_item_id, erp_item_number, mapped_by, notes)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(inv_item_id) DO UPDATE SET
+      erp_item_number = excluded.erp_item_number,
+      mapped_by = excluded.mapped_by,
+      notes = excluded.notes,
+      mapped_at = datetime('now')
+  `).run(invItemId, erpItemNumber, mappedBy || null, notes || null);
+}
+
+function deleteLocalMap(invItemId) {
+  return db.prepare('DELETE FROM local_item_map WHERE inv_item_id = ?').run(invItemId);
+}
+
+function listLocalMaps() {
+  return db.prepare('SELECT * FROM local_item_map ORDER BY mapped_at DESC').all();
 }
 
 function getSyncLog(limit) {
@@ -191,5 +235,6 @@ module.exports = {
   init, getState, setState,
   getLatestPrices, getPriceHistory, searchPrices, upsertCostRows,
   upsertItemMap, getItemMap,
+  setLocalMap, deleteLocalMap, listLocalMaps,
   getSyncLog, logSyncStart, logSyncEnd,
 };

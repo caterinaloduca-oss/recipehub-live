@@ -3593,6 +3593,97 @@ function _prefetchRecipePrices(r) {
   });
 }
 
+// Heuristic: ERP item codes start with a letter prefix (RM*, FG*, COPSA*, etc.).
+// Pure-numeric codes are unmapped POS inv_item_ids.
+function _codeIsERP(code) {
+  if (!code) return false;
+  return /^[A-Za-z]/.test(String(code).trim());
+}
+
+// Open the POS→ERP mapping modal: search EBS catalog, select, save.
+function openMapModal(invItemId, posName) {
+  var header = '<div class="card-head" style="background:var(--navy);border-radius:16px 16px 0 0"><span class="card-title" style="color:white">Map POS item to Oracle EBS</span><button class="btn btn-sm" style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:none" onclick="closeModal()">✕</button></div>';
+  var body =
+    '<div style="padding:20px">' +
+      '<div style="margin-bottom:16px;padding:12px 14px;background:var(--g05);border-radius:var(--r-sm)">' +
+        '<div style="font-size:11px;color:var(--g3);text-transform:uppercase;letter-spacing:0.5px">POS item</div>' +
+        '<div style="font-size:14px;font-weight:600;color:var(--navy)">' + (posName || '') + ' <span style="font-family:var(--font-m);font-size:11px;color:var(--g3);font-weight:400">· ' + invItemId + '</span></div>' +
+      '</div>' +
+      '<label style="font-size:11px;color:var(--g3);text-transform:uppercase;letter-spacing:0.5px">Search Oracle EBS catalog</label>' +
+      '<input id="map-search" class="form-input" placeholder="Type item name or ERP code (e.g. RMMPF0002)…" autocomplete="off" style="margin-top:4px" />' +
+      '<div id="map-results" style="max-height:280px;overflow:auto;border:1px solid var(--g1);border-radius:var(--r-sm);margin-top:10px"></div>' +
+      '<div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end"><button class="btn btn-outline btn-sm" onclick="closeModal()">Cancel</button></div>' +
+      '<div style="font-size:10px;color:var(--g3);margin-top:10px;text-align:right">Search reads the locally-cached EBS catalog (Oracle org 110 · Riyadh). Run ↻ Sync EBS Prices if results look stale.</div>' +
+    '</div>';
+  openModal(header + body, '720px');
+  var input = document.getElementById('map-search');
+  var results = document.getElementById('map-results');
+  input.focus();
+  var t = null;
+  input.addEventListener('input', function(){
+    clearTimeout(t);
+    var q = this.value.trim();
+    if (q.length < 2) { results.innerHTML = '<div style="padding:14px;color:var(--g3);font-size:12px">Type at least 2 characters…</div>'; return; }
+    t = setTimeout(function(){
+      results.innerHTML = '<div style="padding:14px;color:var(--g3);font-size:12px">Searching…</div>';
+      fetch(API_BASE + '/api/ingredients/ebs-catalog?q=' + encodeURIComponent(q), {
+        headers: { 'Authorization': 'Bearer ' + API_KEY }
+      }).then(function(r){ return r.json(); }).then(function(data){
+        var items = data.results || [];
+        if (!items.length) { results.innerHTML = '<div style="padding:14px;color:var(--g3);font-size:12px">No matches.</div>'; return; }
+        results.innerHTML = items.map(function(it){
+          var cost = it.latestCost ? 'SAR ' + Number(it.latestCost).toFixed(2) + ' / ' + (it.uom || '') : 'no cost';
+          var meUser = (typeof getCurrentUserName === 'function' ? getCurrentUserName() : '');
+          return '<div style="display:flex;gap:12px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--g1);cursor:pointer" onmouseover="this.style.background=\'var(--g05)\'" onmouseout="this.style.background=\'transparent\'" onclick="confirmMap(\'' + invItemId + '\',\'' + it.itemNumber + '\',\'' + (it.description||'').replace(/'/g,"\\'") + '\',\'' + meUser + '\')">' +
+            '<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:500;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + (it.description || '—') + '</div>' +
+            '<div style="font-size:11px;color:var(--g3);font-family:var(--font-m)">' + it.itemNumber + ' · ' + (it.periodCode || '') + '</div></div>' +
+            '<div style="font-size:12px;font-family:var(--font-m);font-weight:500;color:var(--sage)">' + cost + '</div>' +
+            '<button class="btn btn-sage btn-sm">Select</button>' +
+          '</div>';
+        }).join('');
+      }).catch(function(e){ results.innerHTML = '<div style="padding:14px;color:var(--red);font-size:12px">Search failed: ' + e.message + '</div>'; });
+    }, 250);
+  });
+}
+
+function confirmMap(invItemId, erpItemNumber, erpName, mappedBy) {
+  fetch(API_BASE + '/api/ingredients/map', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + API_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ invItemId: invItemId, erpItemNumber: erpItemNumber, mappedBy: mappedBy || '' }),
+  }).then(function(r){ return r.json(); }).then(function(data){
+    if (!data.ok) { showSaveToast('Map save failed: ' + (data.error || ''), true); return; }
+    closeModal();
+    showSaveToast('Mapped ' + invItemId + ' → ' + erpItemNumber + ' (' + (erpName||'') + ')');
+    // Refresh the ingredients list by re-pulling from POS so the new mapping takes effect
+    loadFromPOSRecipes_silent();
+  }).catch(function(e){ showSaveToast('Map save failed: ' + e.message, true); });
+}
+
+// Silent reload (no confirm) — used after saving a mapping
+function loadFromPOSRecipes_silent() {
+  fetch(API_BASE + '/api/ingredients/from-pos', {
+    headers: { 'Authorization': 'Bearer ' + API_KEY }
+  }).then(function(r){ return r.json(); }).then(function(data){
+    if (!data.items) return;
+    // Update existing rows' costs based on the new mapping
+    data.items.forEach(function(it){
+      var code = it.erpCode || it.invItemId;
+      var idx = ING_DATA.findIndex(function(row){ return row[3] === String(code) || row[3] === String(it.invItemId); });
+      if (idx === -1) return;
+      if (it.latestCost && it.latestCost.accountingCost) {
+        ING_DATA[idx][3] = it.erpCode || ING_DATA[idx][3];
+        ING_DATA[idx][5] = 'SAR ' + Number(it.latestCost.accountingCost).toFixed(2);
+        ING_DATA[idx][10] = it.latestCost.uom || ING_DATA[idx][10];
+        ING_DATA[idx][11] = it.latestCost.pricePerKg ? Number(it.latestCost.pricePerKg).toFixed(4) : ING_DATA[idx][11];
+        ING_DATA[idx][2] = 'Oracle EBS';
+      }
+    });
+    buildIngTable();
+    saveAllData();
+  }).catch(function(){});
+}
+
 // Load the ingredients list from POS recipes (v_recipes) — the source of truth for what's
 // actually used in sale items. Filters out non-recipe items (furniture, cleaning, etc.).
 function loadFromPOSRecipes() {
@@ -5067,7 +5158,7 @@ function buildIngTable() {
       <td style="font-family:var(--font-m);font-weight:500;color:${costColor}" id="ing-cost-${idx}">${displayCost}</td>
       <td style="font-family:var(--font-m);font-size:12px;color:var(--g4)" id="ing-uom-${idx}">${displayUOM}</td>
       <td style="font-family:var(--font-m);font-weight:600;color:${costKgColor};cursor:pointer" onclick="editIngCostPerKg(${idx})" title="Click to set cost/kg">${costKgDisplay}</td>
-      <td style="white-space:nowrap"><button class="btn btn-outline btn-sm" style="color:var(--blue);font-weight:700;border-color:var(--blue)" onclick="showIngUsedIn('${name.replace(/'/g,"\\'")}')">Used in</button>${code ? ` <button class="btn btn-outline btn-sm" title="Oracle EBS price history" onclick="openPriceHistory('${code}','${name.replace(/'/g,"\\'")}')">📈 History</button>` : ''} <button class="btn btn-outline btn-sm" onclick="editIngredient(this)">Edit</button>${supplier !== 'Oracle EBS' ? ' <button class="btn btn-sm" style="background:var(--red-lt);color:var(--red);border:1px solid var(--red);margin-left:4px" onclick="deleteIngredient(this)">✕</button>' : ''}</td>
+      <td style="white-space:nowrap"><button class="btn btn-outline btn-sm" style="color:var(--blue);font-weight:700;border-color:var(--blue)" onclick="showIngUsedIn('${name.replace(/'/g,"\\'")}')">Used in</button>${_codeIsERP(code) ? ` <button class="btn btn-outline btn-sm" title="Oracle EBS price history" onclick="openPriceHistory('${code}','${name.replace(/'/g,"\\'")}')">📈 History</button>` : (supplier === 'POS (unmapped)' ? ` <button class="btn btn-sm" style="background:#FFE8A3;color:#8a4500;border:1px solid #d47000" title="Map this POS item to an Oracle EBS item so it gets priced" onclick="openMapModal('${code}','${name.replace(/'/g,"\\'")}')">🔗 Map to EBS</button>` : '')} <button class="btn btn-outline btn-sm" onclick="editIngredient(this)">Edit</button>${supplier !== 'Oracle EBS' ? ' <button class="btn btn-sm" style="background:var(--red-lt);color:var(--red);border:1px solid var(--red);margin-left:4px" onclick="deleteIngredient(this)">✕</button>' : ''}</td>
     `;
     tbody.appendChild(tr);
   });
