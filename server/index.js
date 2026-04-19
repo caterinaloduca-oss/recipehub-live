@@ -770,6 +770,29 @@ app.get('/api/ingredients/map', requireAuth, (req, res) => {
   res.json({ maps: db.listLocalMaps() });
 });
 
+// Override the POS sale_item_family_group with a description-based category when the name
+// clearly indicates a tool / uniform / cleaning item / beverage etc. The POS family tag is
+// unreliable for non-food lines (a "Sauces" sale item may reference Can Opener as a recipe
+// line, tagging it Sauces). Keyword order matters — first match wins.
+const CATEGORY_RULES = [
+  { cat: 'Equipment',        re: /\b(chair|table|bench|shelf|rack|door|ladder|oven|heater|power supply|adapter|lighter|fridge|freezer|scale)\b/i },
+  { cat: 'Uniform',          re: /\b(t-shirt|tshirt|apron|cap( |$)|hair net|beard net|arm sleeve|uniform|coat)\b/i },
+  { cat: 'Cleaning',         re: /\b(cleaner|soap|sanitizer|sanitiser|detergent|degreaser|ecoshine|oasis|food saf|vanoquad|solitare|dishwash|hydrion|scoring pad)\b/i },
+  { cat: 'Beverage',         re: /\b(7up|7 up|pepsi|mirinda|mountain dew|cetrus|coke|sprite|fanta|juice|lipton|aqua|tropicana|water 20|water aqua)\b/i },
+  { cat: 'Tool',             re: /\b(opener|cutter|timer|thermometer|pan cover|pan (?:large|medium|small)|ring|tongs?|ladle|spatula|spoon|scoop|gripper|scrapper|board|tray|measuring cup|shovel|showel|plier|screwdriver|wiper|brush|broom|bin|bucket|mop|dispenser|basket|screen|stand|spray bottle|peel|server|sieve|whisk|knife|pi(?:e)? server|dust pan|glove|flycatcher)\b/i },
+  { cat: 'Packing Material', re: /\b(bag|box|container|foil|paper|wrap|plastic roll|plastic spoon|sticker|inliner|flyer|napkin|thermal roll|cashier roll|tissue|roll \(|packaging|pouch|sleeve|cling|carton|label|cup ?\&|solo cup|bottles? \(sauce)\b/i },
+];
+function classifyCategory(name, families) {
+  const n = String(name || '');
+  for (const rule of CATEGORY_RULES) { if (rule.re.test(n)) return rule.cat; }
+  // Fall back to the POS family (first non-Non-food wins; Non-food → Packing Material)
+  const fams = Array.isArray(families) ? families : [];
+  const firstFood = fams.find(f => f && f !== 'Non-food');
+  if (firstFood) return firstFood;
+  if (fams.indexOf('Non-food') > -1) return 'Packing Material';
+  return 'Food';
+}
+
 // GET /api/ingredients/from-pos — distinct items used in POS recipes (food + packaging only),
 // each joined to v_inventory_items export_id + latest EBS cost
 app.get('/api/ingredients/from-pos', requireAuth, async (req, res) => {
@@ -819,10 +842,12 @@ app.get('/api/ingredients/from-pos', requireAuth, async (req, res) => {
       const p = latest
         ? priceForRecipe(latest.accounting_cost, latest.uom, map && map.recipe_unit, map && map.equivalence)
         : null;
+      const famsArr = Array.from(a.families);
       return {
         invItemId: invId,
         name: a.name,
-        families: Array.from(a.families),
+        families: famsArr,
+        category: classifyCategory(a.name, famsArr),
         erpCode,
         recipeUnit: map ? map.recipe_unit : null,
         stockroomUnit: map ? map.stockroom_unit : null,

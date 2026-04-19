@@ -3764,7 +3764,8 @@ function loadFromPOSRecipes(skipConfirm) {
     var added = 0, updated = 0, priced = 0;
     data.items.forEach(function(it){
       var code = it.erpCode || it.invItemId;
-      var cat = (it.families && it.families[0]) || 'Food';
+      // Server now returns a classified category; fall back to family-based guess if absent
+      var cat = it.category || (it.families && it.families.find(function(f){return f && f !== 'Non-food';})) || 'Food';
       if (cat === 'Non-food') cat = 'Packing Material';
       var lc = it.latestCost || {};
       var costNum = (lc.costPerRecipeUnit != null) ? lc.costPerRecipeUnit
