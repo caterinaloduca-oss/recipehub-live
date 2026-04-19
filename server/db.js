@@ -73,46 +73,91 @@ function init() {
   return db;
 }
 
+// Preference order for multi-org pricing. Riyadh (110) wins; DPM is the CPP master and
+// has the broadest coverage; other warehouses as tie-breakers.
+const ORG_PRIORITY = ['110', '141', '121', '151', '131', '211', '212', 'DPM', 'UPM'];
+
+function _orgRank(code) {
+  const i = ORG_PRIORITY.indexOf(String(code || ''));
+  return i >= 0 ? i : 99;
+}
+
 function getLatestPrices() {
-  return db.prepare(`
-    SELECT h.item_number, h.item_desc, h.uom, h.accounting_cost, h.compnent_cost, h.period_code, h.start_date
+  // For each item, pick the highest-priority org's latest-period MATERIAL cost.
+  const rows = db.prepare(`
+    SELECT h.item_number, h.item_desc, h.uom, h.accounting_cost, h.compnent_cost,
+           h.period_code, h.start_date, h.organization_code
     FROM ebs_cost_history h
     JOIN (
-      SELECT item_number, MAX(start_date) AS max_date
+      SELECT item_number, organization_code, MAX(start_date) AS max_date
       FROM ebs_cost_history
       WHERE cost_component_class = 'MATERIAL'
-      GROUP BY item_number
-    ) m ON m.item_number = h.item_number AND m.max_date = h.start_date
+      GROUP BY item_number, organization_code
+    ) m ON m.item_number = h.item_number
+       AND m.organization_code = h.organization_code
+       AND m.max_date = h.start_date
     WHERE h.cost_component_class = 'MATERIAL'
-    ORDER BY h.item_desc
   `).all();
+  // In-memory reduce: one row per item_number, picking the org with best priority
+  const byItem = {};
+  for (const r of rows) {
+    const cur = byItem[r.item_number];
+    if (!cur || _orgRank(r.organization_code) < _orgRank(cur.organization_code)) {
+      byItem[r.item_number] = r;
+    }
+  }
+  return Object.values(byItem).sort((a, b) => (a.item_desc || '').localeCompare(b.item_desc || ''));
 }
 
 function getPriceHistory(itemNumber) {
-  return db.prepare(`
-    SELECT period_code, start_date, accounting_cost, compnent_cost, uom, item_desc, cost_component_class
+  // Pick one org per item using the same priority ranking, then return that org's history
+  const allRows = db.prepare(`
+    SELECT period_code, start_date, accounting_cost, compnent_cost, uom, item_desc,
+           cost_component_class, organization_code
     FROM ebs_cost_history
     WHERE item_number = ?
     ORDER BY start_date DESC
+  `).all(itemNumber);
+  if (!allRows.length) return [];
+  // Rank each distinct org, pick the best
+  const orgs = [...new Set(allRows.map(r => r.organization_code))];
+  orgs.sort((a, b) => _orgRank(a) - _orgRank(b));
+  const best = orgs[0];
+  return allRows.filter(r => r.organization_code === best);
+}
+
+function getPriceHistoryAllOrgs(itemNumber) {
+  return db.prepare(`
+    SELECT period_code, start_date, accounting_cost, compnent_cost, uom, item_desc,
+           cost_component_class, organization_code
+    FROM ebs_cost_history
+    WHERE item_number = ?
+    ORDER BY organization_code, start_date DESC
   `).all(itemNumber);
 }
 
 function searchPrices(q) {
   const like = '%' + q.toLowerCase() + '%';
-  return db.prepare(`
-    SELECT h.item_number, h.item_desc, h.uom, h.accounting_cost, h.period_code, h.start_date
+  const rows = db.prepare(`
+    SELECT h.item_number, h.item_desc, h.uom, h.accounting_cost, h.period_code, h.start_date, h.organization_code
     FROM ebs_cost_history h
     JOIN (
-      SELECT item_number, MAX(start_date) AS max_date
+      SELECT item_number, organization_code, MAX(start_date) AS max_date
       FROM ebs_cost_history
       WHERE cost_component_class = 'MATERIAL'
-      GROUP BY item_number
-    ) m ON m.item_number = h.item_number AND m.max_date = h.start_date
+      GROUP BY item_number, organization_code
+    ) m ON m.item_number = h.item_number
+       AND m.organization_code = h.organization_code
+       AND m.max_date = h.start_date
     WHERE h.cost_component_class = 'MATERIAL'
       AND (LOWER(h.item_desc) LIKE ? OR LOWER(h.item_number) LIKE ?)
-    ORDER BY h.item_desc
-    LIMIT 40
   `).all(like, like);
+  const byItem = {};
+  for (const r of rows) {
+    const cur = byItem[r.item_number];
+    if (!cur || _orgRank(r.organization_code) < _orgRank(cur.organization_code)) byItem[r.item_number] = r;
+  }
+  return Object.values(byItem).sort((a, b) => (a.item_desc || '').localeCompare(b.item_desc || '')).slice(0, 40);
 }
 
 function upsertCostRows(rows) {
@@ -233,8 +278,9 @@ function setState(jsonString, dataVersion) {
 
 module.exports = {
   init, getState, setState,
-  getLatestPrices, getPriceHistory, searchPrices, upsertCostRows,
+  getLatestPrices, getPriceHistory, getPriceHistoryAllOrgs, searchPrices, upsertCostRows,
   upsertItemMap, getItemMap,
   setLocalMap, deleteLocalMap, listLocalMaps,
   getSyncLog, logSyncStart, logSyncEnd,
+  ORG_PRIORITY,
 };

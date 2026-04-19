@@ -573,19 +573,20 @@ app.get('/api/ebs/price-history/:itemNumber', requireAuth, (req, res) => {
   }
 });
 
-// POST /api/ebs/sync-prices — pull full history from Oracle EBS into local cache
+// POST /api/ebs/sync-prices — pull full history from Oracle EBS (all warehouse orgs) into local cache
 app.post('/api/ebs/sync-prices', requireAuth, async (req, res) => {
   const logId = db.logSyncStart();
   try {
-    // Gateway caps result sets at 5,000 rows — paginate by period_code (each period ~800 MATERIAL rows)
-    const periodsRes = await queryGateway('erp_item_cost_riyadh', `
+    // erp_item_cost_all_orgs carries 9 orgs; gateway row cap is now unlimited for npd role.
+    // Paginate by period_code anyway so one slow query doesn't exceed the 30s HTTP timeout.
+    const periodsRes = await queryGateway('erp_item_cost_all_orgs', `
       SELECT DISTINCT period_code FROM data WHERE cost_component_class = 'MATERIAL' ORDER BY period_code
     `);
     const periods = (periodsRes.rows || []).map(r => r.period_code || r.PERIOD_CODE).filter(Boolean);
 
     let n = 0;
     for (const period of periods) {
-      const priced = await queryGateway('erp_item_cost_riyadh', `
+      const priced = await queryGateway('erp_item_cost_all_orgs', `
         SELECT item_number, item_desc, uom, cost_component_class,
                compnent_cost, accounting_cost, period_code, organization_code
         FROM data
@@ -600,7 +601,6 @@ app.post('/api/ebs/sync-prices', requireAuth, async (req, res) => {
         accounting_cost: r.accounting_cost != null ? r.accounting_cost : r.ACCOUNTING_COST,
         period_code: r.period_code || r.PERIOD_CODE,
         organization_code: r.organization_code || r.ORGANIZATION_CODE,
-        // Derive start_date from period_code (MMM-YY) so latest-per-item sort works chronologically
         start_date: periodToDate(r.period_code || r.PERIOD_CODE),
       }));
       n += db.upsertCostRows(costRows);
@@ -910,6 +910,7 @@ app.get('/api/ingredients/from-pos', requireAuth, async (req, res) => {
         equivalence: map ? map.equivalence : null,
         latestCost: latest ? {
           periodCode: latest.period_code,
+          organizationCode: latest.organization_code,
           stockroomCost: latest.accounting_cost,  // raw EBS price per stockroom UOM
           stockroomUom: latest.uom,
           costPerRecipeUnit: p ? p.costPerRecipeUnit : null,  // price normalised to recipe UOM

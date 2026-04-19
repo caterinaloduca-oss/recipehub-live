@@ -3593,10 +3593,16 @@ function _codeIsERP(code) {
   return /^[A-Za-z]/.test(String(code).trim());
 }
 
-// Stockroom price cell: "SAR 121.22 / XO6" (raw per stockroom UOM from EBS)
-function _renderStockroomCost(cost, uom) {
+// Map Oracle org codes to readable short names for the UI
+var ORG_LABELS = { '110':'Riyadh','141':'Jeddah','121':'Khobar','151':'Abha','131':'Qassim','211':'Hot Kitchen','212':'Bakery','DPM':'CPP','UPM':'MOMO' };
+function _orgLabel(code) { return ORG_LABELS[String(code||'').trim()] || code || ''; }
+
+// Stockroom price cell: "SAR 121.22 / XO6" + the warehouse org that price came from
+function _renderStockroomCost(cost, uom, orgCode) {
   if (cost == null || isNaN(cost)) return '<span style="color:var(--g3)">—</span>';
-  return 'SAR ' + Number(cost).toFixed(2) + (uom ? ' <span style="color:var(--g4);font-size:10px">/ ' + uom + '</span>' : '');
+  var org = _orgLabel(orgCode);
+  var orgTag = org ? ' <span style="display:inline-block;margin-left:4px;padding:1px 6px;background:var(--navy-lt);color:var(--navy);border-radius:40px;font-size:9px;font-weight:600">' + org + '</span>' : '';
+  return 'SAR ' + Number(cost).toFixed(2) + (uom ? ' <span style="color:var(--g4);font-size:10px">/ ' + uom + '</span>' : '') + orgTag;
 }
 
 // Conversion cell: "1 XO6 = 3.1 kg" (shows how recipe_unit relates to stockroom_unit)
@@ -3797,6 +3803,7 @@ function loadFromPOSRecipes(skipConfirm) {
       var stockroomUom = lc.stockroomUom || it.stockroomUnit || '';
       var stockroomCostNum = (lc.stockroomCost != null) ? Number(lc.stockroomCost) : null;
       var equivalence = it.equivalence != null ? Number(it.equivalence) : null;
+      var sourceOrg = lc.organizationCode || '';
       var existingIdx = (it.erpCode && byErp[it.erpCode] != null) ? byErp[it.erpCode]
                       : (byPos[String(it.invItemId)] != null) ? byPos[String(it.invItemId)]
                       : -1;
@@ -3816,10 +3823,11 @@ function loadFromPOSRecipes(skipConfirm) {
         row[13] = stockroomUom;      // stockroom unit
         row[14] = stockroomCostNum;  // raw EBS cost per stockroom unit
         row[15] = equivalence;       // recipe units per stockroom unit
+        row[16] = sourceOrg;         // Oracle organization the price came from
         updated++;
       } else {
         var num = ING_DATA.length + 1;
-        ING_DATA.push([num, it.name, supplier, code, cat, cost, 'Ambient', '—', 'POS Sync', '', uom, freshCostPerKg, it.invItemId, stockroomUom, stockroomCostNum, equivalence]);
+        ING_DATA.push([num, it.name, supplier, code, cat, cost, 'Ambient', '—', 'POS Sync', '', uom, freshCostPerKg, it.invItemId, stockroomUom, stockroomCostNum, equivalence, sourceOrg]);
         added++;
       }
       if (freshCostPerKg) priced++;
@@ -5282,7 +5290,7 @@ function buildIngTable() {
       <td style="color:var(--g4);font-size:12px" id="ing-vendor-${idx}">${displayVendor}</td>
       <td style="font-family:var(--font-m);font-size:12px;color:var(--g3)">${_renderItemCodes(code, row[12])}</td>
       <td><span class="cat-tag ${catClass}">${cat}</span></td>
-      <td style="font-family:var(--font-m);font-size:12px">${_renderStockroomCost(row[14], row[13])}</td>
+      <td style="font-family:var(--font-m);font-size:12px">${_renderStockroomCost(row[14], row[13], row[16])}</td>
       <td style="font-family:var(--font-m);font-size:11px;color:var(--g4)">${_renderConversion(row[13], displayUOM, row[15])}</td>
       <td style="font-family:var(--font-m);font-weight:500;color:${costColor}" id="ing-cost-${idx}">${_renderRecipeCost(displayCost, displayUOM)}</td>
       <td style="font-family:var(--font-m);font-weight:600;color:${costKgColor};cursor:pointer" onclick="editIngCostPerKg(${idx})" title="Click to set cost/kg">${costKgDisplay}</td>
