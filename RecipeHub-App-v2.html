@@ -5598,6 +5598,7 @@ function scaleIngredients(ingredients, batchKg) {
 }
 
 function renderKitchen(r, batchKg) {
+  if (isCompositeRecipe(r)) return renderKitchenComposite(r, batchKg);
   const scaled = scaleIngredients(r.ingredients, batchKg);
   const totalKg = scaled.reduce((s, i) => s + i.kg, 0);
   return `
@@ -5654,10 +5655,101 @@ function rescaleKitchen(npd, val) {
   const batchKg = parseFloat(val);
   if (!batchKg || batchKg <= 0) return;
   const r = RECIPE_DB[npd];
+  if (isCompositeRecipe(r)) { rescaleKitchenComposite(npd, batchKg); return; }
   const scaled = scaleIngredients(r.ingredients, batchKg);
   const totalKg = scaled.reduce((s, i) => s + i.kg, 0);
   const tbody = document.getElementById('kitchen-ing-body');
   tbody.innerHTML = scaled.map(i => `<tr><td>${i.name}</td><td class="num">${i.pct.toFixed(1)}%</td><td class="num">${formatWeight(i.kg)}</td></tr>`).join('')
+    + `<tr class="total-row"><td>Total</td><td class="num">100%</td><td class="num">${formatWeight(totalKg)}</td></tr>`;
+}
+
+function _compositeKitchenRows(r, batchKg) {
+  const totalPortionG = compositePortionTotalG(r) || 0;
+  const portions = totalPortionG ? (batchKg * 1000) / totalPortionG : 0;
+  const mm = r.mainMaterial || {};
+  const rows = [];
+  if (mm.name && mm.g) {
+    rows.push({ name: mm.name, kg: (mm.g * portions) / 1000, pct: totalPortionG ? (mm.g / totalPortionG) * 100 : 0 });
+  }
+  const comps = (r.components || []).slice().sort((a,b) => (a.order||0) - (b.order||0));
+  comps.forEach(function(c){
+    const sub = RECIPE_DB[c.subNpd];
+    const name = c.stage || (sub && sub.name) || c.subNpd;
+    rows.push({ name: name, kg: ((c.applyG||0) * portions) / 1000, pct: totalPortionG ? ((c.applyG||0) / totalPortionG) * 100 : 0 });
+  });
+  return { rows: rows, comps: comps, portions: portions };
+}
+
+function renderKitchenComposite(r, batchKg) {
+  const { rows, comps, portions } = _compositeKitchenRows(r, batchKg);
+  const totalKg = rows.reduce((s, i) => s + i.kg, 0);
+  const methodSteps = (r.method && r.method.length) ? r.method : comps.map(function(c, i){
+    const sub = RECIPE_DB[c.subNpd];
+    const title = c.stage || (sub && sub.name) || ('Step ' + (i+1));
+    const bits = [];
+    if (c.applyG) bits.push('Apply ' + c.applyG + ' g per portion.');
+    if (sub) bits.push('Prepare ' + sub.name + ' (' + c.subNpd + ') per its recipe.');
+    return { title: title, text: bits.join(' ') };
+  });
+  return `
+    <div class="ps-batch-size-bar">
+      <label>Batch Size</label>
+      <input type="number" min="0.1" step="0.5" value="${batchKg}" onchange="rescaleKitchen('${r.npd}', this.value)" id="kitchen-batch" />
+      <span class="unit">kg</span>
+      <span style="margin-left:12px;font-size:10pt;color:var(--g3)">≈ ${portions.toFixed(1)} portions</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1a1a1a;padding-bottom:8px;margin-bottom:10px">
+      <div>
+        <div class="ps-title">${r.name}</div>
+        <div class="ps-subtitle">Kitchen Recipe — ${r.npd} · ${r.version}</div>
+      </div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;text-align:right;font-size:8pt">
+        <div><span class="ps-meta-label">Brand</span>${r.brand}</div>
+        <div><span class="ps-meta-label">Type</span>${r.type}</div>
+        <div><span class="ps-meta-label">Storage</span>${r.storage}</div>
+        <div><span class="ps-meta-label">Shelf Life</span>${r.shelfLife}</div>
+        <div><span class="ps-meta-label">Printed</span>${new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div class="ps-section">
+        <div class="ps-section-title">Components</div>
+        <table class="ps-table">
+          <thead><tr><th>Component</th><th style="text-align:right">%</th><th style="text-align:right">Weight</th></tr></thead>
+          <tbody id="kitchen-ing-body">
+            ${rows.map(i => `<tr><td>${i.name}</td><td class="num">${i.pct.toFixed(1)}%</td><td class="num">${formatWeight(i.kg)}</td></tr>`).join('')}
+            <tr class="total-row"><td>Total</td><td class="num">100%</td><td class="num">${formatWeight(totalKg)}</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="ps-section">
+        <div class="ps-section-title">Method</div>
+        ${methodSteps.map((s,i) => `
+          <div class="ps-step">
+            <div class="ps-step-num">${i+1}</div>
+            <div class="ps-step-body">
+              <div class="ps-step-title">${s.title||''}</div>
+              <div class="ps-step-text">${s.text||''}</div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+    <div class="ps-footer">
+      <span>RecipeHub · ${r.brand}</span>
+      <span>${r.npd} · ${r.version} · Kitchen Copy</span>
+    </div>
+  `;
+}
+
+function rescaleKitchenComposite(npd, batchKg) {
+  const r = RECIPE_DB[npd];
+  if (!r) return;
+  const { rows } = _compositeKitchenRows(r, batchKg);
+  const totalKg = rows.reduce((s, i) => s + i.kg, 0);
+  const tbody = document.getElementById('kitchen-ing-body');
+  if (!tbody) return;
+  tbody.innerHTML = rows.map(i => `<tr><td>${i.name}</td><td class="num">${i.pct.toFixed(1)}%</td><td class="num">${formatWeight(i.kg)}</td></tr>`).join('')
     + `<tr class="total-row"><td>Total</td><td class="num">100%</td><td class="num">${formatWeight(totalKg)}</td></tr>`;
 }
 
@@ -6506,6 +6598,11 @@ function viewRecipe(npd) {
   if (!_wasOnDetail) _navHistory.push(_currentPage);
   const r = RECIPE_DB[npd];
   if (!r) return;
+  // Role gate: hide drafts from non-RD; viewers can only open approved recipes
+  var _vrRole = getCurrentUserRole();
+  var _vrIsRD = (_vrRole === 'admin' || _vrRole === 'npd');
+  if (r.status === 'draft' && !_vrIsRD) { showSaveToast('Draft not available', true); return; }
+  if (_vrRole === 'viewer' && r.status !== 'approved') { showSaveToast('Recipe not yet approved', true); return; }
   // Prefetch EBS prices for ingredients without costs
   _prefetchRecipePrices(r);
   const scaled = scaleIngredients(r.ingredients, 1);
@@ -7374,12 +7471,17 @@ function buildFactorySOPTable() {
 
   // Also include recipes without SOPs yet (so user can generate them)
   const allRecipes = recipes;
+  const _fsopRole = getCurrentUserRole();
+  const _fsopIsRD = (_fsopRole === 'admin' || _fsopRole === 'npd');
   allRecipes.forEach(r => {
     const hasSOP = r.sopSteps && r.sopSteps.length;
     const sopStatus = r.sopStatus || 'draft';
     const tr = document.createElement('tr');
     tr.style.cursor = 'pointer';
     tr.onclick = function(){ viewFactorySOP(r.npd); };
+    const _actionBtn = hasSOP
+      ? `<button class="btn btn-outline btn-sm" onclick="event.stopPropagation();exportToSOP('${r.npd}')">View</button>`
+      : (_fsopIsRD ? `<button class="btn btn-outline btn-sm" onclick="event.stopPropagation();exportToSOP('${r.npd}')">Generate</button>` : '');
     tr.innerHTML = `
       <td><strong>${r.name}</strong></td>
       <td style="font-family:var(--font-m);font-size:12px;color:var(--g3)">SOP-${r.npd}</td>
@@ -7389,7 +7491,7 @@ function buildFactorySOPTable() {
       <td><span class="badge ${hasSOP ? (statusMap[sopStatus]||'badge-draft') : 'badge-draft'}">${hasSOP ? (statusLabel[sopStatus]||'Draft') : 'No SOP'}</span></td>
       <td onclick="event.stopPropagation()">
         <div style="display:flex;gap:4px">
-          <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();exportToSOP('${r.npd}')">${hasSOP ? 'View' : 'Generate'}</button>
+          ${_actionBtn}
           <div class="print-dd" id="dd-fsop-${r.npd}" onclick="event.stopPropagation()">
             <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();toggleDD('dd-fsop-${r.npd}')">Print ▾</button>
             <div class="print-dd-menu">
@@ -12127,7 +12229,15 @@ function updateDashboardStats() {
   // ── Recent Recipes ──
   const recentTbody = el('dash-recent-tbody');
   if (recentTbody) {
-    recentTbody.innerHTML = recipes.slice(0,6).map(r => `
+    const _dashRole = getCurrentUserRole();
+    const _dashIsRD = (_dashRole === 'admin' || _dashRole === 'npd');
+    const _visible = recipes.filter(r => {
+      if (r.archived) return false;
+      if (r.status === 'draft' && !_dashIsRD) return false;
+      if (_dashRole === 'viewer' && r.status !== 'approved') return false;
+      return true;
+    });
+    recentTbody.innerHTML = _visible.slice(0,6).map(r => `
       <tr onclick="viewRecipe('${r.npd}')" style="cursor:pointer">
         <td><strong>${r.name}</strong><br><span style="font-size:11px;color:var(--g3)">${r.npd}</span></td>
         <td style="font-size:12px">${r.brand}</td>
