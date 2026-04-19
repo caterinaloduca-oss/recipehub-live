@@ -3713,42 +3713,67 @@ function refreshFromOracle() {
 
 // Load the ingredients list from POS recipes (v_recipes) — the source of truth for what's
 // actually used in sale items. Filters out non-recipe items (furniture, cleaning, etc.).
+// UPDATES existing rows with fresh Oracle data and adds any missing ones.
 function loadFromPOSRecipes(skipConfirm) {
-  if (!skipConfirm && !confirm('Replace the Ingredients list with items pulled from POS sale-item recipes (food + packaging)? Existing manual entries are preserved.')) return;
+  if (!skipConfirm && !confirm('Refresh the Ingredients list from POS sale-item recipes and pull the latest Oracle EBS pricing? Manual cost/kg overrides are preserved.')) return;
   showSaveToast('Loading POS recipe items…');
   fetch(API_BASE + '/api/ingredients/from-pos', {
     headers: { 'Authorization': 'Bearer ' + API_KEY }
   }).then(function(r){ return r.json(); }).then(function(data){
     if (!data.items) { showSaveToast('Load failed: ' + (data.error || 'no items'), true); return; }
-    var existingCodes = new Set(ING_DATA.map(function(row){ return row[3]; }));
-    var added = 0, priced = 0;
+    // Build two lookup maps over the existing ING_DATA so we can match either by ERP code
+    // (row[3]) or by POS inv_item_id (row[12]). Matching by either handles both legacy rows
+    // and previously-loaded POS rows.
+    var byErp = {}, byPos = {};
+    ING_DATA.forEach(function(row, idx){
+      if (row[3]) byErp[String(row[3])] = idx;
+      if (row[12]) byPos[String(row[12])] = idx;
+    });
+    var added = 0, updated = 0, priced = 0;
     data.items.forEach(function(it){
-      // Use ERP code as canonical identifier; fall back to POS inv_item_id if unmapped
       var code = it.erpCode || it.invItemId;
-      if (existingCodes.has(code)) return;
       var cat = (it.families && it.families[0]) || 'Food';
       if (cat === 'Non-food') cat = 'Packing Material';
-      // Display cost in RECIPE UOM terms: stockroom cost ÷ equivalence (recipe units per stockroom unit).
-      // Falls back to stockroom cost if no conversion is defined.
       var lc = it.latestCost || {};
       var costNum = (lc.costPerRecipeUnit != null) ? lc.costPerRecipeUnit
                    : (lc.stockroomCost != null ? lc.stockroomCost : null);
       var cost = (costNum != null) ? 'SAR ' + Number(costNum).toFixed(2) : '—';
       var uom = lc.recipeUnit || it.recipeUnit || lc.stockroomUom || it.stockroomUnit || '—';
-      var costPerKg = (lc.pricePerKg) ? Number(lc.pricePerKg).toFixed(4) : '';
-      var num = ING_DATA.length + 1;
+      var freshCostPerKg = (lc.pricePerKg) ? Number(lc.pricePerKg).toFixed(4) : '';
       var supplier = it.erpCode ? 'Oracle EBS' : 'POS (unmapped)';
-      // Row shape: [num, name, supplier, code, cat, cost, storage, shelf, updated, _, uom, costPerKg, posInvItemId]
-      ING_DATA.push([num, it.name, supplier, code, cat, cost, 'Ambient', '—', 'POS Sync', '', uom, costPerKg, it.invItemId]);
-      existingCodes.add(code);
-      added++;
-      if (costPerKg) priced++;
+      // Find existing row: prefer ERP-code match, fall back to POS-id match
+      var existingIdx = (it.erpCode && byErp[it.erpCode] != null) ? byErp[it.erpCode]
+                      : (byPos[String(it.invItemId)] != null) ? byPos[String(it.invItemId)]
+                      : -1;
+      if (existingIdx >= 0) {
+        var row = ING_DATA[existingIdx];
+        // Preserve manual costPerKg override if user set one previously
+        var keepCostPerKg = row[11] && row[11] !== freshCostPerKg && row[2] !== 'Oracle EBS' ? row[11] : freshCostPerKg;
+        row[1] = it.name || row[1];                    // name
+        row[2] = supplier;                              // vendor
+        row[3] = code;                                  // ERP (or POS if unmapped)
+        row[4] = cat;
+        row[5] = cost;
+        row[6] = row[6] || 'Ambient';
+        row[8] = 'POS Sync';
+        row[10] = uom;
+        row[11] = keepCostPerKg;
+        row[12] = it.invItemId;
+        updated++;
+      } else {
+        var num = ING_DATA.length + 1;
+        ING_DATA.push([num, it.name, supplier, code, cat, cost, 'Ambient', '—', 'POS Sync', '', uom, freshCostPerKg, it.invItemId]);
+        added++;
+      }
+      if (freshCostPerKg) priced++;
     });
+    // Renumber rows so the # column stays sequential
+    ING_DATA.forEach(function(row, i){ row[0] = i + 1; });
     buildIngTable();
     if (typeof filterIngredients === 'function') filterIngredients();
     saveAllData();
-    showSaveToast(added + ' POS recipe items loaded · ' + priced + ' priced from EBS · ' + (data.count - added) + ' already present');
-    if (typeof logActivity === 'function') logActivity('ingredients', '🍽️', 'Loaded ' + added + ' items from POS recipes', priced + ' priced, ' + (data.count - priced) + ' unmapped');
+    showSaveToast(updated + ' updated, ' + added + ' added, ' + priced + ' priced from Oracle EBS');
+    if (typeof logActivity === 'function') logActivity('ingredients', '🍽️', 'Refreshed ' + (updated+added) + ' items from POS recipes', updated + ' updated, ' + added + ' new, ' + priced + ' priced');
   }).catch(function(e){ showSaveToast('Load failed: ' + e.message, true); });
 }
 
