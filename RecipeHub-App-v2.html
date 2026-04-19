@@ -940,7 +940,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
       <span class="search-icon">⌕</span>
       <input class="search-input" placeholder="Search ingredients, suppliers, codes…" id="ing-search" oninput="filterIngredients()" />
     </div>
-    <select class="filter-select" id="ing-filter-cat" onchange="filterIngredients()"><option>All Categories</option><option>Food</option><option>Sauce</option><option>Dough</option><option>Cheese</option><option>Meat</option><option>Vegetable</option><option>Dip</option><option>Side</option><option>Drink</option><option>Packing Material</option><option>Non-Food</option><option>Smallware</option><option>Disposable (Consumables)</option><option>Stationery</option><option>Marketing</option><option>Uniform</option></select>
+    <select class="filter-select" id="ing-filter-cat" onchange="filterIngredients()"><option>All Categories</option><optgroup label="Food"><option>Food</option><option>Sauces</option><option>Toppings</option><option>Side Dishes</option><option>Crusts</option><option>Beverages</option></optgroup><optgroup label="Non-food"><option>Packing Material</option><option>Cleaning</option><option>Tool</option><option>Equipment</option><option>Uniform</option></optgroup></select>
   </div>
 
   <div class="card">
@@ -4938,7 +4938,7 @@ let ING_DATA = [
   [22,'Carton Box (12-pack)','Saudi Carton Co.','PK-007','Packaging','SAR 1.80','Ambient','—','3 weeks ago'],
 ];
 
-const CAT_CLASS = { 'Food':'cat-food','Sauce':'cat-sauce','Dough':'cat-dough','Cheese':'cat-cheese','Meat':'cat-meat','Vegetable':'cat-veg','Dip':'cat-dip','Side':'cat-side','Drink':'cat-drink','Chiller':'cat-chiller','Packing Material':'cat-pkg','Critical':'cat-critical','Non-Food':'cat-nonfood','Smallware':'cat-smallware','Disposable (Consumables)':'cat-consumable','Stationery':'cat-stationery','Marketing':'cat-marketing','Uniform':'cat-uniform' };
+const CAT_CLASS = { 'Food':'cat-food','Sauce':'cat-sauce','Sauces':'cat-sauce','Toppings':'cat-veg','Crusts':'cat-dough','Side Dishes':'cat-side','Beverages':'cat-drink','Dough':'cat-dough','Cheese':'cat-cheese','Meat':'cat-meat','Vegetable':'cat-veg','Dip':'cat-dip','Side':'cat-side','Drink':'cat-drink','Chiller':'cat-chiller','Packing Material':'cat-pkg','Critical':'cat-critical','Non-Food':'cat-nonfood','Smallware':'cat-smallware','Disposable (Consumables)':'cat-consumable','Stationery':'cat-stationery','Marketing':'cat-marketing','Uniform':'cat-uniform','Tool':'cat-smallware','Equipment':'cat-smallware','Cleaning':'cat-consumable' };
 
 // ──────────── ALLERGEN SYSTEM ────────────
 const ALLERGEN_LIST = ['Gluten','Milk','Eggs','Fish','Crustaceans','Tree Nuts','Peanuts','Soy','Sesame','Celery','Mustard','Sulphites','Lupin','Molluscs'];

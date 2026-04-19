@@ -778,7 +778,7 @@ const CATEGORY_RULES = [
   { cat: 'Equipment',        re: /\b(chair|table|bench|shelf|rack|door|ladder|oven|heater|power supply|adapter|lighter|fridge|freezer|scale)\b/i },
   { cat: 'Uniform',          re: /\b(t-shirt|tshirt|apron|cap( |$)|hair net|beard net|arm sleeve|uniform|coat)\b/i },
   { cat: 'Cleaning',         re: /\b(cleaner|soap|sanitizer|sanitiser|detergent|degreaser|ecoshine|oasis|food saf|vanoquad|solitare|dishwash|hydrion|scoring pad)\b/i },
-  { cat: 'Beverage',         re: /\b(7up|7 up|pepsi|mirinda|mountain dew|cetrus|coke|sprite|fanta|juice|lipton|aqua|tropicana|water 20|water aqua)\b/i },
+  { cat: 'Beverages',        re: /\b(7up|7 up|pepsi|mirinda|mountain dew|cetrus|coke|sprite|fanta|juice|lipton|aqua|tropicana|water 20|water aqua)\b/i },
   { cat: 'Tool',             re: /\b(opener|cutter|timer|thermometer|pan cover|pan (?:large|medium|small)|ring|tongs?|ladle|spatula|spoon|scoop|gripper|scrapper|board|tray|measuring cup|shovel|showel|plier|screwdriver|wiper|brush|broom|bin|bucket|mop|dispenser|basket|screen|stand|spray bottle|peel|server|sieve|whisk|knife|pi(?:e)? server|dust pan|glove|flycatcher)\b/i },
   { cat: 'Packing Material', re: /\b(bag|box|container|foil|paper|wrap|plastic roll|plastic spoon|sticker|inliner|flyer|napkin|thermal roll|cashier roll|tissue|roll \(|packaging|pouch|sleeve|cling|carton|label|cup ?\&|solo cup|bottles? \(sauce)\b/i },
 ];
