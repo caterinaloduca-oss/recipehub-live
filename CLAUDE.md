@@ -101,6 +101,20 @@ Draft → In Review → Factory Trial → Production Trial → Approved
 - Email notifications sent at every stage change
 - Moving to Factory Trial or Prod Trial auto-creates a Production Run
 
+## Composite Recipes
+
+Some recipes are **composites** assembled from sub-recipes rather than raw ingredients (e.g. "Chicken Kickers" = raw chicken + marinade sub-recipe + batter sub-recipe). Shape:
+
+- `r.recipeKind === 'composite'` — flag, check with `isCompositeRecipe(r)`
+- `r.mainMaterial = {name, g, costPerKg}` — the base material (per portion, grams)
+- `r.components = [{subNpd, stage, applyG, order}]` — ordered applications of sub-recipes
+- Sub-recipes are regular recipes with `type: 'Semi-Finished'`
+- `r.ingredients` and `r.method` are typically **empty** on composites — don't render them blindly
+
+Helpers: `compositeCostPerPortion(r)`, `compositePortionTotalG(r)`, `recipesUsingSubRecipe(subNpd)`.
+
+**Print / render paths must branch on `isCompositeRecipe(r)`.** `renderKitchen()` does this and delegates to `renderKitchenComposite()` (which rolls up mainMaterial + components into the ingredients table and auto-generates method steps if `r.method` is empty). Factory SOP paths still use `r.sopSteps` directly.
+
 ## Food Cost System
 
 Each recipe has a **Food Cost** section with 5 columns: Cost/kg, Portion Cost, Selling Price, Food Cost %, Yield.
@@ -214,6 +228,12 @@ A one-time `localStorage.clear()` runs on first load (controlled by `_rh_cleaned
 - Default for unknown/unauthenticated users: **Viewer**
 - "View as" dropdown hidden for non-admins
 - Modal buttons excluded from role stripping (`stripPageActions` skips `#modal-overlay`)
+
+### Draft visibility
+Drafts are hidden from non-R&D everywhere they're listed: `buildRecipesTable` (Recipes page) and `updateDashboardStats` (Overview's Recent Recipes). `viewRecipe(npd)` has an entry guard that blocks drafts for non-R&D and blocks any non-approved recipe for viewers with a toast — needed because status tiles, activity logs, and search can deep-link past the list filter.
+
+### Factory SOP list button gate
+On the Factory SOP page, rows for recipes without a generated SOP hide the "Generate" action from non-R&D (only admin/npd see it). Viewers see "View" when a SOP exists, nothing otherwise.
 
 
 ## Deletion Protection
