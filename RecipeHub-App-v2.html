@@ -10980,27 +10980,28 @@ function renderBrandDetail(id) {
 
     ${costed.length ? `
     <div style="padding:18px 24px;border-bottom:1px solid var(--g2)">
-      <div style="font-size:10px;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:var(--g3);margin-bottom:14px">Food cost calculator — per kg and per portion</div>
+      <div style="font-size:10px;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:var(--g3);margin-bottom:14px">Food cost calculator — per kg and per portion (simulate portions on the fly)</div>
       <div style="display:grid;grid-template-columns:repeat(${Math.min(costed.length,3)},1fr);gap:14px">
         ${costed.map(r => {
-          var costPortion = (r.portionG && r.costKg) ? (r.costKg * r.portionG / 1000) : null;
+          var origPortion = r.portionG || '';
+          var initialPortionCost = (r.portionG && r.costKg) ? (r.costKg * r.portionG / 1000) : null;
           return `
-          <div style="background:var(--g1);border-radius:var(--r-md);padding:14px 16px;border:1px solid var(--g2)">
+          <div style="background:var(--g1);border-radius:var(--r-md);padding:14px 16px;border:1px solid var(--g2)" data-cost-kg="${r.costKg}" data-orig-portion="${origPortion}">
             <div style="font-size:12px;font-weight:500;color:var(--navy);margin-bottom:10px;line-height:1.3">${r.name}</div>
 
-            <!-- Costs row -->
-            <div style="display:flex;justify-content:space-between;gap:10px;margin-bottom:12px;padding-bottom:10px;border-bottom:1px dashed var(--g2)">
+            <!-- Cost / kg -->
+            <div style="display:flex;justify-content:space-between;gap:10px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px dashed var(--g2)">
               <div>
                 <div style="font-size:9px;text-transform:uppercase;letter-spacing:0.08em;color:var(--g3);margin-bottom:2px">Cost / kg</div>
                 <div style="font-size:14px;font-weight:500;color:var(--navy)">SAR ${r.costKg.toFixed(2)}</div>
               </div>
               <div style="text-align:right">
-                <div style="font-size:9px;text-transform:uppercase;letter-spacing:0.08em;color:var(--g3);margin-bottom:2px">Cost / portion ${r.portionG ? '('+r.portionG+'g)' : ''}</div>
-                <div style="font-size:14px;font-weight:500;color:${r.portionG ? 'var(--navy)' : 'var(--g3)'}">${costPortion !== null ? 'SAR ' + costPortion.toFixed(2) : '— set portion'}</div>
+                <div style="font-size:9px;text-transform:uppercase;letter-spacing:0.08em;color:var(--g3);margin-bottom:2px">Original portion</div>
+                <div style="font-size:13px;font-weight:500;color:${r.portionG ? 'var(--navy)' : 'var(--g3)'}">${r.portionG ? r.portionG + 'g' : '— not set'}</div>
               </div>
             </div>
 
-            <!-- Per-kg input -->
+            <!-- Per-kg row -->
             <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--gold);margin-bottom:3px;display:flex;justify-content:space-between">
               <span>Sale price / kg</span><span id="fc-${r.npd}" style="font-weight:500">—</span>
             </div>
@@ -11008,19 +11009,34 @@ function renderBrandDetail(id) {
               style="width:100%;font-size:13px;font-weight:500;color:var(--navy);background:var(--gold-lt);border:1.5px solid #E8C875;border-radius:var(--r-sm);padding:6px 10px;outline:none;font-family:var(--font-b)"
               oninput="calcFC(this,${r.costKg},'${r.npd}')" />
             <div style="height:2px;background:var(--g2);border-radius:2px;margin-top:6px;overflow:hidden"><div style="height:100%;border-radius:2px;transition:width 0.3s;background:var(--sage)" id="fcbar-${r.npd}"></div></div>
-            <div style="font-size:10px;color:var(--g3);margin-top:3px;margin-bottom:${r.portionG ? '10px':'4px'}" id="fcnote-${r.npd}"></div>
+            <div style="font-size:10px;color:var(--g3);margin-top:3px" id="fcnote-${r.npd}"></div>
 
-            ${r.portionG ? `
-            <!-- Per-portion input -->
-            <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--gold);margin-bottom:3px;display:flex;justify-content:space-between">
-              <span>Sale price / portion</span><span id="fcP-${r.npd}" style="font-weight:500">—</span>
+            <!-- Per-portion row with editable portion size for simulation -->
+            <div style="margin-top:12px;padding-top:10px;border-top:1px dashed var(--g2)">
+              <div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:6px">
+                <div style="flex:1">
+                  <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--gold);margin-bottom:3px">Portion size (g)</div>
+                  <input type="number" min="1" step="5" value="${origPortion}" placeholder="${origPortion || 'e.g. 200'}"
+                    id="sim-portion-${r.npd}"
+                    style="width:100%;font-size:13px;font-weight:500;color:var(--navy);background:white;border:1.5px solid var(--g2);border-radius:var(--r-sm);padding:6px 10px;outline:none;font-family:var(--font-m)"
+                    oninput="recalcPortion('${r.npd}',${r.costKg})" />
+                </div>
+                <div style="flex:1;text-align:right">
+                  <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--g3);margin-bottom:3px">Cost / portion</div>
+                  <div id="costP-${r.npd}" style="font-size:14px;font-weight:500;color:var(--navy);padding:6px 0">${initialPortionCost !== null ? 'SAR ' + initialPortionCost.toFixed(2) : '—'}</div>
+                </div>
+              </div>
+              <div id="simNote-${r.npd}" style="font-size:10px;color:var(--g3);margin-bottom:6px"></div>
+              <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--gold);margin-bottom:3px;display:flex;justify-content:space-between">
+                <span>Sale price / portion</span><span id="fcP-${r.npd}" style="font-weight:500">—</span>
+              </div>
+              <input type="number" min="0" step="0.5" placeholder="SAR 0.00"
+                id="fcP-input-${r.npd}"
+                style="width:100%;font-size:13px;font-weight:500;color:var(--navy);background:var(--gold-lt);border:1.5px solid #E8C875;border-radius:var(--r-sm);padding:6px 10px;outline:none;font-family:var(--font-b)"
+                oninput="recalcPortionFC('${r.npd}',${r.costKg})" />
+              <div style="height:2px;background:var(--g2);border-radius:2px;margin-top:6px;overflow:hidden"><div style="height:100%;border-radius:2px;transition:width 0.3s;background:var(--sage)" id="fcPbar-${r.npd}"></div></div>
+              <div style="font-size:10px;color:var(--g3);margin-top:3px" id="fcPnote-${r.npd}"></div>
             </div>
-            <input type="number" min="0" step="0.5" placeholder="SAR 0.00"
-              style="width:100%;font-size:13px;font-weight:500;color:var(--navy);background:var(--gold-lt);border:1.5px solid #E8C875;border-radius:var(--r-sm);padding:6px 10px;outline:none;font-family:var(--font-b)"
-              oninput="calcFCPortion(this,${costPortion},'${r.npd}')" />
-            <div style="height:2px;background:var(--g2);border-radius:2px;margin-top:6px;overflow:hidden"><div style="height:100%;border-radius:2px;transition:width 0.3s;background:var(--sage)" id="fcPbar-${r.npd}"></div></div>
-            <div style="font-size:10px;color:var(--g3);margin-top:3px" id="fcPnote-${r.npd}"></div>
-            ` : `<div style="font-size:10px;color:var(--g3);margin-top:6px;font-style:italic">Set portion size on recipe detail to enable per-portion costing</div>`}
           </div>`;
         }).join('')}
       </div>
@@ -11049,6 +11065,39 @@ function calcFC(input, costKg, npd) {
 }
 function calcFCPortion(input, costPortion, npd) {
   _applyFCRatio(parseFloat(input.value), costPortion, 'fcP-' + npd, 'fcPbar-' + npd, 'fcPnote-' + npd);
+}
+
+// Live-recalc cost per portion as user types a simulated portion size.
+// Also re-runs the sale-price % calc with the new portion cost if they've already entered a price.
+function recalcPortion(npd, costKg) {
+  var portion = parseFloat(document.getElementById('sim-portion-' + npd).value);
+  var costEl = document.getElementById('costP-' + npd);
+  var noteEl = document.getElementById('simNote-' + npd);
+  var card = costEl ? costEl.closest('[data-orig-portion]') : null;
+  var orig = card ? parseFloat(card.dataset.origPortion) : NaN;
+  if (!portion || portion <= 0) {
+    costEl.textContent = '—';
+    if (noteEl) noteEl.textContent = '';
+  } else {
+    var cp = costKg * portion / 1000;
+    costEl.textContent = 'SAR ' + cp.toFixed(2);
+    if (noteEl) {
+      if (!isNaN(orig) && Math.abs(portion - orig) > 0.5) {
+        noteEl.textContent = 'Simulation (original: ' + orig + 'g)';
+        noteEl.style.color = 'var(--gold)';
+      } else {
+        noteEl.textContent = '';
+      }
+    }
+  }
+  // Rerun FC% with new portion cost if user has a sale price in the portion input
+  recalcPortionFC(npd, costKg);
+}
+function recalcPortionFC(npd, costKg) {
+  var portion = parseFloat(document.getElementById('sim-portion-' + npd).value);
+  var salePortion = parseFloat((document.getElementById('fcP-input-' + npd) || {}).value);
+  var cp = (portion > 0) ? costKg * portion / 1000 : null;
+  _applyFCRatio(salePortion, cp, 'fcP-' + npd, 'fcPbar-' + npd, 'fcPnote-' + npd);
 }
 function _applyFCRatio(sale, cost, pctId, barId, noteId) {
   const pEl = document.getElementById(pctId);
