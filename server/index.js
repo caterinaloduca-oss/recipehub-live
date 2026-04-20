@@ -291,10 +291,24 @@ app.post('/api/data', requireAuth, (req, res) => {
       const deletedRecipes = new Set(body.deletedRecipeIds || []);
       body.productionRuns = body.productionRuns.filter(r => !r.npd || (validRecipes.has(r.npd) && !deletedRecipes.has(r.npd)));
     }
-    // Auto-clean: remove deleted Branch SOPs
+    // Auto-clean: remove deleted Branch SOPs.
+    // Merge server-side deletedSOPIds with incoming so server-recorded deletions persist
+    // even when a stale client pushes data without them. Without this merge, a browser
+    // with an old cache can resurrect deleted entries every time it syncs.
+    if (existing && existing.data && Array.isArray(existing.data.deletedSOPIds)) {
+      body.deletedSOPIds = Array.from(new Set([...(body.deletedSOPIds || []), ...existing.data.deletedSOPIds]));
+    }
     if (body.branchSOPs && body.deletedSOPIds && body.deletedSOPIds.length) {
       const deletedSOPs = new Set(body.deletedSOPIds);
       body.branchSOPs = body.branchSOPs.filter(s => !deletedSOPs.has(s.id));
+    }
+    // Same protection for deletedRecipeIds
+    if (existing && existing.data && Array.isArray(existing.data.deletedRecipeIds)) {
+      body.deletedRecipeIds = Array.from(new Set([...(body.deletedRecipeIds || []), ...existing.data.deletedRecipeIds]));
+      if (body.recipes) {
+        const deletedRecs = new Set(body.deletedRecipeIds);
+        Object.keys(body.recipes).forEach(k => { if (deletedRecs.has(k)) delete body.recipes[k]; });
+      }
     }
     const savedAt = db.setState(JSON.stringify(body), body.dataVersion || 0);
     res.json({ ok: true, savedAt });
