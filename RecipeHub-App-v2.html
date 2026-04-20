@@ -10934,7 +10934,7 @@ function renderBrandDetail(id) {
   });
   const b = BRANDS.find(x => x.id === id);
   // Pull recipes dynamically from RECIPE_DB by brand name
-  const recipes = Object.values(RECIPE_DB).filter(function(r){ return recipeHasBrand(r, b.name); }).map(function(r){
+  const recipes = Object.values(RECIPE_DB).filter(function(r){ return recipeHasBrand(r, b.name) && !r.archived; }).map(function(r){
     return {
       name: r.name, npd: r.npd, v: r.version,
       costKg: r.costKg ? parseFloat(String(r.costKg).replace(/[^0-9.]/g,'')) : null,
@@ -10942,6 +10942,7 @@ function renderBrandDetail(id) {
       status: r.status,
     };
   });
+  const archivedCount = Object.values(RECIPE_DB).filter(function(r){ return recipeHasBrand(r, b.name) && r.archived; }).length;
   const costed = recipes.filter(r => r.costKg);
   const panel = document.getElementById('brand-detail-panel');
 
@@ -11042,6 +11043,7 @@ function renderBrandDetail(id) {
       </div>
     </div>` : ''}
 
+    ${archivedCount ? `<div style="padding:8px 24px;background:var(--g05);border-bottom:1px solid var(--g2);font-size:11px;color:var(--g3)">📦 ${archivedCount} archived recipe${archivedCount>1?'s':''} hidden. View from the Recipes page with "Show Archived" toggle.</div>` : ''}
     <table class="data-table">
       <thead><tr><th>Recipe</th><th>NPD Code</th><th>Version</th><th style="text-align:right">Cost / kg</th><th>Status</th><th></th></tr></thead>
       <tbody>
