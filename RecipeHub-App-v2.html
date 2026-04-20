@@ -15567,6 +15567,7 @@ function uploadBranchSOPPhoto(sopId, stepIdx, input) {
   if (!sop || !input.files[0]) return;
   uploadImageToServer(input.files[0], 'bsop-'+sopId+'-step'+stepIdx, function(url) {
     sop.steps[stepIdx].img = url;
+    sop.updatedAt = new Date().toISOString();  // so server merge treats this as newer
     viewBranchSOP(sopId);
     saveAllData();
     showSaveToast('Step photo saved');

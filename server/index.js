@@ -390,16 +390,34 @@ function mergeBranchSOP(existing, incoming) {
   const eTime = existing.updatedAt || '2000-01-01';
   const iTime = incoming.updatedAt || '2000-01-01';
   if (eTime > iTime) {
-    ['name','version','brand','status','steps','buildRef','date'].forEach(f => {
+    // Existing is newer — preserve its fields EXCEPT steps, which merge per-step so
+    // that a later photo upload (which may not bump updatedAt) still lands.
+    ['name','version','brand','status','buildRef','date'].forEach(f => {
       if (existing[f] !== undefined) result[f] = existing[f];
     });
+    // Steps: use incoming steps as base, fall back to existing per-field when incoming is empty
+    if (existing.steps && incoming.steps) {
+      result.steps = incoming.steps.map((s, i) => {
+        const e = existing.steps[i] || {};
+        return {
+          img: s && s.img ? s.img : (e.img || null),
+          text: s && s.text ? s.text : (e.text || ''),
+          portions: s && s.portions ? s.portions : (e.portions || ''),
+          ...s,
+        };
+      });
+    } else if (existing.steps) {
+      result.steps = existing.steps;
+    }
     result.updatedAt = eTime;
-  }
-  // Preserve step images
-  if (existing.steps && result.steps) {
-    result.steps.forEach((s, i) => {
-      if (existing.steps[i] && existing.steps[i].img && !s.img) s.img = existing.steps[i].img;
-    });
+  } else {
+    // Incoming is newer — take it wholesale, but still back-fill missing step images
+    // from existing (protects against a payload that accidentally stripped one).
+    if (existing.steps && result.steps) {
+      result.steps.forEach((s, i) => {
+        if (existing.steps[i] && existing.steps[i].img && !s.img) s.img = existing.steps[i].img;
+      });
+    }
   }
   return result;
 }
