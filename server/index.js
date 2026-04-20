@@ -177,12 +177,21 @@ app.post('/api/data', requireAuth, (req, res) => {
     }
     if (body.builds) body.builds = dedupeById(body.builds, 'id');
     if (body.productionRuns) body.productionRuns = dedupeById(body.productionRuns, 'id');
-    // Users: dedupe by email AND strip invalid @dailyfoodsa.com emails
+    // Users: dedupe by email AND strip invalid @dailyfoodsa.com emails.
+    // Also: if server has a user with a newer updatedAt, preserve that record.
+    // Prevents stale clients from reverting role changes / field edits.
     if (body.users) {
       body.users = dedupeById(body.users, 'email');
-      body.users = body.users.filter(u => {
-        const email = (u.email || '').toLowerCase().trim();
-        return email.endsWith('@dailyfoodsa.com');
+      body.users = body.users.filter(u => (u.email || '').toLowerCase().trim().endsWith('@dailyfoodsa.com'));
+      const existingUsers = ((db.getState() || {}).data || {}).users || [];
+      const srvByEmail = {};
+      existingUsers.forEach(u => { if (u.email) srvByEmail[u.email.toLowerCase()] = u; });
+      body.users = body.users.map(u => {
+        const srv = srvByEmail[(u.email || '').toLowerCase()];
+        if (!srv) return u;
+        const s = srv.updatedAt || '';
+        const c = u.updatedAt || '';
+        return (s && (!c || s > c)) ? srv : u;
       });
     }
     // Merge images: never overwrite a real image with null/empty/placeholder
