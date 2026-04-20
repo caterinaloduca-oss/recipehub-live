@@ -10935,7 +10935,12 @@ function renderBrandDetail(id) {
   const b = BRANDS.find(x => x.id === id);
   // Pull recipes dynamically from RECIPE_DB by brand name
   const recipes = Object.values(RECIPE_DB).filter(function(r){ return recipeHasBrand(r, b.name); }).map(function(r){
-    return {name:r.name, npd:r.npd, v:r.version, costKg:r.costKg ? parseFloat(String(r.costKg).replace(/[^0-9.]/g,'')) : null, status:r.status};
+    return {
+      name: r.name, npd: r.npd, v: r.version,
+      costKg: r.costKg ? parseFloat(String(r.costKg).replace(/[^0-9.]/g,'')) : null,
+      portionG: r.portionSize || null,
+      status: r.status,
+    };
   });
   const costed = recipes.filter(r => r.costKg);
   const panel = document.getElementById('brand-detail-panel');
@@ -10975,22 +10980,49 @@ function renderBrandDetail(id) {
 
     ${costed.length ? `
     <div style="padding:18px 24px;border-bottom:1px solid var(--g2)">
-      <div style="font-size:10px;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:var(--g3);margin-bottom:14px">Food cost calculator — enter sale price to see food cost %</div>
+      <div style="font-size:10px;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:var(--g3);margin-bottom:14px">Food cost calculator — per kg and per portion</div>
       <div style="display:grid;grid-template-columns:repeat(${Math.min(costed.length,3)},1fr);gap:14px">
-        ${costed.map(r => `
+        ${costed.map(r => {
+          var costPortion = (r.portionG && r.costKg) ? (r.costKg * r.portionG / 1000) : null;
+          return `
           <div style="background:var(--g1);border-radius:var(--r-md);padding:14px 16px;border:1px solid var(--g2)">
             <div style="font-size:12px;font-weight:500;color:var(--navy);margin-bottom:10px;line-height:1.3">${r.name}</div>
-            <div style="display:flex;justify-content:space-between;margin-bottom:10px">
-              <div><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.08em;color:var(--g3);margin-bottom:2px">Cost / kg</div><div style="font-size:15px;font-weight:500;color:var(--navy)">SAR ${r.costKg.toFixed(2)}</div></div>
-              <div style="text-align:right"><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.08em;color:var(--g3);margin-bottom:2px">Food cost %</div><div style="font-size:15px;font-weight:500" id="fc-${r.npd}">—</div></div>
+
+            <!-- Costs row -->
+            <div style="display:flex;justify-content:space-between;gap:10px;margin-bottom:12px;padding-bottom:10px;border-bottom:1px dashed var(--g2)">
+              <div>
+                <div style="font-size:9px;text-transform:uppercase;letter-spacing:0.08em;color:var(--g3);margin-bottom:2px">Cost / kg</div>
+                <div style="font-size:14px;font-weight:500;color:var(--navy)">SAR ${r.costKg.toFixed(2)}</div>
+              </div>
+              <div style="text-align:right">
+                <div style="font-size:9px;text-transform:uppercase;letter-spacing:0.08em;color:var(--g3);margin-bottom:2px">Cost / portion ${r.portionG ? '('+r.portionG+'g)' : ''}</div>
+                <div style="font-size:14px;font-weight:500;color:${r.portionG ? 'var(--navy)' : 'var(--g3)'}">${costPortion !== null ? 'SAR ' + costPortion.toFixed(2) : '— set portion'}</div>
+              </div>
             </div>
-            <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--gold);margin-bottom:4px">Sale price / kg</div>
+
+            <!-- Per-kg input -->
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--gold);margin-bottom:3px;display:flex;justify-content:space-between">
+              <span>Sale price / kg</span><span id="fc-${r.npd}" style="font-weight:500">—</span>
+            </div>
             <input type="number" min="0" step="0.5" placeholder="SAR 0.00"
-              style="width:100%;font-size:13px;font-weight:500;color:var(--navy);background:var(--gold-lt);border:1.5px solid #E8C875;border-radius:var(--r-sm);padding:7px 10px;outline:none;font-family:var(--font-b)"
+              style="width:100%;font-size:13px;font-weight:500;color:var(--navy);background:var(--gold-lt);border:1.5px solid #E8C875;border-radius:var(--r-sm);padding:6px 10px;outline:none;font-family:var(--font-b)"
               oninput="calcFC(this,${r.costKg},'${r.npd}')" />
-            <div style="height:3px;background:var(--g2);border-radius:3px;margin-top:8px;overflow:hidden"><div style="height:100%;border-radius:3px;transition:width 0.3s;background:var(--sage)" id="fcbar-${r.npd}"></div></div>
-            <div style="font-size:10px;color:var(--g3);margin-top:4px" id="fcnote-${r.npd}"></div>
-          </div>`).join('')}
+            <div style="height:2px;background:var(--g2);border-radius:2px;margin-top:6px;overflow:hidden"><div style="height:100%;border-radius:2px;transition:width 0.3s;background:var(--sage)" id="fcbar-${r.npd}"></div></div>
+            <div style="font-size:10px;color:var(--g3);margin-top:3px;margin-bottom:${r.portionG ? '10px':'4px'}" id="fcnote-${r.npd}"></div>
+
+            ${r.portionG ? `
+            <!-- Per-portion input -->
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--gold);margin-bottom:3px;display:flex;justify-content:space-between">
+              <span>Sale price / portion</span><span id="fcP-${r.npd}" style="font-weight:500">—</span>
+            </div>
+            <input type="number" min="0" step="0.5" placeholder="SAR 0.00"
+              style="width:100%;font-size:13px;font-weight:500;color:var(--navy);background:var(--gold-lt);border:1.5px solid #E8C875;border-radius:var(--r-sm);padding:6px 10px;outline:none;font-family:var(--font-b)"
+              oninput="calcFCPortion(this,${costPortion},'${r.npd}')" />
+            <div style="height:2px;background:var(--g2);border-radius:2px;margin-top:6px;overflow:hidden"><div style="height:100%;border-radius:2px;transition:width 0.3s;background:var(--sage)" id="fcPbar-${r.npd}"></div></div>
+            <div style="font-size:10px;color:var(--g3);margin-top:3px" id="fcPnote-${r.npd}"></div>
+            ` : `<div style="font-size:10px;color:var(--g3);margin-top:6px;font-style:italic">Set portion size on recipe detail to enable per-portion costing</div>`}
+          </div>`;
+        }).join('')}
       </div>
     </div>` : ''}
 
@@ -11013,12 +11045,18 @@ function renderBrandDetail(id) {
 }
 
 function calcFC(input, costKg, npd) {
-  const sale = parseFloat(input.value);
-  const pEl = document.getElementById('fc-' + npd);
-  const bEl = document.getElementById('fcbar-' + npd);
-  const nEl = document.getElementById('fcnote-' + npd);
-  if (!sale || sale <= 0) { pEl.textContent = '—'; pEl.style.color = '#C0BDB5'; bEl.style.width = '0%'; nEl.textContent = ''; return; }
-  const pct = (costKg / sale) * 100;
+  _applyFCRatio(parseFloat(input.value), costKg, 'fc-' + npd, 'fcbar-' + npd, 'fcnote-' + npd);
+}
+function calcFCPortion(input, costPortion, npd) {
+  _applyFCRatio(parseFloat(input.value), costPortion, 'fcP-' + npd, 'fcPbar-' + npd, 'fcPnote-' + npd);
+}
+function _applyFCRatio(sale, cost, pctId, barId, noteId) {
+  const pEl = document.getElementById(pctId);
+  const bEl = document.getElementById(barId);
+  const nEl = document.getElementById(noteId);
+  if (!pEl || !bEl || !nEl) return;
+  if (!sale || sale <= 0 || !cost || cost <= 0) { pEl.textContent = '—'; pEl.style.color = '#C0BDB5'; bEl.style.width = '0%'; nEl.textContent = ''; return; }
+  const pct = (cost / sale) * 100;
   const col = pct < 30 ? 'var(--sage)' : pct < 40 ? 'var(--amber)' : 'var(--red)';
   pEl.textContent = pct.toFixed(1) + '%';
   pEl.style.color = col;
