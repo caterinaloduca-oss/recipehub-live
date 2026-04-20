@@ -2570,7 +2570,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
 
 // ──────────── FORCE CLEAN OLD DATA (one-time) ────────────
 (function() {
-  var _forceCleanVersion = 3; // bump this to force another wipe
+  var _forceCleanVersion = 4; // bump this to force another wipe
   if (localStorage.getItem('_rh_cleaned') !== String(_forceCleanVersion)) {
     localStorage.clear();
     localStorage.setItem('_rh_cleaned', String(_forceCleanVersion));
