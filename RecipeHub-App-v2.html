@@ -15689,11 +15689,28 @@ function uploadBranchSOPPhoto(sopId, stepIdx, input) {
 }
 
 function openBranchSOPForm() {
-  // Get builds to link from
-  var buildOpts = BUILDS_DATA.map(b => '<option value="'+b.id+'">'+b.name+' ('+b.id+')</option>').join('');
+  // Builds sorted by name for the required dropdown
+  var sortedBuilds = BUILDS_DATA.slice().sort(function(a,b){ return (a.name||'').localeCompare(b.name||''); });
+  var buildOpts = sortedBuilds.map(b => '<option value="'+b.id+'">'+b.name+' ('+b.id+')</option>').join('');
   var brandOpts = brandOptionsHTML();
   var nextNum = BRANCH_SOPS.length + 1;
   var defaultCode = 'M-PS-' + String(100 + nextNum);
+
+  if (!BUILDS_DATA.length) {
+    openModal(
+      '<div class="card-head" style="background:var(--navy);border-radius:16px 16px 0 0">' +
+        '<span class="card-title" style="color:white">New Branch SOP</span>' +
+        '<button class="btn btn-sm" style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:none" onclick="closeModal()">✕</button>' +
+      '</div>' +
+      '<div class="card-body" style="padding:24px;text-align:center">' +
+        '<div style="font-size:36px;margin-bottom:12px">⚠</div>' +
+        '<div style="font-size:14px;font-weight:500;margin-bottom:6px">No Product Builds available</div>' +
+        '<div style="font-size:12px;color:var(--g4);margin-bottom:16px">A Branch SOP must be linked to a Product Build. Create a Build first, then come back here.</div>' +
+        '<button class="btn btn-outline" onclick="closeModal();nav(\'builds\')">Go to Product Builds</button>' +
+      '</div>'
+    );
+    return;
+  }
 
   openModal(
     '<div class="card-head" style="background:var(--navy);border-radius:16px 16px 0 0">' +
@@ -15701,14 +15718,19 @@ function openBranchSOPForm() {
       '<button class="btn btn-sm" style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:none" onclick="closeModal()">✕</button>' +
     '</div>' +
     '<div class="card-body" style="padding:24px">' +
+      '<div class="form-group" style="margin-bottom:16px">' +
+        '<label class="form-label">Linked Product Build <span style="color:var(--red)">*</span> <span style="color:var(--g3);font-weight:400;font-size:11px">— every SOP must be linked to a Build</span></label>' +
+        '<select class="form-select" id="nb-sop-build" onchange="onBranchSOPBuildPick()">' +
+          '<option value="">— Select a build —</option>' + buildOpts +
+        '</select>' +
+      '</div>' +
       '<div class="form-grid form-grid-2" style="margin-bottom:16px">' +
         '<div class="form-group"><label class="form-label">Product Name <span style="color:var(--red)">*</span></label><input class="form-input" id="nb-sop-name" placeholder="e.g. Original Ranchy" /></div>' +
         '<div class="form-group"><label class="form-label">SOP Code</label><input class="form-input" id="nb-sop-code" value="'+defaultCode+'" /></div>' +
       '</div>' +
-      '<div class="form-grid form-grid-3" style="margin-bottom:16px">' +
+      '<div class="form-grid form-grid-2" style="margin-bottom:16px">' +
         '<div class="form-group"><label class="form-label">Brand</label><select class="form-select" id="nb-sop-brand">'+brandOpts+'</select></div>' +
         '<div class="form-group"><label class="form-label">Version</label><input class="form-input" id="nb-sop-version" value="V-01" /></div>' +
-        '<div class="form-group"><label class="form-label">Linked Build</label><select class="form-select" id="nb-sop-build"><option value="">— None —</option>'+buildOpts+'</select></div>' +
       '</div>' +
       '<div class="form-group" style="margin-bottom:16px">' +
         '<label class="form-label">Number of Steps</label>' +
@@ -15722,11 +15744,38 @@ function openBranchSOPForm() {
   );
 }
 
+// When a build is picked, auto-fill name + brand from the build (saves typing + keeps them in sync)
+function onBranchSOPBuildPick() {
+  var buildId = document.getElementById('nb-sop-build').value;
+  var b = BUILDS_DATA.find(function(x){ return x.id === buildId; });
+  if (!b) return;
+  var nameEl = document.getElementById('nb-sop-name');
+  if (nameEl && !nameEl.value) nameEl.value = b.name || '';
+  var brandEl = document.getElementById('nb-sop-brand');
+  if (brandEl && b.brand) {
+    var opt = Array.prototype.find.call(brandEl.options, function(o){ return o.value === b.brand; });
+    if (opt) brandEl.value = b.brand;
+  }
+}
+
 var _creatingSOP = false;
 function createBranchSOP() {
   if (_creatingSOP) return;
   _creatingSOP = true;
   setTimeout(function(){ _creatingSOP = false; }, 2000);
+  // Require a linked Build — no orphan SOPs
+  var buildRefVal = document.getElementById('nb-sop-build').value;
+  if (!buildRefVal) {
+    document.getElementById('nb-sop-build').style.borderColor = '#C0392B';
+    showSaveToast('Link a Product Build first — SOPs can\'t be orphaned', true);
+    _creatingSOP = false;
+    return;
+  }
+  if (!BUILDS_DATA.find(function(b){ return b.id === buildRefVal; })) {
+    showSaveToast('Selected Build no longer exists — pick another', true);
+    _creatingSOP = false;
+    return;
+  }
   var name = document.getElementById('nb-sop-name').value;
   if (!name) { document.getElementById('nb-sop-name').style.borderColor = '#C0392B'; _creatingSOP = false; return; }
   // Check for duplicate ID
