@@ -243,27 +243,36 @@ app.post('/api/data', requireAuth, (req, res) => {
           });
         });
       }
-      // Merge build photos
+      // Build sync: if existing has a newer updatedAt than incoming, keep existing entirely.
+      // Otherwise preserve photo when incoming is empty. Protects builds from stale pushes.
       if (body.builds && old.builds) {
-        body.builds.forEach(b => {
+        body.builds = body.builds.map(b => {
           const ob = old.builds.find(x => x.id === b.id);
-          if (ob && ob.photo && imgIsEmpty(b.photo) && !clientIsNewer(b, ob)) {
-            b.photo = ob.photo;
+          if (!ob) return b;
+          if (!clientIsNewer(b, ob)) {
+            // Stale push for this build — keep server's full record
+            return { ...ob };
           }
+          // Client is newer — preserve photo if they didn't send one
+          if (ob.photo && imgIsEmpty(b.photo)) b.photo = ob.photo;
+          return b;
         });
       }
-      // Merge branch SOP step images
+      // Branch SOP sync: same protection — stale clients keep existing SOP unchanged
       if (body.branchSOPs && old.branchSOPs) {
-        body.branchSOPs.forEach(sop => {
+        body.branchSOPs = body.branchSOPs.map(sop => {
           const os = old.branchSOPs.find(x => x.id === sop.id);
-          if (os && os.steps && sop.steps && !clientIsNewer(sop, os)) {
+          if (!os) return sop;
+          if (!clientIsNewer(sop, os)) {
+            return { ...os };
+          }
+          if (os.steps && sop.steps) {
             sop.steps.forEach((s, i) => {
               const oldStep = os.steps[i];
-              if (oldStep && oldStep.img && imgIsEmpty(s.img)) {
-                s.img = oldStep.img;
-              }
+              if (oldStep && oldStep.img && imgIsEmpty(s.img)) s.img = oldStep.img;
             });
           }
+          return sop;
         });
       }
     }

@@ -4369,7 +4369,7 @@ function saveRecipeToServer(npd) {
 function saveBuildToServer(id) {
   var b = BUILDS_DATA.find(function(x) { return x.id === id; });
   if (!b) return;
-  if (!b.updatedAt) b.updatedAt = new Date().toISOString();
+  b.updatedAt = new Date().toISOString();
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(_buildDataBlob())); } catch(e) {}
   fetch(API_BASE + '/api/build/' + encodeURIComponent(id), {
     method: 'POST',
@@ -4390,7 +4390,7 @@ function saveBuildToServer(id) {
 function saveBranchSOPToServer(id) {
   var sop = BRANCH_SOPS.find(function(x) { return x.id === id; });
   if (!sop) return;
-  if (!sop.updatedAt) sop.updatedAt = new Date().toISOString();
+  sop.updatedAt = new Date().toISOString();
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(_buildDataBlob())); } catch(e) {}
   fetch(API_BASE + '/api/branchsop/' + encodeURIComponent(id), {
     method: 'POST',
@@ -13323,6 +13323,7 @@ function editBuildSellingPrice(id) {
   var val = prompt('Selling Price (SAR):', b.sellingPrice || '');
   if (val === null) return;
   b.sellingPrice = parseFloat(val) || null;
+  b.updatedAt = new Date().toISOString();
   viewBuild(id);
   saveAllData();
 }
