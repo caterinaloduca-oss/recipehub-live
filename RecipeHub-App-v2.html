@@ -3854,6 +3854,56 @@ function loadFromPOSRecipes(skipConfirm) {
 }
 
 // ──────────── EBS PRICE SYNC + HISTORY ────────────
+// Export the current Ingredients table to CSV (respects the visible filters — if the user
+// has typed a search or picked a category, only those rows get exported)
+function exportIngredientsCSV() {
+  var tbody = document.getElementById('ing-db-tbody');
+  if (!tbody) { showSaveToast('Ingredients table not ready', true); return; }
+  function escapeCell(v) {
+    v = v == null ? '' : String(v);
+    if (/[",\n\r]/.test(v)) return '"' + v.replace(/"/g, '""') + '"';
+    return v;
+  }
+  var headers = ['#','Ingredient Name','Vendor','ERP Code','POS ID','Category','Stockroom Cost (SAR)','Stockroom UOM','Equivalence','Recipe Cost (SAR)','Recipe UOM','Cost per kg (SAR)','Source Org'];
+  var lines = [headers.map(escapeCell).join(',')];
+  var visibleRows = ING_DATA.filter(function(row, idx){
+    var tr = tbody.querySelectorAll('tr')[idx];
+    return !tr || tr.style.display !== 'none';
+  });
+  visibleRows.forEach(function(row){
+    var num = row[0], name = row[1], vendor = row[2], code = row[3], cat = row[4];
+    var costDisplay = row[5] || '';
+    var uomRecipe = row[10] || '';
+    var costPerKg = row[11] || '';
+    var posId = row[12] || '';
+    var stockroomUom = row[13] || '';
+    var stockroomCost = row[14] != null ? row[14] : '';
+    var equivalence = row[15] != null ? row[15] : '';
+    var sourceOrg = row[16] || '';
+    var erp = code && /^[A-Za-z]/.test(String(code)) ? code : '';
+    if (!erp && posId) { erp = ''; }
+    // If ERP was stored in code and POS id also kept separately, show both
+    lines.push([
+      num, name, vendor, erp || code, posId, cat,
+      stockroomCost, stockroomUom, equivalence,
+      costDisplay.replace(/SAR\s*/i,'').trim(), uomRecipe,
+      costPerKg, sourceOrg,
+    ].map(escapeCell).join(','));
+  });
+  var csv = lines.join('\n');
+  var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  var stamp = new Date().toISOString().slice(0,10);
+  a.href = url;
+  a.download = 'recipehub-ingredients-' + stamp + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showSaveToast('Exported ' + visibleRows.length + ' ingredients to CSV');
+}
+
 function syncEBSPrices() {
   if (!confirm('Pull latest Oracle EBS cost history (Riyadh org 110) into local cache? This may take 10–30 seconds.')) return;
   showSaveToast('Syncing EBS prices… this may take a moment');
@@ -4757,7 +4807,7 @@ const PAGES = {
   dashboard:      { title:'Overview',           actions:'' },
   recipes:        { title:'Recipes',             actions:`<button class="btn btn-gold btn-sm" onclick="openRecipeForm()">+ New Recipe</button>` },
   'recipe-detail':{ title:'Recipe Detail',       actions:'' },
-  ingredients:    { title:'Ingredients Database',actions:`<button class="btn btn-outline btn-sm" onclick="refreshFromOracle()" title="Sync EBS prices from Oracle (Riyadh org 110), then load the ingredient list from POS recipes (food + packaging only)">↻ Refresh from Oracle</button><button class="btn btn-gold btn-sm" style="margin-left:6px" onclick="openIngredientForm()">+ Add Ingredient</button>` },
+  ingredients:    { title:'Ingredients Database',actions:`<button class="btn btn-outline btn-sm" onclick="refreshFromOracle()" title="Sync EBS prices from Oracle (Riyadh org 110), then load the ingredient list from POS recipes (food + packaging only)">↻ Refresh from Oracle</button><button class="btn btn-outline btn-sm" style="margin-left:6px" onclick="exportIngredientsCSV()">⤓ Export CSV</button><button class="btn btn-gold btn-sm" style="margin-left:6px" onclick="openIngredientForm()">+ Add Ingredient</button>` },
   builds:         { title:'Product Builds',       actions:`<button class="btn btn-gold btn-sm" onclick="openBuildForm()">+ New Build</button>` },
   qa:             { title:'QA Lab Results',      actions:`<button class="btn btn-outline btn-sm" onclick="printQALabReport()">🖨️ Lab Report</button><button class="btn btn-outline btn-sm" style="margin-left:6px" onclick="printCOA()">📄 COA</button><button class="btn btn-sage btn-sm" style="margin-left:6px" onclick="addTestPoint()">+ New Test</button>` },
   'branch-sop':   { title:'Branch SOP',           actions:`<button class="btn btn-gold btn-sm" onclick="openBranchSOPForm()">+ New Branch SOP</button>` },
