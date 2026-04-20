@@ -1115,8 +1115,20 @@ app.post('/api/img/upload', requireAuth, (req, res) => {
     if (!matches) return res.status(400).json({ error: 'Invalid image — only JPEG, PNG, GIF, WebP allowed' });
     const buffer = Buffer.from(matches[3], 'base64');
     if (buffer.length > 5 * 1024 * 1024) return res.status(400).json({ error: 'Image too large — max 5MB' });
-    const safeName = key.replace(/[^a-zA-Z0-9._-]/g, '_') + '.jpg';
+    // Append timestamp so every upload gets a fresh URL — otherwise overwriting the same
+    // filename returns the same URL and the browser shows the cached (old) image.
+    const safeKey = key.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const safeName = safeKey + '-' + Date.now() + '.jpg';
     fs.writeFileSync(IMG_DIR + '/' + safeName, buffer);
+    // Clean up older files with the same key prefix (keep last 3 revisions so rollback/merge
+    // still works if a stale client pushes an old URL)
+    try {
+      const all = fs.readdirSync(IMG_DIR).filter(f => f.startsWith(safeKey + '-') && f.endsWith('.jpg'));
+      all.sort();
+      if (all.length > 3) {
+        all.slice(0, all.length - 3).forEach(f => { try { fs.unlinkSync(IMG_DIR + '/' + f); } catch (e) {} });
+      }
+    } catch (e) { /* non-fatal */ }
     res.json({ ok: true, url: '/docs/img/' + safeName });
   } catch (err) {
     console.error('Image upload error:', err);
