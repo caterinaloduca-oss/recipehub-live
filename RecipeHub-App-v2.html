@@ -4182,6 +4182,7 @@ function exportBackup() {
     qaAllergenOverrides: _qaAllergenOverrides,
     shelfLifeData: SHELF_LIFE_DATA, accessPermissions: ACCESS_PERMISSIONS, rejectedEmails: REJECTED_EMAILS,
     deletedRecipeIds: _deletedRecipeIds,
+    deletedSOPIds: _deletedSOPIds,
     commsLog: COMMS_LOG,
     libraryDocs: LIBRARY_DOCS,
     exportedAt: new Date().toISOString(), version: 'RecipeHub-v2',
@@ -4257,6 +4258,7 @@ function _buildDataBlob() {
     accessPermissions: ACCESS_PERMISSIONS,
     rejectedEmails: REJECTED_EMAILS,
     deletedRecipeIds: _deletedRecipeIds,
+    deletedSOPIds: _deletedSOPIds,
     commsLog: COMMS_LOG,
     libraryDocs: LIBRARY_DOCS,
     sopStandardBlocks: SOP_STANDARD_BLOCKS,
@@ -4415,6 +4417,7 @@ function loadAllData() {
 
     // Load deleted recipe IDs first
     if (Array.isArray(data.deletedRecipeIds)) { _deletedRecipeIds = data.deletedRecipeIds; }
+    if (Array.isArray(data.deletedSOPIds)) { _deletedSOPIds = data.deletedSOPIds; }
     // Merge recipes: saved data wins, add new hardcoded recipes, skip deleted ones
     if (data.recipes) {
       // Snapshot hardcoded recipes before clearing
@@ -5685,6 +5688,7 @@ var _RECIPE_DB_SEED_REMOVED = {
 };
 
 var _deletedRecipeIds = [];
+var _deletedSOPIds = [];
 var COMMS_LOG = [];
 var LIBRARY_DOCS = [];
 
@@ -15771,6 +15775,19 @@ function saveBranchSOPEdit(id) {
   showSaveToast('Branch SOP updated');
 }
 
+// Confirm a Branch SOP deletion — called from the modal's Delete button.
+// Tracks the ID in _deletedSOPIds so the server keeps it gone on future syncs.
+function confirmDeleteBranchSOP(id) {
+  BRANCH_SOPS = BRANCH_SOPS.filter(function(s){ return s.id !== id; });
+  if (_deletedSOPIds.indexOf(id) === -1) _deletedSOPIds.push(id);
+  closeModal();
+  buildBranchSOPTable();
+  var detail = document.getElementById('bsop-detail');
+  if (detail) detail.style.display = 'none';
+  saveAllData();
+  showSaveToast('SOP deleted');
+}
+
 function deleteBranchSOP(id) {
   var sop = BRANCH_SOPS.find(s => s.id === id);
   if (!sop) return;
@@ -15785,7 +15802,7 @@ function deleteBranchSOP(id) {
       '<div style="font-size:13px;color:var(--g4);margin-bottom:20px">This cannot be undone.</div>' +
       '<div style="display:flex;gap:10px;justify-content:center">' +
         '<button class="btn btn-outline" onclick="closeModal()">Cancel</button>' +
-        '<button class="btn" style="background:var(--red);color:white" onclick="BRANCH_SOPS=BRANCH_SOPS.filter(s=>s.id!==\''+id+'\');closeModal();buildBranchSOPTable();document.getElementById(\'bsop-detail\').style.display=\'none\';saveAllData();showSaveToast(\'SOP deleted\')">Delete</button>' +
+        '<button class="btn" style="background:var(--red);color:white" onclick="confirmDeleteBranchSOP(\''+id+'\')">Delete</button>' +
       '</div>' +
     '</div>'
   );
