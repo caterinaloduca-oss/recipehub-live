@@ -5847,6 +5847,7 @@ function handleMediaUpload(npd, inputEl) {
       var reader = new FileReader();
       reader.onload = function(e) {
         r.media.push({ name: file.name, url: e.target.result, isVideo: true, type: file.type });
+        r.updatedAt = new Date().toISOString();
         if (--pending === 0) { renderMediaGrid(npd); saveAllData(); showSaveToast('Media saved'); }
       };
       reader.readAsDataURL(file);
@@ -5854,6 +5855,7 @@ function handleMediaUpload(npd, inputEl) {
       var mediaIdx = r.media.length + i;
       uploadImageToServer(file, 'recipe-'+npd+'-media'+Date.now()+'-'+i, function(url) {
         r.media.push({ name: file.name, url: url, isVideo: false, type: 'image/jpeg' });
+        r.updatedAt = new Date().toISOString();
         if (--pending === 0) { renderMediaGrid(npd); saveAllData(); showSaveToast('Photos saved'); }
       });
     }
@@ -5865,6 +5867,7 @@ function removeMedia(npd, idx) {
   const r = RECIPE_DB[npd];
   if (!r) return;
   r.media.splice(idx, 1);
+  r.updatedAt = new Date().toISOString();
   renderMediaGrid(npd);
   saveAllData();
 }
@@ -8122,6 +8125,7 @@ function uploadVisualSOPImg(npd, stepIdx, input) {
   if (!r || !r.sopSteps || !input.files[0]) return;
   uploadImageToServer(input.files[0], 'sop-'+npd+'-step'+stepIdx, function(url) {
     r.sopSteps[stepIdx].visualImg = url;
+    r.updatedAt = new Date().toISOString();
     var editBody = document.getElementById('sop-steps-body');
     if (editBody) { refreshSOPSteps(npd); }
     else { viewVisualSOP(npd); }
@@ -13306,6 +13310,7 @@ function uploadBuildPhoto(id, input) {
   showSaveToast('Uploading photo...');
   uploadImageToServer(input.files[0], 'build-'+id, function(url) {
     b.photo = url;
+    b.updatedAt = new Date().toISOString();
     viewBuild(id);
     saveAllData();
     showSaveToast('Photo saved');
@@ -13326,6 +13331,7 @@ function removeBuildPhoto(id) {
   var b = BUILDS_DATA.find(x => x.id === id);
   if (!b) return;
   b.photo = null;
+  b.updatedAt = new Date().toISOString();
   viewBuild(id);
   saveAllData();
 }

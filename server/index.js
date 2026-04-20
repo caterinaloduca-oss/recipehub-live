@@ -197,23 +197,36 @@ app.post('/api/data', requireAuth, (req, res) => {
         });
       }
       // Merge recipe images
+      // Helper: is an image field "missing" — placeholder text or empty. A real URL
+      // (data: or /docs/img/) counts as present.
+      const imgIsEmpty = v => !v || v === '[server]' || v === 'null' || v === 'undefined';
+      // Helper: does the client explicitly want to clear an image? True when their record
+      // was updated after the server's (updatedAt wins). Otherwise treat null as staleness
+      // and restore from server. Prevents stale clients from reverting photo uploads.
+      const clientIsNewer = (cli, srv) => {
+        const c = (cli && cli.updatedAt) || '';
+        const s = (srv && srv.updatedAt) || '';
+        return c && c > s;
+      };
+
       if (body.recipes && old.recipes) {
         Object.keys(body.recipes).forEach(k => {
           const nr = body.recipes[k], or = old.recipes[k];
           if (!or) return;
-          // Merge recipe media: combine both, dedupe by name, keep real images
+          // Merge recipe media: combine both, dedupe by name, keep old images that aren't in the incoming list
           if (or.media && or.media.length) {
             if (!nr.media) nr.media = [];
             const nrNames = new Set(nr.media.map(m => m.name));
             or.media.forEach(m => {
-              if (m.url && m.url.startsWith('data:') && !nrNames.has(m.name)) nr.media.push(m);
+              if (m.url && !nrNames.has(m.name)) nr.media.push(m);
             });
           }
-          // Preserve SOP step images
+          // Preserve SOP step images unless client is newer and explicitly cleared
           if (or.sopSteps && nr.sopSteps) {
             nr.sopSteps.forEach((s, i) => {
-              if (or.sopSteps[i] && or.sopSteps[i].visualImg && or.sopSteps[i].visualImg.startsWith('data:') && (!s.visualImg || s.visualImg === '[server]' || s.visualImg === 'null')) {
-                s.visualImg = or.sopSteps[i].visualImg;
+              const oldStep = or.sopSteps[i];
+              if (oldStep && oldStep.visualImg && imgIsEmpty(s.visualImg) && !clientIsNewer(nr, or)) {
+                s.visualImg = oldStep.visualImg;
               }
             });
           }
@@ -224,7 +237,7 @@ app.post('/api/data', requireAuth, (req, res) => {
               if (!nr[stage].files) nr[stage].files = [];
               const nrNames = new Set(nr[stage].files.map(f => f.name));
               or[stage].files.forEach(f => {
-                if (f.url && f.url.startsWith('data:') && !nrNames.has(f.name)) nr[stage].files.push(f);
+                if (f.url && !nrNames.has(f.name)) nr[stage].files.push(f);
               });
             }
           });
@@ -234,7 +247,7 @@ app.post('/api/data', requireAuth, (req, res) => {
       if (body.builds && old.builds) {
         body.builds.forEach(b => {
           const ob = old.builds.find(x => x.id === b.id);
-          if (ob && ob.photo && ob.photo.startsWith('data:') && (!b.photo || b.photo === '[server]' || b.photo === 'null')) {
+          if (ob && ob.photo && imgIsEmpty(b.photo) && !clientIsNewer(b, ob)) {
             b.photo = ob.photo;
           }
         });
@@ -243,10 +256,11 @@ app.post('/api/data', requireAuth, (req, res) => {
       if (body.branchSOPs && old.branchSOPs) {
         body.branchSOPs.forEach(sop => {
           const os = old.branchSOPs.find(x => x.id === sop.id);
-          if (os && os.steps && sop.steps) {
+          if (os && os.steps && sop.steps && !clientIsNewer(sop, os)) {
             sop.steps.forEach((s, i) => {
-              if (os.steps[i] && os.steps[i].img && os.steps[i].img.startsWith('data:') && (!s.img || s.img === '[server]' || s.img === 'null')) {
-                s.img = os.steps[i].img;
+              const oldStep = os.steps[i];
+              if (oldStep && oldStep.img && imgIsEmpty(s.img)) {
+                s.img = oldStep.img;
               }
             });
           }
