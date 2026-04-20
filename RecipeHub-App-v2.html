@@ -4528,6 +4528,7 @@ function loadAllData() {
       const statusEl = document.getElementById('save-status');
       if (statusEl) statusEl.textContent = 'Last saved ' + d.toLocaleTimeString('en-GB', {hour:'2-digit',minute:'2-digit'}) + ' · ' + d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'});
     }
+    migrateBrandsField();
     return true;
   } catch (e) {
     console.warn('Failed to load saved data:', e);
@@ -4580,6 +4581,7 @@ function forceRefreshFromServer() {
         result.data.commsLog.forEach(function(m){ COMMS_LOG.push(m); });
       }
       _stripBlobUrls();
+      migrateBrandsField();
       try { localStorage.setItem(STORAGE_KEY, JSON.stringify(_buildDataBlob())); } catch(e) {}
       // Rebuild all UI
       try {
@@ -4644,6 +4646,7 @@ function syncFromServer() {
       _hydrateFromData(serverData);
       _stripBlobUrls();
       // Save light version to localStorage (no images — they stay on server)
+      migrateBrandsField();
       try { localStorage.setItem(STORAGE_KEY, JSON.stringify(_buildDataBlob())); } catch(e) {}
       // Refresh all UI — preserve scroll position
       try {
@@ -5769,7 +5772,7 @@ function buildRecipesTable() {
     tr.innerHTML = `
       <td><strong>${r.name}</strong>${(r.tags&&r.tags.length)?'<div style="margin-top:3px">'+renderTagBadges(r.tags)+'</div>':''}</td>
       <td style="font-family:var(--font-m);font-size:12px;color:var(--g3)">${r.npd}</td>
-      <td>${r.brand}</td>
+      <td>${renderBrandChips(r)}</td>
       <td><span class="cat-tag ${r.catClass}">${r.type}</span></td>
       <td><span class="badge badge-navy">${r.version}</span></td>
       <td style="font-family:var(--font-m);color:${r.costKg ? 'var(--sage);font-weight:500' : 'var(--g3)'}">${r.costKg || '—'}</td>
@@ -8545,7 +8548,7 @@ function exportToSOP(npd) {
         </div>
       </div>
       <div style="display:grid;grid-template-columns:repeat(5,1fr);border-top:1px solid var(--g2)">
-        <div style="padding:12px 18px;border-right:1px solid var(--g2)"><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3);margin-bottom:3px">Brand</div><div style="font-size:13px;font-weight:500">${r.brand}</div></div>
+        <div style="padding:12px 18px;border-right:1px solid var(--g2)"><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3);margin-bottom:3px">Brands</div><div style="font-size:13px;font-weight:500">${renderBrandChips(r, 'font-size:11px;padding:3px 10px')}</div></div>
         <div style="padding:12px 18px;border-right:1px solid var(--g2)"><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3);margin-bottom:3px">Batch Size</div><div style="font-size:13px;font-weight:500;font-family:var(--font-m)"><input class="form-input" style="width:80px;padding:4px 8px;font-size:13px;font-weight:500;font-family:var(--font-m);text-align:right" value="${defaultBatch}" id="sop-batch-input" onchange="updateSOPBatch('${r.npd}')" /> kg</div></div>
         <div style="padding:12px 18px;border-right:1px solid var(--g2)"><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3);margin-bottom:3px">Storage</div><div style="font-size:13px;font-weight:500">${r.storage}</div></div>
         <div style="padding:12px 18px;border-right:1px solid var(--g2)"><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3);margin-bottom:3px">Shelf Life</div><div style="font-size:13px;font-weight:500">${r.shelfLife}</div></div>
@@ -9953,7 +9956,14 @@ function editRecipe(npd) {
     return;
   }
 
-  const brandOpts = brandOptionsHTML(r.brand);
+  const currentBrands = getRecipeBrands(r);
+  const brandChecks = BRANDS.map(function(b){
+    var checked = currentBrands.indexOf(b.name) >= 0 ? 'checked' : '';
+    return '<label style="display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border:1px solid var(--g2);border-radius:20px;font-size:12px;cursor:pointer;margin-right:4px;margin-bottom:4px' + (checked ? ';background:' + b.text + '18;border-color:' + b.text : '') + '">' +
+      '<input type="checkbox" class="er-brand-cb" value="' + b.name + '" ' + checked + ' style="margin:0" />' +
+      '<span style="width:7px;height:7px;border-radius:50%;background:' + b.text + '"></span>' + b.name +
+    '</label>';
+  }).join('');
   const typeOpts = ['Marinade','Dip','Sauce','Blend','Seasoning','Spread','Dessert','Meat','Dough','Coating','Brine','Garnish','Semi-Finished'].map(t => `<option ${r.type===t?'selected':''}>${t}</option>`).join('');
   const storageOpts = ['Ambient','Chilled 4°C','Frozen −18°C'].map(s => `<option ${r.storage===s?'selected':''}>${s}</option>`).join('');
 
@@ -9969,8 +9979,11 @@ function editRecipe(npd) {
         <div class="form-group"><label class="form-label">Recipe Name</label><input class="form-input" id="er-name" value="${r.name}" /></div>
         <div class="form-group"><label class="form-label">Version</label><input class="form-input" id="er-version" value="${r.version}" /></div>
       </div>
-      <div class="form-grid form-grid-3" style="margin-bottom:16px">
-        <div class="form-group"><label class="form-label">Brand</label><select class="form-select" id="er-brand">${brandOpts}</select></div>
+      <div class="form-group" style="margin-bottom:16px">
+        <label class="form-label">Brands <span style="color:var(--g3);font-weight:400;font-size:11px">(a recipe can belong to multiple brands)</span></label>
+        <div id="er-brands-wrap" style="display:flex;flex-wrap:wrap;align-items:center">${brandChecks}</div>
+      </div>
+      <div class="form-grid form-grid-2" style="margin-bottom:16px">
         <div class="form-group"><label class="form-label">Type</label><select class="form-select" id="er-type">${typeOpts}</select></div>
         <div class="form-group"><label class="form-label">Storage</label><select class="form-select" id="er-storage">${storageOpts}</select></div>
       </div>
@@ -10414,7 +10427,8 @@ function saveEditRecipe(npd) {
 
   r.name = document.getElementById('er-name').value || r.name;
   r.version = document.getElementById('er-version').value || r.version;
-  r.brand = document.getElementById('er-brand').value;
+  var pickedBrands = Array.prototype.map.call(document.querySelectorAll('#er-brands-wrap .er-brand-cb:checked'), function(cb){ return cb.value; });
+  setRecipeBrands(r, pickedBrands);
   r.type = document.getElementById('er-type').value;
   r.storage = document.getElementById('er-storage').value;
   // Shelf life set by QA, not here
@@ -10916,7 +10930,7 @@ function renderBrandDetail(id) {
   });
   const b = BRANDS.find(x => x.id === id);
   // Pull recipes dynamically from RECIPE_DB by brand name
-  const recipes = Object.values(RECIPE_DB).filter(function(r){ return r.brand === b.name; }).map(function(r){
+  const recipes = Object.values(RECIPE_DB).filter(function(r){ return recipeHasBrand(r, b.name); }).map(function(r){
     return {name:r.name, npd:r.npd, v:r.version, costKg:r.costKg ? parseFloat(String(r.costKg).replace(/[^0-9.]/g,'')) : null, status:r.status};
   });
   const costed = recipes.filter(r => r.costKg);
@@ -11055,6 +11069,45 @@ function populateBrandDropdowns() {
 function brandOptionsHTML(selected) {
   return BRANDS.map(function(b) {
     return '<option' + (b.name === selected ? ' selected' : '') + '>' + b.name + '</option>';
+  }).join('');
+}
+
+// ──────────── MULTI-BRAND HELPERS ────────────
+// A recipe can belong to multiple brands (same SFG used by several brand ranges). Canonical
+// storage is r.brands[] (array). r.brand (string) is kept in sync for back-compat with the
+// ~100 sites that read r.brand directly — it always holds the first brand.
+function getRecipeBrands(r) {
+  if (!r) return [];
+  if (Array.isArray(r.brands) && r.brands.length) return r.brands.slice();
+  return r.brand ? [r.brand] : [];
+}
+function setRecipeBrands(r, brandList) {
+  var arr = Array.isArray(brandList) ? brandList.filter(Boolean) : [];
+  // dedupe preserving order
+  var seen = {}, out = [];
+  arr.forEach(function(b){ if (!seen[b]) { seen[b] = 1; out.push(b); } });
+  r.brands = out;
+  r.brand = out[0] || '';
+}
+function recipeHasBrand(r, brandName) {
+  return getRecipeBrands(r).indexOf(brandName) >= 0;
+}
+// Migration: sync brands ↔ brand on every recipe in RECIPE_DB
+function migrateBrandsField() {
+  if (typeof RECIPE_DB !== 'object') return;
+  Object.values(RECIPE_DB).forEach(function(r){
+    if (!Array.isArray(r.brands) || !r.brands.length) r.brands = r.brand ? [r.brand] : [];
+    if (!r.brand && r.brands.length) r.brand = r.brands[0];
+  });
+}
+// Render brand chips (used in recipe table + detail header)
+function renderBrandChips(r, style) {
+  var brands = getRecipeBrands(r);
+  if (!brands.length) return '<span style="color:var(--g3)">—</span>';
+  var colors = getBrandColors();
+  return brands.map(function(b){
+    var c = colors[b] || 'var(--g3)';
+    return '<span class="brand-chip" style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:600;background:' + c + '22;color:' + c + ';margin-right:3px;'+ (style||'') +'">' + b + '</span>';
   }).join('');
 }
 
