@@ -764,6 +764,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
         <option value="admin">Admin</option>
         <option value="npd">R&D</option>
         <option value="qa">QA</option>
+        <option value="ops">OPS</option>
         <option value="factory">Factory</option>
         <option value="purchasing">Purchasing</option>
         <option value="viewer">Viewer</option>
@@ -2173,7 +2174,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
             <span class="search-icon">⌕</span>
             <input class="search-input" placeholder="Search users by name, email, role…" id="user-search" oninput="filterUsers()" />
           </div>
-          <select class="filter-select" id="user-filter-role" onchange="filterUsers()"><option>All Roles</option><option>Admin</option><option>NPD</option><option>QA</option><option>Factory</option><option>Purchasing</option><option>Viewer</option></select>
+          <select class="filter-select" id="user-filter-role" onchange="filterUsers()"><option>All Roles</option><option>Admin</option><option>NPD</option><option>QA</option><option>OPS</option><option>Factory</option><option>Purchasing</option><option>Viewer</option></select>
         </div>
       </div>
       <div class="card-body" style="padding:0">
@@ -2209,6 +2210,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
               <option value="">Select role…</option>
               <option value="npd">R&D</option>
               <option value="qa">QA</option>
+              <option value="ops">OPS</option>
               <option value="factory">Factory</option>
               <option value="purchasing">Purchasing</option>
               <option value="admin">Admin</option>
@@ -2283,6 +2285,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
             <option value="all-no-viewers">All Team (no viewers)</option>
             <option value="npd">All R&D</option>
             <option value="qa">All QA</option>
+            <option value="ops">All OPS</option>
             <option value="factory">All Factory</option>
             <option value="purchasing">All Purchasing</option>
             <option value="viewer">All Viewers</option>
