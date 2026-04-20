@@ -15515,8 +15515,8 @@ function viewBranchSOP(id) {
       <div class="bsop-grid" style="border:2px solid ${brandColor}">
         ${sop.steps.map((step, i) => `
           <div class="bsop-step" style="border-color:${brandColor}">
-            <div class="bsop-step-img">
-              ${step.img && step.img !== '[server]' && step.img !== 'null' ? `<img src="${step.img}" alt="Step ${i+1}" onclick="zoomImage('${step.img}')" style="cursor:zoom-in" />` : `<div class="bsop-placeholder">📷</div>`}
+            <div class="bsop-step-img" style="position:relative">
+              ${step.img && step.img !== '[server]' && step.img !== 'null' ? `<img src="${step.img}" alt="Step ${i+1}" onclick="zoomImage('${step.img}')" style="cursor:zoom-in" /><button title="Delete photo" onclick="deleteBranchSOPPhoto('${sop.id}',${i})" style="position:absolute;top:4px;right:4px;background:rgba(192,57,43,0.9);color:white;border:none;border-radius:50%;width:22px;height:22px;font-size:13px;cursor:pointer;line-height:1;padding:0">✕</button>` : `<div class="bsop-placeholder">📷</div>`}
               <label class="bsop-upload-btn">
                 <span>${step.img ? 'Change Photo' : 'Upload Photo'}</span>
                 <input type="file" accept="image/*" style="display:none" onchange="uploadBranchSOPPhoto('${sop.id}',${i},this)" />
@@ -15564,6 +15564,19 @@ function setComponentShelfLife(sopId, itemName, selectEl, type) {
     selectEl.style.color = 'var(--g3)';
   }
   saveAllData();
+}
+
+// Remove a Branch SOP step photo — sets img to null, bumps updatedAt so the server
+// merge treats this as the newer version (same pattern as the upload flow).
+function deleteBranchSOPPhoto(sopId, stepIdx) {
+  if (!confirm('Delete this photo?')) return;
+  var sop = BRANCH_SOPS.find(function(s){ return s.id === sopId; });
+  if (!sop || !sop.steps || !sop.steps[stepIdx]) return;
+  sop.steps[stepIdx].img = null;
+  sop.updatedAt = new Date().toISOString();
+  viewBranchSOP(sopId);
+  saveAllData();
+  showSaveToast('Photo deleted');
 }
 
 function uploadBranchSOPPhoto(sopId, stepIdx, input) {
