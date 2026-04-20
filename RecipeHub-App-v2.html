@@ -941,7 +941,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
       <span class="search-icon">⌕</span>
       <input class="search-input" placeholder="Search ingredients, suppliers, codes…" id="ing-search" oninput="filterIngredients()" />
     </div>
-    <select class="filter-select" id="ing-filter-cat" onchange="filterIngredients()"><option>All Categories</option><optgroup label="Food — raw"><option>Oil</option><option>Meat & Protein</option><option>Dairy</option><option>Grain & Flour</option><option>Bread & Crumbs</option><option>Seasoning</option><option>Additive</option></optgroup><optgroup label="Food — sauces & sides"><option>Sauce</option><option>Dip</option><option>Topping</option><option>Side Dish</option><option>Salad</option></optgroup><optgroup label="Food — finished"><option>Crust</option><option>Dough</option><option>Burger Dough</option><option>Pasta</option><option>Pizza</option><option>Mac & Cheese</option><option>Dessert</option><option>Appetizer</option></optgroup><optgroup label="Beverages"><option>Beverage</option></optgroup><optgroup label="Non-food"><option>Packing Material</option><option>Operating Supply</option><option>Equipment</option><option>Service</option></optgroup><optgroup label="Name-only fallback"><option>Cleaning</option><option>Tool</option><option>Uniform</option><option>Food</option></optgroup></select>
+    <select class="filter-select" id="ing-filter-cat" onchange="filterIngredients()"><option>All Categories</option></select>
   </div>
 
   <div class="card">
@@ -5314,9 +5314,44 @@ function showIngUsedIn(ingName) {
   );
 }
 
+// Populate the ingredient category filter dropdown dynamically from ING_DATA, grouped
+// as Food / Non-food and showing counts. Preserves the current selection so filtering
+// doesn't reset when the table rebuilds.
+function populateIngCategoryFilter() {
+  const sel = document.getElementById('ing-filter-cat');
+  if (!sel) return;
+  const prev = sel.value || 'All Categories';
+  // Count categories in ING_DATA
+  const counts = {};
+  ING_DATA.forEach(r => { const c = r[4] || 'Uncategorised'; counts[c] = (counts[c]||0) + 1; });
+  const FOOD_CATS = new Set(['Food','Sauce','Sauces','Topping','Toppings','Side Dish','Side Dishes','Crust','Crusts','Beverage','Beverages','Oil','Meat & Protein','Dairy','Grain & Flour','Bread & Crumbs','Dough','Burger Dough','Pasta','Pizza','Mac & Cheese','Dessert','Appetizer','Dip','Salad','Seasoning','Additive']);
+  const NONFOOD_CATS = new Set(['Packing Material','Operating Supply','Equipment','Service','Cleaning','Tool','Uniform','Non-Food','Smallware','Disposable (Consumables)','Stationery','Marketing','Critical','Chiller']);
+  const food = [], nonfood = [], other = [];
+  Object.entries(counts).sort((a,b) => b[1]-a[1]).forEach(([c,n]) => {
+    if (FOOD_CATS.has(c)) food.push([c,n]);
+    else if (NONFOOD_CATS.has(c)) nonfood.push([c,n]);
+    else other.push([c,n]);
+  });
+  let html = '<option>All Categories</option>';
+  function group(label, arr) {
+    if (!arr.length) return '';
+    return '<optgroup label="' + label + '">' +
+      arr.map(([c,n]) => '<option value="' + c + '">' + c + ' (' + n + ')</option>').join('') +
+      '</optgroup>';
+  }
+  html += group('Food', food);
+  html += group('Non-food', nonfood);
+  html += group('Other', other);
+  sel.innerHTML = html;
+  // Restore previous selection if it still exists
+  const available = Array.from(sel.options).map(o => o.value || o.textContent);
+  sel.value = available.indexOf(prev) >= 0 ? prev : 'All Categories';
+}
+
 function buildIngTable() {
   const tbody = document.getElementById('ing-db-tbody');
   if (!tbody) return;
+  populateIngCategoryFilter();
   tbody.innerHTML = '';
   ING_DATA.forEach((row, idx) => {
     const [num,name,supplier,code,cat,cost,storage,shelf,updated] = row;
