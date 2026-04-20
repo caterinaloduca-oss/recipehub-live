@@ -15516,11 +15516,12 @@ function viewBranchSOP(id) {
         ${sop.steps.map((step, i) => `
           <div class="bsop-step" style="border-color:${brandColor}">
             <div class="bsop-step-img" style="position:relative">
-              ${step.img && step.img !== '[server]' && step.img !== 'null' ? `<img src="${step.img}" alt="Step ${i+1}" onclick="zoomImage('${step.img}')" style="cursor:zoom-in" /><button title="Delete photo" onclick="deleteBranchSOPPhoto('${sop.id}',${i})" style="position:absolute;top:4px;right:4px;background:rgba(192,57,43,0.9);color:white;border:none;border-radius:50%;width:22px;height:22px;font-size:13px;cursor:pointer;line-height:1;padding:0">✕</button>` : `<div class="bsop-placeholder">📷</div>`}
+              ${step.img && step.img !== '[server]' && step.img !== 'null' ? `<img src="${step.img}" alt="Step ${i+1}" onclick="zoomImage('${step.img}')" style="cursor:zoom-in" />` : `<div class="bsop-placeholder">📷</div>`}
               <label class="bsop-upload-btn">
                 <span>${step.img ? 'Change Photo' : 'Upload Photo'}</span>
                 <input type="file" accept="image/*" style="display:none" onchange="uploadBranchSOPPhoto('${sop.id}',${i},this)" />
               </label>
+              ${step.img && step.img !== '[server]' && step.img !== 'null' ? `<button title="Delete photo" type="button" onclick="event.stopPropagation();event.preventDefault();deleteBranchSOPPhoto('${sop.id}',${i});return false;" style="position:absolute;top:4px;right:4px;background:rgba(192,57,43,0.95);color:white;border:none;border-radius:50%;width:24px;height:24px;font-size:13px;cursor:pointer;line-height:1;padding:0;z-index:10;box-shadow:0 1px 3px rgba(0,0,0,0.3)">✕</button>` : ''}
             </div>
             <div class="bsop-step-text" style="border-top:2px solid ${brandColor}">
               <strong>${step.text}</strong>
