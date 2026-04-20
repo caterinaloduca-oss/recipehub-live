@@ -11640,7 +11640,33 @@ function sendInvite() {
   const displayName = nameParts.join(' ');
   const rm = ROLE_META[role] || {label:'Unassigned', bg:'var(--g1)', color:'var(--g4)', border:'var(--g2)'};
 
-  // Add to pending
+  // Admin is inviting directly — no "pending approval" step, go straight into USERS_DATA.
+  const newUser = {
+    name: displayName, email: email.toLowerCase(), phone: '—',
+    dept: rm.label, title: rm.label, role: role, brands: brands,
+    last: 'Invited', active: true, updatedAt: new Date().toISOString(),
+  };
+  // If someone already invited them and they're pending, move them out of pending too
+  const idx = PENDING_DATA.findIndex(p => (p.email || '').toLowerCase() === newUser.email);
+  if (idx >= 0) PENDING_DATA.splice(idx, 1);
+  // Dedupe against existing users
+  const uidx = USERS_DATA.findIndex(u => (u.email || '').toLowerCase() === newUser.email);
+  if (uidx >= 0) {
+    // Already in users — just merge role / brands (don't create a duplicate)
+    Object.assign(USERS_DATA[uidx], { role, brands, dept: rm.label, title: rm.label, updatedAt: newUser.updatedAt });
+  } else {
+    USERS_DATA.push(newUser);
+  }
+  buildUsersTable();
+  buildRoleCards();
+  buildPendingTable();
+  saveAllData();
+  showSaveToast('User added — ' + displayName);
+  // Close the invite card
+  var inviteCard = document.getElementById('invite-form');
+  if (inviteCard) inviteCard.style.display = 'none';
+  return;
+  // Legacy pending-push kept for reference but unreachable — admin invites go direct now.
   const pending = { name:displayName, email:email.toLowerCase(), phone:'—', dept:rm.label, title:rm.label, role:role, brands:brands, submitted:'Just now' };
   PENDING_DATA.push(pending);
 
