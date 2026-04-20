@@ -4219,7 +4219,7 @@ function importBackup(input) {
         PRODUCTION_RUNS.push(r);
       }); }
       if (data.shelfLifeData) { SHELF_LIFE_DATA.points = data.shelfLifeData.points || []; SHELF_LIFE_DATA.notes = data.shelfLifeData.notes || ''; }
-      if (data.accessPermissions) { data.accessPermissions.forEach(function(sg){ var m=ACCESS_PERMISSIONS.find(function(g){return g.group===sg.group}); if(m&&sg.items) sg.items.forEach(function(si){ var it=m.items.find(function(i){return i.key===si.key}); if(it) ['admin','npd','qa','factory','purchasing','viewer'].forEach(function(r){if(si[r]!==undefined)it[r]=si[r]}); }); }); }
+      if (data.accessPermissions) { data.accessPermissions.forEach(function(sg){ var m=ACCESS_PERMISSIONS.find(function(g){return g.group===sg.group}); if(m&&sg.items) sg.items.forEach(function(si){ var it=m.items.find(function(i){return i.key===si.key}); if(it) ['admin','npd','qa','ops','factory','purchasing','viewer'].forEach(function(r){if(si[r]!==undefined)it[r]=si[r]}); }); }); }
       if (Array.isArray(data.rejectedEmails)) REJECTED_EMAILS = data.rejectedEmails;
     if (Array.isArray(data.commsLog)) { COMMS_LOG.length = 0; data.commsLog.forEach(function(m){ COMMS_LOG.push(m); }); }
     if (Array.isArray(data.libraryDocs)) { LIBRARY_DOCS.length = 0; data.libraryDocs.forEach(function(doc){ LIBRARY_DOCS.push(doc); }); }
@@ -4470,7 +4470,7 @@ function loadAllData() {
         if (match && savedGroup.items) {
           savedGroup.items.forEach(function(savedItem) {
             var item = match.items.find(function(i){ return i.key === savedItem.key; });
-            if (item) { ['admin','npd','qa','factory','purchasing','viewer'].forEach(function(r){ if (savedItem[r] !== undefined) item[r] = savedItem[r]; }); }
+            if (item) { ['admin','npd','qa','ops','factory','purchasing','viewer'].forEach(function(r){ if (savedItem[r] !== undefined) item[r] = savedItem[r]; }); }
           });
         }
       });
@@ -4732,7 +4732,7 @@ function _hydrateFromData(data) {
       var m = ACCESS_PERMISSIONS.find(function(g){ return g.group === sg.group; });
       if (m && sg.items) sg.items.forEach(function(si) {
         var it = m.items.find(function(i){ return i.key === si.key; });
-        if (it) ['admin','npd','qa','factory','purchasing','viewer'].forEach(function(r){ if(si[r]!==undefined) it[r]=si[r]; });
+        if (it) ['admin','npd','qa','ops','factory','purchasing','viewer'].forEach(function(r){ if(si[r]!==undefined) it[r]=si[r]; });
       });
     });
   }
@@ -10790,7 +10790,7 @@ function editUser(btn) {
   if (!u) return;
   const rm = ROLE_META[u.role] || {label:'Unassigned'};
 
-  var roleOpts = ['admin','npd','qa','factory','purchasing','viewer'].map(function(r) {
+  var roleOpts = ['admin','npd','qa','ops','factory','purchasing','viewer'].map(function(r) {
     var m = ROLE_META[r];
     return '<option value="'+r+'" '+(u.role===r?'selected':'')+'>'+m.label+'</option>';
   }).join('');
@@ -11416,7 +11416,7 @@ function buildAccessMatrix() {
   const tbody = document.getElementById('access-matrix-body');
   if (!tbody) return;
   tbody.innerHTML = '';
-  const roles = ['admin','npd','qa','factory','purchasing','viewer'];
+  const roles = ['admin','npd','qa','ops','factory','purchasing','viewer'];
   const _currentRole = getCurrentUserRole();
   const _readOnly = _currentRole !== 'admin';
   ACCESS_PERMISSIONS.forEach(group => {
@@ -11485,7 +11485,7 @@ function approveUser(btn) {
   var currentRole = (pending && pending.role) || '';
 
   // Open modal to assign role before approving
-  var roleOpts = ['npd','qa','factory','purchasing','viewer'].map(function(r) {
+  var roleOpts = ['npd','qa','ops','factory','purchasing','viewer'].map(function(r) {
     var rm = ROLE_META[r];
     return '<option value="'+r+'" '+(currentRole===r?'selected':'')+'>'+rm.label+'</option>';
   }).join('');
@@ -15583,6 +15583,114 @@ function filterBranchSOPs() {
   });
 }
 
+// ──────────── BRANCH SOP 3-STAGE APPROVAL ────────────
+// Stage 1 (prepared): NPD or QA draft it
+// Stage 2 (reviewed): OPS reviews and approves
+// Stage 3 (approved): QA signs off for release
+function getBSOPApproval(sop) {
+  if (!sop.approval) sop.approval = { prepared:null, reviewed:null, approved:null };
+  return sop.approval;
+}
+function bsopDerivedStatus(sop) {
+  var a = sop.approval;
+  if (!a || !a.prepared) return 'draft';
+  if (!a.reviewed) return 'pending-review';
+  if (!a.approved) return 'pending-approval';
+  return 'approved';
+}
+function _canSignBSOPStage(stage) {
+  var role = getCurrentUserRole();
+  if (role === 'admin') return true;
+  if (stage === 'prepared') return role === 'npd' || role === 'qa';
+  if (stage === 'reviewed') return role === 'ops';
+  if (stage === 'approved') return role === 'qa';
+  return false;
+}
+function signBSOPStage(sopId, stage) {
+  var sop = BRANCH_SOPS.find(function(s){ return s.id === sopId; });
+  if (!sop) return;
+  if (!_canSignBSOPStage(stage)) {
+    showSaveToast('Your role cannot sign this stage', true); return;
+  }
+  var approval = getBSOPApproval(sop);
+  // Previous stages must be signed first (except prepared which is first)
+  if (stage === 'reviewed' && !approval.prepared) { showSaveToast('NPD/QA must prepare first', true); return; }
+  if (stage === 'approved' && !approval.reviewed) { showSaveToast('OPS must review first', true); return; }
+  if (approval[stage]) { showSaveToast('Already signed by ' + approval[stage].by, true); return; }
+  var name = (typeof getCurrentUserName === 'function') ? getCurrentUserName() : '';
+  var email = (window._currentUserEmail || (window.AUTH_USER && window.AUTH_USER.email) || '');
+  approval[stage] = { by: name || email || 'Unknown', email: email || '', at: new Date().toISOString() };
+  sop.status = bsopDerivedStatus(sop);
+  sop.updatedAt = new Date().toISOString();
+  if (!sop.approvalHistory) sop.approvalHistory = [];
+  sop.approvalHistory.push({ stage: stage, by: approval[stage].by, email: approval[stage].email, at: approval[stage].at });
+  viewBranchSOP(sopId);
+  buildBranchSOPTable();
+  saveBranchSOPToServer(sopId);
+  var lbl = stage === 'prepared' ? 'prepared' : (stage === 'reviewed' ? 'reviewed by OPS' : 'APPROVED by QA');
+  showSaveToast('SOP ' + lbl);
+  if (typeof logActivity === 'function') logActivity('sop', '✍️', 'Branch SOP ' + lbl + ': ' + (sop.name||sop.product), sop.id);
+}
+function resetBSOPApproval(sopId) {
+  if (!confirm('Reset all 3 signatures on this Branch SOP? (any prior edit will return it to Draft)')) return;
+  var sop = BRANCH_SOPS.find(function(s){ return s.id === sopId; });
+  if (!sop) return;
+  var role = getCurrentUserRole();
+  if (role !== 'admin' && role !== 'qa') { showSaveToast('Only QA/Admin can reset', true); return; }
+  if (!sop.approvalHistory) sop.approvalHistory = [];
+  sop.approvalHistory.push({ stage:'reset', by:getCurrentUserName()||'—', at:new Date().toISOString() });
+  sop.approval = { prepared:null, reviewed:null, approved:null };
+  sop.status = 'draft';
+  sop.updatedAt = new Date().toISOString();
+  viewBranchSOP(sopId);
+  buildBranchSOPTable();
+  saveBranchSOPToServer(sopId);
+  showSaveToast('Approvals reset — back to Draft');
+}
+function renderBSOPApprovalUI(sop) {
+  var a = getBSOPApproval(sop);
+  var role = getCurrentUserRole();
+  function fmtDate(iso) { try { return new Date(iso).toLocaleString('en-GB', {day:'2-digit',month:'short',year:'2-digit',hour:'2-digit',minute:'2-digit'}); } catch(e) { return iso || ''; } }
+  function card(stage, label, roleLabel, sig, canSign, blocked) {
+    var color = sig ? 'var(--sage)' : (blocked ? 'var(--g3)' : 'var(--gold)');
+    var bg = sig ? '#E7F0E8' : (blocked ? 'var(--g05)' : '#FFF8E6');
+    var borderColor = sig ? 'var(--sage)' : (blocked ? 'var(--g2)' : '#E8C875');
+    var body;
+    if (sig) {
+      body = '<div style="font-size:13px;font-weight:600;color:var(--navy)">' + sig.by + '</div>' +
+             '<div style="font-size:10px;color:var(--g3);margin-top:2px">' + fmtDate(sig.at) + '</div>' +
+             '<div style="margin-top:8px;font-size:10px;color:var(--sage);font-weight:600">✓ SIGNED</div>';
+    } else if (blocked) {
+      body = '<div style="font-size:11px;color:var(--g3);font-style:italic">Waiting for previous stage…</div>';
+    } else if (canSign) {
+      body = '<button class="btn btn-sm" style="background:'+color+';color:white;border:none;font-weight:600" onclick="signBSOPStage(\''+sop.id+'\',\''+stage+'\')">Sign as ' + roleLabel + '</button>';
+    } else {
+      body = '<div style="font-size:11px;color:var(--g3);font-style:italic">Pending ' + roleLabel + ' sign-off</div>';
+    }
+    return '<div style="background:'+bg+';border:1px solid '+borderColor+';border-radius:var(--r-md);padding:14px 16px">' +
+      '<div style="font-size:9px;text-transform:uppercase;letter-spacing:0.12em;color:var(--g3);margin-bottom:4px">' + label + '</div>' +
+      '<div style="font-size:12px;font-weight:600;color:var(--navy);margin-bottom:10px">' + roleLabel + '</div>' +
+      body +
+    '</div>';
+  }
+  var status = bsopDerivedStatus(sop);
+  var statusMap = {'draft':'Draft','pending-review':'Pending OPS Review','pending-approval':'Pending QA Sign-off','approved':'Approved'};
+  var statusColor = { 'draft':'var(--g3)', 'pending-review':'var(--amber)', 'pending-approval':'var(--gold)', 'approved':'var(--sage)' }[status];
+  var html = '<div style="padding:16px 24px;border-top:1px solid var(--g2);background:var(--g1)">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">' +
+      '<div><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.12em;color:var(--g3)">SOP Approval</div>' +
+      '<div style="font-size:14px;font-weight:600;color:'+statusColor+';margin-top:2px">' + statusMap[status] + '</div></div>' +
+      (a.approved && (role === 'admin' || role === 'qa') ? '<button class="btn btn-outline btn-sm" onclick="resetBSOPApproval(\''+sop.id+'\')" style="font-size:11px">↺ Reset</button>' : '') +
+    '</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">' +
+      card('prepared', 'Stage 1 · Prepared by', 'NPD / QA', a.prepared, _canSignBSOPStage('prepared'), false) +
+      card('reviewed', 'Stage 2 · Reviewed by', 'OPS',       a.reviewed, _canSignBSOPStage('reviewed'), !a.prepared) +
+      card('approved', 'Stage 3 · Approved by', 'QA',        a.approved, _canSignBSOPStage('approved'), !a.reviewed) +
+    '</div>' +
+  '</div>';
+  return html;
+}
+
 function viewBranchSOP(id) {
   const sop = BRANCH_SOPS.find(s => s.id === id);
   if (!sop) return;
@@ -15629,6 +15737,9 @@ function viewBranchSOP(id) {
 
       <!-- Allergens & Nutrition -->
       ${getBranchSOPAllergenNutritionHTML(sop)}
+
+      <!-- 3-stage approval: Prepared (NPD/QA) → Reviewed (OPS) → Approved (QA) -->
+      ${renderBSOPApprovalUI(sop)}
 
       <!-- Footer -->
       <div style="padding:10px 20px;text-align:right;font-size:11px;color:var(--g3);font-family:var(--font-m)">
