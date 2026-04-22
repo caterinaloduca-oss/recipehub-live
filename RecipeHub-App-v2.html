@@ -909,7 +909,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
   <div class="filter-bar">
     <div class="search-wrap">
       <span class="search-icon">⌕</span>
-      <input class="search-input" placeholder="Search recipes, NPD codes, ingredients…" id="recipe-search" oninput="filterRecipes()" />
+      <input class="search-input" placeholder="Search recipes, NPD codes, Recipe IDs, ingredients…" id="recipe-search" oninput="filterRecipes()" />
     </div>
     <select class="filter-select" id="recipe-filter-brand" onchange="filterRecipes()"><option>All Brands</option></select>
     <select class="filter-select" id="recipe-filter-status" onchange="filterRecipes()"><option>All Statuses</option><option>Draft</option><option>In Review</option><option>Factory Trial</option><option>Production Trial</option><option>Approved</option><option>Archived</option></select>
@@ -922,7 +922,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
     <div class="card-body" style="padding:0">
       <table class="data-table">
         <thead><tr>
-          <th>Recipe Name</th><th>NPD Code</th><th>Brand</th><th>Type</th><th>Version</th><th>Cost/kg</th><th>Updated</th><th>Status</th><th></th>
+          <th>Recipe Name</th><th>Codes</th><th>Brand</th><th>Type</th><th>Version</th><th>Cost/kg</th><th>Updated</th><th>Status</th><th></th>
         </tr></thead>
         <tbody id="recipes-tbody">
           <!-- populated by JS -->
@@ -1853,6 +1853,176 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
         <div style="margin-top:16px;padding:12px;border-radius:8px;background:#FEF3E2;border:1px solid #F5D5A0;font-size:12px;color:var(--amber);display:flex;align-items:center;gap:8px">
           <span style="font-size:16px">ℹ️</span>
           <span>Sensory evaluation is tracked outside RecipeHub. R&D confirms sensory results are acceptable before approving.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Code System Divider -->
+    <div style="border-top:2px solid var(--g1);margin:40px 0;position:relative">
+      <span style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--bg);padding:0 16px;font-size:11px;color:var(--g3);text-transform:uppercase;letter-spacing:0.1em;font-weight:500">Code System</span>
+    </div>
+
+    <div style="text-align:center;margin-bottom:24px">
+      <h2 style="font-family:var(--font-d);font-size:24px;color:var(--navy);margin:0 0 6px">How Codes Work in the Factory</h2>
+      <p style="font-size:13px;color:var(--g3);margin:0">Two codes track every product — the NPD code (R&D) and the Recipe ID (Factory)</p>
+    </div>
+
+    <!-- NPD → Recipe ID Lifecycle -->
+    <div class="card" style="margin-bottom:24px">
+      <div class="card-head">
+        <span class="card-title">NPD Code → Recipe ID Lifecycle</span>
+        <span style="font-size:11px;color:var(--g3)">Which code is active at each stage</span>
+      </div>
+      <div class="card-body" style="padding:0;overflow-x:auto">
+        <table class="data-table" style="min-width:700px">
+          <thead>
+            <tr>
+              <th style="width:180px">Stage</th>
+              <th style="width:140px">Who owns it</th>
+              <th>Code in use</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="badge badge-draft">1 · NPD Draft</span></td>
+              <td style="font-size:12px">NPD team</td>
+              <td style="font-size:12px"><code style="background:var(--g1);padding:2px 6px;border-radius:4px;font-size:11px">2026-220</code> <span style="color:var(--g3);font-size:11px">· NPD code only</span></td>
+              <td style="font-size:12px;color:var(--g4)">Recipe is a concept, not yet producible</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-review">2 · R&D Sign-off</span></td>
+              <td style="font-size:12px">NPD + QA</td>
+              <td style="font-size:12px"><code style="background:var(--g1);padding:2px 6px;border-radius:4px;font-size:11px">2026-220</code> <span style="color:var(--g3);font-size:11px">· NPD code</span></td>
+              <td style="font-size:12px;color:var(--g4)">Ingredients validated, costing estimate done</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-trial">3 · Factory Trial</span></td>
+              <td style="font-size:12px">Production</td>
+              <td style="font-size:12px"><code style="background:var(--g1);padding:2px 6px;border-radius:4px;font-size:11px">2026-220</code> <span style="color:var(--g3);font-size:11px">· NPD code still</span></td>
+              <td style="font-size:12px;color:var(--g4)">Factory runs first trial, collects feedback</td>
+            </tr>
+            <tr style="background:#FFF9E6">
+              <td><span class="badge badge-prod-trial">4 · Prod Trial / Passed</span></td>
+              <td style="font-size:12px"><strong>Factory assigns</strong></td>
+              <td style="font-size:12px"><code style="background:var(--g1);padding:2px 6px;border-radius:4px;font-size:11px">2026-220</code> + <code style="background:#E8F5E9;padding:2px 6px;border-radius:4px;font-size:11px;color:#1B5E20">211_BCS v1</code></td>
+              <td style="font-size:12px;color:var(--g4)"><strong>Recipe ID is created here</strong> — enters production portfolio</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-approved">5 · Active Production</span></td>
+              <td style="font-size:12px">Both</td>
+              <td style="font-size:12px"><code style="background:var(--g1);padding:2px 6px;border-radius:4px;font-size:11px">2026-220</code> + <code style="background:#E8F5E9;padding:2px 6px;border-radius:4px;font-size:11px;color:#1B5E20">211_BCS v1</code></td>
+              <td style="font-size:12px;color:var(--g4)">Recipe ID is operational; NPD kept as historical tracker (recall, audit)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Factory Codification Reference -->
+    <div class="card" style="margin-bottom:24px">
+      <div class="card-head">
+        <span class="card-title">Factory Codification</span>
+        <span style="font-size:11px;color:var(--g3)">415 active codes · reference</span>
+      </div>
+      <div class="card-body" style="padding:20px">
+
+        <!-- Recipe lines -->
+        <div style="margin-bottom:20px">
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--g3);font-weight:600;margin-bottom:10px">Recipes — 153 codes</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div style="padding:12px;border-radius:8px;background:#E8F5E9;border:1px solid #C8E6C9">
+              <div style="font-family:var(--font-d);font-size:13px;font-weight:600;color:#1B5E20"><code>211_*</code> · Meat Factory line</div>
+              <div style="font-size:11px;color:var(--g4);margin-top:2px">100 recipes</div>
+            </div>
+            <div style="padding:12px;border-radius:8px;background:#FFF3E0;border:1px solid #FFE0B2">
+              <div style="font-family:var(--font-d);font-size:13px;font-weight:600;color:#E65100"><code>212_*</code> · Bakery line</div>
+              <div style="font-size:11px;color:var(--g4);margin-top:2px">53 recipes</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Ingredients -->
+        <div style="margin-bottom:20px">
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--g3);font-weight:600;margin-bottom:10px">Ingredients — 262 codes, grouped by prefix</div>
+
+          <!-- RM Raw Materials -->
+          <details open style="border:1px solid var(--g1);border-radius:8px;margin-bottom:8px">
+            <summary style="padding:10px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--navy);display:flex;justify-content:space-between;align-items:center">
+              <span><code style="background:var(--g1);padding:2px 6px;border-radius:4px;font-size:11px">RM</code> — Raw Materials</span>
+              <span style="font-size:11px;color:var(--g3);font-weight:500">184 codes</span>
+            </summary>
+            <div style="padding:0 14px 14px 14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px;font-size:12px">
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">RMADT</code> <span style="color:var(--g4)">additives, ambient</span> <strong style="color:var(--navy)">· 38</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">RMSET</code> <span style="color:var(--g4)">spices, dry</span> <strong style="color:var(--navy)">· 29</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">RMTOC</code> <span style="color:var(--g4)">tomato/veg, chilled</span> <strong style="color:var(--navy)">· 29</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">RMSAT</code> <span style="color:var(--g4)">sauces, ambient</span> <strong style="color:var(--navy)">· 18</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">RMDPC</code> <span style="color:var(--g4)">dairy, chilled</span> <strong style="color:var(--navy)">· 10</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">RMTOT</code> <span style="color:var(--g4)">tomato/veg, ambient</span> <strong style="color:var(--navy)">· 9</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">RMMPF</code> <span style="color:var(--g4)">meat/protein, frozen</span> <strong style="color:var(--navy)">· 9</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">RMGPT</code> <span style="color:var(--g4)">grain/pasta, ambient</span> <strong style="color:var(--navy)">· 8</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">RMGPA</code> <span style="color:var(--g4)">grain artisanal</span> <strong style="color:var(--navy)">· 7</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">RMTOF</code> <span style="color:var(--g4)">tomato/veg, frozen</span> <strong style="color:var(--navy)">· 5</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">RMMPC</code> <span style="color:var(--g4)">meat/protein, chilled</span> <strong style="color:var(--navy)">· 5</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">RMOLT</code> <span style="color:var(--g4)">oil, ambient</span> <strong style="color:var(--navy)">· 3</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">RMSEA</code> <span style="color:var(--g4)">spice, ambient whole</span> <strong style="color:var(--navy)">· 3</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">RMADA/C/F</code> <span style="color:var(--g4)">additive variants</span> <strong style="color:var(--navy)">· 4</strong></div>
+              <div style="grid-column:1/-1"><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">Other singletons</code> <span style="color:var(--g4)">RMBRT, RMDPT, RMDST, RMBVC, RMSAA, RMSEC, RMGPF</span> <strong style="color:var(--navy)">· 7</strong></div>
+            </div>
+          </details>
+
+          <!-- PM Packaging -->
+          <details style="border:1px solid var(--g1);border-radius:8px;margin-bottom:8px">
+            <summary style="padding:10px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--navy);display:flex;justify-content:space-between;align-items:center">
+              <span><code style="background:var(--g1);padding:2px 6px;border-radius:4px;font-size:11px">PM</code> — Packaging</span>
+              <span style="font-size:11px;color:var(--g3);font-weight:500">42 codes</span>
+            </summary>
+            <div style="padding:0 14px 14px 14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px;font-size:12px">
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">PMPBA</code> <span style="color:var(--g4)">plastic bags</span> <strong style="color:var(--navy)">· 15</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">PMLAA</code> <span style="color:var(--g4)">labels</span> <strong style="color:var(--navy)">· 12</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">PMPFA</code> <span style="color:var(--g4)">film/laminate rolls</span> <strong style="color:var(--navy)">· 10</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">PMOSA</code> <span style="color:var(--g4)">cups, misc</span> <strong style="color:var(--navy)">· 3</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">PMPXA</code> <span style="color:var(--g4)">boxes</span> <strong style="color:var(--navy)">· 2</strong></div>
+            </div>
+          </details>
+
+          <!-- SF Semi-Finished -->
+          <details style="border:1px solid var(--g1);border-radius:8px;margin-bottom:8px">
+            <summary style="padding:10px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--navy);display:flex;justify-content:space-between;align-items:center">
+              <span><code style="background:var(--g1);padding:2px 6px;border-radius:4px;font-size:11px">SF</code> — Semi-Finished</span>
+              <span style="font-size:11px;color:var(--g3);font-weight:500">27 codes</span>
+            </summary>
+            <div style="padding:0 14px 14px 14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px;font-size:12px">
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">SFTOC</code> <span style="color:var(--g4)">vegetable WIPs</span> <strong style="color:var(--navy)">· 18</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">SFSAC</code> <span style="color:var(--g4)">sauce WIPs chilled</span> <strong style="color:var(--navy)">· 3</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">SFSAF</code> <span style="color:var(--g4)">sauce WIPs frozen</span> <strong style="color:var(--navy)">· 3</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">SFSAT</code> <span style="color:var(--g4)">sauce WIPs ambient</span> <strong style="color:var(--navy)">· 1</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">SFCRF / SFTOF</code> <span style="color:var(--g4)">crust/veg frozen</span> <strong style="color:var(--navy)">· 2</strong></div>
+            </div>
+          </details>
+
+          <!-- CO + SC -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <div style="padding:10px 14px;border:1px solid var(--g1);border-radius:8px;display:flex;justify-content:space-between;align-items:center">
+              <span style="font-size:13px;font-weight:600;color:var(--navy)"><code style="background:var(--g1);padding:2px 6px;border-radius:4px;font-size:11px">CO</code> — Consumables / Operational</span>
+              <span style="font-size:11px;color:var(--g3);font-weight:500">5 codes</span>
+            </div>
+            <div style="padding:10px 14px;border:1px solid var(--g1);border-radius:8px;display:flex;justify-content:space-between;align-items:center">
+              <span style="font-size:13px;font-weight:600;color:var(--navy)"><code style="background:var(--g1);padding:2px 6px;border-radius:4px;font-size:11px">SCCRF</code> — Semi-Finished Crust</span>
+              <span style="font-size:11px;color:var(--g3);font-weight:500">4 codes</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Grand total -->
+        <div style="padding:12px 16px;border-radius:8px;background:var(--navy);color:white;display:flex;justify-content:space-between;align-items:center">
+          <span style="font-family:var(--font-d);font-size:13px;font-weight:600">Grand Total</span>
+          <span style="font-family:var(--font-d);font-size:18px;font-weight:700">415 codes</span>
+        </div>
+
+        <div style="margin-top:14px;padding:10px 12px;border-radius:8px;background:#E6F1FB;border:1px solid #B3D4F0;font-size:12px;color:#0C6BA8;display:flex;align-items:start;gap:8px">
+          <span style="font-size:14px">💡</span>
+          <span><strong>How to read a code:</strong> first 2 letters = material family (RM, PM, SF, CO, SC). Letters 3–4 = sub-category. Last letter = storage state (A ambient · C chilled · F frozen · T ambient tray · etc).</span>
         </div>
       </div>
     </div>
@@ -5867,7 +6037,10 @@ function buildRecipesTable() {
     var statusBadge = r.archived ? '<span class="badge badge-draft">Archived</span>' : `<span class="badge badge-${r.status==='approved'?'approved':r.status==='prod-trial'?'prod-trial':r.status==='trial'?'trial':r.status==='review'?'review':'draft'}">${r.status==='approved'?'Approved':r.status==='prod-trial'?'Production Trial':r.status==='trial'?'Factory Trial':r.status==='review'?'In Review':'Draft'}</span>`;
     tr.innerHTML = `
       <td><strong>${r.name}</strong>${(r.tags&&r.tags.length)?'<div style="margin-top:3px">'+renderTagBadges(r.tags)+'</div>':''}</td>
-      <td style="font-family:var(--font-m);font-size:12px;color:var(--g3)">${r.npd}</td>
+      <td style="font-family:var(--font-m);font-size:12px">
+        <div style="color:var(--g3)">${r.npd}</div>
+        ${r.recipeId ? '<div style="color:#2E7D32;font-weight:600;font-size:11px;margin-top:2px">'+r.recipeId+'</div>' : ''}
+      </td>
       <td>${renderBrandChips(r)}</td>
       <td><span class="cat-tag ${r.catClass}">${r.type}</span></td>
       <td><span class="badge badge-navy">${r.version}</span></td>
@@ -7065,6 +7238,7 @@ function viewRecipe(npd) {
           <div style="font-size:10px;font-weight:500;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.4);margin-bottom:4px">${r.brand} · ${r.type}</div>
           <div class="recipe-detail-title" style="font-family:var(--font-d);font-size:26px;font-weight:500;color:white;font-weight:700">${r.name}</div>
           <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-top:4px">${r.npd} · ${r.version} · Updated ${r.updated}${r.createdBy ? ' · Created by '+r.createdBy : ''}</div>
+          ${renderRecipeIdSlot(r, _vrRole)}
           ${(r.tags&&r.tags.length)?'<div style="margin-top:6px">'+r.tags.map(t=>'<span style="display:inline-block;padding:2px 8px;border-radius:40px;font-size:9px;font-weight:500;border:1px solid rgba(255,255,255,0.3);color:rgba(255,255,255,0.7);margin:2px">'+t+'</span>').join('')+'</div>':''}
           ${isCompositeRecipe(r)?'<div style="margin-top:6px"><span style="display:inline-block;padding:2px 10px;border-radius:40px;font-size:10px;font-weight:600;background:var(--gold);color:white">🧩 Composite — '+(r.components||[]).length+' components</span></div>':''}
           ${isSemiFinishedRecipe(r)?'<div style="margin-top:6px"><span style="display:inline-block;padding:2px 10px;border-radius:40px;font-size:10px;font-weight:600;background:#FBF3E0;color:var(--gold)">Semi-Finished</span></div>':''}
@@ -7678,6 +7852,73 @@ function viewRecipe(npd) {
 }
 
 // ──────────── RECIPE STATUS WORKFLOW ────────────
+// Recipe ID (Factory-assigned code, e.g. "211_BCS v1") — NPD code stays as historical tracker
+function recipeStatusReachedProdTrial(status) {
+  return status === 'prod-trial' || status === 'approved';
+}
+function renderRecipeIdSlot(r, role) {
+  var reached = recipeStatusReachedProdTrial(r.status);
+  var canAssign = (role === 'factory' || role === 'admin' || role === 'ops') && reached;
+  var label = '<span style="font-size:9px;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:0.1em;font-weight:600">Factory Recipe ID</span>';
+  var chip;
+  if (r.recipeId) {
+    chip = '<code style="font-size:12px;background:rgba(139,195,74,0.22);color:#C5E1A5;padding:3px 8px;border-radius:4px;font-weight:600;font-family:var(--font-m)">' + r.recipeId + '</code>';
+  } else if (reached) {
+    chip = '<span style="font-size:11px;color:rgba(255,255,255,0.4);font-style:italic">not yet assigned</span>';
+  } else {
+    chip = '<span style="font-size:11px;color:rgba(255,255,255,0.3);font-style:italic">assigned by factory at Prod Trial</span>';
+  }
+  var btn = canAssign
+    ? '<button class="btn btn-sm" style="background:rgba(139,195,74,0.25);color:white;border:1px solid rgba(139,195,74,0.5);font-size:10px;padding:2px 10px" onclick="assignRecipeId(\'' + r.npd + '\')">' + (r.recipeId ? 'Edit' : 'Assign') + '</button>'
+    : '';
+  return '<div style="margin-top:8px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">' + label + chip + btn + '</div>';
+}
+function assignRecipeId(npd) {
+  var r = RECIPE_DB[npd];
+  if (!r) return;
+  var role = getCurrentUserRole();
+  if (role !== 'admin' && role !== 'factory' && role !== 'ops') {
+    showSaveToast('Only Factory / OPS / Admin can assign Recipe ID', true);
+    return;
+  }
+  if (!recipeStatusReachedProdTrial(r.status)) {
+    showSaveToast('Recipe must be at Production Trial or later', true);
+    return;
+  }
+  var current = r.recipeId || '';
+  var hint = 'Factory Recipe ID (e.g. 211_BCS v1 for Meat line, 212_XXX v1 for Bakery)';
+  var input = prompt(hint, current);
+  if (input === null) return;
+  var val = input.trim();
+  if (!val) {
+    if (!current) return;
+    if (!confirm('Remove the Recipe ID? The NPD code ' + r.npd + ' will remain as the only identifier.')) return;
+    delete r.recipeId;
+  } else {
+    // Light validation: must contain at least digits + alpha (prefix like 211_XXX)
+    if (!/^[0-9A-Za-z][0-9A-Za-z _.-]{1,}$/.test(val)) {
+      showSaveToast('Invalid format — use something like 211_BCS v1', true);
+      return;
+    }
+    // Warn if duplicating an existing Recipe ID
+    var dup = Object.values(RECIPE_DB).find(function(x){ return x.npd !== r.npd && x.recipeId && x.recipeId.toLowerCase() === val.toLowerCase(); });
+    if (dup) {
+      if (!confirm('Recipe ID "' + val + '" is already used by ' + dup.name + ' (' + dup.npd + '). Use it anyway?')) return;
+    }
+    r.recipeId = val;
+  }
+  r.updated = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+  r.updatedAt = new Date().toISOString();
+  if (!r.changeLog) r.changeLog = [];
+  r.changeLog.push({date:new Date().toISOString(), by:getCurrentUserName(), changes:(val ? 'Recipe ID assigned: ' + val : 'Recipe ID removed')});
+  logActivity('status', '🏷️', r.name + (val ? ' · Recipe ID ' + val : ' · Recipe ID removed'), 'By ' + getCurrentUserName(), 'all');
+  var tbody = document.getElementById('recipes-tbody');
+  if (tbody) { tbody.innerHTML = ''; buildRecipesTable(); }
+  viewRecipe(npd);
+  saveAllDataNow();
+  showSaveToast(val ? 'Recipe ID saved' : 'Recipe ID removed');
+}
+
 function setRecipeStatus(npd, newStatus) {
   const r = RECIPE_DB[npd];
   if (!r) return;
