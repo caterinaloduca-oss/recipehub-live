@@ -1860,7 +1860,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
               <span>🧪</span><span><strong style="color:var(--navy)">R&D moves it</strong></span>
             </div>
             <div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:6px;background:#E6F1FB;border:1px solid #B3D4F0;font-size:12px">
-              <span>📅</span><span style="color:#0C6BA8"><strong>Auto-action:</strong> 150 kg Factory Trial run is scheduled</span>
+              <span>📅</span><span style="color:#0C6BA8"><strong>Auto-action:</strong> Factory Trial run is scheduled</span>
             </div>
           </div>
         </div>
@@ -1880,7 +1880,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
               <span>🏭</span><span style="color:#1B5E20"><strong>Factory assigns Recipe ID</strong> <span style="color:var(--g3)">(e.g. 211_BCS v1)</span></span>
             </div>
             <div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:6px;background:#E6F1FB;border:1px solid #B3D4F0;font-size:12px">
-              <span>📅</span><span style="color:#0C6BA8"><strong>Auto-action:</strong> 400 kg Prod Trial run is scheduled</span>
+              <span>📅</span><span style="color:#0C6BA8"><strong>Auto-action:</strong> Prod Trial run is scheduled</span>
             </div>
           </div>
         </div>
@@ -1911,7 +1911,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
         <!-- Role gate note -->
         <div style="margin-top:16px;padding:10px 12px;border-radius:8px;background:#F3E8FD;border:1px solid #D5C0EB;font-size:12px;color:#5E35B1;display:flex;align-items:center;gap:8px">
           <span style="font-size:14px">🔐</span>
-          <span><strong>Role gate:</strong> only R&D and Admin can move a recipe between stages. Only Factory / OPS / Admin can assign the Recipe ID. QA sign-off must be entered from the QA page.</span>
+          <span><strong>Role gate:</strong> only R&D and Admin can move a recipe between stages. Only Factory or Admin can assign the Recipe ID. QA sign-off must be entered from the QA page.</span>
         </div>
 
         <!-- Sensory note -->
@@ -7927,7 +7927,7 @@ function canAssignRecipeIdNow(r) {
 }
 function renderRecipeIdSlot(r, role) {
   var canAssignStage = canAssignRecipeIdNow(r);
-  var canAssign = (role === 'factory' || role === 'admin' || role === 'ops') && canAssignStage;
+  var canAssign = (role === 'factory' || role === 'admin') && canAssignStage;
   var label = '<span style="font-size:9px;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:0.1em;font-weight:600">Factory Recipe ID</span>';
   var chip;
   if (r.recipeId) {
@@ -7948,8 +7948,8 @@ function assignRecipeId(npd) {
   var r = RECIPE_DB[npd];
   if (!r) return;
   var role = getCurrentUserRole();
-  if (role !== 'admin' && role !== 'factory' && role !== 'ops') {
-    showSaveToast('Only Factory / OPS / Admin can assign Recipe ID', true);
+  if (role !== 'admin' && role !== 'factory') {
+    showSaveToast('Only Factory or Admin can assign Recipe ID', true);
     return;
   }
   if (!canAssignRecipeIdNow(r)) {
