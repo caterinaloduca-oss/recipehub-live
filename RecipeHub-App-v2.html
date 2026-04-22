@@ -1165,8 +1165,8 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
     </div>
     <div style="display:grid;grid-template-columns:repeat(5,1fr);border-top:1px solid var(--g2)">
       <div style="padding:14px 20px;border-right:1px solid var(--g2)"><div style="font-size:9px;font-weight:500;text-transform:uppercase;letter-spacing:0.12em;color:var(--g3);margin-bottom:4px">Brand</div><div style="font-size:14px;font-weight:600;color:var(--navy)">Maestro</div></div>
-      <div style="padding:14px 20px;border-right:1px solid var(--g2)"><div style="font-size:9px;font-weight:500;text-transform:uppercase;letter-spacing:0.12em;color:var(--g3);margin-bottom:4px">Batch Size</div><div style="font-size:14px;font-weight:600;font-family:var(--font-m);color:var(--navy)">400 kg</div></div>
-      <div style="padding:14px 20px;border-right:1px solid var(--g2)"><div style="font-size:9px;font-weight:500;text-transform:uppercase;letter-spacing:0.12em;color:var(--g3);margin-bottom:4px">Scale Factor</div><div style="font-size:14px;font-weight:600;font-family:var(--font-m);color:var(--navy)">×400</div></div>
+      <div style="padding:14px 20px;border-right:1px solid var(--g2)"><div style="font-size:9px;font-weight:500;text-transform:uppercase;letter-spacing:0.12em;color:var(--g3);margin-bottom:4px">Batch Size</div><div style="font-size:14px;font-weight:600;font-family:var(--font-m);color:var(--navy)">Per run</div></div>
+      <div style="padding:14px 20px;border-right:1px solid var(--g2)"><div style="font-size:9px;font-weight:500;text-transform:uppercase;letter-spacing:0.12em;color:var(--g3);margin-bottom:4px">Scale Factor</div><div style="font-size:14px;font-weight:600;font-family:var(--font-m);color:var(--navy)">×N</div></div>
       <div style="padding:14px 20px;border-right:1px solid var(--g2)"><div style="font-size:9px;font-weight:500;text-transform:uppercase;letter-spacing:0.12em;color:var(--g3);margin-bottom:4px">Storage</div><div style="font-size:14px;font-weight:600;color:var(--navy)">Frozen −18°C</div></div>
       <div style="padding:14px 20px"><div style="font-size:9px;font-weight:500;text-transform:uppercase;letter-spacing:0.12em;color:var(--g3);margin-bottom:4px">Shelf Life</div><div style="font-size:14px;font-weight:600;color:var(--navy)">12 Months</div></div>
     </div>
@@ -1303,7 +1303,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
     <!-- Right column: Batch ticket + sign-off -->
     <div>
       <div class="card" style="margin-bottom:20px">
-        <div class="card-head"><span class="card-title">Batch Ticket</span><span style="font-size:11px;color:var(--g3);font-family:var(--font-m)">400 kg target</span></div>
+        <div class="card-head"><span class="card-title">Batch Ticket</span><span style="font-size:11px;color:var(--g3);font-family:var(--font-m)">Target per run</span></div>
         <div class="card-body" style="padding:0">
           <table class="data-table" style="font-size:12px">
             <thead><tr><th>Ingredient</th><th style="text-align:right">kg</th><th style="text-align:right">Weighed</th></tr></thead>
@@ -1581,8 +1581,8 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
       </div>
     </div>
     <div class="card-body" style="padding:0;overflow-x:auto">
-      <table class="data-table" style="min-width:900px">
-        <colgroup><col style="width:80px"><col><col style="width:60px"><col style="width:90px"><col style="width:100px"><col style="width:70px"><col style="width:90px"><col style="width:90px"><col style="width:160px"></colgroup>
+      <table class="data-table" style="min-width:900px;table-layout:fixed">
+        <colgroup><col style="width:80px"><col style="width:32%"><col style="width:60px"><col style="width:100px"><col style="width:110px"><col style="width:90px"><col style="width:120px"><col style="width:100px"><col style="width:170px"></colgroup>
         <thead><tr><th>Sent</th><th>Recipe</th><th>Waiting</th><th>Scheduled</th><th>Stage</th><th>Batch</th><th>Responsible</th><th>Status</th><th></th></tr></thead>
         <tbody id="prod-tbody"></tbody>
       </table>
@@ -14605,7 +14605,7 @@ function editProductionRun(id) {
     '<div class="card-body" style="padding:24px">' +
       '<div class="form-grid form-grid-3" style="margin-bottom:16px">' +
         '<div class="form-group"><label class="form-label">Scheduled Date</label><input class="form-input" type="date" id="ep-date" value="'+run.date+'" /></div>' +
-        '<div class="form-group"><label class="form-label">Batch Size</label><input class="form-input" id="ep-batch" value="'+run.batchSize+'" placeholder="e.g. 150 kg" /></div>' +
+        '<div class="form-group"><label class="form-label">Batch Size</label><input class="form-input" id="ep-batch" value="'+run.batchSize+'" placeholder="Batch weight" /></div>' +
         '<div class="form-group"><label class="form-label">Responsible</label><input class="form-input" id="ep-operator" value="'+(run.operator||'')+'" placeholder="Name" /></div>' +
       '</div>' +
       '<div class="form-group" style="margin-bottom:16px"><label class="form-label">Description / Notes</label><textarea class="form-textarea" id="ep-notes" style="min-height:60px">'+(run.notes||'')+'</textarea></div>' +
