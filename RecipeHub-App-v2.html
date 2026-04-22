@@ -1903,10 +1903,10 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
               <td style="font-size:12px;color:var(--g4)">Factory runs first trial, collects feedback</td>
             </tr>
             <tr style="background:#FFF9E6">
-              <td><span class="badge badge-prod-trial">4 · Prod Trial / Passed</span></td>
+              <td><span class="badge badge-trial">4 · Trial Passed</span></td>
               <td style="font-size:12px"><strong>Factory assigns</strong></td>
               <td style="font-size:12px"><code style="background:var(--g1);padding:2px 6px;border-radius:4px;font-size:11px">2026-220</code> + <code style="background:#E8F5E9;padding:2px 6px;border-radius:4px;font-size:11px;color:#1B5E20">211_BCS v1</code></td>
-              <td style="font-size:12px;color:var(--g4)"><strong>Recipe ID is created here</strong> — enters production portfolio</td>
+              <td style="font-size:12px;color:var(--g4)"><strong>Factory adds the Recipe ID here</strong>, before R&D moves the recipe to Prod Trial</td>
             </tr>
             <tr>
               <td><span class="badge badge-approved">5 · Active Production</span></td>
@@ -7852,24 +7852,30 @@ function viewRecipe(npd) {
 }
 
 // ──────────── RECIPE STATUS WORKFLOW ────────────
-// Recipe ID (Factory-assigned code, e.g. "211_BCS v1") — NPD code stays as historical tracker
-function recipeStatusReachedProdTrial(status) {
-  return status === 'prod-trial' || status === 'approved';
+// Recipe ID (Factory-assigned code, e.g. "211_BCS v1") — NPD code stays as historical tracker.
+// Factory assigns it once Factory Trial QA has signed off, BEFORE R&D moves the recipe to Prod Trial.
+function canAssignRecipeIdNow(r) {
+  if (!r) return false;
+  if (r.status === 'prod-trial' || r.status === 'approved') return true;
+  if (r.status === 'trial' && r.trialQA && r.trialQA.signed) return true;
+  return false;
 }
 function renderRecipeIdSlot(r, role) {
-  var reached = recipeStatusReachedProdTrial(r.status);
-  var canAssign = (role === 'factory' || role === 'admin' || role === 'ops') && reached;
+  var canAssignStage = canAssignRecipeIdNow(r);
+  var canAssign = (role === 'factory' || role === 'admin' || role === 'ops') && canAssignStage;
   var label = '<span style="font-size:9px;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:0.1em;font-weight:600">Factory Recipe ID</span>';
   var chip;
   if (r.recipeId) {
     chip = '<code style="font-size:12px;background:rgba(139,195,74,0.22);color:#C5E1A5;padding:3px 8px;border-radius:4px;font-weight:600;font-family:var(--font-m)">' + r.recipeId + '</code>';
-  } else if (reached) {
-    chip = '<span style="font-size:11px;color:rgba(255,255,255,0.4);font-style:italic">not yet assigned</span>';
+  } else if (canAssignStage) {
+    chip = '<span style="font-size:11px;color:#FFB74D;font-weight:500">⚠ factory action needed — assign code to advance to Prod Trial</span>';
+  } else if (r.status === 'trial') {
+    chip = '<span style="font-size:11px;color:rgba(255,255,255,0.35);font-style:italic">awaiting Factory Trial QA sign-off</span>';
   } else {
-    chip = '<span style="font-size:11px;color:rgba(255,255,255,0.3);font-style:italic">assigned by factory at Prod Trial</span>';
+    chip = '<span style="font-size:11px;color:rgba(255,255,255,0.3);font-style:italic">factory assigns after Factory Trial passes</span>';
   }
   var btn = canAssign
-    ? '<button class="btn btn-sm" style="background:rgba(139,195,74,0.25);color:white;border:1px solid rgba(139,195,74,0.5);font-size:10px;padding:2px 10px" onclick="assignRecipeId(\'' + r.npd + '\')">' + (r.recipeId ? 'Edit' : 'Assign') + '</button>'
+    ? '<button class="btn btn-sm" style="background:rgba(139,195,74,0.3);color:white;border:1px solid rgba(139,195,74,0.55);font-size:10px;padding:2px 10px" onclick="assignRecipeId(\'' + r.npd + '\')">' + (r.recipeId ? 'Edit' : 'Assign') + '</button>'
     : '';
   return '<div style="margin-top:8px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">' + label + chip + btn + '</div>';
 }
@@ -7881,8 +7887,8 @@ function assignRecipeId(npd) {
     showSaveToast('Only Factory / OPS / Admin can assign Recipe ID', true);
     return;
   }
-  if (!recipeStatusReachedProdTrial(r.status)) {
-    showSaveToast('Recipe must be at Production Trial or later', true);
+  if (!canAssignRecipeIdNow(r)) {
+    showSaveToast('Recipe must have passed Factory Trial (QA signed off)', true);
     return;
   }
   var current = r.recipeId || '';
@@ -7934,6 +7940,11 @@ function setRecipeStatus(npd, newStatus) {
   // QA gate: Factory Trial → Production Trial requires QA sign-off
   if (newStatus === 'prod-trial' && !(r.trialQA && r.trialQA.signed)) {
     showSaveToast('QA must sign off Factory Trial results first', true);
+    return;
+  }
+  // Factory gate: Factory Trial → Production Trial requires Factory to have assigned a Recipe ID
+  if (newStatus === 'prod-trial' && !r.recipeId) {
+    showSaveToast('Factory must assign a Recipe ID before moving to Production Trial', true);
     return;
   }
   // Approval gate: Production Trial → Approved requires QA + all data
