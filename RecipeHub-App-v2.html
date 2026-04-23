@@ -13976,6 +13976,10 @@ function saveEditBuild(id) {
 function deleteBuild(id) {
   var b = BUILDS_DATA.find(x => x.id === id);
   if (!b) return;
+  var linkedSOPs = BRANCH_SOPS.filter(function(s){ return s.buildRef === id; });
+  var cascadeNote = linkedSOPs.length
+    ? '<div style="background:#FEF3E2;border:1px solid #F5D5A0;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--amber);text-align:left"><strong>⚠ Cascade:</strong> '+linkedSOPs.length+' linked Branch SOP'+(linkedSOPs.length===1?'':'s')+' will also be deleted:<ul style="margin:6px 0 0 18px;padding:0">'+linkedSOPs.map(function(s){return '<li>'+s.name+'</li>'}).join('')+'</ul></div>'
+    : '';
   openModal(
     '<div class="card-head" style="background:var(--red);border-radius:16px 16px 0 0">' +
       '<span class="card-title" style="color:white">Delete Build</span>' +
@@ -13984,10 +13988,11 @@ function deleteBuild(id) {
     '<div class="card-body" style="padding:24px;text-align:center">' +
       '<div style="font-size:36px;margin-bottom:12px">⚠</div>' +
       '<div style="font-size:14px;font-weight:500;margin-bottom:6px">Delete <strong>'+b.name+'</strong>?</div>' +
-      '<div style="font-size:13px;color:var(--g4);margin-bottom:20px">This cannot be undone.</div>' +
+      '<div style="font-size:13px;color:var(--g4);margin-bottom:14px">This cannot be undone.</div>' +
+      cascadeNote +
       '<div style="display:flex;gap:10px;justify-content:center">' +
         '<button class="btn btn-outline" onclick="closeModal()">Cancel</button>' +
-        '<button class="btn" style="background:var(--red);color:white" onclick="confirmDeleteBuild(\''+id+'\')">Delete</button>' +
+        '<button class="btn" style="background:var(--red);color:white" onclick="confirmDeleteBuild(\''+id+'\')">Delete'+(linkedSOPs.length?' Build + '+linkedSOPs.length+' SOP'+(linkedSOPs.length===1?'':'s'):'')+'</button>' +
       '</div>' +
     '</div>'
   );
@@ -14004,11 +14009,22 @@ function closeBuildDetail() {
 }
 
 function confirmDeleteBuild(id) {
+  var b = BUILDS_DATA.find(x => x.id === id);
+  var buildName = b ? b.name : id;
+  // Cascade: drop any Branch SOPs linked to this build and record their IDs so
+  // the server-side deletedSOPIds guard keeps them gone even if a stale client syncs.
+  var orphanIds = BRANCH_SOPS.filter(function(s){ return s.buildRef === id; }).map(function(s){ return s.id; });
+  if (orphanIds.length) {
+    BRANCH_SOPS = BRANCH_SOPS.filter(function(s){ return s.buildRef !== id; });
+    orphanIds.forEach(function(sid){ if (_deletedSOPIds.indexOf(sid) === -1) _deletedSOPIds.push(sid); });
+    buildBranchSOPTable();
+    logActivity('sop', '🗑️', 'Cascade: deleted '+orphanIds.length+' Branch SOP'+(orphanIds.length===1?'':'s')+' linked to build "'+buildName+'"');
+  }
   BUILDS_DATA = BUILDS_DATA.filter(x => x.id !== id);
   closeModal();
   buildBuildsTable();
   closeBuildDetail();
-  showSaveToast('Build deleted');
+  showSaveToast('Build deleted' + (orphanIds.length ? ' + '+orphanIds.length+' linked SOP'+(orphanIds.length===1?'':'s') : ''));
   saveAllData();
 }
 
