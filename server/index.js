@@ -342,6 +342,15 @@ app.post('/api/data', requireAuth, (req, res) => {
         Object.keys(body.recipes).forEach(k => { if (deletedRecs.has(k)) delete body.recipes[k]; });
       }
     }
+    // Same protection for deletedBuildIds. Without this, a stale client that still has
+    // a deleted build in its local BUILDS_DATA will resurrect it on the next push.
+    if (existing && existing.data && Array.isArray(existing.data.deletedBuildIds)) {
+      body.deletedBuildIds = Array.from(new Set([...(body.deletedBuildIds || []), ...existing.data.deletedBuildIds]));
+    }
+    if (body.builds && body.deletedBuildIds && body.deletedBuildIds.length) {
+      const deletedBuilds = new Set(body.deletedBuildIds);
+      body.builds = body.builds.filter(b => !deletedBuilds.has(b.id));
+    }
     const savedAt = db.setState(JSON.stringify(body), body.dataVersion || 0);
     res.json({ ok: true, savedAt });
   } catch (err) {
