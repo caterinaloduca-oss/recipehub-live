@@ -1,304 +1,122 @@
-# CLAUDE.md — RecipeHub
+# CLAUDE.md — Daily Food SA Workspace
 
 This file provides guidance to Claude Code when working with code in this repository.
 
 ## Project Overview
 
-**RecipeHub** is the recipe management platform for **Daily Food SA** — a food manufacturing company with 6 brands (Maestro, Mad, Pinzatta, Tivo, Telliano, Mano di Pasta). The app manages the full lifecycle from recipe creation to production approval.
+This is the **Daily Food SA** internal tools workspace containing three independent applications:
 
-Hosted at `recipehub.dailyfoodsa.com`. Internal tool for `@dailyfoodsa.com` employees.
+- **RecipeHub** (`recipe hub/`) — Recipe management platform for food manufacturing
+- **SensoryHub** (`sensoryhub/`) — Sensory Master Tester Championship management app
+- **Taste Check** (`Sensory Hub/tastecheck/`) — Weekly sensory evaluation recording tool
 
-## Architecture
+All apps are internal tools for Daily Food SA employees, authenticated via `@dailyfoodsa.com` email addresses.
 
-Single-file HTML application (`RecipeHub-App-v2.html`, ~15K lines) + Node/Express backend (`server/`, ~850 lines).
+## RecipeHub
 
-- **State**: Dual persistence — `localStorage` (instant/offline) + shared server via `saveAllData()` / `syncFromServer()`
-- **Backend**: Node/Express + SQLite on VPS at port 3002, proxied via nginx at `/api/`
-- **Integrations**: Oracle EBS via MCP gateway (`gateway.dailyfoodsa.com`), USDA FoodData Central (nutrition), Gmail (notifications)
-- **UI**: Vanilla JS with DOM manipulation. Sidebar navigation switches between pages
-- **Styling**: CSS custom properties in `:root` (navy/gold/sage theme, Outfit + DM Sans fonts)
+Single-file HTML application (`RecipeHub-App-v2.html`, ~12.7K lines) + Node/Express backend (`server/`).
 
-### Server (`server/`)
+- **Full docs**: See `recipe hub/CLAUDE.md` for architecture, workflows, roles, and critical rules
+- **Section map**: See `recipe hub/RECIPEHUB-MAP.md` for line-by-line navigation
+- **Live**: `recipehub.dailyfoodsa.com`
+- **Deploy**: Push to `main` triggers GitHub Actions SCP to VPS
+- **Backend**: Node/Express + SQLite on VPS port 3002, bearer token auth, nginx proxy at `/api/`
 
-Node/Express API with SQLite storing the entire app state as a single JSON document.
+### Key Workflows
+- **Recipe lifecycle**: Draft → In Review → Factory Trial → Prod Trial → Approved (R&D drives, QA gates). **Factory must assign a Recipe ID (e.g. `211_BCS v1`) before R&D can move Factory Trial → Prod Trial** — the NPD code stays as historical tracker
+- **Production runs**: Pending → Scheduled → Completed (Factory manages dates/completion)
+- **Food cost**: Ingredient cost (auto from DB or manual override) → yield-adjusted → portion cost → food cost %
+- **Branch SOPs**: Color-coded per brand, components with 2nd shelf life, print view. Deleting a Build now cascade-deletes its linked Branch SOPs
+- **7 roles**: Admin, R&D (`npd`), QA, Factory, OPS, Purchasing, Viewer — OPS is branches-only (never include in factory/recipe/QA permissions)
 
-- `server/index.js` — Express app with endpoints for data, EBS search, USDA nutrition, email notifications, document library, communications
-- `server/db.js` — SQLite setup, single-row document store with WAL mode
-- `server/data/recipehub.db` — SQLite database file (gitignored)
-- **Gateway key**: `df_svc_ls8XudEeqGUeLMIF4nFBVYhjMO668s-T4nqbAYOHyqM` (IP-locked to VPS)
-- **USDA key**: `JJy37GOw4VaboMD3l8o1gyVlYMCQYUmkUjDEakl9`
-- **Systemd**: `recipehub-api.service` on VPS, auto-restarts, port 3002
-- **Nginx**: `/api/` proxied to `127.0.0.1:3002`, `/server/` blocked (403), `/docs/` serves library uploads, no-cache headers on HTML to prevent stale deploys
+### Key Data Conventions
+- **`npd` field** is the recipe's primary key. Two formats live in prod: `YYYY-NNN` for R&D-pipeline recipes (auto-generated), and `211_XXX` / `212_XXX` for factory codes (Meat / Bakery lines) brought in via bulk import
+- **`recipeId`** is the versioned factory code (`211_BCS v1`), assigned by Factory at the Trial-Passed gate; displayed as a green chip on the recipe detail
+- **Ingredient shape** carries `itemCode` (Oracle EBS code, e.g. `RMADT0013`) and `type` (Main / Packaging / Batter / Predust / …) alongside `name` + `pct`. Rendered as a small grey pill next to the ingredient name
+- **Bulk-import tag**: imported recipes carry `source: "bulk_import_2026-04"` + `importedAt`. Filter by that field for surgical rollback, never by the `[IMPORT]` title prefix (user-editable). 153 factory recipes imported 2026-04-23 via `~/recipe-hub-dev/bulk_import_recipes.py`; full backup + snapshot + rollback plan in `~/recipe-hub-dev/backups/` and `~/recipe-hub-dev/ROLLBACK.md`
+- **Delete protection**: `deletedRecipeIds`, `deletedSOPIds`, `deletedBuildIds` are merged server-side on every `POST /api/data` — stale tabs cannot resurrect deleted entries. Seed-re-add paths on client also filter against these lists
 
-### Server Endpoints
+### Quick Start
+1. Edit `RecipeHub-App-v2.html` and push. No install needed for the frontend.
+2. Server: `cd server && npm install && node index.js`
+3. Use `RECIPEHUB-MAP.md` to find the right section — don't read the full file.
 
-| Endpoint | Method | Auth | Purpose |
-|---|---|---|---|
-| `/api/health` | GET | No | Health check |
-| `/api/data` | GET | Yes | Load shared app state |
-| `/api/data` | POST | Yes | Save shared app state (with server-side dedup) |
-| `/api/ebs/search?q=` | GET | Yes | Search EBS for ingredients with per-kg pricing |
-| `/api/nutrition/search?q=` | GET | Yes | Search USDA for nutritional data |
-| `/api/nutrition/recipe?npd=` | GET | Yes | Calculate full recipe nutrition from USDA |
-| `/api/notify` | POST | Yes | Send workflow email notification |
-| `/api/comms/send` | POST | Yes | Send admin email to team |
-| `/api/library/upload` | POST | Yes | Upload document to library |
-| `/api/img/upload` | POST | Yes | Upload image file, returns URL path |
-| `/api/recipe/:npd` | POST | Yes | Save single recipe by NPD code (per-item save) |
-| `/api/build/:id` | POST | Yes | Save single build by ID (per-item save) |
-| `/api/branchsop/:id` | POST | Yes | Save single Branch SOP by ID (per-item save) |
+## SensoryHub
 
-### Sync Mechanism
+Vite + React 19 app with Express + SQLite backend on VPS (pm2).
 
-- `saveAllData()` saves to localStorage immediately, then POSTs to server (throttled, 3s)
-- `saveAllDataNow()` saves immediately (no throttle) — used for photo uploads
-- `forceRefreshFromServer()` pulls from server instantly and rebuilds all UI (Refresh Data button)
-- `_hasLoadedFromServer` flag prevents pushing empty data before first sync
-- `syncFromServer()` pulls from server every 2 minutes, hydrates if server is newer
-- Sync skips if `_localDirty`, `_savingToServer`, or `_sopEditTimer` active
-- `beforeunload` uses `navigator.sendBeacon()` for last-save attempt
-- Auto-save timer DISABLED — only user actions trigger saves (prevents idle laptops overwriting data)
-- **Per-item saves**: recipes, builds, and Branch SOPs save individually via dedicated endpoints — prevents multi-user overwrites
-- Server deduplicates Branch SOPs (by ID + name), Builds (by ID), Users (by email, @dailyfoodsa.com only)
+- **Full docs**: See `sensoryhub/CLAUDE.md` for details
+- **Section map**: See `sensoryhub/SENSORYHUB-MAP.md` for App.jsx navigation
+- **Live**: `sensoryhub.dailyfoodsa.com`
+- **Local path**: `/Users/caterina/Desktop/Documents/Projects/sensoryhub/` (not under `Sensory Hub/` anymore)
+- **Backend**: `/opt/sensoryhub-api/` on VPS 80.238.219.206, port 3001, pm2 process `sensoryhub-api`, nginx proxy at `/api/`
+- **Auth**: bearer token (`API_TOKEN` env) — must match `VITE_API_TOKEN` baked into frontend build
 
-### Server-Side Merge (Multi-User)
-
-The POST `/api/data` endpoint merges incoming data with existing server data to prevent overwrites:
-- **Images**: recipe media, SOP step photos, build photos, Branch SOP step photos — preserves existing if incoming is null/empty
-- **Media arrays**: recipe media, QA files — combines by filename, dedupes
-- **Library docs**: combined by URL, deduped
-- **Comms log**: combined by timestamp, deduped
-- **Activity log**: combined by timestamp, capped at 200 entries
-
-### Image Storage
-
-Images upload to `/api/img/upload` → saved as files in `/docs/img/` on VPS disk, served by nginx. Data stores URL paths (e.g. `/docs/img/build-BLD-001.jpg`), not base64. Compressed to 600px max, quality 0.6 via canvas before upload.
-
-### Pages (sidebar order)
-
-**Main**: Overview, Recipes, Product Builds, Ingredients DB
-**Quality & Production**: QA Lab Results, Factory SOP, Branch SOP, Production Plan
-**Analytics**: Recipe Analytics, Build Analytics, Brands, KPI & Goals
-**Settings**: Workflow, Communications, Library, Users & Access
-
-## Deployment
-
-- GitHub Actions (`.github/workflows/deploy.yml`) SCPs the HTML file to VPS on push to `main`
-- VPS: `80.238.219.206:/var/www/recipehub/`
-- **Manual deploy**: `scp RecipeHub-App-v2.html root@80.238.219.206:/var/www/recipehub/` + copy to `index.html`
-- **Server deploy**: `scp server/index.js` to VPS + `systemctl restart recipehub-api`
-- `RecipeHub-Landing.html` is a separate marketing page
-
-## Recipe Lifecycle
-
-```
-Draft → In Review → Factory Trial → Production Trial → Approved
-         (R&D)        (R&D)            (R&D)            (R&D)
-                                    ↑ QA sign-off     ↑ QA sign-off
-                                                      + Cost + Allergens + Nutrition
+### Quick Start
+```bash
+cd sensoryhub && npm install
+cd server && npm start          # Backend on :3001
+cd .. && npm run dev             # Frontend on :5174 (or 5173)
 ```
 
-- Email notifications sent at every stage change
-- Moving to Factory Trial or Prod Trial auto-creates a Production Run
+### Before Deploying
+1. Bump `APP_VERSION` in `src/App.jsx` (format: `YYYYMMDD-HHMM`)
+2. `VITE_API_TOKEN=<prod-token> npx vite build` — token must match backend's `API_TOKEN`
+3. `rsync -avz dist/ root@80.238.219.206:/var/www/sensoryhub/` — **do NOT use `--delete`**: session PDFs (e.g. `session1_scans.pdf`) live at the webroot and would be wiped.
 
-## Composite Recipes
+### Backend Deploy (when server/ changes)
+1. Snapshot DB first: `ssh root@80.238.219.206 "TS=\$(date +%Y%m%d-%H%M%S); cd /opt/sensoryhub-api/data && cp sensoryhub.db sensoryhub.db.bak-\$TS && cp sensoryhub.db-wal sensoryhub.db-wal.bak-\$TS && cp sensoryhub.db-shm sensoryhub.db-shm.bak-\$TS"`
+2. `rsync -avz server/server.js server/package.json server/package-lock.json root@80.238.219.206:/opt/sensoryhub-api/`
+3. `ssh root@80.238.219.206 "cd /opt/sensoryhub-api && npm install && pm2 restart sensoryhub-api --update-env"`
+4. **SMTP password rotation**: use the in-app **Settings ⚙️ → Email / SMTP** tab (stored in `smtp_config` table, test-before-save). Only edit `/opt/sensoryhub-api/ecosystem.config.cjs` if the in-app flow is broken.
 
-Some recipes are **composites** assembled from sub-recipes rather than raw ingredients (e.g. "Chicken Kickers" = raw chicken + marinade sub-recipe + batter sub-recipe). Shape:
+### Notable Features (v2026-04-19)
+- Hash routing: `/#rsvp`, `/#checkin` deep-link to those pages
+- Comms: emails can attach real meeting invites (ICS with method REQUEST, per-recipient ATTENDEE line). Toggled per-comm via `includeInvite` flag; templates available via Quick Template row
+- Survey Templates (admin): Triangle / Hedonic-JAR / Comparative — **Apply / Edit / Duplicate / Preview** per card; duplicates get new id `copy-{ts}` and open editor
+- **Email / SMTP in-app config**: admin rotates Gmail app password without SSH; DB overrides env vars
+- **Send-email auth fix**: Communications → Send now includes Bearer token (was silently 401'ing)
+- Staff flag (`p.staff===true`) excludes participant from leaderboards/quotas/surveys but keeps them in comms recipients
 
-- `r.recipeKind === 'composite'` — flag, check with `isCompositeRecipe(r)`
-- `r.mainMaterial = {name, g, costPerKg}` — the base material (per portion, grams)
-- `r.components = [{subNpd, stage, applyG, order}]` — ordered applications of sub-recipes
-- Sub-recipes are regular recipes with `type: 'Semi-Finished'`
-- `r.ingredients` and `r.method` are typically **empty** on composites — don't render them blindly
+## Taste Check
 
-Helpers: `compositeCostPerPortion(r)`, `compositePortionTotalG(r)`, `recipesUsingSubRecipe(subNpd)`.
+Vite + React 19 app with Express backend. Lightweight sensory evaluation recorder.
 
-**Print / render paths must branch on `isCompositeRecipe(r)`.** `renderKitchen()` does this and delegates to `renderKitchenComposite()` (which rolls up mainMaterial + components into the ingredients table and auto-generates method steps if `r.method` is empty). Factory SOP paths still use `r.sopSteps` directly.
+- **Full docs**: See `Sensory Hub/tastecheck/CLAUDE.md` for architecture, deployment, and data model
+- **Section map**: See `Sensory Hub/tastecheck/TASTECHECK-MAP.md` for App.jsx navigation
+- **Live**: `tastecheck.dailyfoodsa.com` (pending DNS)
 
-## Food Cost System
+### Quick Start
+```bash
+cd "Sensory Hub/tastecheck" && npm install
+cd server && npm start          # Backend on :3003
+cd .. && npm run dev             # Frontend on :5173
+```
 
-Each recipe has a **Food Cost** section with 5 columns: Cost/kg, Portion Cost, Selling Price, Food Cost %, Yield.
+### Before Deploying
+1. Bump `APP_VERSION` in `src/App.jsx` (format: `YYYYMMDD-HHMM`)
+2. `npx vite build`
+3. `rsync -avz --delete dist/ root@80.238.219.206:/var/www/tastecheck/dist/`
+4. `rsync -avz --exclude='node_modules' --exclude='data' --exclude='uploads' server/ root@80.238.219.206:/var/www/tastecheck/server/`
+5. If server code changed: `ssh root@80.238.219.206 "cd /var/www/tastecheck/server && npm install && pm2 restart tastecheck-api"`
 
-- **Ingredient cost chain**: recipe override (`i.costPerKg`) → ING_DATA cost/kg (row[11]) → ING_DATA raw cost (row[5]) → EBS cache → null
-- **`_calcActualCostPerKg(r)`**: theoretical cost / yield
-- **`updateFoodCost(npd)`**: live updates, debounced save (1s)
-- Ingredient costs are clickable in the recipe detail view
+## Shared Patterns
 
-## Factory SOPs
-
-Factory SOP lives on each recipe as three composable layers, printed/viewed via **Factory SOP → click recipe**.
-
-### Layers
-
-- **Standard Blocks** (`SOP_STANDARD_BLOCKS`) — shared preamble/closing blocks (Receiving, Re-palletizing, Sifting, Weighing, CIP, Metal Detector, FG Freezer/Chiller). Edited once by admin in the "Edit Library" modal, toggled on/off per recipe via `r.sopStandardBlocks` (array of block IDs). Each block carries `position: 'pre' | 'post'`, `oprp`, `ccp`, `body`, and `annexures[{code, name}]`.
-- **Recipe-specific steps** (`r.sopSteps`) — the variable middle. Each step has `params[]`, `icons[]`, `ccp`, `warning`, `visualImg`, `media[]`.
-- **Flowchart** (`r.sopFlowchart`) — auto-generated from enabled blocks + sopSteps, editable in a modal (🔀 Flowchart button). User overrides persist; "↻ Regenerate" rebuilds from scratch. Numbering (3.1, 3.2, …) is **computed sequentially** by `_computeSOPNumbering(r)` — never trust a block's static `num` for display.
-
-### Approval chain (`r.sopApproval`)
-
-Three-stage document approval — each signer authenticates from their own account.
-
-| Stage | Field | Role | Advances status to |
-|---|---|---|---|
-| 1 | `prepared` | R&D / NPD (or admin) | `pending-review` |
-| 2 | `reviewed` | Factory Manager (or admin) | `pending-approval` |
-| 3 | `approved` | QA Manager (or admin) | `approved` (recipe also set to `approved`) |
-
-Each stage stores `{by, email, at}`. Stages lock until the previous is signed. Approved SOPs lock; edits spawn a new version. Use `signSOPStage(npd, stage)` — not legacy `submitSOPForApproval` / `approveSOPRelease` (still present as back-compat shims). Role gate: `_canSignStage(stage)`.
-
-**Batch sign-off** (Supervisor / QA Tech / Batch No.) is NOT in app state — it's pen-and-paper on the printed Batch Ticket.
-
-### Print modes
-
-Single "🖨️ Print ▾" dropdown on the SOP header → 7 modes via `openPrint(npd, mode)`:
-
-| Mode | Content | Orientation |
-|---|---|---|
-| `full` | Cover + flowchart + standard blocks + batch ticket + recipe steps + annexure + sign-off | Portrait |
-| `full-text` | Same, no images | Portrait |
-| `factory` | Classic 2-col SOP with pictures (existing layout) | Landscape |
-| `factory-text` | Same, no images | Landscape |
-| `flowchart` | Flowchart only | Portrait |
-| `batch` | Ingredient weigh-sheet with **Code** (from ING_DATA lookup), Lot, Expiry, Weighed-by | Landscape |
-| `cover` | Prepared/Reviewed/Approved signature table + version history | Portrait |
-| `annexure` | Auto-compiled DFC-* form references from enabled blocks | Portrait |
-
-Orientation is set via a dynamically injected `<style id="print-page-style">` — browsers can't selector `@page` by class. Default `.print-sheet` is portrait (210×297mm); `.print-sheet.landscape` switches to 297×210mm.
-
-## Branch SOPs
-
-- **Brand colors** (`BSOP_BRAND_COLORS`): Maestro/Maestro KSA=green, Pinzatta=pink, Tivo=purple, Telliano=yellow, Mano di Pasta=navy, Mad=red
-- **Components table**: Type, Item, Weight, Tool/Qty, 2nd Shelf Life, After Opening
-- **Portioning tools** (`PORTIONING_TOOLS`): Ladles, scoops, drizzles with auto-weight calculation
-- Print view is color-coded with full component details
-- Step photos can be uploaded and steps reordered with arrows
-
-## Production Plan
-
-- Shows sent date, days waiting, scheduled date with change tracking
-- Comments per production run
-- Batch size editable before scheduling
-
-## Ingredients DB — "Used In"
-
-- Each ingredient has a **Used in** button that finds all recipes and builds using that ingredient
-- Quick cross-reference for cost impact analysis
-
-## User Profile
-
-- Users can click their name in the sidebar to edit their own profile (name, phone, department, title)
-- No role change — that remains Admin-only
-
-## Email Notifications
-
-Gmail via nodemailer (`caterina.loduca@dailyfoodsa.com`). Triggers:
-- Recipe status changes (review, trial, approved) — notifies R&D + QA + Admin
-- QA sign-offs — notifies recipe creator + Admin
-- Production run scheduled/completed — notifies Factory + R&D + Admin
-- **Factory SOP stage signed** (`sop-stage` event) — each stage notifies the next signer
-- Admin sends Communications — notifies selected role group or individual
-- Production plan comments — notifies relevant parties
-
-## Critical Rules
-
-### Variable Hoisting
-**Never reference `let`/`const`/`var` variables before their assignment line.** All global arrays (`COMMS_LOG`, `LIBRARY_DOCS`, `BSOP_BRAND_COLORS`, `PORTIONING_TOOLS`) must be declared before the init block.
-
-### Empty Data Guard
-**`saveAllData()` will not push to server if `_hasLoadedFromServer` is false and data is empty.** This prevents a fresh browser from wiping the server.
-
-### Server-Side Dedup & Merge
-The POST `/api/data` endpoint deduplicates and merges — see "Server-Side Merge" section above.
-
-### Force Clean
-A one-time `localStorage.clear()` runs on first load (controlled by `_rh_cleaned` flag). Bump `_forceCleanVersion` to trigger another wipe across all browsers.
-
-### Seed Data Merge
-`BUILDS_DATA` and `BRANCH_SOPS` have hardcoded seed data. On load/sync, seed items are preserved if not present in server data (merge by ID). `RECIPE_DB` starts empty — all recipes come from server.
-
-## Roles & Permissions
-
-- **Admin** (`caterina.loduca@dailyfoodsa.com`): full access, "View as" role switcher
-- **R&D (npd)**: recipes, ingredients, builds, Branch SOP, Factory SOP, brands, comms, library uploads
-- **QA**: QA lab, builds, Branch SOP, recipe detail, comms
-- **Factory**: production plan, comms
-- **Purchasing**: ingredients, comms
-- **Viewer**: read-only everywhere, no comms
-- **KPI & Goals**: restricted to `caterina.loduca@dailyfoodsa.com` and `subhanshu.pathak@dailyfoodsa.com` only
-- Default for unknown/unauthenticated users: **Viewer**
-- "View as" dropdown hidden for non-admins
-- Modal buttons excluded from role stripping (`stripPageActions` skips `#modal-overlay`)
-
-### Draft visibility
-Drafts are hidden from non-R&D everywhere they're listed: `buildRecipesTable` (Recipes page) and `updateDashboardStats` (Overview's Recent Recipes). `viewRecipe(npd)` has an entry guard that blocks drafts for non-R&D and blocks any non-approved recipe for viewers with a toast — needed because status tiles, activity logs, and search can deep-link past the list filter.
-
-### Factory SOP list button gate
-On the Factory SOP page, rows for recipes without a generated SOP hide the "Generate" action from non-R&D (only admin/npd see it). Viewers see "View" when a SOP exists, nothing otherwise.
-
-
-## Deletion Protection
-
-- **Recipes**: server never loses recipes on full-blob save. `deletedRecipeIds` array tracks explicitly deleted recipes so they don't resurrect from stale browser pushes.
-- **Branch SOPs**: `deletedSOPIds` array tracks deleted SOPs. Server auto-strips them on every save.
-- **Production Runs**: server auto-cleans orphan runs (for deleted recipes) on every save.
-
-## Ingredient Database
-
-- **599 items** from Oracle EBS / Redshift with real vendor prices
-- Categories from Redshift: Food, Sauce, Dough, Cheese, Meat, Vegetable, Dip, Side, Drink, Packing Material, Non-Food, Smallware, Disposable, Stationery, Marketing, Uniform
-- **438 items with per-kg cost** calculated from `purchase_price / equivalence`
-- "Used in" button shows all recipes/builds using an ingredient
-- Prices sourced from `maestroksa.v_inventory_items` joined with `v_inventory_items_vendors`
-- GL cost fallback from `erp.inv_item_cost`
-
-## Recipe Import
-
-- Recipes can be imported from HTML files with ingredient tables and method steps
-- Format: ingredient name + percentage per line, steps as Title: Description
-- POS sub-recipes available from `maestroksa.v_recipes` (23 formulations for crusts, sauces, toppings, sides)
-- Creator tracked via `createdBy` and `createdAt` fields
-
-## Branch SOP Import
-
-- Can extract from PDF files using PyMuPDF (fitz)
-- Images extracted by size (top 8 = step photos, skip logos)
-- Product name extracted by largest font size on page
-- Uploaded to server via `/api/img/upload`
-- SOP code, version, date parsed from footer text (e.g. "M-PS-225 V-01 dt 27/11/2025")
-
-## Factory SOP Generation
-
-- Sauce recipes auto-reference **Tetra Pak High Shear Batch Mixer B200-200VAA**
-- Equipment prep step includes machine name, CIP temp, vessel capacity
-- Mixing/blending/emulsification steps auto-append machine reference
-- Applies to types: Sauce, Dip, Blend, Marinade, Dressing, Spread
-
-## Cache Prevention
-
-- Nginx: `no-cache, no-store, must-revalidate` + `Pragma: no-cache` + `Expires: 0` on all HTML
-- ETag disabled, `if_modified_since off` — always returns 200, never 304
-- Frontend clears service workers and Cache API on every page load
-- "Refresh Data" button force-pulls from server without page reload
-
-## Communications
-
-- Draft system: save drafts to localStorage, load and send later
-- Send targets: Everyone, All Team (no viewers), by role, All Viewers, Individual
-- Viewer access: can see comms page and receive emails, cannot send
-
-## Security
-
-- API bearer token auth on all `/api/data` endpoints
-- Gateway key IP-locked to VPS
-- `/server/` path blocked in nginx
-- Security headers: X-Frame-Options, X-Content-Type-Options, X-XSS-Protection, Referrer-Policy
-- EBS search input sanitized (alphanumeric only)
-- CORS open (internal tool)
+- All apps use **single-file architectures** — avoid splitting unless explicitly asked
+- All use **Outfit** (headings) and **DM Sans** (body) font families
+- Admin access keyed to `caterina.loduca@dailyfoodsa.com`
+- No app uses TypeScript, external UI libraries, or CSS frameworks
+- SensoryHub and Taste Check share the same VPS, Google OAuth client ID, and patterns
 
 ## Known Pain Points
 
-- **File size**: ~13.5K lines. Use line numbers from grep, don't read the full file.
-- **No tests**: Deploy without automated verification.
-- **Multi-user sync**: ~12 users, server-side merge protects images/docs/logs but text data is still last-write-wins.
-- **EBS per-kg conversion**: Only works for items with `recipe_unit='kg'`. Others need manual cost/kg entry.
-- **USDA matching**: Name-based search, not always accurate. Best for common ingredients.
+- **RecipeHub file size**: ~12.7K lines. Use the section map. Read only what you need.
+- **RecipeHub sync**: Server-backed (SQLite), last-write-wins. localStorage as offline fallback.
+- **Variable hoisting**: A single `let`/`const` before definition kills ALL JS in RecipeHub.
+- **SensoryHub prod backend is at `/opt/sensoryhub-api/`**, NOT in the repo — rsync updates to that path, not `/var/www/sensoryhub/server/` (which doesn't exist). pm2 process is `sensoryhub-api`.
+- **SensoryHub local path**: `/Users/caterina/Desktop/Documents/Projects/sensoryhub/` (was previously `Sensory Hub/sensoryhub/` — moved out on 2026-04-19).
+- **Taste Check has a production backend**: Express + SQLite on VPS port 3003, managed by pm2.
+- **No tests in any app**: Deploy without automated verification. Be careful.
+- **GitHub Actions can fail**: VPS SSH times out. Deploy manually with `scp`/`rsync` if needed.
+- **RecipeHub server auto-deploy is HTML-only**: Push to `main` only deploys `RecipeHub-App-v2.html`. Changes to `server/*.js` need manual `rsync` to `/var/www/recipehub/server/` + `systemctl restart recipehub-api` on VPS.
+- **RecipeHub `mergeRecipe()` is last-writer-wins**: the per-recipe `POST /api/recipe/:npd` endpoint will overwrite colliding fields if `incoming.updatedAt > existing.updatedAt`. Never POST a colliding `npd` unless you explicitly want to replace it. The bulk import uses a preflight existence-Set to enforce create-only client-side.
