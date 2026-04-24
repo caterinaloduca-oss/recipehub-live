@@ -11613,10 +11613,10 @@ function renderBrandDetail(id) {
         <button class="btn btn-danger-sm" style="padding:5px 10px" onclick="deleteBrand('${b.id}')">Delete</button>
       </div>
       <div style="display:flex;gap:20px;text-align:center">
-        <div><div style="font-size:26px;font-weight:500;font-family:var(--font-d);color:var(--navy)">${b.recipes}</div><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3)">Recipes</div></div>
-        <div><div style="font-size:26px;font-weight:500;font-family:var(--font-d);color:var(--sage)">${b.approved}</div><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3)">Approved</div></div>
-        <div style="border-left:1px solid var(--g2);padding-left:20px"><div style="font-size:26px;font-weight:500;font-family:var(--font-d);color:var(--navy)">${BUILDS_DATA.filter(function(x){return x.brand===b.name&&x.active!==false}).length}<span style="font-size:14px;color:var(--g3)">/${BUILDS_DATA.filter(function(x){return x.brand===b.name}).length}</span></div><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3)">Active Builds</div></div>
-        <div><div style="font-size:26px;font-weight:500;font-family:var(--font-d);color:var(--navy)">${BRANCH_SOPS.filter(function(x){return x.brand===b.name}).length}</div><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3)">Branch SOPs</div></div>
+        <div><div style="font-size:26px;font-weight:500;font-family:var(--font-d);color:var(--navy)">${recipes.length}</div><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3)">Recipes</div></div>
+        <div><div style="font-size:26px;font-weight:500;font-family:var(--font-d);color:var(--sage)">${recipes.filter(function(x){return x.status==='approved'}).length}</div><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3)">Approved</div></div>
+        <div style="border-left:1px solid var(--g2);padding-left:20px"><div style="font-size:26px;font-weight:500;font-family:var(--font-d);color:var(--navy)">${BUILDS_DATA.filter(function(x){return (x.brand||'').toLowerCase()===b.name.toLowerCase()&&x.active!==false}).length}<span style="font-size:14px;color:var(--g3)">/${BUILDS_DATA.filter(function(x){return (x.brand||'').toLowerCase()===b.name.toLowerCase()}).length}</span></div><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3)">Active Builds</div></div>
+        <div><div style="font-size:26px;font-weight:500;font-family:var(--font-d);color:var(--navy)">${BRANCH_SOPS.filter(function(x){return (x.brand||'').toLowerCase()===b.name.toLowerCase()}).length}</div><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3)">Branch SOPs</div></div>
       </div>
     </div>
 
@@ -11629,8 +11629,12 @@ function renderBrandDetail(id) {
       </div>
       <div style="padding:16px 24px">
         <div style="font-size:10px;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:var(--g3);margin-bottom:6px">Cost range / kg</div>
-        <div style="font-size:22px;font-weight:500;color:var(--navy)">${b.costRange}</div>
-        <div style="font-size:11px;color:var(--g3);margin-top:2px">across all product types</div>
+        ${(function(){
+          var vals = recipes.map(function(r){ return r.costKg; }).filter(function(v){ return typeof v === 'number' && v > 0; });
+          if (!vals.length) return '<div style="font-size:15px;font-weight:500;color:var(--g3)">No costed recipes</div><div style="font-size:11px;color:var(--g3);margin-top:2px">Cost range appears once recipes have a cost/kg</div>';
+          var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
+          return '<div style="font-size:22px;font-weight:500;color:var(--navy)">SAR ' + lo.toFixed(2) + (lo===hi ? '' : ' – ' + hi.toFixed(2)) + '</div><div style="font-size:11px;color:var(--g3);margin-top:2px">across ' + vals.length + ' costed recipe' + (vals.length===1?'':'s') + '</div>';
+        })()}
       </div>
     </div>
 
@@ -11826,8 +11830,13 @@ function brandOptionsHTML(selected) {
 // ~100 sites that read r.brand directly — it always holds the first brand.
 function getRecipeBrands(r) {
   if (!r) return [];
-  if (Array.isArray(r.brands) && r.brands.length) return r.brands.slice();
-  return r.brand ? [r.brand] : [];
+  var raw = (Array.isArray(r.brands) && r.brands.length) ? r.brands : (r.brand ? [r.brand] : []);
+  // Split comma-separated multi-brand strings ("Maestro, Pinzatta") into individual brand names
+  var out = [];
+  raw.forEach(function(s){
+    String(s || '').split(',').forEach(function(p){ var t = p.trim(); if (t) out.push(t); });
+  });
+  return out;
 }
 function setRecipeBrands(r, brandList) {
   var arr = Array.isArray(brandList) ? brandList.filter(Boolean) : [];
@@ -11838,7 +11847,8 @@ function setRecipeBrands(r, brandList) {
   r.brand = out[0] || '';
 }
 function recipeHasBrand(r, brandName) {
-  return getRecipeBrands(r).indexOf(brandName) >= 0;
+  var bn = String(brandName || '').toLowerCase();
+  return getRecipeBrands(r).some(function(b){ return b.toLowerCase() === bn; });
 }
 // Migration: sync brands ↔ brand on every recipe in RECIPE_DB
 function migrateBrandsField() {
@@ -11886,14 +11896,15 @@ function buildBrandCards() {
     div.dataset.id = b.id;
     div.style.cssText = `background:${b.bg};border-color:${b.border};cursor:pointer`;
     div.onclick = () => renderBrandDetail(b.id);
-    var activeBuilds = BUILDS_DATA.filter(function(x){ return x.brand === b.name && x.active !== false; }).length;
-    var totalBuilds = BUILDS_DATA.filter(function(x){ return x.brand === b.name; }).length;
-    var activeSOPs = BRANCH_SOPS.filter(function(x){ return x.brand === b.name; }).length;
+    var activeBuilds = BUILDS_DATA.filter(function(x){ return (x.brand||'').toLowerCase() === b.name.toLowerCase() && x.active !== false; }).length;
+    var activeSOPs = BRANCH_SOPS.filter(function(x){ return (x.brand||'').toLowerCase() === b.name.toLowerCase(); }).length;
+    // Recipes count = non-archived recipes matching this brand (case-insensitive, multi-brand aware)
+    var recipeCount = Object.values(RECIPE_DB).filter(function(r){ return !r.archived && recipeHasBrand(r, b.name); }).length;
     div.innerHTML = `
       <div style="font-family:var(--font-d);font-size:19px;font-weight:600;color:${b.text}">${b.name}</div>
       <div style="font-size:11px;color:${b.text};opacity:0.55;margin-top:2px;margin-bottom:12px">${b.concept}</div>
       <div style="display:flex;gap:16px">
-        <div><div style="font-size:22px;font-weight:500;font-family:var(--font-d);color:${b.text}">${b.recipes}</div><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:${b.text};opacity:0.45">Recipes</div></div>
+        <div><div style="font-size:22px;font-weight:500;font-family:var(--font-d);color:${b.text}">${recipeCount}</div><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:${b.text};opacity:0.45">Recipes</div></div>
         <div><div style="font-size:22px;font-weight:500;font-family:var(--font-d);color:${b.text}">${activeBuilds}</div><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:${b.text};opacity:0.45">Builds</div></div>
         <div><div style="font-size:22px;font-weight:500;font-family:var(--font-d);color:${b.text}">${activeSOPs}</div><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:${b.text};opacity:0.45">SOPs</div></div>
       </div>
