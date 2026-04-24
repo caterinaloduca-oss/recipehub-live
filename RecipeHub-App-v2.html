@@ -12993,15 +12993,7 @@ function confirmDeleteRecipe(npd) {
 
 // ──────────── DELETE QA SHELF LIFE ROWS ────────────
 // ──────────── SHELF LIFE STUDY (data-backed) ────────────
-var SHELF_LIFE_DATA = {
-  points: [
-    {name:'Day 0', date:'2025-03-15', ph:'4.1', aw:'0.88', tpc:'120', appear:'pass', taste:'pass', overall:'approved'},
-    {name:'1 Month', date:'2025-04-15', ph:'4.0', aw:'0.89', tpc:'180', appear:'pass', taste:'pass', overall:'approved'},
-    {name:'3 Months', date:'2025-06-15', ph:'3.9', aw:'0.90', tpc:'340', appear:'pass', taste:'review', overall:'review'},
-    {name:'6 Months', date:'2025-09-15', ph:'', aw:'', tpc:'', appear:'pending', taste:'pending', overall:'pending'},
-  ],
-  notes: '3-month taste review flagged mild flavour drift — likely oxidation. Recommended adjustment: increase natural antioxidant (rosemary extract) by 0.1%. Pending reformulation sign-off from NPD.',
-};
+var SHELF_LIFE_DATA = { points: [], notes: '' };
 
 function buildShelfLifeUI() {
   var tbody = document.getElementById('sl-tbody');
