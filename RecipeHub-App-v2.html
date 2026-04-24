@@ -4544,6 +4544,7 @@ function exportBackup() {
     deletedBuildIds: _deletedBuildIds,
     commsLog: COMMS_LOG,
     libraryDocs: LIBRARY_DOCS,
+    ppeLibrary: PPE_LIBRARY,
     exportedAt: new Date().toISOString(), version: 'RecipeHub-v2',
   };
   var json = JSON.stringify(data, null, 2);
@@ -4621,6 +4622,7 @@ function _buildDataBlob() {
     deletedBuildIds: _deletedBuildIds,
     commsLog: COMMS_LOG,
     libraryDocs: LIBRARY_DOCS,
+    ppeLibrary: PPE_LIBRARY,
     sopStandardBlocks: SOP_STANDARD_BLOCKS,
     savedAt: new Date().toISOString(),
     dataVersion: DATA_VERSION,
@@ -4779,6 +4781,7 @@ function loadAllData() {
     if (Array.isArray(data.deletedRecipeIds)) { _deletedRecipeIds = data.deletedRecipeIds; }
     if (Array.isArray(data.deletedSOPIds)) { _deletedSOPIds = data.deletedSOPIds; }
     if (Array.isArray(data.deletedBuildIds)) { _deletedBuildIds = data.deletedBuildIds; }
+    if (Array.isArray(data.ppeLibrary)) { PPE_LIBRARY = data.ppeLibrary.slice(); }
     // Merge recipes: saved data wins, add new hardcoded recipes, skip deleted ones
     if (data.recipes) {
       // Snapshot hardcoded recipes before clearing
@@ -5106,6 +5109,9 @@ function _hydrateFromData(data) {
         if (it) ['admin','npd','qa','ops','factory','purchasing','viewer'].forEach(function(r){ if(si[r]!==undefined) it[r]=si[r]; });
       });
     });
+  }
+  if (Array.isArray(data.ppeLibrary)) {
+    PPE_LIBRARY = data.ppeLibrary.slice();
   }
   if (Array.isArray(data.sopStandardBlocks) && data.sopStandardBlocks.length) {
     // Merge by id: server wins for fields, keep local blocks not in server
@@ -6235,12 +6241,94 @@ const SOP_ICONS = {
   check:   { emoji:'✅', label:'QC Check',     cls:'sop-icon-check' },
 };
 
+// HACCP icon key → uploaded asset URLs. Inlined from icon_key_map.json
+// so the UI can render step.icons[], r.hazards[], r.banners[], data.ppeLibrary
+// without an extra network fetch. Regenerate when Phase 1 icon uploads change.
+const ICON_KEY_MAP = {
+  "hairnet":        {"url_512":"/docs/img/ppe_hairnet_512-1777024189645.jpg","url_128":"/docs/img/ppe_hairnet_128-1777024189990.jpg","label":"Hairnet"},
+  "gloves":         {"url_512":"/docs/img/ppe_gloves_512-1777024190827.jpg","url_128":"/docs/img/ppe_gloves_128-1777024191195.jpg","label":"Gloves"},
+  "mask":           {"url_512":"/docs/img/ppe_mask_512-1777024191843.jpg","url_128":"/docs/img/ppe_mask_128-1777024192227.jpg","label":"Face mask"},
+  "safety_shoes":   {"url_512":"/docs/img/ppe_safety_footwear_512-1777024192823.jpg","url_128":"/docs/img/ppe_safety_footwear_128-1777024193169.jpg","label":"Safety footwear"},
+  "goggles":        {"url_512":"/docs/img/ppe_goggles_512-1777024193746.jpg","url_128":"/docs/img/ppe_goggles_128-1777024194100.jpg","label":"Goggles"},
+  "hazard_bio":     {"url_512":"/docs/img/hazard_biological_512-1777024185683.jpg","url_128":"/docs/img/hazard_biological_128-1777024186058.jpg","label":"Biological"},
+  "hazard_chem":    {"url_512":"/docs/img/hazard_chemical_512-1777024186640.jpg","url_128":"/docs/img/hazard_chemical_128-1777024187001.jpg","label":"Chemical"},
+  "hazard_phys":    {"url_512":"/docs/img/hazard_physical_512-1777024187652.jpg","url_128":"/docs/img/hazard_physical_128-1777024188013.jpg","label":"Physical"},
+  "hazard_allergen":{"url_512":"/docs/img/hazard_allergen_512-1777024188665.jpg","url_128":"/docs/img/hazard_allergen_128-1777024188993.jpg","label":"Allergen"},
+  "raw_materials":  {"url_512":"/docs/img/sign_check_raw_materials_512-1777024198942.jpg","url_128":"/docs/img/sign_check_raw_materials_128-1777024199245.jpg","label":"Raw materials"},
+  "cooling":        {"url_512":"/docs/img/sign_cooling_512-1777024194773.jpg","url_128":"/docs/img/sign_cooling_128-1777024195049.jpg","label":"Cooling"},
+  "chill":          {"url_512":"/docs/img/sign_chiller_storage_512-1777024195898.jpg","url_128":"/docs/img/sign_chiller_storage_128-1777024196273.jpg","label":"Chiller"},
+  "freeze":         {"url_512":"/docs/img/sign_frozen_storage_512-1777024196942.jpg","url_128":"/docs/img/sign_frozen_storage_128-1777024197314.jpg","label":"Frozen storage"},
+  "metal_detect":   {"url_512":"/docs/img/sign_metal_detector_512-1777024197937.jpg","url_128":"/docs/img/sign_metal_detector_128-1777024198311.jpg","label":"Metal detector"},
+  "weight_check":   {"url_512":"/docs/img/sign_weight_check_512-1777024199982.jpg","url_128":"/docs/img/sign_weight_check_128-1777024200307.jpg","label":"Weight check"},
+  "core_temp":      {"url_512":"/docs/img/sign_core_temperature_512-1777024201171.jpg","url_128":"/docs/img/sign_core_temperature_128-1777024201511.jpg","label":"Core temperature"},
+  "cook_temp":      {"url_512":"/docs/img/sign_cook_temperature_512-1777024205027.jpg","url_128":"/docs/img/sign_cook_temperature_128-1777024205376.jpg","label":"Cook temperature"},
+  "ccp8":           {"url_512":"/docs/img/sign_ccp8_cooking_512-1777024202095.jpg","url_128":"/docs/img/sign_ccp8_cooking_128-1777024202431.jpg","label":"CCP 8 Cooking"},
+  "post_thaw":      {"url_512":"/docs/img/sign_post_thaw_512-1777024204098.jpg","url_128":"/docs/img/sign_post_thaw_128-1777024204468.jpg","label":"Post-thaw"},
+  "hold_product":   {"url_512":"/docs/img/sign_hold_product_512-1777024203029.jpg","url_128":"/docs/img/sign_hold_product_128-1777024203366.jpg","label":"Hold product"},
+};
+
+// Global PPE library — all SOPs render the same 5 PPE icons at the top.
+// Populated from data.ppeLibrary when the data blob is loaded.
+var PPE_LIBRARY = [];
+
+function iconImgHtml(key, size) {
+  var m = ICON_KEY_MAP[key];
+  if (!m) return '';
+  var url = (size === 512) ? m.url_512 : m.url_128;
+  return '<img src="' + url + '" alt="' + (m.label || key) + '" title="' + (m.label || key) + '" style="height:32px;width:32px;object-fit:contain;vertical-align:middle;border-radius:4px;background:white;padding:2px;border:1px solid var(--g2)" />';
+}
+
 function renderIcons(iconKeys) {
   if (!iconKeys || !iconKeys.length) return '';
-  return '<div style="margin-bottom:6px">' + iconKeys.map(k => {
-    const ic = SOP_ICONS[k];
-    return ic ? `<span class="sop-icon ${ic.cls}">${ic.emoji} ${ic.label}</span>` : '';
+  return '<div style="margin-bottom:6px;display:flex;flex-wrap:wrap;gap:4px;align-items:center">' + iconKeys.map(function(k) {
+    var ic = SOP_ICONS[k];
+    if (ic) return '<span class="sop-icon ' + ic.cls + '">' + ic.emoji + ' ' + ic.label + '</span>';
+    if (ICON_KEY_MAP[k]) return iconImgHtml(k, 128);
+    return '';
   }).join('') + '</div>';
+}
+
+function renderPPEStrip() {
+  if (!PPE_LIBRARY || !PPE_LIBRARY.length) return '';
+  return '<div class="card" style="margin-bottom:14px"><div class="card-body" style="padding:14px 20px;display:flex;align-items:center;gap:14px">' +
+    '<div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3);font-weight:600;min-width:60px">PPE</div>' +
+    '<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">' +
+      PPE_LIBRARY.map(function(k){
+        var m = ICON_KEY_MAP[k]; if (!m) return '';
+        return '<div style="display:flex;flex-direction:column;align-items:center;gap:4px">' +
+          '<img src="' + m.url_128 + '" alt="' + m.label + '" style="width:40px;height:40px;object-fit:contain;border-radius:6px;background:white;padding:3px;border:1px solid var(--g2)" />' +
+          '<span style="font-size:9px;color:var(--g4);letter-spacing:0.02em">' + m.label + '</span>' +
+        '</div>';
+      }).join('') +
+    '</div></div></div>';
+}
+
+function renderHazardsStrip(r) {
+  var hz = r && r.hazards;
+  if (!hz || !hz.length) return '';
+  return '<div class="card" style="margin-bottom:14px"><div class="card-body" style="padding:14px 20px;display:flex;align-items:center;gap:14px">' +
+    '<div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3);font-weight:600;min-width:60px">Hazards</div>' +
+    '<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">' +
+      hz.map(function(k){
+        var m = ICON_KEY_MAP[k]; if (!m) return '';
+        return '<div style="display:flex;flex-direction:column;align-items:center;gap:4px">' +
+          '<img src="' + m.url_128 + '" alt="' + m.label + '" style="width:40px;height:40px;object-fit:contain;border-radius:6px;background:white;padding:3px;border:1px solid var(--g2)" />' +
+          '<span style="font-size:9px;color:var(--g4);letter-spacing:0.02em">' + m.label + '</span>' +
+        '</div>';
+      }).join('') +
+    '</div></div></div>';
+}
+
+function renderBannerForStep(r, step) {
+  // Return a banner row above steps where r.banners says "above_any_ccp_step" and the step has a ccp.
+  if (!r || !r.banners || !r.banners.length || !step || !step.ccp) return '';
+  var banner = r.banners.find(function(b){ return b.position === 'above_any_ccp_step'; });
+  if (!banner) return '';
+  var m = ICON_KEY_MAP[banner.icon_key]; if (!m) return '';
+  return '<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;margin-bottom:10px;border-radius:8px;background:#FEF3E2;border:1px solid #F5D5A0">' +
+    '<img src="' + m.url_128 + '" alt="' + m.label + '" style="width:32px;height:32px;object-fit:contain" />' +
+    '<span style="font-size:12px;font-weight:600;color:var(--amber)">' + m.label + ' — any CCP deviation requires immediate hold and QA notification</span>' +
+  '</div>';
 }
 
 // ──────────── MEDIA UPLOAD ────────────
@@ -8769,10 +8857,14 @@ function _sopBlockTag(b) {
 
 function renderSOPStandardBlock(b, npd, enabled) {
   var annex = (b.annexures||[]).map(function(a){ return '<span style="font-size:10px;color:var(--g3);margin-right:10px">'+a.code+' — '+a.name+'</span>'; }).join('');
+  var primaryIcon = b.primary_icon && ICON_KEY_MAP[b.primary_icon]
+    ? '<img src="'+ICON_KEY_MAP[b.primary_icon].url_128+'" alt="'+ICON_KEY_MAP[b.primary_icon].label+'" title="'+ICON_KEY_MAP[b.primary_icon].label+'" style="width:28px;height:28px;object-fit:contain;border-radius:4px;background:white;padding:2px;border:1px solid var(--g2);flex-shrink:0" />'
+    : '';
   return '<div style="padding:14px 16px;border:1px solid '+(enabled?'#C9DBF7':'var(--g2)')+';background:'+(enabled?'#F0F6FF':'#FAFBFC')+';border-radius:var(--r-sm);margin-bottom:10px;'+(enabled?'':'opacity:0.55')+'">' +
     '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">' +
       '<input type="checkbox" '+(enabled?'checked':'')+' onchange="toggleRecipeStandardBlock(\''+npd+'\',\''+b.id+'\')" style="width:16px;height:16px;accent-color:var(--navy)" />' +
       '<span style="font-size:11px;color:var(--g3);font-family:var(--font-m)">'+(b.num||'')+'</span>' +
+      primaryIcon +
       '<strong style="font-size:14px;color:var(--navy);flex:1">'+b.title+'</strong>' +
       _sopBlockTag(b) +
       '<span style="font-size:10px;color:var(--g3);text-transform:uppercase;letter-spacing:0.08em">Shared block</span>' +
@@ -9118,6 +9210,9 @@ function exportToSOP(npd) {
       </div>
     </div>
 
+    ${renderPPEStrip()}
+    ${renderHazardsStrip(r)}
+
     <div id="sop-pre-blocks">${renderSOPStandardBlocksSection(r, 'pre', 'Pre-Production — Standard Blocks')}</div>
 
     <div style="display:grid;grid-template-columns:1fr 340px;gap:24px">
@@ -9174,7 +9269,10 @@ function exportToSOP(npd) {
 
 function renderEditableSOPStep(s, idx, npd) {
   const iconKeys = Object.keys(SOP_ICONS);
+  const _r = RECIPE_DB[npd];
+  const _banner = renderBannerForStep(_r, s);
   return `
+    ${_banner}
     <div id="sop-step-${idx}" style="position:relative;margin-bottom:28px;padding-bottom:28px;border-bottom:1px solid var(--g1)">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
         <div class="sop-num">${idx+1}</div>
