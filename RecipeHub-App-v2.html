@@ -6932,7 +6932,8 @@ function _calcIngCostTotal(r) {
 function _calcActualCostPerKg(r) {
   var theoretical = _calcIngCostTotal(r);
   if (theoretical === null) return null;
-  var yld = r.yield && r.yield > 0 ? r.yield : 1;
+  // Validated yield wins, else fall back to Factory-Trial indicative, else assume 100%
+  var yld = (r.yield && r.yield > 0) ? r.yield : (r.indicativeYield && r.indicativeYield > 0 ? r.indicativeYield : 1);
   return theoretical / yld;
 }
 
@@ -7404,7 +7405,7 @@ function viewRecipe(npd) {
     ${(function(){
       var _theo = _calcIngCostTotal(r);
       var _actual = _calcActualCostPerKg(r);
-      var _yld = r.yield && r.yield > 0 ? r.yield : null;
+      var _yld = (r.yield && r.yield > 0) ? r.yield : (r.indicativeYield && r.indicativeYield > 0 ? r.indicativeYield : null);
       var _yldPct = _yld ? (_yld * 100).toFixed(0) : null;
       var _lossPct = _yld ? ((1 - _yld) * 100).toFixed(1) : null;
       var _ps = r.portionSize;
@@ -7533,34 +7534,55 @@ function viewRecipe(npd) {
     </div>
     ` : ''}
 
-    ${r.status === 'approved' ? `
-    <!-- Production Yield — approved only -->
+    ${(r.status === 'trial' || r.status === 'prod-trial' || r.status === 'approved') ? (function(){
+      var _yRole = getCurrentUserRole();
+      var _canEditY = (_yRole === 'admin' || _yRole === 'factory');
+      var _trialReached = true; // card only renders when status ≥ trial
+      var _prodReached  = (r.status === 'prod-trial' || r.status === 'approved');
+      var _indicative   = r.indicativeYield;
+      var _validated    = r.yield;
+      var _authoritative = _validated || _indicative;
+      var _recordedBadge = _validated ? '<span class="badge badge-approved">Validated</span>' : (_indicative ? '<span class="badge badge-trial">Indicative only</span>' : '<span class="badge badge-draft">Not yet recorded</span>');
+      function _btn(which, label) {
+        if (!_canEditY) return '';
+        return '<button class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 10px;margin-top:6px" onclick="editYield(\''+r.npd+'\',\''+which+'\')">'+label+'</button>';
+      }
+      return `
+    <!-- Production Yield — visible from Factory Trial onward -->
     <div class="card" style="margin-bottom:20px">
       <div class="card-head">
         <span class="card-title">Production Yield</span>
-        <span class="badge ${r.yield ? 'badge-approved' : 'badge-draft'}">${r.yield ? 'Recorded' : 'Not yet recorded'}</span>
+        ${_recordedBadge}
       </div>
       <div class="card-body">
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px">
+          <!-- Indicative yield (Factory Trial) -->
           <div>
-            <div style="font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3);margin-bottom:4px">Expected Yield</div>
-            <div style="font-family:var(--font-d);font-size:28px;font-weight:700;color:var(--navy)">${r.yield ? (r.yield*100).toFixed(0)+'%' : '—'}</div>
-            <div style="font-size:11px;color:var(--g3);margin-top:2px">Set after production trials</div>
+            <div style="font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3);margin-bottom:4px">Indicative Yield<br><span style="font-weight:400;text-transform:none;letter-spacing:0.04em;color:var(--g4)">Factory Trial</span></div>
+            <div style="font-family:var(--font-d);font-size:26px;font-weight:700;color:${_indicative?'var(--navy)':'var(--g3)'}">${_indicative ? (_indicative*100).toFixed(1)+'%' : '—'}</div>
+            <div style="font-size:11px;color:var(--g3);margin-top:2px">${_indicative ? 'Recorded after first trial batch' : 'Set by Factory after Factory Trial'}</div>
+            ${_btn('indicative', _indicative ? 'Edit' : 'Enter indicative')}
           </div>
+          <!-- Validated yield (Prod Trial) -->
+          <div>
+            <div style="font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:0.1em;color:var(--sage);margin-bottom:4px">Validated Yield<br><span style="font-weight:400;text-transform:none;letter-spacing:0.04em;color:var(--g4)">Production Trial</span></div>
+            <div style="font-family:var(--font-d);font-size:26px;font-weight:700;color:${_validated?'var(--sage)':'var(--g3)'}">${_validated ? (_validated*100).toFixed(1)+'%' : '—'}</div>
+            <div style="font-size:11px;color:var(--g3);margin-top:2px">${_validated ? 'Authoritative — used for cost math' : (_prodReached ? 'Set by Factory after Prod Trial' : 'Available once recipe reaches Prod Trial')}</div>
+            ${_prodReached ? _btn('validated', _validated ? 'Edit' : 'Enter validated') : ''}
+          </div>
+          <!-- Output projection -->
           <div>
             <div style="font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3);margin-bottom:4px">For a 100 kg batch</div>
-            <div style="font-family:var(--font-m);font-size:16px;font-weight:500;color:var(--sage)">${r.yield ? (r.yield*100).toFixed(1)+' kg output' : '—'}</div>
-            <div style="font-size:11px;color:var(--g3);margin-top:2px">${r.yield ? ((1-r.yield)*100).toFixed(1)+'% loss (evaporation, transfer, etc.)' : 'Pending production data'}</div>
-          </div>
-          <div style="display:flex;align-items:center">
-            <div style="background:var(--g1);border-radius:var(--r-md);padding:12px 16px;width:100%;font-size:12px;color:var(--g4);border-left:3px solid var(--navy)">
-              💡 Record the actual yield after your first approved production run. This helps calculate accurate batch sizes for the factory SOP.
-            </div>
+            <div style="font-family:var(--font-m);font-size:16px;font-weight:500;color:var(--sage)">${_authoritative ? (_authoritative*100).toFixed(1)+' kg output' : '—'}</div>
+            <div style="font-size:11px;color:var(--g3);margin-top:2px">${_authoritative ? ((1-_authoritative)*100).toFixed(1)+'% loss — using '+(_validated?'validated':'indicative')+' yield' : 'Pending yield data'}</div>
           </div>
         </div>
+        <div style="margin-top:14px;padding:10px 12px;border-radius:8px;background:var(--g1);font-size:11px;color:var(--g4);border-left:3px solid var(--navy)">
+          💡 Indicative yield is a first estimate from the Factory Trial — refined into the Validated yield after the Prod Trial. Cost math uses Validated if present, otherwise falls back to Indicative.
+        </div>
       </div>
-    </div>
-    ` : ''}
+    </div>`;
+    })() : ''}
 
     <!-- SOP Production Steps removed — use Factory SOP page instead -->
 
@@ -7959,6 +7981,48 @@ function renderRecipeIdSlot(r, role) {
     : '';
   return '<div style="margin-top:8px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">' + label + chip + btn + '</div>';
 }
+function editYield(npd, which) {
+  var r = RECIPE_DB[npd];
+  if (!r) return;
+  var role = getCurrentUserRole();
+  if (role !== 'admin' && role !== 'factory') {
+    showSaveToast('Only Factory or Admin can edit yield', true);
+    return;
+  }
+  if (which === 'indicative' && !(r.status === 'trial' || r.status === 'prod-trial' || r.status === 'approved')) {
+    showSaveToast('Indicative yield is set at Factory Trial or later', true);
+    return;
+  }
+  if (which === 'validated' && !(r.status === 'prod-trial' || r.status === 'approved')) {
+    showSaveToast('Validated yield is set at Production Trial or later', true);
+    return;
+  }
+  var field = (which === 'indicative') ? 'indicativeYield' : 'yield';
+  var label = (which === 'indicative') ? 'Indicative yield (Factory Trial)' : 'Validated yield (Production Trial)';
+  var cur = r[field];
+  var curPct = cur ? (cur * 100).toFixed(1) : '';
+  var input = prompt(label + ' — enter as percent, e.g. 96 or 96.5', curPct);
+  if (input === null) return;
+  var val = input.trim();
+  if (val === '') {
+    if (!cur) return;
+    if (!confirm('Clear ' + label + '?')) return;
+    delete r[field];
+  } else {
+    var n = parseFloat(val);
+    if (!(n > 0 && n <= 100)) { showSaveToast('Enter a percent between 0 and 100', true); return; }
+    r[field] = n / 100;
+  }
+  r.updatedAt = new Date().toISOString();
+  r.updated = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+  if (!r.changeLog) r.changeLog = [];
+  r.changeLog.push({date:new Date().toISOString(), by:getCurrentUserName(), changes: label + (val ? ' set to ' + n.toFixed(1) + '%' : ' cleared')});
+  logActivity('status', '📊', r.name + ' · ' + label + (val ? ' ' + n.toFixed(1) + '%' : ' cleared'), 'By ' + getCurrentUserName(), 'all');
+  viewRecipe(npd);
+  saveAllDataNow();
+  showSaveToast(label + ' saved');
+}
+
 function assignRecipeId(npd) {
   var r = RECIPE_DB[npd];
   if (!r) return;
