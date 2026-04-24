@@ -5499,10 +5499,15 @@ const ALL_TAGS = ['Current','Clean Label','LTO','Vegetarian','Gluten Free','Disc
 function renderTagBadges(tags) {
   if (!tags || !tags.length) return '';
   return tags.map(function(t) {
-    // High-visibility treatment for 'imported' — solid amber pill with icon so bulk-imported
-    // recipes are spotted at a glance vs native R&D work.
-    if (String(t).toLowerCase() === 'imported') {
+    // High-visibility treatment for data-quality flags so they're spotted at a glance.
+    var tl = String(t).toLowerCase();
+    if (tl === 'imported') {
+      // Solid amber — bulk-imported vs native R&D work
       return '<span style="display:inline-block;padding:2px 10px;border-radius:40px;font-size:10px;font-weight:700;background:#E67E22;color:white;margin:1px;letter-spacing:0.05em;box-shadow:0 1px 3px rgba(230,126,34,0.35);text-transform:uppercase">📥 Imported</span>';
+    }
+    if (tl === 'no method') {
+      // Solid red — method still missing, recipe not production-ready
+      return '<span style="display:inline-block;padding:2px 10px;border-radius:40px;font-size:10px;font-weight:700;background:#C0392B;color:white;margin:1px;letter-spacing:0.05em;box-shadow:0 1px 3px rgba(192,57,43,0.35);text-transform:uppercase">⚠ No Method</span>';
     }
     return '<span style="display:inline-block;padding:1px 7px;border-radius:40px;font-size:9px;font-weight:500;border:1px solid '+(TAG_COLORS[t]||'var(--g3)')+';color:'+(TAG_COLORS[t]||'var(--g3)')+';margin:1px">'+t+'</span>';
   }).join('');
