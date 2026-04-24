@@ -1705,7 +1705,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
       <div style="text-align:center;width:140px">
         <div style="width:64px;height:64px;border-radius:50%;background:#E6F1FB;border:2px solid #B3D4F0;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;font-size:24px">🏭</div>
         <div style="font-family:var(--font-d);font-size:14px;font-weight:600;color:var(--navy)">Factory Trial</div>
-        <div style="font-size:11px;color:var(--g3);margin-top:4px;line-height:1.4">First factory batch. Factory runs, QA tests micro & physical</div>
+        <div style="font-size:11px;color:var(--g3);margin-top:4px;line-height:1.4">First factory batch. Factory runs, QA tests micro & physical. <strong>Factory records indicative yield.</strong></div>
         <div style="margin-top:6px"><span class="badge badge-trial">FACTORY TRIAL</span></div>
       </div>
 
@@ -1719,7 +1719,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
       <div style="text-align:center;width:140px">
         <div style="width:64px;height:64px;border-radius:50%;background:#F3E8FD;border:2px solid #D5C0EB;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;font-size:24px">🔬</div>
         <div style="font-family:var(--font-d);font-size:14px;font-weight:600;color:var(--navy)">Prod Trial</div>
-        <div style="font-size:11px;color:var(--g3);margin-top:4px;line-height:1.4">Full-scale factory batch. QA validates again, sensory panel evaluates</div>
+        <div style="font-size:11px;color:var(--g3);margin-top:4px;line-height:1.4">Full-scale factory batch. QA validates again, sensory panel evaluates. <strong>Factory records validated yield.</strong></div>
         <div style="margin-top:6px"><span class="badge badge-prod-trial">PROD TRIAL</span></div>
       </div>
 
@@ -1879,6 +1879,9 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
             <div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:6px;background:#E8F5E9;border:1px solid #C8E6C9;font-size:12px">
               <span>🏭</span><span style="color:#1B5E20"><strong>Factory assigns Recipe ID</strong> <span style="color:var(--g3)">(e.g. 211_BCS v1)</span></span>
             </div>
+            <div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:6px;background:white;border:1px dashed var(--g2);font-size:12px">
+              <span>📊</span><span><strong style="color:var(--navy)">Factory records Indicative yield</strong> <span style="color:var(--g3)">(soft step — not blocking)</span></span>
+            </div>
             <div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:6px;background:#E6F1FB;border:1px solid #B3D4F0;font-size:12px">
               <span>📅</span><span style="color:#0C6BA8"><strong>Auto-action:</strong> Prod Trial run is scheduled</span>
             </div>
@@ -1904,6 +1907,9 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
             </div>
             <div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:6px;background:white;border:1px solid var(--g1);font-size:12px">
               <span>📊</span><span><strong style="color:var(--navy)">Nutrition data</strong> <span style="color:var(--g3)">filled in</span></span>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:6px;background:white;border:1px dashed var(--g2);font-size:12px">
+              <span>📈</span><span><strong style="color:var(--navy)">Factory records Validated yield</strong> <span style="color:var(--g3)">(soft step — cost math falls back to indicative if missing)</span></span>
             </div>
           </div>
         </div>
@@ -2088,6 +2094,66 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
         <div style="margin-top:14px;padding:10px 12px;border-radius:8px;background:#E6F1FB;border:1px solid #B3D4F0;font-size:12px;color:#0C6BA8;display:flex;align-items:start;gap:8px">
           <span style="font-size:14px">💡</span>
           <span><strong>How to read a code:</strong> first 2 letters = material family (RM, PM, SF, CO, SC). Letters 3–4 = sub-category. Last letter = storage state (A ambient · C chilled · F frozen · T ambient tray · etc).</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Factory SOP Anatomy Divider -->
+    <div style="border-top:2px solid var(--g1);margin:40px 0;position:relative">
+      <span style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--bg);padding:0 16px;font-size:11px;color:var(--g3);text-transform:uppercase;letter-spacing:0.1em;font-weight:500">Factory SOP Anatomy</span>
+    </div>
+
+    <div style="text-align:center;margin-bottom:24px">
+      <h2 style="font-family:var(--font-d);font-size:24px;color:var(--navy);margin:0 0 6px">How a Factory SOP is Assembled</h2>
+      <p style="font-size:13px;color:var(--g3);margin:0">Three layers combine per recipe — shared blocks (library) + recipe-specific steps + kitchen method</p>
+    </div>
+
+    <div class="card" style="margin-bottom:24px">
+      <div class="card-body" style="padding:20px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">
+
+          <!-- Pre-Production Blocks -->
+          <div style="padding:16px;border-radius:12px;background:#E6F1FB;border:1px solid #B3D4F0">
+            <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:#0C6BA8;font-weight:600;margin-bottom:6px">Layer 1</div>
+            <div style="font-family:var(--font-d);font-size:16px;font-weight:700;color:var(--navy);margin-bottom:8px">Pre-Production — Shared Blocks</div>
+            <div style="font-size:12px;color:var(--g4);line-height:1.5;margin-bottom:10px">Generic steps reused across recipes — receiving, sifting, weighing, line clearance. Managed centrally in the <strong>Edit Library</strong> (admin-only). Each recipe toggles relevant blocks <strong>on/off</strong>; editing a block updates it everywhere.</div>
+            <div style="font-size:11px;color:var(--g3)"><strong>11 blocks</strong> · numbered 3.0 – 3.9</div>
+          </div>
+
+          <!-- Production Steps -->
+          <div style="padding:16px;border-radius:12px;background:var(--sage-lt);border:1px solid var(--sage-mid)">
+            <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:var(--sage);font-weight:600;margin-bottom:6px">Layer 2</div>
+            <div style="font-family:var(--font-d);font-size:16px;font-weight:700;color:var(--navy);margin-bottom:8px">Production Steps — Recipe-Specific</div>
+            <div style="font-size:12px;color:var(--g4);line-height:1.5;margin-bottom:10px">Bespoke steps that belong only to this recipe. Carries icons (🌡️ temp · ⚖️ weigh · ⏱️ time · 🧼 hygiene · ⚠️ danger · ✅ check · 📸 photo · 💡 tip), free-text params (label/value), CCP badges, and warning banners.</div>
+            <div style="font-size:11px;color:var(--g3)">Distilled from the recipe's kitchen method; factory adds parameters + photos over time</div>
+          </div>
+
+          <!-- Post-Production Blocks -->
+          <div style="padding:16px;border-radius:12px;background:#F3E8FD;border:1px solid #D5C0EB">
+            <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:#5E35B1;font-weight:600;margin-bottom:6px">Layer 3</div>
+            <div style="font-family:var(--font-d);font-size:16px;font-weight:700;color:var(--navy);margin-bottom:8px">Post-Production — Shared Blocks</div>
+            <div style="font-size:12px;color:var(--g4);line-height:1.5;margin-bottom:10px">Cooling, blast freezing, packaging, metal detection, FG storage, QA release, dispatch, transport. Same toggle pattern as pre-prod; editing central definition flows through.</div>
+            <div style="font-size:11px;color:var(--g3)"><strong>11 blocks</strong> · numbered 3.10 – 3.20</div>
+          </div>
+
+        </div>
+
+        <!-- Annexures callout -->
+        <div style="margin-top:16px;padding:12px 14px;border-radius:8px;background:var(--g1);display:flex;align-items:flex-start;gap:10px">
+          <span style="font-size:18px">📎</span>
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:600;color:var(--navy);margin-bottom:2px">Annexures</div>
+            <div style="font-size:12px;color:var(--g4);line-height:1.5">Each block and step references forms (e.g. <code style="background:white;padding:1px 5px;border-radius:3px;font-size:11px">DFC-QA-F035 Material Receiving & Initial Inspection Records</code>). The Factory SOP automatically collects every referenced form into a numbered Annexures table at the bottom — no manual listing.</div>
+          </div>
+        </div>
+
+        <!-- Kitchen method vs SOP callout -->
+        <div style="margin-top:10px;padding:12px 14px;border-radius:8px;background:#FEF3E2;border:1px solid #F5D5A0;display:flex;align-items:flex-start;gap:10px">
+          <span style="font-size:18px">ℹ️</span>
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:600;color:var(--amber);margin-bottom:2px">Kitchen method vs Factory SOP</div>
+            <div style="font-size:12px;color:var(--g4);line-height:1.5">The <strong>recipe method</strong> (shown on the Recipe detail) is the kitchen/trial instructions — free-form prose. The <strong>Factory SOP</strong> is the production-floor document: the three layers above, scaled and formal. R&D drafts the method; Factory refines the SOP steps; the shared blocks are maintained by admin.</div>
+          </div>
         </div>
       </div>
     </div>
