@@ -967,7 +967,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
     <div class="card-body">
       <div class="form-grid form-grid-3" style="align-items:end">
         <div class="form-group">
-          <label class="form-label">Recipe</label>
+          <label class="form-label">Recipe awaiting QA</label>
           <select class="form-select" id="qa-recipe-select" onchange="updateQARecipe(this.value)"></select>
         </div>
         <div class="form-group">
@@ -978,6 +978,12 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
           <label class="form-label">Production Date</label>
           <input class="form-input" type="date" id="qa-date" />
         </div>
+      </div>
+      <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--g1);position:relative">
+        <label class="form-label" style="font-size:11px;color:var(--g3);text-transform:uppercase;letter-spacing:0.08em">Or look up a past recipe</label>
+        <input class="form-input" id="qa-recipe-search" placeholder="Type name, NPD code, or Recipe ID — search any recipe" oninput="qaRecipeSearch(this.value)" onfocus="qaRecipeSearch(this.value)" onblur="setTimeout(function(){var e=document.getElementById('qa-search-results');if(e)e.style.display='none'},200)" autocomplete="off" />
+        <div id="qa-search-results" style="position:absolute;z-index:20;background:white;border:1px solid var(--g2);border-radius:8px;max-height:300px;overflow-y:auto;left:0;right:0;display:none;box-shadow:0 6px 18px rgba(0,0,0,0.12);margin-top:4px"></div>
+        <div id="qa-current-label" style="margin-top:8px;font-size:12px;color:var(--g3);display:none"></div>
       </div>
     </div>
   </div>
@@ -12387,11 +12393,64 @@ var _qaAllergenOverrides = {}; // {npd: {contains:[], mayContain:[]}}
 function populateQARecipeDropdown() {
   var sel = document.getElementById('qa-recipe-select');
   if (!sel) return;
-  var recipes = Object.values(RECIPE_DB);
-  sel.innerHTML = recipes.map(function(r) {
-    return '<option value="' + r.npd + '">' + r.name + ' — ' + r.npd + '</option>';
-  }).join('') || '<option value="">No recipes</option>';
-  if (recipes.length) updateQARecipe(recipes[0].npd);
+  // Only recipes awaiting QA sign-off for their current stage
+  var awaiting = Object.values(RECIPE_DB).filter(function(r){
+    if (r.archived) return false;
+    if (r.status === 'trial')      return !(r.trialQA && r.trialQA.signed);
+    if (r.status === 'prod-trial') return !(r['prod-trialQA'] && r['prod-trialQA'].signed);
+    return false;
+  }).sort(function(a,b){ return (a.updatedAt||'').localeCompare(b.updatedAt||''); });
+  if (!awaiting.length) {
+    sel.innerHTML = '<option value="">✓ No recipes awaiting QA — all caught up</option>';
+    _qaCurrentNPD = null;
+    return;
+  }
+  sel.innerHTML = awaiting.map(function(r){
+    var stage = r.status === 'trial' ? 'Factory Trial' : 'Prod Trial';
+    return '<option value="'+r.npd+'">'+r.name+' — '+r.npd+' ('+stage+')</option>';
+  }).join('');
+  updateQARecipe(awaiting[0].npd);
+}
+
+function qaRecipeSearch(q) {
+  var el = document.getElementById('qa-search-results');
+  if (!el) return;
+  q = (q || '').trim().toLowerCase();
+  if (q.length < 2) { el.style.display = 'none'; return; }
+  var matches = Object.values(RECIPE_DB).filter(function(r){
+    if (!r) return false;
+    return (r.name||'').toLowerCase().indexOf(q) >= 0
+        || (r.npd||'').toLowerCase().indexOf(q) >= 0
+        || (r.recipeId||'').toLowerCase().indexOf(q) >= 0;
+  }).slice(0, 25);
+  if (!matches.length) {
+    el.innerHTML = '<div style="padding:12px;color:var(--g3);font-size:12px">No matches</div>';
+    el.style.display = 'block';
+    return;
+  }
+  el.innerHTML = matches.map(function(r){
+    var statusBadge = '<span style="font-size:10px;padding:1px 7px;border-radius:12px;margin-left:6px;background:var(--g1);color:var(--g4)">'+(r.status||'—')+'</span>';
+    var rid = r.recipeId ? ' · <span style="color:#2E7D32">'+r.recipeId+'</span>' : '';
+    return '<div style="padding:10px 12px;cursor:pointer;border-bottom:1px solid var(--g1);font-size:12px" onmousedown="qaPickPastRecipe(\''+r.npd+'\')" onmouseover="this.style.background=\'var(--g1)\'" onmouseout="this.style.background=\'white\'"><strong>'+r.name+'</strong>'+statusBadge+'<div style="font-size:11px;color:var(--g3);margin-top:2px;font-family:var(--font-m)">'+r.npd+rid+'</div></div>';
+  }).join('');
+  el.style.display = 'block';
+}
+
+function qaPickPastRecipe(npd) {
+  var results = document.getElementById('qa-search-results');
+  if (results) results.style.display = 'none';
+  var searchEl = document.getElementById('qa-recipe-search');
+  if (searchEl) searchEl.value = '';
+  updateQARecipe(npd);  // this clears the label — we re-set it below
+  var r = RECIPE_DB[npd];
+  var label = document.getElementById('qa-current-label');
+  if (label && r) {
+    var awaiting = r.status === 'trial' || r.status === 'prod-trial';
+    label.innerHTML = awaiting
+      ? '<span style="color:var(--navy)">Viewing:</span> <strong>'+r.name+'</strong> <span style="font-family:var(--font-m);color:var(--g3)">· '+r.npd+' · '+r.status+'</span>'
+      : '<span style="color:var(--amber);background:#FEF3E2;padding:2px 8px;border-radius:4px;font-weight:500">Past recipe — not awaiting QA</span> <strong>'+r.name+'</strong> <span style="font-family:var(--font-m);color:var(--g3)">· '+r.npd+' · '+r.status+'</span>';
+    label.style.display = 'block';
+  }
 }
 
 function updateQARecipe(npd) {
@@ -12400,6 +12459,9 @@ function updateQARecipe(npd) {
   var dateEl = document.getElementById('qa-date');
   if (batchEl) batchEl.value = '';
   if (dateEl) dateEl.value = '';
+  // Always hide the "past recipe" label; qaPickPastRecipe re-shows it after calling us.
+  var label = document.getElementById('qa-current-label');
+  if (label) label.style.display = 'none';
   updateQAAllergenDisplay(npd);
   // Clear and reload nutrition
   ['energy','fat','satfat','transfat','carbs','sugars','fibre','protein','sodium'].forEach(function(f) {
