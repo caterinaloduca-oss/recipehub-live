@@ -35,6 +35,16 @@ Single-file HTML application (`RecipeHub-App-v2.html`, ~12.7K lines) + Node/Expr
 - **Ingredient shape** carries `itemCode` (Oracle EBS code, e.g. `RMADT0013`) and `type` (Main / Packaging / Batter / Predust / …) alongside `name` + `pct`. Rendered as a small grey pill next to the ingredient name
 - **Bulk-import tag**: imported recipes carry `source: "bulk_import_2026-04"` + `importedAt`. Filter by that field for surgical rollback, never by the `[IMPORT]` title prefix (user-editable). 153 factory recipes imported 2026-04-23 via `~/recipe-hub-dev/bulk_import_recipes.py`; full backup + snapshot + rollback plan in `~/recipe-hub-dev/backups/` and `~/recipe-hub-dev/ROLLBACK.md`
 - **Delete protection**: `deletedRecipeIds`, `deletedSOPIds`, `deletedBuildIds` are merged server-side on every `POST /api/data` — stale tabs cannot resurrect deleted entries. Seed-re-add paths on client also filter against these lists
+- **Factory SOP data model** (3 distinct fields on a recipe):
+  - `r.method` = kitchen recipe instructions (list of `{title, text}`) — came from the Excel import
+  - `r.sopStandardBlocks` = list of shared-block **ids** toggled ON for this recipe. Unset → falls back to library's `defaultOn` set
+  - `r.sopSteps` = recipe-specific production steps, shape `{title, text, icons?, params?, ccp?, warning?}`. Icons use short keys: `temp / time / weight / hygiene / danger / check / photo / tip`. Params use `{l, v}` (not `{name, value}`). CCP is a string like `"CCP 8"`
+- **Shared Blocks library** (`data.sopStandardBlocks`, 22 blocks live as of 2026-04-24): 11 pre-prod (3.0, 3.1, 3.1b, 3.2–3.9) + 11 post-prod (3.10–3.20). Block shape: `{id, num, title, position:"pre"|"post", body, ccp, oprp, defaultOn, annexures:[{code,name}], tags}`. Editing the library is blob-level (POST `/api/data`) — there's no dedicated `/api/sop/blocks` endpoint
+- **Factory SOP rollout artifacts** (all in `~/recipe-hub-dev/`, gitignored):
+  - Phase 0 (blocks seed): `ROLLBACK_blocks.md`, `backups/existing_blocks_snapshot.json`
+  - Phase A (toggles): `ROLLBACK_toggles.md`, `block_toggle_log.csv` (153 rows), `backups/existing_toggles_snapshot.json`
+  - Phase B (production steps): `ROLLBACK_productionsteps.md`, `production_steps_log.csv` (76 rows), `backups/existing_production_steps_snapshot.json`
+  - Phase C (images) — pending
 
 ### Quick Start
 1. Edit `RecipeHub-App-v2.html` and push. No install needed for the frontend.
