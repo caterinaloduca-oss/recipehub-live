@@ -9286,12 +9286,19 @@ function renderEditableSOPStep(s, idx, npd) {
   const iconKeys = Object.keys(SOP_ICONS);
   const _r = RECIPE_DB[npd];
   const _banner = renderBannerForStep(_r, s);
+  const _stepCount = (_r && _r.sopSteps) ? _r.sopSteps.length : 0;
+  const _isFirst = idx === 0;
+  const _isLast  = idx === _stepCount - 1;
   return `
     ${_banner}
     <div id="sop-step-${idx}" style="position:relative;margin-bottom:28px;padding-bottom:28px;border-bottom:1px solid var(--g1)">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
         <div class="sop-num">${idx+1}</div>
         <input class="form-input" value="${s.title}" style="font-weight:600;color:var(--navy);font-size:15px;padding:6px 10px;flex:1" oninput="updateSOPStepField('${npd}',${idx},'title',this.value)" />
+        <div style="display:flex;flex-direction:column;gap:2px;flex-shrink:0">
+          <button class="btn btn-outline btn-sm" style="padding:1px 8px;font-size:11px;line-height:1.2" title="Move up" onclick="moveSOPStep('${npd}',${idx},-1)" ${_isFirst ? 'disabled style="padding:1px 8px;font-size:11px;line-height:1.2;opacity:0.3;cursor:not-allowed"' : ''}>▲</button>
+          <button class="btn btn-outline btn-sm" style="padding:1px 8px;font-size:11px;line-height:1.2" title="Move down" onclick="moveSOPStep('${npd}',${idx},1)" ${_isLast ? 'disabled style="padding:1px 8px;font-size:11px;line-height:1.2;opacity:0.3;cursor:not-allowed"' : ''}>▼</button>
+        </div>
         <button class="btn btn-danger-sm" onclick="removeSOPStep('${npd}',${idx})" style="flex-shrink:0">✕</button>
       </div>
       <div style="display:flex;gap:14px;margin-bottom:6px">
@@ -9463,6 +9470,20 @@ function removeSOPStep(npd, idx) {
   r.sopSteps.splice(idx, 1);
   refreshSOPSteps(npd);
   document.querySelector('#page-sop .badge-navy').textContent = r.sopSteps.length + ' Steps';
+  saveAllData();
+}
+
+// Move a step up (-1) or down (+1) in r.sopSteps. Clamped at the array boundaries.
+function moveSOPStep(npd, idx, dir) {
+  const r = RECIPE_DB[npd];
+  if (!r || !Array.isArray(r.sopSteps)) return;
+  const newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= r.sopSteps.length) return;
+  const tmp = r.sopSteps[idx];
+  r.sopSteps[idx] = r.sopSteps[newIdx];
+  r.sopSteps[newIdx] = tmp;
+  _markSOPChanged(npd);
+  refreshSOPSteps(npd);
   saveAllData();
 }
 
