@@ -15823,7 +15823,7 @@ function renderSavingsTracker() {
           '<td><span style="font-size:10px;padding:2px 8px;border-radius:20px;border:1px solid ' + color + ';color:' + color + '">' + p.category + '</span></td>' +
           '<td style="font-size:11px;color:var(--g4)">' + p.date + '</td>' +
           '<td style="text-align:right;font-family:var(--font-m);font-weight:600;color:var(--sage)">SAR ' + (p.amount || 0).toLocaleString() + '</td>' +
-          '<td><button class="btn btn-danger-sm" onclick="deleteSavingsProject(' + i + ')">✕</button></td>' +
+          '<td style="white-space:nowrap"><button class="btn btn-outline btn-sm" style="margin-right:4px" onclick="editSavingsProject(' + i + ')" title="Edit">✎</button><button class="btn btn-danger-sm" onclick="deleteSavingsProject(' + i + ')" title="Delete">✕</button></td>' +
         '</tr>';
       }).join('') +
       '</tbody></table>';
@@ -15887,6 +15887,59 @@ function deleteSavingsProject(index) {
   saveSavingsData();
   renderSavingsTracker();
   showSaveToast('Savings project removed');
+}
+
+function editSavingsProject(sortedIndex) {
+  var sorted = SAVINGS_PROJECTS.slice().sort(function(a,b) { return new Date(b.date) - new Date(a.date); });
+  var project = sorted[sortedIndex];
+  if (!project) return;
+  var origIndex = SAVINGS_PROJECTS.indexOf(project);
+  if (origIndex < 0) return;
+  var cats = ['Recipe Change','Ingredient Swap','Process Improvement','Waste Reduction','Supplier Negotiation','Other'];
+  openModal(
+    '<div class="card-head" style="background:var(--sage);border-radius:16px 16px 0 0">' +
+      '<span class="card-title" style="color:white">Edit Savings Project</span>' +
+      '<button class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:white;border:none" onclick="closeModal()">✕</button>' +
+    '</div>' +
+    '<div class="card-body" style="padding:24px">' +
+      '<div class="form-grid form-grid-2" style="margin-bottom:16px">' +
+        '<div class="form-group"><label class="form-label">Project Name <span style="color:var(--red)">*</span></label><input class="form-input" id="sp-name" value="' + (project.name||'').replace(/"/g,'&quot;') + '" /></div>' +
+        '<div class="form-group"><label class="form-label">Category</label><select class="form-select" id="sp-category">' +
+          cats.map(function(c){ return '<option' + (c===project.category?' selected':'') + '>' + c + '</option>'; }).join('') +
+        '</select></div>' +
+      '</div>' +
+      '<div class="form-grid form-grid-2" style="margin-bottom:16px">' +
+        '<div class="form-group"><label class="form-label">Annual Saving (SAR) <span style="color:var(--red)">*</span></label><input class="form-input" id="sp-amount" type="number" value="' + (project.amount||'') + '" /></div>' +
+        '<div class="form-group"><label class="form-label">Date</label><input class="form-input" id="sp-date" type="date" value="' + (project.date||'') + '" /></div>' +
+      '</div>' +
+      '<div class="form-group" style="margin-bottom:16px"><label class="form-label">Notes</label><textarea class="form-input" id="sp-notes" style="min-height:60px;resize:vertical">' + (project.notes||'') + '</textarea></div>' +
+      '<div style="display:flex;gap:10px;justify-content:flex-end">' +
+        '<button class="btn btn-outline" onclick="closeModal()">Cancel</button>' +
+        '<button class="btn btn-sage" onclick="updateSavingsProject(' + origIndex + ')">Save changes</button>' +
+      '</div>' +
+    '</div>'
+  );
+}
+
+function updateSavingsProject(origIndex) {
+  var p = SAVINGS_PROJECTS[origIndex];
+  if (!p) return;
+  var name = document.getElementById('sp-name').value;
+  var amount = parseFloat(document.getElementById('sp-amount').value);
+  if (!name || !amount) {
+    if (!name) document.getElementById('sp-name').style.borderColor = '#C0392B';
+    if (!amount) document.getElementById('sp-amount').style.borderColor = '#C0392B';
+    return;
+  }
+  p.name = name;
+  p.category = document.getElementById('sp-category').value;
+  p.amount = amount;
+  p.date = document.getElementById('sp-date').value || p.date;
+  p.notes = document.getElementById('sp-notes').value || '';
+  saveSavingsData();
+  renderSavingsTracker();
+  closeModal();
+  showSaveToast('Savings project updated');
 }
 
 function makeBar(label, value, max, color, suffix) {
