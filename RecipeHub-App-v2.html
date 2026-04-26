@@ -720,7 +720,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
     <span class="nav-icon">🍕</span> Build Analytics
   </button>
   <button class="nav-item" data-page="brands" onclick="nav('brands')">
-    <span class="nav-icon">◎</span> Brands
+    <span class="nav-icon">🏷️</span> Brands
   </button>
   <button class="nav-item" data-page="cost-control" onclick="nav('cost-control')">
     <span class="nav-icon">◎</span> KPI & Goals
@@ -1616,10 +1616,16 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
 
 <!-- BRANDS PAGE -->
 <div id="page-brands" class="page-hidden">
-  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px;margin-bottom:20px" id="brand-cards-row"></div>
+  <!-- Brand pill picker -->
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:10px 14px;background:white;border-radius:var(--r-md);box-shadow:0 1px 3px rgba(0,0,0,0.05);margin-bottom:14px" id="brand-pills-row"></div>
+
+  <!-- Detail panel: stats strip + spreadsheet -->
   <div class="card" id="brand-detail-panel">
-    <div style="padding:50px;text-align:center;color:var(--g3);font-size:13px">Select a brand above</div>
+    <div style="padding:50px;text-align:center;color:var(--g4);font-size:13px">Pick a brand above</div>
   </div>
+
+  <!-- Hidden legacy node so old code paths don't break -->
+  <div id="brand-cards-row" style="display:none"></div>
 </div>
 
 <!-- PIZZA BUILDS PAGE -->
@@ -5797,7 +5803,7 @@ const PAGES = {
   'builds-costing': { title:'Build Analytics', actions:`<button class="btn btn-outline btn-sm" onclick="refreshReports()">↻ Refresh</button>` },
   'cost-control': { title:'KPI & Goals', actions:`<button class="btn btn-outline btn-sm" onclick="refreshReports()">↻ Refresh</button>` },
   sop:            { title:'Factory SOPs', actions:'' },
-  brands:         { title:'Brands',              actions:`<button class="btn btn-primary btn-sm" onclick="openBrandForm()">+ New Brand</button>` },
+  brands:         { title:'Brands',                actions:`<button class="btn btn-primary btn-sm" onclick="openBrandForm()">+ New Brand</button>` },
   workflow:       { title:'Workflow',             actions:'' },
   training:       { title:'Training',             actions:'' },
   users:          { title:'Users & Access',      actions:`<button class="btn btn-gold btn-sm" onclick="toggleInviteForm()">+ Add User</button>` },
@@ -12231,11 +12237,11 @@ function confirmRemoveUser() {
 }
 
 const BRANDS = [
-  { id:'maestro',  name:'Maestro',   concept:'QSR pizza', recipes:14, approved:10, draft:2, review:2, bg:'#E8EDF5', border:'#C8D4E8', text:'#1B2A4A', types:['Pizza sauce','Dough finish','Dipping sauce','Seasoning blend'], costRange:'SAR 6–18' },
-  { id:'mad',      name:'Mad',       concept:'Detroit-style deep dish', recipes:8, approved:5, draft:1, review:2, bg:'#FDE8E6', border:'#F5B5B0', text:'#C0392B', types:['Deep dish sauce','Infused oil','Topping base','Cheese blend'], costRange:'SAR 10–28' },
-  { id:'pinzatta', name:'Pinzatta',  concept:'Authentic Italian pinsa', recipes:6, approved:3, draft:1, review:2, bg:'#FEF3E2', border:'#F5D5A0', text:'#B8820A', types:['Pinsa rossa','Pinsa bianca','EVOO dressing','Finishing sauce'], costRange:'SAR 16–32' },
-  { id:'tivo',     name:'Tivo',      concept:'Sandwiches & filled concepts', recipes:9, approved:7, draft:1, review:1, bg:'#EBF5EE', border:'#C3E6CB', text:'#2D6A4F', types:['Sandwich spread','Mayo-based sauce','Seasoning','Pickle brine'], costRange:'SAR 8–20' },
-  { id:'telliano', name:'Telliano',  concept:'Fast casual Italian', recipes:5, approved:3, draft:0, review:2, bg:'#F5EEFA', border:'#D4B5F0', text:'#6B2FA0', types:['Pasta sauce','Pesto','Dip','Dressing'], costRange:'SAR 14–30' },
+  { id:'maestro',  name:'Maestro',   concept:'QSR pizza', targetFC:22.5, recipes:14, approved:10, draft:2, review:2, bg:'#E8EDF5', border:'#C8D4E8', text:'#1B2A4A', types:['Pizza sauce','Dough finish','Dipping sauce','Seasoning blend'], costRange:'SAR 6–18' },
+  { id:'mad',      name:'Mad',       concept:'Detroit-style deep dish', targetFC:21, recipes:8, approved:5, draft:1, review:2, bg:'#FDE8E6', border:'#F5B5B0', text:'#C0392B', types:['Deep dish sauce','Infused oil','Topping base','Cheese blend'], costRange:'SAR 10–28' },
+  { id:'pinzatta', name:'Pinzatta',  concept:'Authentic Italian pinsa', targetFC:23, recipes:6, approved:3, draft:1, review:2, bg:'#FEF3E2', border:'#F5D5A0', text:'#B8820A', types:['Pinsa rossa','Pinsa bianca','EVOO dressing','Finishing sauce'], costRange:'SAR 16–32' },
+  { id:'tivo',     name:'Tivo',      concept:'Sandwiches & filled concepts', targetFC:24.5, recipes:9, approved:7, draft:1, review:1, bg:'#EBF5EE', border:'#C3E6CB', text:'#2D6A4F', types:['Sandwich spread','Mayo-based sauce','Seasoning','Pickle brine'], costRange:'SAR 8–20' },
+  { id:'telliano', name:'Telliano',  concept:'Fast casual Italian', targetFC:30, recipes:5, approved:3, draft:0, review:2, bg:'#F5EEFA', border:'#D4B5F0', text:'#6B2FA0', types:['Pasta sauce','Pesto','Dip','Dressing'], costRange:'SAR 14–30' },
 ];
 
 const BRAND_RECIPES = {}; /* Clean slate */
@@ -12278,12 +12284,14 @@ function statusBadge(s) {
 }
 
 function renderBrandDetail(id) {
-  document.querySelectorAll('#brand-cards-row .brand-card').forEach(c => {
-    c.style.outline = c.dataset.id === id ? '2.5px solid #1B2A4A' : 'none';
-    c.style.outlineOffset = '2px';
-  });
+  if (!id) id = _activeBrandId || (BRANDS[0] && BRANDS[0].id);
+  if (!id) return;
+  _activeBrandId = id;
   const b = BRANDS.find(x => x.id === id);
-  // Pull recipes dynamically from RECIPE_DB by brand name
+  if (!b) return;
+  const target = (typeof b.targetFC === 'number') ? b.targetFC : 30;
+
+  // Pull recipes dynamically from RECIPE_DB by brand name (multi-brand aware)
   const recipes = Object.values(RECIPE_DB).filter(function(r){ return recipeHasBrand(r, b.name) && !r.archived; }).map(function(r){
     return {
       name: r.name, npd: r.npd, v: r.version,
@@ -12295,124 +12303,128 @@ function renderBrandDetail(id) {
   const archivedCount = Object.values(RECIPE_DB).filter(function(r){ return recipeHasBrand(r, b.name) && r.archived; }).length;
   const costed = recipes.filter(r => r.costKg);
   const panel = document.getElementById('brand-detail-panel');
+  if (!panel) return;
+
+  // Stats
+  const approved = recipes.filter(r => r.status === 'approved').length;
+  const activeBuilds = BUILDS_DATA.filter(x => (x.brand||'').toLowerCase() === b.name.toLowerCase() && x.active !== false).length;
+  const branchSops = BRANCH_SOPS.filter(x => (x.brand||'').toLowerCase() === b.name.toLowerCase()).length;
+  const costVals = costed.map(r => r.costKg);
+  const lo = costVals.length ? Math.min.apply(null, costVals) : 0;
+  const hi = costVals.length ? Math.max.apply(null, costVals) : 0;
+  const avg = costVals.length ? costVals.reduce((a,b)=>a+b,0)/costVals.length : 0;
+
+  // Sort
+  const rsForTable = recipes.map(r => Object.assign({}, r, _bcRowFC(r, target)));
+  rsForTable.sort((a,bb) => {
+    let av, bv;
+    const k = _bcSort.key;
+    if (k === 'name') { av = a.name||''; bv = bb.name||''; }
+    else if (k === 'npd') { av = a.npd||''; bv = bb.npd||''; }
+    else if (k === 'costKg') { av = a.costKg||999999; bv = bb.costKg||999999; }
+    else if (k === 'fc') { av = (a.fc===null?999:a.fc); bv = (bb.fc===null?999:bb.fc); }
+    else if (k === 'status') { av = a.status||''; bv = bb.status||''; }
+    else { av = a.name||''; bv = bb.name||''; }
+    if (av < bv) return -1*_bcSort.dir;
+    if (av > bv) return 1*_bcSort.dir;
+    return 0;
+  });
+
+  const sortArrow = k => _bcSort.key === k ? (_bcSort.dir === 1 ? ' ▲' : ' ▼') : '';
+  const hasAnySim = Object.keys(_brandSim).length > 0;
 
   panel.innerHTML = `
-    <div style="display:flex;align-items:center;gap:16px;padding:18px 24px;border-bottom:1px solid var(--g2);background:var(--g1)">
-      <div style="width:44px;height:44px;border-radius:50%;background:${b.bg};border:1.5px solid ${b.border};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:500;color:${b.text};flex-shrink:0">${b.name.slice(0,2)}</div>
-      <div style="flex:1">
-        <div style="font-family:var(--font-d);font-size:20px;font-weight:600;color:var(--navy)">${b.name}</div>
-        <div style="font-size:12px;color:var(--g3)">${b.concept}</div>
+    <!-- Stats strip -->
+    <div style="display:flex;align-items:center;gap:18px;padding:14px 20px;border-bottom:1px solid var(--g2);background:var(--g1);flex-wrap:wrap">
+      <div style="width:38px;height:38px;border-radius:50%;background:${b.bg};border:1.5px solid ${b.border};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:${b.text};flex-shrink:0">${b.name.slice(0,2)}</div>
+      <div style="flex:1;min-width:140px">
+        <div style="font-family:var(--font-d);font-size:18px;font-weight:600;color:var(--navy);line-height:1.1">${b.name}</div>
+        <div style="font-size:11px;color:var(--g4);margin-top:1px">${b.concept}</div>
       </div>
-      <div style="display:flex;gap:6px;margin-right:16px">
-        <button class="btn btn-outline btn-sm" onclick="editBrand('${b.id}')">Edit</button>
-        <button class="btn btn-danger-sm" style="padding:5px 10px" onclick="deleteBrand('${b.id}')">Delete</button>
-      </div>
-      <div style="display:flex;gap:20px;text-align:center">
-        <div><div style="font-size:26px;font-weight:500;font-family:var(--font-d);color:var(--navy)">${recipes.length}</div><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3)">Recipes</div></div>
-        <div><div style="font-size:26px;font-weight:500;font-family:var(--font-d);color:var(--sage)">${recipes.filter(function(x){return x.status==='approved'}).length}</div><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3)">Approved</div></div>
-        <div style="border-left:1px solid var(--g2);padding-left:20px"><div style="font-size:26px;font-weight:500;font-family:var(--font-d);color:var(--navy)">${BUILDS_DATA.filter(function(x){return (x.brand||'').toLowerCase()===b.name.toLowerCase()&&x.active!==false}).length}<span style="font-size:14px;color:var(--g3)">/${BUILDS_DATA.filter(function(x){return (x.brand||'').toLowerCase()===b.name.toLowerCase()}).length}</span></div><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3)">Active Builds</div></div>
-        <div><div style="font-size:26px;font-weight:500;font-family:var(--font-d);color:var(--navy)">${BRANCH_SOPS.filter(function(x){return (x.brand||'').toLowerCase()===b.name.toLowerCase()}).length}</div><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3)">Branch SOPs</div></div>
+      <div style="text-align:center"><div style="font-size:18px;font-weight:600;font-family:var(--font-d);color:var(--navy)">${recipes.length}</div><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.08em;color:var(--g4)">Recipes</div></div>
+      <div style="text-align:center"><div style="font-size:18px;font-weight:600;font-family:var(--font-d);color:var(--sage)">${approved}</div><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.08em;color:var(--g4)">Approved</div></div>
+      <div style="text-align:center"><div style="font-size:18px;font-weight:600;font-family:var(--font-d);color:var(--navy)">${activeBuilds}</div><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.08em;color:var(--g4)">Active builds</div></div>
+      <div style="text-align:center"><div style="font-size:18px;font-weight:600;font-family:var(--font-d);color:var(--navy)">${branchSops}</div><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.08em;color:var(--g4)">Branch SOPs</div></div>
+      ${costVals.length ? `
+        <div style="border-left:1px solid var(--g2);padding-left:18px;text-align:center"><div style="font-size:14px;font-weight:600;font-family:var(--font-m);color:var(--navy);white-space:nowrap">SAR ${lo.toFixed(2)} – ${hi.toFixed(2)}</div><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.08em;color:var(--g4)">Cost range / kg · avg ${avg.toFixed(2)}</div></div>
+      ` : ''}
+      <div style="border-left:1px solid var(--g2);padding-left:18px;text-align:center"><div style="font-size:18px;font-weight:600;font-family:var(--font-d);color:${b.text};white-space:nowrap">≤ ${target}%</div><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.08em;color:var(--g4)">Target FC%</div></div>
+    </div>
+
+    <!-- Sheet header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-bottom:1px solid var(--g2);background:white;flex-wrap:wrap;gap:10px">
+      <div style="font-family:var(--font-d);font-size:13px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:0.05em">${b.name} recipes — pricing simulator</div>
+      <div style="display:flex;align-items:center;gap:14px;font-size:11px;color:var(--g4)">
+        <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:var(--sage)"></span>At target ≤${target}%</span>
+        <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:var(--amber)"></span>${target}–${(target+3).toFixed(target%1?1:0)}%</span>
+        <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:var(--red)"></span>Over ${(target+3).toFixed(target%1?1:0)}%</span>
+        ${hasAnySim ? `<button onclick="bcResetAll()" style="background:none;border:1px solid var(--g2);color:var(--g4);padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer">↺ Reset all</button>` : ''}
       </div>
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--g2)">
-      <div style="padding:16px 24px;border-right:1px solid var(--g2)">
-        <div style="font-size:10px;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:var(--g3);margin-bottom:10px">Product types</div>
-        <div style="display:flex;flex-wrap:wrap;gap:6px">
-          ${b.types.map(t => `<span style="font-size:11px;font-weight:500;padding:4px 12px;border-radius:40px;background:${b.bg};color:${b.text};border:1px solid ${b.border}">${t}</span>`).join('')}
-        </div>
-      </div>
-      <div style="padding:16px 24px">
-        <div style="font-size:10px;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:var(--g3);margin-bottom:6px">Cost range / kg</div>
-        ${(function(){
-          var vals = recipes.map(function(r){ return r.costKg; }).filter(function(v){ return typeof v === 'number' && v > 0; });
-          if (!vals.length) return '<div style="font-size:15px;font-weight:500;color:var(--g3)">No costed recipes</div><div style="font-size:11px;color:var(--g3);margin-top:2px">Cost range appears once recipes have a cost/kg</div>';
-          var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
-          return '<div style="font-size:22px;font-weight:500;color:var(--navy)">SAR ' + lo.toFixed(2) + (lo===hi ? '' : ' – ' + hi.toFixed(2)) + '</div><div style="font-size:11px;color:var(--g3);margin-top:2px">across ' + vals.length + ' costed recipe' + (vals.length===1?'':'s') + '</div>';
-        })()}
-      </div>
-    </div>
-
-    ${costed.length ? `
-    <div style="padding:18px 24px;border-bottom:1px solid var(--g2)">
-      <div style="font-size:10px;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:var(--g3);margin-bottom:14px">Food cost calculator — per kg and per portion (simulate portions on the fly)</div>
-      <div style="display:grid;grid-template-columns:repeat(${Math.min(costed.length,3)},1fr);gap:14px">
-        ${costed.map(r => {
-          var origPortion = r.portionG || '';
-          var initialPortionCost = (r.portionG && r.costKg) ? (r.costKg * r.portionG / 1000) : null;
-          return `
-          <div style="background:var(--g1);border-radius:var(--r-md);padding:14px 16px;border:1px solid var(--g2)" data-cost-kg="${r.costKg}" data-orig-portion="${origPortion}">
-            <div style="font-size:12px;font-weight:500;color:var(--navy);margin-bottom:10px;line-height:1.3">${r.name}</div>
-
-            <!-- Cost / kg -->
-            <div style="display:flex;justify-content:space-between;gap:10px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px dashed var(--g2)">
-              <div>
-                <div style="font-size:9px;text-transform:uppercase;letter-spacing:0.08em;color:var(--g3);margin-bottom:2px">Cost / kg</div>
-                <div style="font-size:14px;font-weight:500;color:var(--navy)">SAR ${r.costKg.toFixed(2)}</div>
-              </div>
-              <div style="text-align:right">
-                <div style="font-size:9px;text-transform:uppercase;letter-spacing:0.08em;color:var(--g3);margin-bottom:2px">Original portion</div>
-                <div style="font-size:13px;font-weight:500;color:${r.portionG ? 'var(--navy)' : 'var(--g3)'}">${r.portionG ? r.portionG + 'g' : '— not set'}</div>
-              </div>
-            </div>
-
-            <!-- Per-kg row -->
-            <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--gold);margin-bottom:3px;display:flex;justify-content:space-between">
-              <span>Sale price / kg</span><span id="fc-${r.npd}" style="font-weight:500">—</span>
-            </div>
-            <input type="number" min="0" step="0.5" placeholder="SAR 0.00"
-              style="width:100%;font-size:13px;font-weight:500;color:var(--navy);background:var(--gold-lt);border:1.5px solid #E8C875;border-radius:var(--r-sm);padding:6px 10px;outline:none;font-family:var(--font-b)"
-              oninput="calcFC(this,${r.costKg},'${r.npd}')" />
-            <div style="height:2px;background:var(--g2);border-radius:2px;margin-top:6px;overflow:hidden"><div style="height:100%;border-radius:2px;transition:width 0.3s;background:var(--sage)" id="fcbar-${r.npd}"></div></div>
-            <div style="font-size:10px;color:var(--g3);margin-top:3px" id="fcnote-${r.npd}"></div>
-
-            <!-- Per-portion row with editable portion size for simulation -->
-            <div style="margin-top:12px;padding-top:10px;border-top:1px dashed var(--g2)">
-              <div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:6px">
-                <div style="flex:1">
-                  <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--gold);margin-bottom:3px">Portion size (g)</div>
-                  <input type="number" min="1" step="5" value="${origPortion}" placeholder="${origPortion || 'e.g. 200'}"
-                    id="sim-portion-${r.npd}"
-                    style="width:100%;font-size:13px;font-weight:500;color:var(--navy);background:white;border:1.5px solid var(--g2);border-radius:var(--r-sm);padding:6px 10px;outline:none;font-family:var(--font-m)"
-                    oninput="recalcPortion('${r.npd}',${r.costKg})" />
-                </div>
-                <div style="flex:1;text-align:right">
-                  <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--g3);margin-bottom:3px">Cost / portion</div>
-                  <div id="costP-${r.npd}" style="font-size:14px;font-weight:500;color:var(--navy);padding:6px 0">${initialPortionCost !== null ? 'SAR ' + initialPortionCost.toFixed(2) : '—'}</div>
-                </div>
-              </div>
-              <div id="simNote-${r.npd}" style="font-size:10px;color:var(--g3);margin-bottom:6px"></div>
-              <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--gold);margin-bottom:3px;display:flex;justify-content:space-between">
-                <span>Sale price / portion</span><span id="fcP-${r.npd}" style="font-weight:500">—</span>
-              </div>
-              <input type="number" min="0" step="0.5" placeholder="SAR 0.00"
-                id="fcP-input-${r.npd}"
-                style="width:100%;font-size:13px;font-weight:500;color:var(--navy);background:var(--gold-lt);border:1.5px solid #E8C875;border-radius:var(--r-sm);padding:6px 10px;outline:none;font-family:var(--font-b)"
-                oninput="recalcPortionFC('${r.npd}',${r.costKg})" />
-              <div style="height:2px;background:var(--g2);border-radius:2px;margin-top:6px;overflow:hidden"><div style="height:100%;border-radius:2px;transition:width 0.3s;background:var(--sage)" id="fcPbar-${r.npd}"></div></div>
-              <div style="font-size:10px;color:var(--g3);margin-top:3px" id="fcPnote-${r.npd}"></div>
-            </div>
-          </div>`;
+    ${recipes.length ? `
+    <div style="overflow-x:auto">
+      <table class="data-table" style="font-size:13px;min-width:1100px">
+        <thead>
+          <tr>
+            <th onclick="sortBrandTable('name')" style="cursor:pointer">Recipe${sortArrow('name')}</th>
+            <th onclick="sortBrandTable('npd')" style="cursor:pointer">NPD${sortArrow('npd')}</th>
+            <th onclick="sortBrandTable('costKg')" style="cursor:pointer;text-align:right">Cost / kg${sortArrow('costKg')}</th>
+            <th style="text-align:right" title="Original portion as set on the recipe — read-only">Current portion</th>
+            <th style="text-align:right">Sim portion (g)</th>
+            <th style="text-align:right">Cost / portion</th>
+            <th style="text-align:right">Sale price / portion</th>
+            <th onclick="sortBrandTable('fc')" style="cursor:pointer;text-align:right">FC %${sortArrow('fc')}</th>
+            <th></th>
+            <th onclick="sortBrandTable('status')" style="cursor:pointer">Status${sortArrow('status')}</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+        ${rsForTable.map(r => {
+          const sim = _brandSim[r.npd] || {};
+          const portionGDisplay = sim.portionG !== undefined ? sim.portionG : (r.portionG || '');
+          const salePriceDisplay = sim.salePrice || '';
+          const isModifiedPortion = sim.portionG !== undefined && sim.portionG !== (r.portionG || 0);
+          let fcClass = 'empty', fcText = '—', barW = 0, barColor = 'var(--sage)';
+          if (r.fc !== null) {
+            fcText = r.fc.toFixed(1) + '%';
+            if (r.fc <= target) { fcClass = 'sage'; barColor = 'var(--sage)'; }
+            else if (r.fc <= target + 3) { fcClass = 'amber'; barColor = 'var(--amber)'; }
+            else { fcClass = 'red'; barColor = 'var(--red)'; }
+            barW = Math.min(r.fc, 100);
+          }
+          const fcColor = fcClass === 'sage' ? 'var(--sage)' : fcClass === 'amber' ? 'var(--amber)' : fcClass === 'red' ? 'var(--red)' : '#C0BDB5';
+          const origCell = r.portionG ? r.portionG + 'g' : '<span style="color:#C0BDB5">—</span>';
+          const resetLink = isModifiedPortion ? `<a href="#" onclick="bcResetPortion('${r.npd}');return false" style="display:block;font-size:10px;color:var(--gold);text-decoration:none;margin-top:2px">↺ reset</a>` : '';
+          const portionInputStyle = isModifiedPortion ? 'border-color:var(--gold);background:var(--gold-lt)' : '';
+          return `<tr>
+            <td><strong style="color:var(--navy)">${r.name}</strong></td>
+            <td style="font-family:var(--font-m);font-size:11px;color:var(--g4)">${r.npd}</td>
+            <td style="text-align:right;font-family:var(--font-m);font-weight:500;color:${r.costKg ? 'var(--navy)' : 'var(--g3)'}">${r.costKg ? 'SAR ' + r.costKg.toFixed(2) : '—'}</td>
+            <td style="text-align:right;font-family:var(--font-m);font-size:12px;color:var(--g4)">${origCell}</td>
+            <td style="text-align:right">
+              <input type="number" min="1" value="${portionGDisplay}" placeholder="${r.portionG||''}" oninput="bcUpdatePortion('${r.npd}',this.value)"
+                style="width:80px;padding:5px 8px;border:1px solid var(--g2);border-radius:6px;font-size:13px;text-align:right;font-family:var(--font-m);outline:none;${portionInputStyle}">
+              ${resetLink}
+            </td>
+            <td style="text-align:right;font-family:var(--font-m);font-weight:500;color:${r.costPortion>0 ? 'var(--navy)' : 'var(--g3)'}">${r.costPortion > 0 ? 'SAR ' + r.costPortion.toFixed(2) : '—'}</td>
+            <td style="text-align:right">
+              <input type="number" min="0" step="0.5" placeholder="0.00" value="${salePriceDisplay}" oninput="bcUpdateSale('${r.npd}',this.value)"
+                style="width:90px;padding:5px 8px;border:1.5px solid #E8C875;background:var(--gold-lt);border-radius:6px;font-size:13px;text-align:right;font-family:var(--font-m);font-weight:500;color:var(--navy);outline:none">
+            </td>
+            <td style="text-align:right;font-family:var(--font-m);font-weight:700;font-size:14px;color:${fcColor}">${fcText}</td>
+            <td style="min-width:80px;padding:0 12px"><div style="height:4px;background:var(--g1);border-radius:2px;overflow:hidden"><div style="height:100%;width:${barW}%;background:${barColor};border-radius:2px;transition:width 0.25s,background 0.25s"></div></div></td>
+            <td>${statusBadge(r.status)}</td>
+            <td><button class="btn btn-outline btn-sm" onclick="viewBrandRecipe('${r.npd}')">View</button></td>
+          </tr>`;
         }).join('')}
-      </div>
-    </div>` : ''}
+        </tbody>
+      </table>
+    </div>
+    ` : `<div style="padding:36px 24px;text-align:center;color:var(--g4);font-size:13px">No recipes yet for ${b.name}</div>`}
 
-    ${archivedCount ? `<div style="padding:8px 24px;background:var(--g05);border-bottom:1px solid var(--g2);font-size:11px;color:var(--g3)">📦 ${archivedCount} archived recipe${archivedCount>1?'s':''} hidden. View from the Recipes page with "Show Archived" toggle.</div>` : ''}
-    <table class="data-table">
-      <thead><tr><th>Recipe</th><th>NPD Code</th><th>Version</th><th style="text-align:right">Cost / kg</th><th>Status</th><th></th></tr></thead>
-      <tbody>
-        ${recipes.map(r => `<tr>
-          <td><strong>${r.name}</strong></td>
-          <td style="font-family:var(--font-m);font-size:12px;color:var(--g3)">${r.npd}</td>
-          <td><span class="badge badge-navy">${r.v}</span></td>
-          <td style="text-align:right;font-family:var(--font-m);font-weight:500;color:${r.costKg ? 'var(--sage)' : 'var(--g3)'}">
-            ${r.costKg ? 'SAR ' + r.costKg.toFixed(2) : '—'}
-          </td>
-          <td>${statusBadge(r.status)}</td>
-          <td><button class="btn btn-outline btn-sm" onclick="viewBrandRecipe('${r.npd}')">View</button></td>
-        </tr>`).join('')}
-      </tbody>
-    </table>
+    ${archivedCount ? `<div style="padding:8px 24px;background:var(--g05);border-top:1px solid var(--g2);font-size:11px;color:var(--g4)">📦 ${archivedCount} archived recipe${archivedCount>1?'s':''} hidden. View from the Recipes page with "Show Archived" toggle.</div>` : ''}
   `;
 }
 
@@ -12581,32 +12593,78 @@ function populateBrandCheckboxes() {
   }).join('');
 }
 
+// Per-row simulation state (transient — NOT persisted). {npd: {portionG, salePrice}}
+var _brandSim = {};
+
 function buildBrandCards() {
-  const row = document.getElementById('brand-cards-row');
+  // Renders the brand pill picker. Function name kept for back-compat with existing call sites.
+  const row = document.getElementById('brand-pills-row');
   if (!row) return;
-  row.innerHTML = '';
-  BRANDS.forEach((b, i) => {
-    const div = document.createElement('div');
-    div.className = 'brand-card';
-    div.dataset.id = b.id;
-    div.style.cssText = `background:${b.bg};border-color:${b.border};cursor:pointer`;
-    div.onclick = () => renderBrandDetail(b.id);
-    var activeBuilds = BUILDS_DATA.filter(function(x){ return (x.brand||'').toLowerCase() === b.name.toLowerCase() && x.active !== false; }).length;
-    var activeSOPs = BRANCH_SOPS.filter(function(x){ return (x.brand||'').toLowerCase() === b.name.toLowerCase(); }).length;
-    // Recipes count = non-archived recipes matching this brand (case-insensitive, multi-brand aware)
-    var recipeCount = Object.values(RECIPE_DB).filter(function(r){ return !r.archived && recipeHasBrand(r, b.name); }).length;
-    div.innerHTML = `
-      <div style="font-family:var(--font-d);font-size:19px;font-weight:600;color:${b.text}">${b.name}</div>
-      <div style="font-size:11px;color:${b.text};opacity:0.55;margin-top:2px;margin-bottom:12px">${b.concept}</div>
-      <div style="display:flex;gap:16px">
-        <div><div style="font-size:22px;font-weight:500;font-family:var(--font-d);color:${b.text}">${recipeCount}</div><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:${b.text};opacity:0.45">Recipes</div></div>
-        <div><div style="font-size:22px;font-weight:500;font-family:var(--font-d);color:${b.text}">${activeBuilds}</div><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:${b.text};opacity:0.45">Builds</div></div>
-        <div><div style="font-size:22px;font-weight:500;font-family:var(--font-d);color:${b.text}">${activeSOPs}</div><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:${b.text};opacity:0.45">SOPs</div></div>
-      </div>
-    `;
-    row.appendChild(div);
-  });
-  if (BRANDS.length) renderBrandDetail(BRANDS[0].id);
+  if (!BRANDS.length) { row.innerHTML = '<div style="font-size:12px;color:var(--g4);padding:6px">No brands configured</div>'; return; }
+  // Track which brand is active across re-renders
+  if (!_activeBrandId || !BRANDS.find(b => b.id === _activeBrandId)) _activeBrandId = BRANDS[0].id;
+
+  row.innerHTML = BRANDS.map(b => {
+    const recipeCount = Object.values(RECIPE_DB).filter(r => !r.archived && recipeHasBrand(r, b.name)).length;
+    const isActive = b.id === _activeBrandId;
+    return `<div class="brand-pill" onclick="selectBrandPill('${b.id}')" data-id="${b.id}"
+      style="display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:999px;cursor:pointer;font-size:13px;font-weight:600;
+      ${isActive ? `background:${b.text};color:white;border:1.5px solid ${b.text}` : `background:white;color:var(--navy);border:1.5px solid var(--g2)`}">
+      <span style="width:8px;height:8px;border-radius:50%;background:${isActive ? 'white' : b.text};flex-shrink:0"></span>
+      ${b.name}
+      <span style="font-size:11px;opacity:0.7;font-weight:500">${recipeCount}</span>
+    </div>`;
+  }).join('') +
+  `<div style="margin-left:auto;display:flex;gap:6px">
+    <button class="btn btn-outline btn-sm" onclick="editBrand('${_activeBrandId}')" title="Edit ${(BRANDS.find(b=>b.id===_activeBrandId)||{}).name||''}">Edit</button>
+    <button class="btn btn-danger-sm" style="padding:5px 10px" onclick="deleteBrand('${_activeBrandId}')" title="Delete brand">Delete</button>
+  </div>`;
+
+  renderBrandDetail(_activeBrandId);
+}
+
+var _activeBrandId = null;
+
+function selectBrandPill(id) {
+  _activeBrandId = id;
+  buildBrandCards();
+}
+
+// Sort state for the spreadsheet
+var _bcSort = { key: 'name', dir: 1 };
+
+function sortBrandTable(key) {
+  if (_bcSort.key === key) _bcSort.dir = -_bcSort.dir;
+  else { _bcSort.key = key; _bcSort.dir = 1; }
+  renderBrandDetail(_activeBrandId);
+}
+
+function _bcRowFC(r, target) {
+  const sim = _brandSim[r.npd] || {};
+  const portionG = sim.portionG !== undefined ? sim.portionG : (r.portionG || 0);
+  const salePrice = sim.salePrice || 0;
+  const costPortion = (r.costKg && portionG > 0) ? r.costKg * portionG / 1000 : 0;
+  const fc = (salePrice > 0 && costPortion > 0) ? (costPortion / salePrice) * 100 : null;
+  return { portionG, salePrice, costPortion, fc };
+}
+
+function bcUpdatePortion(npd, val) {
+  if (!_brandSim[npd]) _brandSim[npd] = {};
+  _brandSim[npd].portionG = parseFloat(val) || 0;
+  renderBrandDetail(_activeBrandId);
+}
+function bcUpdateSale(npd, val) {
+  if (!_brandSim[npd]) _brandSim[npd] = {};
+  _brandSim[npd].salePrice = parseFloat(val) || 0;
+  renderBrandDetail(_activeBrandId);
+}
+function bcResetPortion(npd) {
+  if (_brandSim[npd]) delete _brandSim[npd].portionG;
+  renderBrandDetail(_activeBrandId);
+}
+function bcResetAll() {
+  _brandSim = {};
+  renderBrandDetail(_activeBrandId);
 }
 
 // ── USERS ──────────────────────────────────────────
