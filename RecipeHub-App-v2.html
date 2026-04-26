@@ -5135,7 +5135,7 @@ const PAGES = {
   ingredients:    { title:'Ingredients Database',actions:`<button class="btn btn-outline btn-sm" onclick="refreshFromOracle()" title="Sync EBS prices from Oracle (Riyadh org 110), then load the ingredient list from POS recipes (food + packaging only)">↻ Refresh from Oracle</button><button class="btn btn-outline btn-sm" style="margin-left:6px" onclick="exportIngredientsCSV()">⤓ Export CSV</button><button class="btn btn-gold btn-sm" style="margin-left:6px" onclick="openIngredientForm()">+ Add Ingredient</button>` },
   builds:         { title:'Product Builds',       actions:`<button class="btn btn-gold btn-sm" onclick="openBuildForm()">+ New Build</button>` },
   qa:             { title:'QA Lab Results',      actions:`<button class="btn btn-outline btn-sm" onclick="printQALabReport()">🖨️ Lab Report</button><button class="btn btn-outline btn-sm" style="margin-left:6px" onclick="printCOA()">📄 COA</button><button class="btn btn-sage btn-sm" style="margin-left:6px" onclick="addTestPoint()">+ New Test</button>` },
-  'branch-sop':   { title:'Branch SOP',           actions:`<button class="btn btn-gold btn-sm" onclick="openBranchSOPForm()">+ New Branch SOP</button>` },
+  'branch-sop':   { title:'Branch SOP',           actions:`` },
   production:     { title:'Production Plan',     actions:`<button class="btn btn-gold btn-sm" onclick="openProductionRun()">+ Schedule Run</button>` },
   reports:        { title:'Recipe Analytics', actions:`<button class="btn btn-outline btn-sm" onclick="refreshReports()">↻ Refresh</button>` },
   'builds-costing': { title:'Build Analytics', actions:`<button class="btn btn-outline btn-sm" onclick="refreshReports()">↻ Refresh</button>` },
@@ -16348,7 +16348,7 @@ function buildBranchSOPTable() {
     tbody.appendChild(tr);
   });
   if (!visibleCount) {
-    tbody.innerHTML = '<tr><td colspan="7" style="padding:40px;text-align:center;color:var(--g3);font-size:13px">No branch SOPs yet. Click <strong>+ New Branch SOP</strong> to create one.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" style="padding:40px;text-align:center;color:var(--g3);font-size:13px">No branch SOPs yet. Create one from a Product Build — open the build and use <strong>Generate Branch SOP</strong>.</td></tr>';
   }
   const countEl = document.getElementById('bsop-count-label');
   if (countEl) countEl.textContent = visibleCount + ' SOPs';
