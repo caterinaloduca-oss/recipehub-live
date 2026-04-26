@@ -12292,12 +12292,13 @@ function renderBrandDetail(id) {
   const target = (typeof b.targetFC === 'number') ? b.targetFC : 30;
 
   // Pull recipes dynamically from RECIPE_DB by brand name (multi-brand aware)
-  const recipes = Object.values(RECIPE_DB).filter(function(r){ return recipeHasBrand(r, b.name) && !r.archived; }).map(function(r){
+  const recipes = Object.values(RECIPE_DB).filter(function(r){ return recipeHasBrand(r, b.name) && (_bcShowArchived || !r.archived); }).map(function(r){
     return {
       name: r.name, npd: r.npd, v: r.version,
       costKg: r.costKg ? parseFloat(String(r.costKg).replace(/[^0-9.]/g,'')) : null,
       portionG: r.portionSize || null,
       status: r.status,
+      archived: !!r.archived,
     };
   });
   const archivedCount = Object.values(RECIPE_DB).filter(function(r){ return recipeHasBrand(r, b.name) && r.archived; }).length;
@@ -12362,6 +12363,15 @@ function renderBrandDetail(id) {
       </div>
     </div>
 
+    <!-- RECIPES section header -->
+    <div style="padding:12px 20px;background:var(--g1);border-bottom:1px solid var(--g2);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <div style="font-family:var(--font-d);font-size:12px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:0.05em">📐 Recipes (SFG · sauces · bases · ${recipes.length}${archivedCount?' / '+archivedCount+' archived':''})</div>
+      <div style="font-size:11px;color:var(--g4);flex:1">Cost is per kg — adjust portion to simulate cost per serving.</div>
+      <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--g4);cursor:pointer">
+        <input type="checkbox" ${_bcShowArchived?'checked':''} onchange="bcToggleArchived(this.checked)" style="cursor:pointer">
+        Show archived (${archivedCount})
+      </label>
+    </div>
     ${recipes.length ? `
     <div style="overflow-x:auto">
       <table class="data-table" style="font-size:13px;min-width:1100px">
@@ -12398,8 +12408,9 @@ function renderBrandDetail(id) {
           const origCell = r.portionG ? r.portionG + 'g' : '<span style="color:#C0BDB5">—</span>';
           const resetLink = isModifiedPortion ? `<a href="#" onclick="bcResetPortion('${r.npd}');return false" style="display:block;font-size:10px;color:var(--gold);text-decoration:none;margin-top:2px">↺ reset</a>` : '';
           const portionInputStyle = isModifiedPortion ? 'border-color:var(--gold);background:var(--gold-lt)' : '';
-          return `<tr>
-            <td><strong style="color:var(--navy)">${r.name}</strong></td>
+          const archivedPill = r.archived ? '<span style="display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;background:#FDE8E6;color:var(--red);font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em">Archived</span>' : '';
+          return `<tr style="${r.archived?'opacity:0.6':''}">
+            <td><strong style="color:var(--navy)">${r.name}</strong>${archivedPill}</td>
             <td style="font-family:var(--font-m);font-size:11px;color:var(--g4)">${r.npd}</td>
             <td style="text-align:right;font-family:var(--font-m);font-weight:500;color:${r.costKg ? 'var(--navy)' : 'var(--g3)'}">${r.costKg ? 'SAR ' + r.costKg.toFixed(2) : '—'}</td>
             <td style="text-align:right;font-family:var(--font-m);font-size:12px;color:var(--g4)">${origCell}</td>
@@ -12424,7 +12435,67 @@ function renderBrandDetail(id) {
     </div>
     ` : `<div style="padding:36px 24px;text-align:center;color:var(--g4);font-size:13px">No recipes yet for ${b.name}</div>`}
 
-    ${archivedCount ? `<div style="padding:8px 24px;background:var(--g05);border-top:1px solid var(--g2);font-size:11px;color:var(--g4)">📦 ${archivedCount} archived recipe${archivedCount>1?'s':''} hidden. View from the Recipes page with "Show Archived" toggle.</div>` : ''}
+    <!-- BUILDS section -->
+    ${(function(){
+      var allBrandBuilds = BUILDS_DATA.filter(function(x){ return (x.brand||'').toLowerCase() === b.name.toLowerCase(); });
+      var inactiveCount = allBrandBuilds.filter(function(x){ return x.active === false; }).length;
+      var brandBuilds = allBrandBuilds.filter(function(x){ return _bcShowInactive || x.active !== false; });
+      var head =
+        '<div style="padding:12px 20px;background:var(--g1);border-top:1px solid var(--g2);border-bottom:1px solid var(--g2);display:flex;align-items:center;gap:10px;flex-wrap:wrap">' +
+          '<div style="font-family:var(--font-d);font-size:12px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:0.05em">🍕 Builds (assembled dishes · ' + brandBuilds.length + (inactiveCount?' / '+inactiveCount+' inactive':'') + ')</div>' +
+          '<div style="font-size:11px;color:var(--g4);flex:1">Cost is the sum of components — fixed per build, no portion simulation.</div>' +
+          '<label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--g4);cursor:pointer">' +
+            '<input type="checkbox"' + (_bcShowInactive?' checked':'') + ' onchange="bcToggleInactive(this.checked)" style="cursor:pointer">' +
+            'Show inactive (' + inactiveCount + ')' +
+          '</label>' +
+        '</div>';
+      if (!brandBuilds.length) {
+        return head + '<div style="padding:36px 24px;text-align:center;color:var(--g4);font-size:13px">No ' + (_bcShowInactive?'':'active ') + 'builds for ' + b.name + '</div>';
+      }
+      var rows = brandBuilds.map(function(bd){
+        var totalWeight = (bd.components||[]).reduce(function(s,c){ var w = parseFloat(String(c.weight||'0').replace(/[^0-9.]/g,'')); return s + (isNaN(w)?0:w); }, 0);
+        var totalCost = (bd.components||[]).reduce(function(s,c){ return s + (parseFloat(c.cost)||0); }, 0);
+        var sim = _brandSim['BLD:' + bd.id] || {};
+        var salePrice = sim.salePrice || 0;
+        var fc = (salePrice > 0 && totalCost > 0) ? (totalCost / salePrice) * 100 : null;
+        var fcClass = 'empty', fcText = '—', barW = 0, barColor = 'var(--sage)';
+        if (fc !== null) {
+          fcText = fc.toFixed(1) + '%';
+          if (fc <= target) { fcClass = 'sage'; barColor = 'var(--sage)'; }
+          else if (fc <= target + 3) { fcClass = 'amber'; barColor = 'var(--amber)'; }
+          else { fcClass = 'red'; barColor = 'var(--red)'; }
+          barW = Math.min(fc, 100);
+        }
+        var fcColor = fcClass === 'sage' ? 'var(--sage)' : fcClass === 'amber' ? 'var(--amber)' : fcClass === 'red' ? 'var(--red)' : '#C0BDB5';
+        var inactivePill = (bd.active === false) ? '<span style="display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;background:#FDE8E6;color:var(--red);font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em">Inactive</span>' : '';
+        return '<tr style="' + ((bd.active===false)?'opacity:0.6':'') + '">' +
+          '<td><strong style="color:var(--navy)">' + bd.name + '</strong>' + inactivePill + '</td>' +
+          '<td style="font-family:var(--font-m);font-size:11px;color:var(--g4)">' + bd.id + '</td>' +
+          '<td style="font-size:11px;color:var(--g4)">' + (bd.type||'') + (bd.size?' · '+bd.size:'') + '</td>' +
+          '<td style="text-align:right;font-family:var(--font-m);font-size:12px;color:var(--g4)">' + (totalWeight ? totalWeight.toFixed(0) + 'g' : '—') + '</td>' +
+          '<td style="text-align:right;font-size:11px;color:var(--g4)">' + (bd.components||[]).length + '</td>' +
+          '<td style="text-align:right;font-family:var(--font-m);font-weight:500;color:' + (totalCost>0?'var(--navy)':'var(--g3)') + '">' + (totalCost>0?'SAR '+totalCost.toFixed(2):'—') + '</td>' +
+          '<td style="text-align:right">' +
+            '<input type="number" min="0" step="0.5" placeholder="0.00" value="' + (salePrice||'') + '" oninput="bcUpdateSale(\'BLD:' + bd.id + '\',this.value)"' +
+              ' style="width:90px;padding:5px 8px;border:1.5px solid #E8C875;background:var(--gold-lt);border-radius:6px;font-size:13px;text-align:right;font-family:var(--font-m);font-weight:500;color:var(--navy);outline:none">' +
+          '</td>' +
+          '<td style="text-align:right;font-family:var(--font-m);font-weight:700;font-size:14px;color:' + fcColor + '">' + fcText + '</td>' +
+          '<td style="min-width:80px;padding:0 12px"><div style="height:4px;background:var(--g1);border-radius:2px;overflow:hidden"><div style="height:100%;width:' + barW + '%;background:' + barColor + ';border-radius:2px;transition:width 0.25s,background 0.25s"></div></div></td>' +
+          '<td>' + statusBadge(bd.status) + '</td>' +
+          '<td><button class="btn btn-outline btn-sm" onclick="nav(\'builds\');setTimeout(function(){var b=BUILDS_DATA.find(function(x){return x.id===\'' + bd.id + '\'});if(b&&typeof openBuildDetail===\'function\')openBuildDetail(b)},150)">View</button></td>' +
+        '</tr>';
+      }).join('');
+      return head +
+        '<div style="overflow-x:auto"><table class="data-table" style="font-size:13px;min-width:1100px"><thead><tr>' +
+          '<th>Build</th><th>ID</th><th>Type / Size</th>' +
+          '<th style="text-align:right">Total weight</th>' +
+          '<th style="text-align:right">Components</th>' +
+          '<th style="text-align:right">Cost / portion</th>' +
+          '<th style="text-align:right">Sale price</th>' +
+          '<th style="text-align:right">FC %</th>' +
+          '<th></th><th>Status</th><th></th>' +
+        '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+    })()}
   `;
 }
 
@@ -12630,12 +12701,23 @@ function selectBrandPill(id) {
   buildBrandCards();
 }
 
-// Sort state for the spreadsheet
+// Sort + filter state for the spreadsheet
 var _bcSort = { key: 'name', dir: 1 };
+var _bcShowArchived = false;
+var _bcShowInactive = false;
 
 function sortBrandTable(key) {
   if (_bcSort.key === key) _bcSort.dir = -_bcSort.dir;
   else { _bcSort.key = key; _bcSort.dir = 1; }
+  renderBrandDetail(_activeBrandId);
+}
+
+function bcToggleArchived(checked) {
+  _bcShowArchived = !!checked;
+  renderBrandDetail(_activeBrandId);
+}
+function bcToggleInactive(checked) {
+  _bcShowInactive = !!checked;
   renderBrandDetail(_activeBrandId);
 }
 
