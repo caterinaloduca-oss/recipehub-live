@@ -731,6 +731,9 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
   <button class="nav-item" data-page="workflow" onclick="nav('workflow')">
     <span class="nav-icon">⟳</span> Workflow
   </button>
+  <button class="nav-item" data-page="training" onclick="nav('training')">
+    <span class="nav-icon">📚</span> Training
+  </button>
   <button class="nav-item" data-page="library" onclick="nav('library')">
     <span class="nav-icon">📁</span> Library
   </button>
@@ -2683,6 +2686,656 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
     </div>
   </div>
 </div>
+
+<!-- TRAINING PAGE -->
+<style>
+.training-card { background:white; border-radius:14px; padding:20px; box-shadow:0 2px 8px rgba(0,0,0,0.06); border:2px solid transparent; cursor:pointer; transition:all 0.18s; display:flex; flex-direction:column; min-height:200px; }
+.training-card:hover { transform:translateY(-2px); box-shadow:0 10px 22px rgba(0,0,0,0.10); border-color:var(--gold); }
+.training-card.done { border-color:var(--sage); background:linear-gradient(180deg,#fff 0%,#F4FBF6 100%); }
+.training-card.coming-soon { opacity:0.55; cursor:not-allowed; }
+.training-card.coming-soon:hover { transform:none; box-shadow:0 2px 8px rgba(0,0,0,0.06); border-color:transparent; }
+.training-card-icon { font-size:36px; margin-bottom:10px; line-height:1; }
+.training-card-title { font-family:var(--font-d); font-size:18px; font-weight:700; color:var(--navy); margin-bottom:6px; }
+.training-card-blurb { font-size:13px; color:var(--g3); line-height:1.55; flex:1; margin-bottom:14px; }
+.training-card-meta { display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--g4); }
+.training-start-pill { background:var(--gold); color:white; padding:5px 12px; border-radius:999px; font-weight:600; font-size:11px; }
+.training-done-pill { background:var(--sage); color:white; padding:5px 12px; border-radius:999px; font-weight:600; font-size:11px; }
+.training-soon-pill { background:var(--g6); color:var(--g3); padding:5px 12px; border-radius:999px; font-weight:600; font-size:11px; }
+
+#tour-overlay { position:fixed; inset:0; pointer-events:none; z-index:99999; display:none; }
+#tour-overlay.tour-active { display:block; }
+#tour-overlay .tour-spotlight { position:absolute; border-radius:10px; box-shadow:0 0 0 9999px rgba(15,30,55,0.72); pointer-events:none; transition:top 0.25s, left 0.25s, width 0.25s, height 0.25s; outline:2px solid var(--gold); outline-offset:2px; }
+#tour-overlay .tour-popup { position:absolute; width:380px; max-width:calc(100vw - 24px); background:white; border-radius:14px; padding:20px 22px; box-shadow:0 14px 40px rgba(0,0,0,0.32); pointer-events:auto; transition:top 0.25s, left 0.25s; }
+#tour-overlay .tour-popup-topic { font-size:11px; color:var(--g4); text-transform:uppercase; letter-spacing:0.08em; font-weight:700; margin-bottom:6px; }
+#tour-overlay .tour-popup-title { font-family:var(--font-d); font-size:19px; font-weight:700; color:var(--navy); margin-bottom:10px; line-height:1.3; }
+#tour-overlay .tour-popup-body { font-size:13px; color:var(--g2); line-height:1.62; margin-bottom:12px; }
+#tour-overlay .tour-popup-body strong { color:var(--navy); }
+#tour-overlay .tour-popup-rolehint { background:#FEF8E8; border-left:3px solid var(--gold); padding:10px 12px; border-radius:6px; font-size:12px; color:var(--g2); line-height:1.55; margin-bottom:12px; }
+#tour-overlay .tour-popup-footer { display:flex; justify-content:space-between; align-items:center; padding-top:12px; border-top:1px solid var(--g6); }
+#tour-overlay .tour-progress { font-size:11px; color:var(--g4); font-weight:600; letter-spacing:0.04em; }
+#tour-overlay .tour-buttons { display:flex; gap:6px; }
+#tour-overlay .tour-btn { padding:6px 12px; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer; border:1px solid var(--g6); background:white; color:var(--g2); font-family:var(--font-b); }
+#tour-overlay .tour-btn-next { background:var(--navy); color:white; border-color:var(--navy); padding:6px 14px; }
+#tour-overlay .tour-btn-skip { color:var(--g4); border-color:transparent; }
+#tour-overlay .tour-btn:hover { filter:brightness(1.06); }
+</style>
+<div id="page-training" class="page-hidden">
+  <!-- Hero -->
+  <div style="background:linear-gradient(135deg,var(--navy) 0%,#1f3559 100%);color:white;border-radius:20px;padding:30px 34px;margin-bottom:22px;position:relative;overflow:hidden">
+    <div style="font-family:var(--font-d);font-size:30px;font-weight:700;margin-bottom:8px">Welcome to Recipe Hub</div>
+    <div style="font-size:15px;opacity:0.92;max-width:680px;line-height:1.6">
+      Pick a topic and we'll walk you through the screens you'll actually use. Each tour spotlights real buttons and tabs while it explains what they do — so you can follow along on the live portal.
+    </div>
+    <div id="training-progress" style="margin-top:16px;font-size:13px;opacity:0.85">— pick a topic to start</div>
+  </div>
+
+  <!-- Topic cards -->
+  <div id="training-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px"></div>
+
+  <!-- Role-aware footer -->
+  <div id="training-rolebar" style="margin-top:22px;background:white;border-radius:14px;padding:16px 20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);font-size:13px;color:var(--g3);line-height:1.55"></div>
+</div>
+
+<script>
+var TOUR_TOPICS = {
+  'recipe-lifecycle': {
+    title: 'Recipe Lifecycle',
+    icon: '🧪',
+    minutes: 6,
+    blurb: 'How a recipe travels from R&D draft to approved production — every gate, who signs it off, and where to find it.',
+    steps: [
+      {
+        title: 'A recipe is a journey, not a record',
+        body: 'Every recipe in this portal walks the same path: <strong>Draft → In Review → Factory Trial → Prod Trial → Approved</strong>. Different roles unlock each gate. We\'ll trace that path now using the real screens.',
+        page: 'training'
+      },
+      {
+        title: 'Open the Recipes list',
+        body: 'This is the master list of every recipe across all factories. We\'ll start here.',
+        page: 'recipes',
+        selector: '.nav-item[data-page="recipes"]',
+        position: 'right'
+      },
+      {
+        title: 'Search & filter',
+        body: 'Type a recipe name, factory code (e.g. <strong>211_BCS</strong>), or status. The dropdowns narrow by category, brand, status, or tag — including <strong>Imported</strong> (from ERP) and <strong>No Method</strong> (still missing SOP text).',
+        page: 'recipes',
+        selector: '#page-recipes .filter-bar'
+      },
+      {
+        title: '+ New Recipe (R&D)',
+        body: 'R&D creates new recipes here. The form asks for name, brand, category and ingredients up front — status starts at <strong>Draft</strong>.',
+        page: 'recipes',
+        selector: '#topbar-actions',
+        roleHints: {
+          viewer: 'Viewers can read everything but won\'t see this button.',
+          qa: 'QA doesn\'t create recipes — that\'s R&D\'s job. You step in at the QA gate later.',
+          factory: 'Factory doesn\'t create recipes either. You see them after R&D submits for trial.',
+          purchasing: 'Purchasing manages ingredient costs, not recipe creation.'
+        }
+      },
+      {
+        title: 'Status pills tell the story',
+        body: 'Each row shows a coloured pill: <strong>Draft</strong> (grey), <strong>In Review</strong> (blue), <strong>Factory Trial</strong> (amber), <strong>Prod Trial</strong> (gold), <strong>Approved</strong> (green). The pill is the gate the recipe is currently sitting at.',
+        page: 'recipes',
+        selector: '#page-recipes table'
+      },
+      {
+        title: 'Click any recipe to open it',
+        body: 'Inside a recipe you\'ll find tabs for <strong>Ingredients · Method · SOP · Builds · QA · Branch SOP</strong>. Each tab is owned by a different role: R&D writes ingredients/method, QA fills the QA tab, Factory edits Builds, and so on.',
+        page: 'recipes',
+        selector: '#page-recipes table tbody tr'
+      },
+      {
+        title: 'The QA gate',
+        body: 'After R&D writes the recipe, QA reviews it on the <strong>QA</strong> page. Pass = recipe moves to <strong>Factory Trial</strong>. Fail = back to R&D with notes. QA also sets shelf life and approves spec sheets.',
+        page: 'qa',
+        selector: '.nav-item[data-page="qa"]',
+        roleHints: {
+          qa: 'This is your gate. The QA page lists every recipe waiting for your approval — past approvals are searchable too.'
+        }
+      },
+      {
+        title: 'Factory Trial → Production Trial → Approved',
+        body: 'Factory schedules a trial run on the <strong>Production</strong> page. Trial passes → Prod Trial → Approved. Once approved, the recipe is locked for production and visible on Branch SOPs.',
+        page: 'production',
+        selector: '.nav-item[data-page="production"]',
+        roleHints: {
+          factory: 'This is where you live. Schedule runs, mark them complete, capture the actual yield against the indicative yield.'
+        }
+      },
+      {
+        title: 'You\'ve seen the lifecycle',
+        body: 'That\'s the full path. Next, try the <strong>Factory SOP</strong> tour to see how each approved recipe gets a step-by-step SOP with HACCP checks, or <strong>Roles & Permissions</strong> to understand who can edit what.',
+        page: 'training'
+      }
+    ]
+  },
+  'factory-sop': {
+    title: 'Factory SOP',
+    icon: '⚙',
+    minutes: 7,
+    blurb: 'Shared blocks, recipe-specific steps, HACCP icons, photos — how the SOP page assembles itself.',
+    steps: [
+      {
+        title: 'A Factory SOP has three layers',
+        body: 'Every approved recipe gets a Factory SOP page split into <strong>Pre-Production blocks</strong>, <strong>Recipe-Specific Production Steps</strong>, and <strong>Post-Production blocks</strong>. The first and third are shared across all recipes — toggle on what applies. The middle is unique to that recipe.',
+        page: 'training'
+      },
+      {
+        title: 'Open the Factory SOPs page',
+        body: 'Lists every recipe with its SOP status. Filter by category, brand or factory line — useful when you\'re reviewing a whole product family.',
+        page: 'sop',
+        selector: '.nav-item[data-page="sop"]'
+      },
+      {
+        title: 'Pre-Production: Standard Blocks',
+        body: 'These are the <strong>22 shared blocks</strong> we seeded once: Receiving, Unpacking, Sifting, Sieving, Weighing, Line Clearance, Sanitization, etc. Each recipe just <em>toggles ON</em> the blocks that apply. No re-typing. Block 3.x numbering is intentional and ordered.',
+        page: 'sop'
+      },
+      {
+        title: 'Recipe-Specific Production Steps',
+        body: 'The middle section is what makes <em>this</em> recipe different — mix, cook, cool, portion, etc. Each step can carry <strong>HACCP icons</strong> (temperature, timer, weight, hygiene, danger, QC check, photo, tip), <strong>parameters</strong> (e.g. "Mixer speed: 2"), a <strong>CCP</strong> badge, and a <strong>warning banner</strong>. Reorder with the ▲▼ arrows.',
+        page: 'sop',
+        roleHints: {
+          npd: 'You write these steps when drafting the recipe. They flow into the SOP automatically.',
+          factory: 'You can edit step text, photos, and parameters here when capturing what really happens on the line.',
+          qa: 'You don\'t edit production steps — but the CCP badges and warnings come from your spec.'
+        }
+      },
+      {
+        title: 'Post-Production: more shared blocks',
+        body: '<strong>3.10 Cooling, 3.11 Blast Freezing, 3.13 Metal Detection (CCP-2), 3.14 FG Chiller (CCP-4), 3.15 FG Freezer (CCP-3)</strong>, QA Sampling, Dispatch, Cold Chain. Same toggle pattern. Together with Pre-Production, this is the 80–95% of every SOP that\'s identical across recipes.',
+        page: 'sop'
+      },
+      {
+        title: 'Photos, PPE strip, Hazards strip',
+        body: 'Each step can carry a photo (uploaded inline). The SOP page also shows a <strong>PPE strip</strong> at the top (hairnet, gloves, mask, safety shoes, goggles) and a <strong>Hazards strip</strong> (biological, chemical, physical, allergen) — the icons we shipped in Phase B.',
+        page: 'sop'
+      },
+      {
+        title: 'Edit Library to manage shared blocks',
+        body: 'Need to add a 23rd block, or fix wording on an existing one? <strong>Admin only.</strong> Library edits propagate to every recipe that has that block toggled on — that\'s the whole point.',
+        page: 'sop',
+        roleHints: {
+          admin: 'You\'re the only one who can edit the shared block library. Be deliberate — changes hit every recipe instantly.',
+          npd: 'You can\'t edit the library, but you can request additions via Admin.'
+        }
+      }
+    ]
+  },
+  'qa-workflow': {
+    title: 'QA Workflow',
+    icon: '🔬',
+    minutes: 6,
+    blurb: 'Awaiting-approval queue, lab results, shelf life, COA, spec sheets — the QA page end to end.',
+    steps: [
+      {
+        title: 'QA: the gate that protects shelf and brand',
+        body: 'QA reviews every recipe before it can move to Factory Trial, sets shelf life, captures lab results, and signs off the spec sheet. This page is where it all lives.',
+        page: 'training'
+      },
+      {
+        title: 'Open QA Lab Results',
+        body: 'The QA page anchors the workflow.',
+        page: 'qa',
+        selector: '.nav-item[data-page="qa"]'
+      },
+      {
+        title: 'Recipe dropdown — only awaiting approval',
+        body: 'The dropdown defaults to recipes <em>currently waiting on QA</em>. Already-approved recipes are searchable too, but they don\'t clutter the active queue.',
+        page: 'qa',
+        selector: '#page-qa .filter-bar'
+      },
+      {
+        title: 'Lab results & test points',
+        body: 'Capture moisture, fat, salt, water activity, micro counts. Each test gets a date, value, pass/fail, and the analyst\'s name. <strong>+ New Test</strong> in the topbar adds a row.',
+        page: 'qa',
+        roleHints: {
+          qa: 'This is your day-to-day. Tests build up on each recipe over time and feed the COA.',
+          npd: 'You can\'t add tests — but you read them to confirm a recipe\'s quality profile.'
+        }
+      },
+      {
+        title: 'Shelf Life banner',
+        body: 'QA sets the validated shelf life (chilled / frozen / ambient) on each recipe. This number flows through to Branch SOPs and product labels — single source of truth.',
+        page: 'qa'
+      },
+      {
+        title: 'Lab Report & COA buttons',
+        body: '<strong>🖨️ Lab Report</strong> = the internal record. <strong>📄 COA</strong> = the Certificate of Analysis you send to customers. Both pull from the test points you\'ve logged.',
+        page: 'qa',
+        selector: '#topbar-actions',
+        roleHints: {
+          qa: 'You\'re the only role that can generate these. They carry your sign-off.'
+        }
+      }
+    ]
+  },
+  'branch-sop': {
+    title: 'Branch SOP',
+    icon: '📋',
+    minutes: 5,
+    blurb: 'How branch-facing instructions are auto-generated from product builds, with portion tools and 2nd shelf life.',
+    steps: [
+      {
+        title: 'Branch SOP ≠ Factory SOP',
+        body: 'Factory SOP = how to <em>make</em> the product. Branch SOP = how the <em>branch team</em> stores, portions, finishes and serves it. Both exist for the same recipe but read totally differently.',
+        page: 'training'
+      },
+      {
+        title: 'Open Branch SOP',
+        body: 'Listed by recipe + branch (each branded brand has its own colour code).',
+        page: 'branch-sop',
+        selector: '.nav-item[data-page="branch-sop"]'
+      },
+      {
+        title: 'Auto-generated from Builds',
+        body: 'Branch SOPs aren\'t created directly — they\'re generated from a <strong>Product Build</strong>. The build defines portion size, components, packaging, and the SOP picks those up automatically. <strong>Delete a build → its branch SOPs are deleted too</strong>, no orphans.',
+        page: 'branch-sop'
+      },
+      {
+        title: 'Open Product Builds to see the source',
+        body: 'A build = "this recipe in this format for this brand." E.g. <strong>Bechamel 200g cup for Telliano</strong>. The build owns batch sizes, components, packaging spec.',
+        page: 'builds',
+        selector: '.nav-item[data-page="builds"]',
+        roleHints: {
+          factory: 'You spec batches here. Branch SOP follows.',
+          npd: 'You define the build during recipe finalisation.'
+        }
+      },
+      {
+        title: '2nd shelf life',
+        body: 'When a component is opened or assembled at the branch, a <strong>second shelf life</strong> kicks in (e.g. cooked product opened: 48h chilled). The Branch SOP shows both the master shelf life from QA and the 2nd-life rule.',
+        page: 'branch-sop'
+      },
+      {
+        title: 'Portioning tools auto-fill',
+        body: 'Ladles, scoops, drizzles — each has a base weight stored in the system. When you spec portion size, the tool quantity calculates automatically. No mental math at the line.',
+        page: 'branch-sop'
+      }
+    ]
+  },
+  'production-runs': {
+    title: 'Production Runs',
+    icon: '🏭',
+    minutes: 5,
+    blurb: 'Schedule a run, capture yield, complete it — and how runs feed back into recipe analytics.',
+    steps: [
+      {
+        title: 'A Production Run = one batch on the line',
+        body: 'Three states: <strong>Pending</strong> (proposed), <strong>Scheduled</strong> (date locked), <strong>Completed</strong> (run done, yield captured). Factory drives the dates and the actuals.',
+        page: 'training'
+      },
+      {
+        title: 'Open Production Plan',
+        body: 'The schedule view across recipes and dates.',
+        page: 'production',
+        selector: '.nav-item[data-page="production"]'
+      },
+      {
+        title: '+ Schedule Run',
+        body: 'Add a planned batch: pick recipe, factory line, date, target weight. Status starts Pending until the date is locked.',
+        page: 'production',
+        selector: '#topbar-actions',
+        roleHints: {
+          factory: 'You schedule and complete runs. Other roles only read.',
+          ops: 'Production is factory-only — you can\'t edit runs from here.'
+        }
+      },
+      {
+        title: 'Indicative vs Validated yield',
+        body: 'During <strong>Factory Trial</strong>, R&D records the <em>indicative yield</em> — the expected ratio. After <strong>Prod Trial</strong>, Factory captures the <em>validated yield</em> from real runs. Both fields live on the recipe; both feed costing.',
+        page: 'production'
+      },
+      {
+        title: 'Completing a run',
+        body: 'When the batch is done, Factory marks it Complete and enters the actual output weight. The system computes actual yield, which feeds back into recipe analytics and food cost %.',
+        page: 'production',
+        roleHints: {
+          factory: 'Be honest with the actuals — they drive cost decisions downstream.'
+        }
+      }
+    ]
+  },
+  'codes-ids': {
+    title: 'Codes & Recipe IDs',
+    icon: '🔢',
+    minutes: 5,
+    blurb: 'Factory codes (211_, 212_), npd, recipeId, FG codes — what each one means and where to use it.',
+    steps: [
+      {
+        title: 'Three codes per recipe — don\'t mix them up',
+        body: 'A recipe can carry up to three identifiers: <strong>npd</strong> (primary key), <strong>recipeId</strong> (versioned factory code), and an <strong>FG code</strong> (finished-goods item code). Each does a different job.',
+        page: 'training'
+      },
+      {
+        title: 'npd: the primary key',
+        body: 'Two formats live in production:<br>• <strong>YYYY-NNN</strong> (e.g. <code>2026-001</code>) — auto-generated for R&D-pipeline recipes<br>• <strong>211_XXX / 212_XXX</strong> (e.g. <code>211_BCS</code>) — factory codes brought in via bulk import. <strong>211</strong> = Meat line, <strong>212</strong> = Bakery line.',
+        page: 'training'
+      },
+      {
+        title: 'See npd values on the Recipes table',
+        body: 'The first column shows the npd. Mix of formats is normal — old R&D recipes use the date-based format, factory imports use the line prefix.',
+        page: 'recipes',
+        selector: '#page-recipes table'
+      },
+      {
+        title: 'recipeId: the versioned factory code',
+        body: 'Factory assigns this <strong>at the Factory-Trial-Passed gate</strong>, e.g. <code>211_BCS v1</code>. R&D <em>cannot</em> move a recipe from Factory Trial → Prod Trial until Factory provides the recipeId. The npd stays as the historical tracker.',
+        page: 'recipes',
+        roleHints: {
+          factory: 'You own this. R&D is blocked until you assign it.',
+          npd: 'You\'ll see a green chip on the recipe detail once Factory assigns it.'
+        }
+      },
+      {
+        title: 'FG code: the SKU on the box',
+        body: 'When a build is finalised, it gets a Finished-Goods code (e.g. <code>FG-211-0042</code>). This is what shows on labels, ERP, and dispatch paperwork. One recipe can produce multiple FGs (different formats / brands).',
+        page: 'training'
+      },
+      {
+        title: 'Item codes on ingredients',
+        body: 'Every ingredient pulls from Oracle EBS via its <strong>itemCode</strong> (e.g. <code>RMADT0013</code>). Shown as a small grey pill next to the ingredient name. That\'s how prices stay synced with Oracle.',
+        page: 'ingredients',
+        selector: '.nav-item[data-page="ingredients"]'
+      }
+    ]
+  },
+  'roles-permissions': {
+    title: 'Roles & Permissions',
+    icon: '👥',
+    minutes: 6,
+    blurb: 'Who can edit what. The 7 roles, their domains, and the gates between them.',
+    steps: [
+      {
+        title: 'Seven roles, clear lanes',
+        body: '<strong>Admin · R&D (npd) · QA · Factory · OPS · Purchasing · Viewer.</strong> Each role edits a specific set of pages. Outside those pages, the role still sees data — just read-only.',
+        page: 'training'
+      },
+      {
+        title: 'Admin',
+        body: 'Full access. Edits library, manages users, fixes anything. Currently the only admin is <strong>Caterina</strong>.',
+        page: 'training'
+      },
+      {
+        title: 'R&D / npd — recipe authors',
+        body: 'Owns: <strong>Recipes, Recipe Detail, Ingredients, Builds, SOP, Brands, Library</strong>. Drives the recipe lifecycle from Draft → In Review → Factory Trial. Hands off to QA + Factory at the gates.',
+        page: 'training'
+      },
+      {
+        title: 'QA — gatekeeper',
+        body: 'Owns: <strong>QA, Builds, Branch SOP, Recipe Detail (QA fields)</strong>. Approves recipes for trial, sets shelf life, captures lab results, signs the COA. Can\'t create recipes or schedule runs.',
+        page: 'training'
+      },
+      {
+        title: 'Factory — production owner',
+        body: 'Owns: <strong>Production</strong>. Schedules runs, captures yields, marks complete. <strong>Assigns the Recipe ID at the Factory-Trial-Passed gate</strong> — the chokepoint between trial and prod-trial.',
+        page: 'training'
+      },
+      {
+        title: 'OPS, Purchasing, Viewer',
+        body: '<strong>OPS</strong> — branches-only (Branch SOP). Never sees factory pages.<br><strong>Purchasing</strong> — Ingredients + Communications. Manages prices and supplier specs.<br><strong>Viewer</strong> — read-only across the portal. Useful for execs, auditors, new hires.',
+        page: 'training'
+      },
+      {
+        title: 'Where to manage roles',
+        body: 'Admin opens <strong>Users & Access</strong> from Settings in the sidebar to invite users and set roles. New users default to Viewer until promoted.',
+        page: 'training',
+        roleHints: {
+          admin: 'Sidebar → Users & Access. New invites land directly with the role you set.',
+          npd: 'You can\'t change roles. Ask Caterina if someone needs editing rights.',
+          viewer: 'You\'re read-only by design. To change role, contact Admin.'
+        }
+      }
+    ]
+  },
+  'yield-costing': {
+    title: 'Yield & Costing',
+    icon: '💰',
+    minutes: 6,
+    blurb: 'Indicative yield, validated yield, ingredient cost, portion cost, food cost % — how the numbers connect.',
+    steps: [
+      {
+        title: 'The costing chain',
+        body: '<strong>Ingredient cost</strong> → adjusted by <strong>yield</strong> → split into <strong>portion cost</strong> → expressed as <strong>food cost %</strong>. Each step pulls from a single source so the numbers can\'t drift.',
+        page: 'training'
+      },
+      {
+        title: 'Ingredient cost — auto from Oracle',
+        body: 'Ingredients pull prices from Oracle EBS via <strong>itemCode</strong>. The Ingredients page lets Purchasing override manually if needed (e.g. promo pricing). Recipe cost is the sum of (ingredient % × ingredient cost).',
+        page: 'ingredients',
+        selector: '.nav-item[data-page="ingredients"]',
+        roleHints: {
+          purchasing: 'You\'re the only role that can override ingredient prices. Refresh from Oracle keeps things in sync.'
+        }
+      },
+      {
+        title: 'Indicative yield (Factory Trial)',
+        body: 'During Factory Trial, R&D enters the <strong>indicative yield</strong> — the expected output ratio (e.g. 100 kg input → 92 kg output = 92% yield). This is the planning number.',
+        page: 'training'
+      },
+      {
+        title: 'Validated yield (Production Trial)',
+        body: 'After Prod Trial, Factory captures the <strong>validated yield</strong> from actual runs. This replaces the indicative for costing purposes — once you have real data, you trust it. Both fields are visible on the recipe; the system uses the validated one if present.',
+        page: 'training'
+      },
+      {
+        title: 'Portion cost — from Builds',
+        body: 'A <strong>Product Build</strong> defines portion size (e.g. 200g cup). Portion cost = (yield-adjusted recipe cost) × (portion weight / batch weight). Builds inherit the recipe\'s validated yield automatically.',
+        page: 'builds',
+        selector: '.nav-item[data-page="builds"]'
+      },
+      {
+        title: 'Food cost % — the headline KPI',
+        body: '<strong>Food cost % = portion cost ÷ retail price.</strong> Targets vary by brand and channel. Goals are set in <strong>KPI & Goals</strong> and tracked in <strong>Build Analytics</strong>.',
+        page: 'cost-control',
+        selector: '.nav-item[data-page="cost-control"]',
+        roleHints: {
+          admin: 'You and Subhanshu are the only editors of KPI & Goals.',
+          npd: 'You see the targets and design recipes to hit them.'
+        }
+      }
+    ]
+  }
+};
+
+var _tour = { topic: null, idx: 0 };
+
+function _ensureTourDom() {
+  if (document.getElementById('tour-overlay')) return;
+  var ov = document.createElement('div');
+  ov.id = 'tour-overlay';
+  ov.innerHTML = '<div class="tour-spotlight"></div>' +
+    '<div class="tour-popup">' +
+      '<div class="tour-popup-topic"></div>' +
+      '<div class="tour-popup-title"></div>' +
+      '<div class="tour-popup-body"></div>' +
+      '<div class="tour-popup-rolehint"></div>' +
+      '<div class="tour-popup-footer">' +
+        '<span class="tour-progress"></span>' +
+        '<div class="tour-buttons">' +
+          '<button class="tour-btn tour-btn-skip" onclick="endTour()">Exit</button>' +
+          '<button class="tour-btn tour-btn-prev" onclick="tourPrev()">‹ Back</button>' +
+          '<button class="tour-btn tour-btn-next" onclick="tourNext()">Next ›</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(ov);
+  // Esc to exit
+  document.addEventListener('keydown', function(e) {
+    if (_tour.topic && e.key === 'Escape') endTour();
+  });
+}
+
+function startTour(topicKey) {
+  var topic = TOUR_TOPICS[topicKey];
+  if (!topic) return;
+  if (!topic.steps || !topic.steps.length) {
+    if (typeof showSaveToast === 'function') showSaveToast('This tour is coming soon — pick another topic for now', false);
+    return;
+  }
+  _tour.topic = topicKey;
+  _tour.idx = 0;
+  _ensureTourDom();
+  _showTourStep();
+}
+
+function _showTourStep() {
+  var topic = TOUR_TOPICS[_tour.topic];
+  var step = topic.steps[_tour.idx];
+  if (!step) { endTour(); return; }
+  if (step.page && _currentPage !== step.page) {
+    nav(step.page);
+    setTimeout(_renderTourStep, 280);
+  } else {
+    _renderTourStep();
+  }
+}
+
+function _renderTourStep() {
+  var topic = TOUR_TOPICS[_tour.topic];
+  var step = topic.steps[_tour.idx];
+  var ov = document.getElementById('tour-overlay');
+  if (!ov) return;
+  ov.classList.add('tour-active');
+
+  var spot = ov.querySelector('.tour-spotlight');
+  var pop = ov.querySelector('.tour-popup');
+  var target = step.selector ? document.querySelector(step.selector) : null;
+
+  if (target) {
+    target.scrollIntoView({behavior:'smooth', block:'center'});
+    setTimeout(function() {
+      var r = target.getBoundingClientRect();
+      var pad = 6;
+      spot.style.display = 'block';
+      spot.style.top = (r.top - pad) + 'px';
+      spot.style.left = (r.left - pad) + 'px';
+      spot.style.width = (r.width + pad*2) + 'px';
+      spot.style.height = (r.height + pad*2) + 'px';
+      // Position popup
+      var popW = 380, popH = pop.offsetHeight || 280;
+      var px, py;
+      if (r.right + popW + 24 < window.innerWidth) {
+        px = r.right + 16; py = Math.max(12, r.top);
+      } else if (r.left - popW - 24 > 0) {
+        px = r.left - popW - 16; py = Math.max(12, r.top);
+      } else if (r.bottom + popH + 24 < window.innerHeight) {
+        px = Math.max(12, Math.min(window.innerWidth - popW - 12, r.left));
+        py = r.bottom + 16;
+      } else {
+        px = Math.max(12, Math.min(window.innerWidth - popW - 12, r.left));
+        py = Math.max(12, r.top - popH - 16);
+      }
+      if (py + popH > window.innerHeight - 12) py = window.innerHeight - popH - 12;
+      pop.style.top = py + 'px';
+      pop.style.left = px + 'px';
+    }, 320);
+  } else {
+    spot.style.display = 'none';
+    pop.style.top = (window.innerHeight/2 - 160) + 'px';
+    pop.style.left = ((window.innerWidth - 380)/2) + 'px';
+  }
+
+  pop.querySelector('.tour-popup-topic').textContent = topic.icon + ' ' + topic.title;
+  pop.querySelector('.tour-popup-title').textContent = step.title;
+  pop.querySelector('.tour-popup-body').innerHTML = step.body;
+
+  var rh = pop.querySelector('.tour-popup-rolehint');
+  var role = (typeof getCurrentUserRole === 'function') ? getCurrentUserRole() : 'viewer';
+  var hint = step.roleHints ? step.roleHints[role] : null;
+  if (hint) {
+    rh.style.display = 'block';
+    rh.innerHTML = '<strong>For your role:</strong> ' + hint;
+  } else {
+    rh.style.display = 'none';
+  }
+
+  pop.querySelector('.tour-progress').textContent = 'STEP ' + (_tour.idx+1) + ' OF ' + topic.steps.length;
+  pop.querySelector('.tour-btn-prev').style.display = _tour.idx === 0 ? 'none' : '';
+  pop.querySelector('.tour-btn-next').textContent = _tour.idx === topic.steps.length - 1 ? 'Finish ✓' : 'Next ›';
+}
+
+function tourNext() {
+  var topic = TOUR_TOPICS[_tour.topic];
+  if (_tour.idx >= topic.steps.length - 1) {
+    _markTourComplete(_tour.topic);
+    endTour();
+    nav('training');
+    return;
+  }
+  _tour.idx++;
+  _showTourStep();
+}
+
+function tourPrev() {
+  if (_tour.idx > 0) { _tour.idx--; _showTourStep(); }
+}
+
+function endTour() {
+  var ov = document.getElementById('tour-overlay');
+  if (ov) ov.classList.remove('tour-active');
+  _tour.topic = null;
+  _tour.idx = 0;
+  _renderTrainingGrid();
+}
+
+function _markTourComplete(key) {
+  try {
+    var done = JSON.parse(localStorage.getItem('rh_training_done') || '{}');
+    done[key] = new Date().toISOString();
+    localStorage.setItem('rh_training_done', JSON.stringify(done));
+  } catch(e) {}
+}
+
+function _getTourCompletion() {
+  try { return JSON.parse(localStorage.getItem('rh_training_done') || '{}'); }
+  catch(e) { return {}; }
+}
+
+function _renderTrainingGrid() {
+  var grid = document.getElementById('training-grid');
+  if (!grid) return;
+  var done = _getTourCompletion();
+  var completed = 0, ready = 0;
+  var html = '';
+  Object.keys(TOUR_TOPICS).forEach(function(key) {
+    var t = TOUR_TOPICS[key];
+    var hasSteps = !!(t.steps && t.steps.length);
+    var isDone = !!done[key] && hasSteps;
+    if (hasSteps) ready++;
+    if (isDone) completed++;
+    var clickHandler = hasSteps ? "startTour('"+key+"')" : "void(0)";
+    html += '<div class="training-card' + (isDone?' done':'') + (!hasSteps?' coming-soon':'') + '" onclick="' + clickHandler + '">';
+    html += '<div class="training-card-icon">' + t.icon + '</div>';
+    html += '<div class="training-card-title">' + t.title + '</div>';
+    html += '<div class="training-card-blurb">' + t.blurb + '</div>';
+    html += '<div class="training-card-meta">';
+    if (hasSteps) {
+      html += '<span>' + t.steps.length + ' steps · ~' + (t.minutes||5) + ' min</span>';
+      html += isDone ? '<span class="training-done-pill">✓ Completed</span>' : '<span class="training-start-pill">Start ›</span>';
+    } else {
+      html += '<span>In development</span><span class="training-soon-pill">Coming soon</span>';
+    }
+    html += '</div></div>';
+  });
+  grid.innerHTML = html;
+
+  var prog = document.getElementById('training-progress');
+  if (prog) {
+    if (ready === 0) prog.textContent = 'Tours coming soon';
+    else prog.textContent = completed + ' of ' + ready + ' available tours completed' + (completed === ready && ready > 0 ? ' · 🎉' : '');
+  }
+
+  var rb = document.getElementById('training-rolebar');
+  if (rb) {
+    var role = (typeof getCurrentUserRole === 'function') ? getCurrentUserRole() : 'viewer';
+    var roleNames = { admin:'Admin', npd:'R&D / Product Dev', qa:'Quality Assurance', factory:'Factory / Production', purchasing:'Purchasing', viewer:'Viewer', ops:'Operations' };
+    rb.innerHTML = '<strong>Signed in as:</strong> ' + (roleNames[role]||role) + ' &nbsp;·&nbsp; Each tour highlights what <em>you</em> can edit and what other roles do — so you understand the whole workflow, not just your slice.';
+  }
+}
+</script>
 
 <!-- HOW TO USE PAGE -->
 <div id="page-help" class="page-hidden" style="display:none !important">
@@ -5143,6 +5796,7 @@ const PAGES = {
   sop:            { title:'Factory SOPs', actions:'' },
   brands:         { title:'Brands',              actions:`<button class="btn btn-primary btn-sm" onclick="openBrandForm()">+ New Brand</button>` },
   workflow:       { title:'Workflow',             actions:'' },
+  training:       { title:'Training',             actions:'' },
   users:          { title:'Users & Access',      actions:`<button class="btn btn-gold btn-sm" onclick="toggleInviteForm()">+ Add User</button>` },
   comms:          { title:'Communications',     actions:'' },
   library:        { title:'Library',            actions:'<button class="btn btn-gold btn-sm" onclick="toggleLibUpload()">+ Upload Document</button>' },
@@ -5202,7 +5856,7 @@ function applyRoleRestrictions() {
 
   // Strip action buttons from pages this role CANNOT edit
   stripPageActions('page-users');
-  var allPages = ['page-dashboard','page-recipes','page-recipe-detail','page-ingredients','page-qa','page-sop','page-branch-sop','page-production','page-builds','page-brands','page-builds-costing','page-cost-control','page-reports','page-comms','page-library'];
+  var allPages = ['page-dashboard','page-recipes','page-recipe-detail','page-ingredients','page-qa','page-sop','page-branch-sop','page-production','page-builds','page-brands','page-builds-costing','page-cost-control','page-reports','page-comms','page-library','page-training'];
   allPages.forEach(function(pid) {
     var pageId = pid.replace('page-','');
     if (allowed.indexOf(pageId) === -1) stripPageActions(pid);
@@ -5295,6 +5949,7 @@ function nav(id) {
     else if (id === 'qa') { populateQARecipeDropdown(); buildShelfLifeUI(); }
     else if (id === 'comms') { initCommsPage(); }
     else if (id === 'library') { renderLibrary(); }
+    else if (id === 'training') { _renderTrainingGrid(); }
     updateSidebarBadges();
     addEmptyStates();
   } catch(e) {}
