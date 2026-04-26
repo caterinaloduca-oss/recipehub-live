@@ -293,10 +293,28 @@ app.post('/api/data', requireAuth, (req, res) => {
         const existingUrls = new Set(body.libraryDocs.map(d => d.url));
         old.libraryDocs.forEach(d => { if (d.url && !existingUrls.has(d.url)) body.libraryDocs.push(d); });
       }
+      // commsLog: field-level merge by date.
+      // Don't re-add old entries that aren't in body (admin delete needs to stick),
+      // but for entries that exist in both, fill in any fields the client didn't send
+      // (e.g. body/recipientEmails backfilled on the server). Otherwise a stale tab
+      // posting a slim commsLog wipes the enriched fields.
       if (old.commsLog && old.commsLog.length) {
         if (!body.commsLog) body.commsLog = [];
-        const existingTs = new Set(body.commsLog.map(m => m.sentAt));
-        old.commsLog.forEach(m => { if (m.sentAt && !existingTs.has(m.sentAt)) body.commsLog.push(m); });
+        const oldByDate = {};
+        old.commsLog.forEach(m => { if (m && m.date) oldByDate[m.date] = m; });
+        body.commsLog.forEach(m => {
+          if (!m || !m.date) return;
+          const o = oldByDate[m.date];
+          if (!o) return;
+          // Copy any field present on the server entry but undefined on the incoming one.
+          Object.keys(o).forEach(k => { if (m[k] === undefined) m[k] = o[k]; });
+          // Treat empty arrays/strings as "not sent" — prefer server's enriched value.
+          if (Array.isArray(o.recipientEmails) && o.recipientEmails.length &&
+              (!Array.isArray(m.recipientEmails) || !m.recipientEmails.length)) {
+            m.recipientEmails = o.recipientEmails;
+          }
+          if (typeof o.body === 'string' && o.body.length && !m.body) m.body = o.body;
+        });
       }
       if (old.activityLog && old.activityLog.length) {
         if (!body.activityLog) body.activityLog = [];
