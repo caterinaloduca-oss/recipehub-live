@@ -12410,23 +12410,24 @@ function renderBrandDetail(id) {
           const resetLink = isModifiedPortion ? `<a href="#" onclick="bcResetPortion('${r.npd}');return false" style="display:block;font-size:10px;color:var(--gold);text-decoration:none;margin-top:2px">↺ reset</a>` : '';
           const portionInputStyle = isModifiedPortion ? 'border-color:var(--gold);background:var(--gold-lt)' : '';
           const archivedPill = r.archived ? '<span style="display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;background:#FDE8E6;color:var(--red);font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em">Archived</span>' : '';
+          const _resetDisplay = isModifiedPortion ? 'block' : 'none';
           return `<tr style="${r.archived?'opacity:0.6':''}">
             <td><strong style="color:var(--navy)">${r.name}</strong>${archivedPill}</td>
             <td style="font-family:var(--font-m);font-size:11px;color:var(--g4)">${r.npd}</td>
             <td style="text-align:right;font-family:var(--font-m);font-weight:500;color:${r.costKg ? 'var(--navy)' : 'var(--g3)'}">${r.costKg ? 'SAR ' + r.costKg.toFixed(2) : '—'}</td>
             <td style="text-align:right;font-family:var(--font-m);font-size:12px;color:var(--g4)">${origCell}</td>
             <td style="text-align:right">
-              <input id="bc-portion-${r.npd}" type="number" min="1" value="${portionGDisplay}" placeholder="${r.portionG||''}" oninput="bcUpdatePortion('${r.npd}',this.value)"
+              <input id="bc-portion-${r.npd}" type="text" inputmode="numeric" pattern="[0-9]*" value="${portionGDisplay}" placeholder="${r.portionG||''}" oninput="bcUpdatePortion('${r.npd}',this.value)"
                 style="width:80px;padding:5px 8px;border:1px solid var(--g2);border-radius:6px;font-size:13px;text-align:right;font-family:var(--font-m);outline:none;${portionInputStyle}">
-              ${resetLink}
+              <a id="bc-reset-${r.npd}" href="#" onclick="bcResetPortion('${r.npd}');return false" style="display:${_resetDisplay};font-size:10px;color:var(--gold);text-decoration:none;margin-top:2px">↺ reset</a>
             </td>
-            <td style="text-align:right;font-family:var(--font-m);font-weight:500;color:${r.costPortion>0 ? 'var(--navy)' : 'var(--g3)'}">${r.costPortion > 0 ? 'SAR ' + r.costPortion.toFixed(2) : '—'}</td>
+            <td id="bc-costp-${r.npd}" style="text-align:right;font-family:var(--font-m);font-weight:500;color:${r.costPortion>0 ? 'var(--navy)' : 'var(--g3)'}">${r.costPortion > 0 ? 'SAR ' + r.costPortion.toFixed(2) : '—'}</td>
             <td style="text-align:right">
-              <input id="bc-sale-${r.npd}" type="number" min="0" step="0.5" placeholder="0.00" value="${salePriceDisplay}" oninput="bcUpdateSale('${r.npd}',this.value)"
+              <input id="bc-sale-${r.npd}" type="text" inputmode="decimal" value="${salePriceDisplay}" placeholder="0.00" oninput="bcUpdateSale('${r.npd}',this.value)"
                 style="width:90px;padding:5px 8px;border:1.5px solid #E8C875;background:var(--gold-lt);border-radius:6px;font-size:13px;text-align:right;font-family:var(--font-m);font-weight:500;color:var(--navy);outline:none">
             </td>
-            <td style="text-align:right;font-family:var(--font-m);font-weight:700;font-size:14px;color:${fcColor}">${fcText}</td>
-            <td style="min-width:80px;padding:0 12px"><div style="height:4px;background:var(--g1);border-radius:2px;overflow:hidden"><div style="height:100%;width:${barW}%;background:${barColor};border-radius:2px;transition:width 0.25s,background 0.25s"></div></div></td>
+            <td id="bc-fc-${r.npd}" style="text-align:right;font-family:var(--font-m);font-weight:700;font-size:14px;color:${fcColor}">${fcText}</td>
+            <td style="min-width:80px;padding:0 12px"><div style="height:4px;background:var(--g1);border-radius:2px;overflow:hidden"><div id="bc-bar-${r.npd}" style="height:100%;width:${barW}%;background:${barColor};border-radius:2px;transition:width 0.25s,background 0.25s"></div></div></td>
             <td>${statusBadge(r.status)}</td>
             <td><button class="btn btn-outline btn-sm" onclick="viewBrandRecipe('${r.npd}')">View</button></td>
           </tr>`;
@@ -12479,11 +12480,11 @@ function renderBrandDetail(id) {
           '<td style="text-align:right;font-size:11px;color:var(--g4)">' + (bd.components||[]).length + '</td>' +
           '<td style="text-align:right;font-family:var(--font-m);font-weight:500;color:' + (totalCost>0?'var(--navy)':'var(--g3)') + '">' + (totalCost>0?'SAR '+totalCost.toFixed(2):'—') + '</td>' +
           '<td style="text-align:right">' +
-            '<input id="bc-sale-BLD-' + bd.id + '" type="number" min="0" step="0.5" placeholder="0.00" value="' + (salePrice||'') + '" oninput="bcUpdateSale(\'BLD:' + bd.id + '\',this.value)"' +
+            '<input id="bc-sale-BLD-' + bd.id + '" type="text" inputmode="decimal" value="' + (salePrice||'') + '" placeholder="0.00" oninput="bcUpdateSale(\'BLD:' + bd.id + '\',this.value)"' +
               ' style="width:90px;padding:5px 8px;border:1.5px solid #E8C875;background:var(--gold-lt);border-radius:6px;font-size:13px;text-align:right;font-family:var(--font-m);font-weight:500;color:var(--navy);outline:none">' +
           '</td>' +
-          '<td style="text-align:right;font-family:var(--font-m);font-weight:700;font-size:14px;color:' + fcColor + '">' + fcText + '</td>' +
-          '<td style="min-width:80px;padding:0 12px"><div style="height:4px;background:var(--g1);border-radius:2px;overflow:hidden"><div style="height:100%;width:' + barW + '%;background:' + barColor + ';border-radius:2px;transition:width 0.25s,background 0.25s"></div></div></td>' +
+          '<td id="bc-fc-BLD-' + bd.id + '" style="text-align:right;font-family:var(--font-m);font-weight:700;font-size:14px;color:' + fcColor + '">' + fcText + '</td>' +
+          '<td style="min-width:80px;padding:0 12px"><div style="height:4px;background:var(--g1);border-radius:2px;overflow:hidden"><div id="bc-bar-BLD-' + bd.id + '" style="height:100%;width:' + barW + '%;background:' + barColor + ';border-radius:2px;transition:width 0.25s,background 0.25s"></div></div></td>' +
           '<td>' + statusBadge(bd.status) + '</td>' +
           '<td><button class="btn btn-outline btn-sm" onclick="nav(\'builds\');setTimeout(function(){var b=BUILDS_DATA.find(function(x){return x.id===\'' + bd.id + '\'});if(b&&typeof openBuildDetail===\'function\')openBuildDetail(b)},150)">View</button></td>' +
         '</tr>';
@@ -12739,30 +12740,79 @@ function _bcRowFC(r, target) {
   return { portionG, salePrice, costPortion, fc };
 }
 
-function _bcRerenderPreservingFocus() {
-  // Capture which input had focus + cursor position
-  var ae = document.activeElement;
-  var focusId = (ae && ae.tagName === 'INPUT' && ae.id && ae.id.indexOf('bc-')===0) ? ae.id : null;
-  var caretEnd = (focusId && typeof ae.selectionEnd === 'number') ? ae.selectionEnd : null;
-  renderBrandDetail(_activeBrandId);
-  if (focusId) {
-    var el = document.getElementById(focusId);
-    if (el) {
-      el.focus();
-      try { if (caretEnd !== null) el.setSelectionRange(caretEnd, caretEnd); } catch(e) {}
-    }
-  }
+// Per-row simulation update: change state + update only the affected cells.
+// No table re-render — keeps the focused input untouched so multi-digit typing works.
+function _bcApplyFCColor(fc, target) {
+  if (fc === null) return { cls: 'empty', text: '—', color: '#C0BDB5', bar: 0, barColor: 'var(--sage)' };
+  var color, barColor;
+  if (fc <= target) { color = 'var(--sage)'; barColor = 'var(--sage)'; }
+  else if (fc <= target + 3) { color = 'var(--amber)'; barColor = 'var(--amber)'; }
+  else { color = 'var(--red)'; barColor = 'var(--red)'; }
+  return { text: fc.toFixed(1) + '%', color: color, bar: Math.min(fc, 100), barColor: barColor };
 }
 
 function bcUpdatePortion(npd, val) {
   if (!_brandSim[npd]) _brandSim[npd] = {};
   _brandSim[npd].portionG = parseFloat(val) || 0;
-  _bcRerenderPreservingFocus();
+  _bcUpdateRecipeRow(npd);
 }
-function bcUpdateSale(npd, val) {
-  if (!_brandSim[npd]) _brandSim[npd] = {};
-  _brandSim[npd].salePrice = parseFloat(val) || 0;
-  _bcRerenderPreservingFocus();
+function bcUpdateSale(key, val) {
+  if (!_brandSim[key]) _brandSim[key] = {};
+  _brandSim[key].salePrice = parseFloat(val) || 0;
+  if (key.indexOf('BLD:') === 0) _bcUpdateBuildRow(key.slice(4));
+  else _bcUpdateRecipeRow(key);
+}
+
+function _bcUpdateRecipeRow(npd) {
+  var b = BRANDS.find(function(x){ return x.id === _activeBrandId; });
+  if (!b) return;
+  var target = (typeof b.targetFC === 'number') ? b.targetFC : 30;
+  var r = RECIPE_DB[npd];
+  if (!r) return;
+  var costKg = r.costKg ? parseFloat(String(r.costKg).replace(/[^0-9.]/g,'')) : null;
+  var sim = _brandSim[npd] || {};
+  var portionG = sim.portionG !== undefined ? sim.portionG : (r.portionSize || 0);
+  var salePrice = sim.salePrice || 0;
+  var costPortion = (costKg && portionG > 0) ? costKg * portionG / 1000 : 0;
+  var fc = (salePrice > 0 && costPortion > 0) ? (costPortion / salePrice) * 100 : null;
+
+  var cp = document.getElementById('bc-costp-' + npd);
+  if (cp) {
+    cp.textContent = costPortion > 0 ? 'SAR ' + costPortion.toFixed(2) : '—';
+    cp.style.color = costPortion > 0 ? 'var(--navy)' : 'var(--g3)';
+  }
+  var pc = _bcApplyFCColor(fc, target);
+  var fcEl = document.getElementById('bc-fc-' + npd);
+  if (fcEl) { fcEl.textContent = pc.text; fcEl.style.color = pc.color; }
+  var bar = document.getElementById('bc-bar-' + npd);
+  if (bar) { bar.style.width = pc.bar + '%'; bar.style.background = pc.barColor; }
+  // Reset link visibility for portion
+  var reset = document.getElementById('bc-reset-' + npd);
+  var origPortion = r.portionSize || 0;
+  var modified = sim.portionG !== undefined && sim.portionG !== origPortion;
+  if (reset) reset.style.display = modified ? 'block' : 'none';
+  var pInput = document.getElementById('bc-portion-' + npd);
+  if (pInput) {
+    if (modified) { pInput.style.borderColor = 'var(--gold)'; pInput.style.background = 'var(--gold-lt)'; }
+    else { pInput.style.borderColor = 'var(--g2)'; pInput.style.background = ''; }
+  }
+}
+
+function _bcUpdateBuildRow(buildId) {
+  var b = BRANDS.find(function(x){ return x.id === _activeBrandId; });
+  if (!b) return;
+  var target = (typeof b.targetFC === 'number') ? b.targetFC : 30;
+  var bd = BUILDS_DATA.find(function(x){ return x.id === buildId; });
+  if (!bd) return;
+  var totalCost = (bd.components||[]).reduce(function(s,c){ return s + (parseFloat(c.cost)||0); }, 0);
+  var sim = _brandSim['BLD:' + buildId] || {};
+  var salePrice = sim.salePrice || 0;
+  var fc = (salePrice > 0 && totalCost > 0) ? (totalCost / salePrice) * 100 : null;
+  var pc = _bcApplyFCColor(fc, target);
+  var fcEl = document.getElementById('bc-fc-BLD-' + buildId);
+  if (fcEl) { fcEl.textContent = pc.text; fcEl.style.color = pc.color; }
+  var bar = document.getElementById('bc-bar-BLD-' + buildId);
+  if (bar) { bar.style.width = pc.bar + '%'; bar.style.background = pc.barColor; }
 }
 function bcResetPortion(npd) {
   if (_brandSim[npd]) delete _brandSim[npd].portionG;
