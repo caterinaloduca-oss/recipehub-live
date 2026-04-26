@@ -17982,7 +17982,9 @@ function sendCommsMessage() {
       to: to === 'individual' ? document.getElementById('comms-individual').value : to,
       toLabel: to === 'all' ? 'Everyone' : to === 'individual' ? (USERS_DATA.find(function(u){return u.email===document.getElementById('comms-individual').value})||{}).name||to : to.toUpperCase(),
       recipients: recipients.length,
+      recipientEmails: recipients.slice(),
       subject: subject,
+      body: body,
       recipe: recipeName,
       sentBy: getCurrentUserName(),
     });
@@ -18005,22 +18007,43 @@ function renderCommsLog() {
     list.innerHTML = '<div style="padding:40px;text-align:center;color:var(--g3);font-size:13px">No messages sent yet</div>';
     return;
   }
-  list.innerHTML = COMMS_LOG.map(function(m) {
+  list.innerHTML = COMMS_LOG.map(function(m, idx) {
     var date = new Date(m.date);
     var dateStr = date.toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'numeric'});
     var timeStr = date.toLocaleTimeString('en-GB', {hour:'2-digit',minute:'2-digit'});
-    return '<div style="padding:12px 16px;border-bottom:1px solid var(--g1)">' +
-      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">' +
-        '<strong style="font-size:13px;color:var(--navy)">' + m.subject + '</strong>' +
-        '<span style="font-size:10px;color:var(--g3)">' + dateStr + ' ' + timeStr + '</span>' +
+    var hasBody = !!(m.body || (m.recipientEmails && m.recipientEmails.length));
+    return '<div style="border-bottom:1px solid var(--g1)">' +
+      '<div onclick="' + (hasBody ? 'toggleCommsLogEntry(' + idx + ')' : '') + '" style="padding:12px 16px;' + (hasBody ? 'cursor:pointer' : '') + '">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;gap:8px">' +
+          '<strong style="font-size:13px;color:var(--navy);flex:1">' +
+            (hasBody ? '<span id="comms-chev-' + idx + '" style="display:inline-block;width:12px;color:var(--g4);font-size:10px;margin-right:4px">▸</span>' : '<span style="display:inline-block;width:16px"></span>') +
+            m.subject +
+          '</strong>' +
+          '<span style="font-size:10px;color:var(--g4);white-space:nowrap">' + dateStr + ' ' + timeStr + '</span>' +
+        '</div>' +
+        '<div style="font-size:11px;color:var(--g4);padding-left:16px">' +
+          'To: <span style="font-weight:500">' + m.toLabel + '</span> (' + m.recipients + ' recipient' + (m.recipients===1?'':'s') + ')' +
+          (m.recipe ? ' · Re: <span style="color:var(--sage)">' + m.recipe + '</span>' : '') +
+        '</div>' +
+        '<div style="font-size:10px;color:var(--g4);margin-top:2px;padding-left:16px">Sent by ' + m.sentBy + '</div>' +
       '</div>' +
-      '<div style="font-size:11px;color:var(--g4)">' +
-        'To: <span style="font-weight:500">' + m.toLabel + '</span> (' + m.recipients + ' recipients)' +
-        (m.recipe ? ' · Re: <span style="color:var(--sage)">' + m.recipe + '</span>' : '') +
-      '</div>' +
-      '<div style="font-size:10px;color:var(--g3);margin-top:2px">Sent by ' + m.sentBy + '</div>' +
+      (hasBody ? '<div id="comms-body-' + idx + '" style="display:none;padding:0 16px 14px 32px;background:#FDFCF8">' +
+        (m.body ? '<div style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:var(--g4);font-weight:600;margin:8px 0 6px">Message</div>' +
+                  '<div style="font-size:12px;color:#2A3040;line-height:1.55;white-space:pre-wrap;background:white;padding:10px 12px;border-radius:6px;border:1px solid var(--g2)">' + (m.body||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</div>' : '') +
+        (m.recipientEmails && m.recipientEmails.length ? '<div style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:var(--g4);font-weight:600;margin:10px 0 6px">Recipients (' + m.recipientEmails.length + ')</div>' +
+                  '<div style="font-size:11px;color:#3A4050;line-height:1.5;font-family:var(--font-m);background:white;padding:8px 12px;border-radius:6px;border:1px solid var(--g2);max-height:140px;overflow-y:auto">' + m.recipientEmails.join(', ') + '</div>' : '') +
+      '</div>' : '') +
     '</div>';
   }).join('');
+}
+
+function toggleCommsLogEntry(idx) {
+  var bodyEl = document.getElementById('comms-body-' + idx);
+  var chev = document.getElementById('comms-chev-' + idx);
+  if (!bodyEl) return;
+  var open = bodyEl.style.display === 'none';
+  bodyEl.style.display = open ? 'block' : 'none';
+  if (chev) chev.textContent = open ? '▾' : '▸';
 }
 
 // ──────────── DOCUMENT LIBRARY ────────────
