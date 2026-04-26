@@ -198,6 +198,55 @@ app.post('/api/data', requireAuth, (req, res) => {
     const existing = db.getState();
     if (existing && existing.data) {
       const old = existing.data;
+
+      // SAFETY NET: refuse to wipe critical arrays. If a stale client posts an
+      // array shorter than 50% of what the server has, treat it as a stale-tab
+      // overwrite and keep the server's copy. Better to drop a real edit than
+      // to lose the whole array. Diagnosed 2026-04-26 after a wipe of users /
+      // ingredients / builds / branchSOPs while recipes survived because they
+      // had per-key merge but the others didn't.
+      const guardArray = (key, idField) => {
+        const oldArr = old[key];
+        const newArr = body[key];
+        if (!Array.isArray(oldArr) || oldArr.length < 4) return;
+        // If the field was omitted entirely or is non-array, keep server's
+        if (!Array.isArray(newArr)) {
+          body[key] = oldArr.slice();
+          console.warn('[guardArray] ' + key + ' omitted by client; restored ' + oldArr.length + ' from server');
+          return;
+        }
+        // If new is suspiciously shorter than old (>50% drop), keep server's
+        if (newArr.length < oldArr.length * 0.5) {
+          // Merge by id (keep client's edits but re-add missing entries)
+          if (idField) {
+            const seen = new Set(newArr.map(x => x && x[idField]).filter(Boolean));
+            const merged = newArr.slice();
+            oldArr.forEach(x => { if (x && x[idField] && !seen.has(x[idField])) merged.push(x); });
+            body[key] = merged;
+            console.warn('[guardArray] ' + key + ' dropped from ' + oldArr.length + ' to ' + newArr.length + '; merged back to ' + merged.length);
+          } else {
+            body[key] = oldArr.slice();
+            console.warn('[guardArray] ' + key + ' dropped from ' + oldArr.length + ' to ' + newArr.length + '; restored');
+          }
+        }
+      };
+      guardArray('users', 'email');
+      guardArray('ingredients', 'item_code');
+      guardArray('builds', 'id');
+      guardArray('branchSOPs', 'id');
+      guardArray('brands', 'id');
+      guardArray('productionRuns', 'id');
+      guardArray('commsLog', 'date');
+      guardArray('savingsProjects', null);
+      // Recipes: same guard but recipes is a dict keyed by npd, not an array
+      if (old.recipes && typeof old.recipes === 'object' && Object.keys(old.recipes).length >= 4) {
+        if (!body.recipes || typeof body.recipes !== 'object') {
+          body.recipes = {};
+          Object.keys(old.recipes).forEach(k => { body.recipes[k] = old.recipes[k]; });
+          console.warn('[guardArray] recipes omitted by client; restored ' + Object.keys(body.recipes).length + ' from server');
+        }
+      }
+
       // Never lose recipes — merge missing ones back (unless explicitly deleted)
       if (old.recipes && body.recipes) {
         const deleted = new Set(body.deletedRecipeIds || []);
