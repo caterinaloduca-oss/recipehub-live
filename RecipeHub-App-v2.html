@@ -12416,13 +12416,13 @@ function renderBrandDetail(id) {
             <td style="text-align:right;font-family:var(--font-m);font-weight:500;color:${r.costKg ? 'var(--navy)' : 'var(--g3)'}">${r.costKg ? 'SAR ' + r.costKg.toFixed(2) : '—'}</td>
             <td style="text-align:right;font-family:var(--font-m);font-size:12px;color:var(--g4)">${origCell}</td>
             <td style="text-align:right">
-              <input type="number" min="1" value="${portionGDisplay}" placeholder="${r.portionG||''}" oninput="bcUpdatePortion('${r.npd}',this.value)"
+              <input id="bc-portion-${r.npd}" type="number" min="1" value="${portionGDisplay}" placeholder="${r.portionG||''}" oninput="bcUpdatePortion('${r.npd}',this.value)"
                 style="width:80px;padding:5px 8px;border:1px solid var(--g2);border-radius:6px;font-size:13px;text-align:right;font-family:var(--font-m);outline:none;${portionInputStyle}">
               ${resetLink}
             </td>
             <td style="text-align:right;font-family:var(--font-m);font-weight:500;color:${r.costPortion>0 ? 'var(--navy)' : 'var(--g3)'}">${r.costPortion > 0 ? 'SAR ' + r.costPortion.toFixed(2) : '—'}</td>
             <td style="text-align:right">
-              <input type="number" min="0" step="0.5" placeholder="0.00" value="${salePriceDisplay}" oninput="bcUpdateSale('${r.npd}',this.value)"
+              <input id="bc-sale-${r.npd}" type="number" min="0" step="0.5" placeholder="0.00" value="${salePriceDisplay}" oninput="bcUpdateSale('${r.npd}',this.value)"
                 style="width:90px;padding:5px 8px;border:1.5px solid #E8C875;background:var(--gold-lt);border-radius:6px;font-size:13px;text-align:right;font-family:var(--font-m);font-weight:500;color:var(--navy);outline:none">
             </td>
             <td style="text-align:right;font-family:var(--font-m);font-weight:700;font-size:14px;color:${fcColor}">${fcText}</td>
@@ -12479,7 +12479,7 @@ function renderBrandDetail(id) {
           '<td style="text-align:right;font-size:11px;color:var(--g4)">' + (bd.components||[]).length + '</td>' +
           '<td style="text-align:right;font-family:var(--font-m);font-weight:500;color:' + (totalCost>0?'var(--navy)':'var(--g3)') + '">' + (totalCost>0?'SAR '+totalCost.toFixed(2):'—') + '</td>' +
           '<td style="text-align:right">' +
-            '<input type="number" min="0" step="0.5" placeholder="0.00" value="' + (salePrice||'') + '" oninput="bcUpdateSale(\'BLD:' + bd.id + '\',this.value)"' +
+            '<input id="bc-sale-BLD-' + bd.id + '" type="number" min="0" step="0.5" placeholder="0.00" value="' + (salePrice||'') + '" oninput="bcUpdateSale(\'BLD:' + bd.id + '\',this.value)"' +
               ' style="width:90px;padding:5px 8px;border:1.5px solid #E8C875;background:var(--gold-lt);border-radius:6px;font-size:13px;text-align:right;font-family:var(--font-m);font-weight:500;color:var(--navy);outline:none">' +
           '</td>' +
           '<td style="text-align:right;font-family:var(--font-m);font-weight:700;font-size:14px;color:' + fcColor + '">' + fcText + '</td>' +
@@ -12739,15 +12739,30 @@ function _bcRowFC(r, target) {
   return { portionG, salePrice, costPortion, fc };
 }
 
+function _bcRerenderPreservingFocus() {
+  // Capture which input had focus + cursor position
+  var ae = document.activeElement;
+  var focusId = (ae && ae.tagName === 'INPUT' && ae.id && ae.id.indexOf('bc-')===0) ? ae.id : null;
+  var caretEnd = (focusId && typeof ae.selectionEnd === 'number') ? ae.selectionEnd : null;
+  renderBrandDetail(_activeBrandId);
+  if (focusId) {
+    var el = document.getElementById(focusId);
+    if (el) {
+      el.focus();
+      try { if (caretEnd !== null) el.setSelectionRange(caretEnd, caretEnd); } catch(e) {}
+    }
+  }
+}
+
 function bcUpdatePortion(npd, val) {
   if (!_brandSim[npd]) _brandSim[npd] = {};
   _brandSim[npd].portionG = parseFloat(val) || 0;
-  renderBrandDetail(_activeBrandId);
+  _bcRerenderPreservingFocus();
 }
 function bcUpdateSale(npd, val) {
   if (!_brandSim[npd]) _brandSim[npd] = {};
   _brandSim[npd].salePrice = parseFloat(val) || 0;
-  renderBrandDetail(_activeBrandId);
+  _bcRerenderPreservingFocus();
 }
 function bcResetPortion(npd) {
   if (_brandSim[npd]) delete _brandSim[npd].portionG;
