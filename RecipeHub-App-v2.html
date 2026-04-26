@@ -12363,16 +12363,17 @@ function renderBrandDetail(id) {
       </div>
     </div>
 
-    <!-- RECIPES section header -->
-    <div style="padding:12px 20px;background:var(--g1);border-bottom:1px solid var(--g2);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    <!-- RECIPES section header (clickable to expand/collapse) -->
+    <div onclick="bcToggleSection('recipes')" style="padding:12px 20px;background:var(--g1);border-bottom:1px solid var(--g2);display:flex;align-items:center;gap:10px;flex-wrap:wrap;cursor:pointer;user-select:none">
+      <span style="font-size:11px;color:var(--g4);width:14px;display:inline-block">${_bcExpand.recipes ? '▾' : '▸'}</span>
       <div style="font-family:var(--font-d);font-size:12px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:0.05em">📐 Recipes (SFG · sauces · bases · ${recipes.length}${archivedCount?' / '+archivedCount+' archived':''})</div>
       <div style="font-size:11px;color:var(--g4);flex:1">Cost is per kg — adjust portion to simulate cost per serving.</div>
-      <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--g4);cursor:pointer">
+      <label onclick="event.stopPropagation()" style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--g4);cursor:pointer">
         <input type="checkbox" ${_bcShowArchived?'checked':''} onchange="bcToggleArchived(this.checked)" style="cursor:pointer">
         Show archived (${archivedCount})
       </label>
     </div>
-    ${recipes.length ? `
+    ${_bcExpand.recipes && recipes.length ? `
     <div style="overflow-x:auto">
       <table class="data-table" style="font-size:13px;min-width:1100px">
         <thead>
@@ -12433,7 +12434,7 @@ function renderBrandDetail(id) {
         </tbody>
       </table>
     </div>
-    ` : `<div style="padding:36px 24px;text-align:center;color:var(--g4);font-size:13px">No recipes yet for ${b.name}</div>`}
+    ` : (_bcExpand.recipes ? `<div style="padding:36px 24px;text-align:center;color:var(--g4);font-size:13px">No recipes yet for ${b.name}</div>` : '')}
 
     <!-- BUILDS section -->
     ${(function(){
@@ -12441,14 +12442,16 @@ function renderBrandDetail(id) {
       var inactiveCount = allBrandBuilds.filter(function(x){ return x.active === false; }).length;
       var brandBuilds = allBrandBuilds.filter(function(x){ return _bcShowInactive || x.active !== false; });
       var head =
-        '<div style="padding:12px 20px;background:var(--g1);border-top:1px solid var(--g2);border-bottom:1px solid var(--g2);display:flex;align-items:center;gap:10px;flex-wrap:wrap">' +
+        '<div onclick="bcToggleSection(\'builds\')" style="padding:12px 20px;background:var(--g1);border-top:1px solid var(--g2);border-bottom:1px solid var(--g2);display:flex;align-items:center;gap:10px;flex-wrap:wrap;cursor:pointer;user-select:none">' +
+          '<span style="font-size:11px;color:var(--g4);width:14px;display:inline-block">' + (_bcExpand.builds ? '▾' : '▸') + '</span>' +
           '<div style="font-family:var(--font-d);font-size:12px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:0.05em">🍕 Builds (assembled dishes · ' + brandBuilds.length + (inactiveCount?' / '+inactiveCount+' inactive':'') + ')</div>' +
           '<div style="font-size:11px;color:var(--g4);flex:1">Cost is the sum of components — fixed per build, no portion simulation.</div>' +
-          '<label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--g4);cursor:pointer">' +
+          '<label onclick="event.stopPropagation()" style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--g4);cursor:pointer">' +
             '<input type="checkbox"' + (_bcShowInactive?' checked':'') + ' onchange="bcToggleInactive(this.checked)" style="cursor:pointer">' +
             'Show inactive (' + inactiveCount + ')' +
           '</label>' +
         '</div>';
+      if (!_bcExpand.builds) return head;
       if (!brandBuilds.length) {
         return head + '<div style="padding:36px 24px;text-align:center;color:var(--g4);font-size:13px">No ' + (_bcShowInactive?'':'active ') + 'builds for ' + b.name + '</div>';
       }
@@ -12705,6 +12708,7 @@ function selectBrandPill(id) {
 var _bcSort = { key: 'name', dir: 1 };
 var _bcShowArchived = false;
 var _bcShowInactive = false;
+var _bcExpand = { recipes: true, builds: true };
 
 function sortBrandTable(key) {
   if (_bcSort.key === key) _bcSort.dir = -_bcSort.dir;
@@ -12718,6 +12722,11 @@ function bcToggleArchived(checked) {
 }
 function bcToggleInactive(checked) {
   _bcShowInactive = !!checked;
+  renderBrandDetail(_activeBrandId);
+}
+function bcToggleSection(which, ev) {
+  if (ev) ev.stopPropagation();
+  _bcExpand[which] = !_bcExpand[which];
   renderBrandDetail(_activeBrandId);
 }
 
