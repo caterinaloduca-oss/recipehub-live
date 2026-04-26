@@ -1226,7 +1226,9 @@ app.post('/api/comms/send', requireAuth, (req, res) => {
     }
     const recipients = Array.isArray(to) ? to : [to];
     const safeSubject = escHtml(subject);
-    const safeBody = escHtml(html || '').replace(/\n/g, '<br>');
+    // html is built by the authenticated frontend (sendCommsMessage in RecipeHub-App-v2.html)
+    // and already contains safe HTML (<p>, <br>, optional <a>). Do not double-escape.
+    const safeBody = String(html || '');
     const safeSentBy = escHtml(sentBy || 'Admin');
     const fullHtml = `<h2 style="color:#1B2A4A;margin:0 0 12px">${safeSubject}</h2>
       <div style="font-size:14px;line-height:1.6;color:#333">${safeBody}</div>
