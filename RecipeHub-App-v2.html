@@ -15135,7 +15135,12 @@ function viewBuild(id) {
       <button class="btn btn-outline btn-sm" onclick="editBuildTags('${b.id}')">🏷️ Tags</button>
       <button class="btn btn-outline btn-sm" onclick="printBuild('${b.id}')">🖨️ Print</button>
       <button class="btn btn-outline btn-sm" onclick="downloadBuildPDF('${b.id}')" style="color:var(--red)">📄 PDF</button>
-      <button class="btn btn-primary btn-sm" onclick="createSOPFromBuild('${b.id}')">📋 Create Branch SOP</button>
+      ${(function(){
+        var _existingSOP = BRANCH_SOPS.find(function(s){ return s.buildRef === b.id; });
+        return _existingSOP
+          ? `<button class="btn btn-outline btn-sm" onclick="nav('branch-sop');setTimeout(function(){viewBranchSOP('${_existingSOP.id}')},100)">📋 View Branch SOP</button>`
+          : `<button class="btn btn-primary btn-sm" onclick="createSOPFromBuild('${b.id}')">📋 Create Branch SOP</button>`;
+      })()}
       ${b.active===false ? `<button class="btn btn-sm" style="background:var(--sage);color:white" onclick="toggleBuildActive('${b.id}')">✓ Reactivate</button>` : `<button class="btn btn-sm" style="background:var(--red);color:white" onclick="toggleBuildActive('${b.id}')">✕ Discontinue</button>`}
     </div>
     <div class="card" style="overflow:hidden;margin-bottom:20px">
@@ -15397,6 +15402,13 @@ function removeBuildPhoto(id) {
 function createSOPFromBuild(buildId) {
   var b = BUILDS_DATA.find(x => x.id === buildId);
   if (!b) return;
+  var existing = BRANCH_SOPS.find(function(s){ return s.buildRef === buildId; });
+  if (existing) {
+    showSaveToast('Branch SOP already exists for this build — opening it', true);
+    nav('branch-sop');
+    setTimeout(function(){ viewBranchSOP(existing.id); }, 100);
+    return;
+  }
   var nextNum = BRANCH_SOPS.length + 1;
   var steps = b.components.map(function(c) {
     var desc = c.type === 'Dough' ? 'Take ' + c.item : 'Add ' + c.item;
@@ -18015,6 +18027,15 @@ function createBranchSOP() {
   }
   if (!BUILDS_DATA.find(function(b){ return b.id === buildRefVal; })) {
     showSaveToast('Selected Build no longer exists — pick another', true);
+    _creatingSOP = false;
+    return;
+  }
+  var _dupForBuild = BRANCH_SOPS.find(function(s){ return s.buildRef === buildRefVal; });
+  if (_dupForBuild) {
+    showSaveToast('Branch SOP already exists for this build — opening it', true);
+    closeModal();
+    nav('branch-sop');
+    setTimeout(function(){ viewBranchSOP(_dupForBuild.id); }, 100);
     _creatingSOP = false;
     return;
   }
