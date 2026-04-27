@@ -6090,22 +6090,14 @@ function _printWatermarkHTML() {
   var d = new Date();
   var date = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   var text = email + '  ·  ' + date + '  ·  CONFIDENTIAL';
-  var size = 12;
-  var charW = size * 0.5;
-  var tileW = Math.ceil(text.length * charW + 360);
-  var tileH = Math.ceil(size * 16);
-  var svg =
-    '<svg xmlns="http://www.w3.org/2000/svg" width="' + tileW + '" height="' + tileH + '">' +
-      '<text x="0" y="' + (size * 0.85) + '" font-family="sans-serif" font-size="' + size + '" font-weight="500" fill="#1B2A4A">' + text + '</text>' +
-    '</svg>';
-  var dataUrl = 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+  // Small corner stamp (top-right of every printed page) — fixed-position so it
+  // appears on each sheet when the browser paginates, not just page 1.
   return (
     '<style>' +
-      '#rh-print-wm{position:fixed;inset:0;pointer-events:none;z-index:9999;overflow:hidden}' +
-      '#rh-print-wm-inner{position:absolute;inset:-100%;transform:rotate(-30deg);transform-origin:center;background-image:url("' + dataUrl + '");background-repeat:repeat;opacity:0.09;-webkit-print-color-adjust:exact;print-color-adjust:exact}' +
-      '@media print{#rh-print-wm{display:block !important}}' +
+      '#rh-print-wm{position:fixed;top:6mm;right:8mm;font-family:sans-serif;font-size:7pt;color:#999;letter-spacing:0.02em;pointer-events:none;z-index:9999}' +
+      '@media print{#rh-print-wm{-webkit-print-color-adjust:exact;print-color-adjust:exact}}' +
     '</style>' +
-    '<div id="rh-print-wm" aria-hidden="true"><div id="rh-print-wm-inner"></div></div>'
+    '<div id="rh-print-wm" aria-hidden="true">' + text + '</div>'
   );
 }
 
