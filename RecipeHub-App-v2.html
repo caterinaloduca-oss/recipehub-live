@@ -646,9 +646,31 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
 .signin-submit:hover { background:var(--navy-2); }
 .signin-error { font-size:12px; color:var(--red); margin-top:10px; display:none; }
 .signin-footer { font-size:11px; color:var(--g3); margin-top:24px; }
+
+/* ── FORENSIC WATERMARK on sensitive pages (recipe/sop/branch-sop/build detail) ── */
+#rh-watermark {
+  position: fixed; inset: 0; pointer-events: none; z-index: 9000;
+  overflow: hidden; user-select: none; display: none;
+}
+#rh-watermark .rh-wm-inner {
+  position: absolute; inset: -100%;
+  transform: rotate(-30deg); transform-origin: center;
+  background-repeat: repeat; opacity: 0.10;
+}
+body.rh-wm-on #rh-watermark { display: block; }
+@media print {
+  body.rh-wm-on #rh-watermark { display: block !important; }
+  #rh-watermark .rh-wm-inner {
+    opacity: 0.18 !important;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+}
 </style>
 </head>
 <body>
+
+<!-- Forensic watermark — toggled on sensitive detail pages by applyWatermark() -->
+<div id="rh-watermark" aria-hidden="true"><div class="rh-wm-inner"></div></div>
 
 <!-- ════════════════════ SIGN IN ════════════════════ -->
 <div class="signin-overlay" id="signin-overlay">
@@ -743,6 +765,9 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
   <div class="nav-section-label">Settings</div>
   <button class="nav-item" data-page="users" onclick="nav('users')">
     <span class="nav-icon">◉</span> Users & Access <span class="nav-badge" id="nav-badge-users"></span>
+  </button>
+  <button class="nav-item" data-page="audit-log" onclick="nav('audit-log')">
+    <span class="nav-icon">📋</span> Audit Log
   </button>
   </div><!-- end nav scroll -->
 
@@ -2573,6 +2598,105 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
 
   </div>
 </div>
+
+<!-- ══════════════════════════════════════════
+     PAGE: AUDIT LOG (admin only)
+══════════════════════════════════════════ -->
+<div id="page-audit-log" class="page-hidden">
+  <div class="card" style="margin-bottom:18px">
+    <div class="card-head">
+      <div>
+        <span class="card-title">Audit Log</span>
+        <div style="font-size:11px;color:var(--g4);margin-top:2px">Forensic trail — who did what, when. Retained 180 days. Admin only.</div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-outline btn-sm" onclick="auditRefresh()">🔄 Refresh</button>
+        <button class="btn btn-outline btn-sm" onclick="auditExportCSV()">📥 Export CSV</button>
+      </div>
+    </div>
+    <div class="card-body" style="padding:0">
+      <div style="display:flex;gap:0;border-bottom:1px solid var(--g2);background:var(--g1)">
+        <button id="audit-tab-content" class="audit-tab audit-tab-active" onclick="auditSetTab('content')">📋 Content access</button>
+        <button id="audit-tab-user" class="audit-tab" onclick="auditSetTab('user')">👤 User activity</button>
+      </div>
+      <div style="padding:14px 18px;display:flex;gap:10px;flex-wrap:wrap;align-items:end;border-bottom:1px solid var(--g2)">
+        <div class="form-group" style="margin:0">
+          <label class="form-label">From</label>
+          <input type="date" class="form-input" id="audit-from" style="width:160px" onchange="auditRefresh()" />
+        </div>
+        <div class="form-group" style="margin:0">
+          <label class="form-label">To</label>
+          <input type="date" class="form-input" id="audit-to" style="width:160px" onchange="auditRefresh()" />
+        </div>
+        <div class="form-group" style="margin:0;flex:1;min-width:180px">
+          <label class="form-label">User email contains</label>
+          <input type="text" class="form-input" id="audit-user" placeholder="e.g. james.capper" oninput="_auditDebounce()" />
+        </div>
+        <div class="form-group" style="margin:0;width:200px">
+          <label class="form-label">Action</label>
+          <select class="form-select" id="audit-action" onchange="auditRefresh()">
+            <option value="">All actions</option>
+            <option value="recipe.view">recipe.view</option>
+            <option value="recipe.edit">recipe.edit</option>
+            <option value="recipe.delete">recipe.delete</option>
+            <option value="recipe.print">recipe.print</option>
+            <option value="sop.view">sop.view</option>
+            <option value="branch_sop.view">branch_sop.view</option>
+            <option value="branch_sop.print">branch_sop.print</option>
+            <option value="build.view">build.view</option>
+            <option value="build.print">build.print</option>
+            <option value="user.signin">user.signin</option>
+            <option value="user.signin_blocked">user.signin_blocked</option>
+            <option value="user.invite">user.invite</option>
+            <option value="user.approve">user.approve</option>
+            <option value="user.role_change">user.role_change</option>
+            <option value="user.edit">user.edit</option>
+            <option value="user.remove">user.remove</option>
+          </select>
+        </div>
+        <div style="font-size:11px;color:var(--g4)" id="audit-meta">—</div>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="ent-table" style="width:100%" id="audit-table">
+          <thead>
+            <tr>
+              <th style="width:160px">Timestamp</th>
+              <th style="width:230px">User</th>
+              <th style="width:170px">Action</th>
+              <th>Target</th>
+              <th style="width:120px">IP</th>
+            </tr>
+          </thead>
+          <tbody id="audit-tbody">
+            <tr><td colspan="5" style="text-align:center;padding:30px;color:var(--g4)">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.audit-tab {
+  padding: 10px 18px; font-size: 12px; font-weight: 500; color: var(--g4);
+  background: transparent; border: none; cursor: pointer;
+  border-bottom: 2px solid transparent;
+  font-family: inherit;
+}
+.audit-tab:hover { color: var(--navy); }
+.audit-tab-active { color: var(--navy); background: white; border-bottom-color: var(--gold); }
+.audit-action-badge {
+  display: inline-block; padding: 2px 9px; border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace; font-size: 10.5px; font-weight: 500;
+}
+.audit-action-badge.view   { background: var(--blue-lt);  color: var(--blue); }
+.audit-action-badge.edit   { background: var(--amber-lt); color: #8a4500; }
+.audit-action-badge.delete { background: var(--red-lt);   color: var(--red); }
+.audit-action-badge.print  { background: #F4E8FD;         color: #6B2FA0; }
+.audit-action-badge.signin { background: var(--sage-lt);  color: var(--sage); }
+.audit-action-badge.role   { background: #F4E8FD;         color: #6B2FA0; }
+.audit-action-badge.user   { background: var(--g1);       color: var(--g5); }
+</style>
 
 <!-- ══════════════════════════════════════════
      PAGE: RECIPE DETAIL (dynamic)
@@ -5036,6 +5160,7 @@ function ssoSignIn(email, displayName) {
     var user = { name:found.name, email:emailLc, role:rm.label, method:'sso' };
     setAuthUser(user);
     showApp();
+    auditEvent('user.signin', 'user', emailLc, found.name + ' (' + (found.role || '') + ')', { method: 'sso' });
     return;
   }
   // Check if in pending
@@ -5071,6 +5196,7 @@ function emailSignIn() {
   if (!email.toLowerCase().endsWith('@dailyfoodsa.com')) {
     errEl.textContent = 'Only @dailyfoodsa.com emails are allowed';
     errEl.style.display = 'block';
+    auditEvent('user.signin_blocked', 'user', email.toLowerCase(), null, { reason: 'wrong_domain' });
     return;
   }
 
@@ -5078,6 +5204,7 @@ function emailSignIn() {
   if (!found) {
     errEl.textContent = 'Email not recognised — contact your admin for access';
     errEl.style.display = 'block';
+    auditEvent('user.signin_blocked', 'user', email.toLowerCase(), null, { reason: 'unknown_email' });
     return;
   }
 
@@ -5086,6 +5213,7 @@ function emailSignIn() {
   var user = { name:found.name, email:email, role: rm ? rm.label : found.title, method:'email' };
   setAuthUser(user);
   showApp();
+  auditEvent('user.signin', 'user', email.toLowerCase(), found.name + ' (' + (found.role || '') + ')', { method: 'email' });
 }
 
 function openProfileModal() {
@@ -5266,6 +5394,39 @@ function importBackup(input) {
   input.value = '';
 }
 
+// Persists the data blob to localStorage. Viewers get a stripped version — the
+// sensitive arrays (recipes/builds/branchSOPs/ingredients/sopStandardBlocks)
+// are deliberately NOT cached client-side, so closing the tab clears them and
+// DevTools cannot expose the recipe library.
+function _persistLocal(blob) {
+  try {
+    // Only strip when we have *positive* identification of a Viewer.
+    // Anonymous startup must NOT trip the strip (getCurrentUserRole defaults to 'viewer').
+    var hasAuth = false;
+    try { hasAuth = !!sessionStorage.getItem(AUTH_KEY); } catch(e) {}
+    var role = (hasAuth && typeof getCurrentUserRole === 'function') ? getCurrentUserRole() : null;
+    if (role === 'viewer') {
+      var stripped = {
+        users: blob.users || [],
+        pending: blob.pending || [],
+        brands: blob.brands || [],
+        brandRecipes: blob.brandRecipes || {},
+        accessPermissions: blob.accessPermissions || [],
+        deletedRecipeIds: blob.deletedRecipeIds || [],
+        deletedSOPIds: blob.deletedSOPIds || [],
+        deletedBuildIds: blob.deletedBuildIds || [],
+        savingsGoal: blob.savingsGoal,
+        savedAt: blob.savedAt,
+        dataVersion: blob.dataVersion,
+        _viewerStripped: true,
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(stripped));
+      return;
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(blob));
+  } catch(e) { /* quota or private mode */ }
+}
+
 function _buildDataBlob() {
   return {
     recipes: RECIPE_DB,
@@ -5351,12 +5512,12 @@ function saveAllData() {
   // Don't push empty data to server if we haven't loaded from server yet
   const data = _buildDataBlob();
   if (!_hasLoadedFromServer && Object.keys(RECIPE_DB).length === 0 && BUILDS_DATA.length === 0) {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch(e) {}
+    _persistLocal(data);
     return;
   }
   _localDirty = true;
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    _persistLocal(data);
     const statusEl = document.getElementById('save-status');
     if (statusEl) statusEl.textContent = 'Saved ' + new Date().toLocaleTimeString('en-GB', {hour:'2-digit',minute:'2-digit'});
     const iconEl = document.getElementById('save-icon');
@@ -5375,7 +5536,8 @@ function saveRecipeToServer(npd) {
   if (!r) return;
   if (!r.updatedAt) r.updatedAt = new Date().toISOString();
   // Save to localStorage
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(_buildDataBlob())); } catch(e) {}
+  _persistLocal(_buildDataBlob());
+  auditEvent('recipe.edit', 'recipe', npd, r.name + ' — ' + (r.brand || ''));
   // Send just this recipe to server
   fetch(API_BASE + '/api/recipe/' + encodeURIComponent(npd), {
     method: 'POST',
@@ -5399,7 +5561,7 @@ function saveBuildToServer(id) {
   var b = BUILDS_DATA.find(function(x) { return x.id === id; });
   if (!b) return;
   b.updatedAt = new Date().toISOString();
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(_buildDataBlob())); } catch(e) {}
+  _persistLocal(_buildDataBlob());
   fetch(API_BASE + '/api/build/' + encodeURIComponent(id), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + API_KEY },
@@ -5420,7 +5582,7 @@ function saveBranchSOPToServer(id) {
   var sop = BRANCH_SOPS.find(function(x) { return x.id === id; });
   if (!sop) return;
   sop.updatedAt = new Date().toISOString();
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(_buildDataBlob())); } catch(e) {}
+  _persistLocal(_buildDataBlob());
   fetch(API_BASE + '/api/branchsop/' + encodeURIComponent(id), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + API_KEY },
@@ -5619,7 +5781,7 @@ function forceRefreshFromServer() {
       }
       _stripBlobUrls();
       migrateBrandsField();
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(_buildDataBlob())); } catch(e) {}
+      _persistLocal(_buildDataBlob());
       // Rebuild all UI
       try {
         populateBrandUI(); buildIngTable(); buildRecipesTable(); buildBrandCards();
@@ -5649,7 +5811,7 @@ window.addEventListener('beforeunload', function() {
   if (typeof RECIPE_DB !== 'undefined') {
     try {
       var data = _buildDataBlob();
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      _persistLocal(data);
       navigator.sendBeacon(API_BASE + '/api/data?key=' + API_KEY, new Blob([JSON.stringify(data)], { type: 'application/json' }));
     } catch(e) {}
   }
@@ -5684,7 +5846,7 @@ function syncFromServer() {
       _stripBlobUrls();
       // Save light version to localStorage (no images — they stay on server)
       migrateBrandsField();
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(_buildDataBlob())); } catch(e) {}
+      _persistLocal(_buildDataBlob());
       // Refresh all UI — preserve scroll position
       try {
         var _scrollY = window.scrollY;
@@ -5807,6 +5969,7 @@ const PAGES = {
   workflow:       { title:'Workflow',             actions:'' },
   training:       { title:'Training',             actions:'' },
   users:          { title:'Users & Access',      actions:`<button class="btn btn-gold btn-sm" onclick="toggleInviteForm()">+ Add User</button>` },
+  'audit-log':    { title:'Audit Log',           actions:'' },
   comms:          { title:'Communications',     actions:'' },
   library:        { title:'Library',            actions:'<button class="btn btn-gold btn-sm" onclick="toggleLibUpload()">+ Upload Document</button>' },
 };
@@ -5831,6 +5994,7 @@ function showPage(id) {
   if (backBtn) backBtn.style.display = _navHistory.length > 0 && isSubPage ? '' : 'none';
   _currentPage = id;
   window.scrollTo(0,0);
+  applyWatermark();
 }
 
 function applyRoleRestrictions() {
@@ -5865,7 +6029,7 @@ function applyRoleRestrictions() {
 
   // Strip action buttons from pages this role CANNOT edit
   stripPageActions('page-users');
-  var allPages = ['page-dashboard','page-recipes','page-recipe-detail','page-ingredients','page-qa','page-sop','page-branch-sop','page-production','page-builds','page-brands','page-builds-costing','page-cost-control','page-reports','page-comms','page-library','page-training'];
+  var allPages = ['page-dashboard','page-recipes','page-recipe-detail','page-ingredients','page-qa','page-sop','page-branch-sop','page-production','page-builds','page-brands','page-builds-costing','page-cost-control','page-reports','page-comms','page-library','page-training','page-audit-log'];
   allPages.forEach(function(pid) {
     var pageId = pid.replace('page-','');
     if (allowed.indexOf(pageId) === -1) stripPageActions(pid);
@@ -5886,7 +6050,7 @@ function stripPageActions(pageId) {
     if (t === 'edit' || t === 'delete' || t.indexOf('status') > -1 || t === 'archive' || t === 'restore' || t === 'duplicate' || t === 'discontinue' || t === 'reactivate') b.style.display = 'none';
   });
   // Hide buttons by onclick keyword (for buttons without standard classes)
-  var UI_SKIP = ['nav(','view','print','filter','search','toggledd','togglenotif','togglearchived','togglebaker','togglenutrition','togglebuildnutrition','toggleqa','toggleimport','toggleinvite','togglelib','togglesopccp','togglesopicon','togglesopwarning','toggleall','goback','backto','closebuild','closeprint','closemodal','closeimport','zoomimage','copyinvite','clearnotif','showingusedin','compareversion','signout','emailsignin','downloadpdf','downloadbuildpdf','refreshreports','forcerefresh',"display='none'"];
+  var UI_SKIP = ['nav(','view','print','filter','search','toggledd','togglenotif','togglearchived','togglebaker','togglenutrition','togglebuildnutrition','toggleqa','toggleimport','toggleinvite','togglelib','togglesopccp','togglesopicon','togglesopwarning','toggleall','goback','backto','closebuild','closeprint','closemodal','closeimport','zoomimage','copyinvite','clearnotif','showingusedin','openpricehistory','compareversion','signout','emailsignin','downloadpdf','downloadbuildpdf','refreshreports','forcerefresh',"display='none'"];
   var HIDE_KW = ['delete','remove','save','edit','add','create','new','open','duplicate','submit','approve','upload','convert','revert','archive','unarchive','generate','regenerate','send','import','change','restore','reject','confirm','sync','calc','reset','sign','schedule','complete','set'];
   el.querySelectorAll('button[onclick]').forEach(function(b) {
     if (inModal(b)) return;
@@ -5907,11 +6071,229 @@ function stripPageActions(pageId) {
   });
 }
 
+// ─────────── FORENSIC WATERMARK ───────────
+// Applied to recipe / SOP / branch-SOP / build detail pages.
+// Shows current user's email + date + CONFIDENTIAL on screen and on print.
+function _currentUserEmail() {
+  try {
+    var raw = sessionStorage.getItem(AUTH_KEY);
+    if (raw) { return (JSON.parse(raw).email || '').toLowerCase(); }
+  } catch(e) {}
+  return '';
+}
+function _isVisible(el) { return !!el && el.offsetParent !== null; }
+function _wmShouldShow() {
+  var p = _currentPage || '';
+  if (p === 'recipe-detail') return true;
+  // SOP / Branch-SOP / Builds use list+detail in same page — only watermark when in detail view
+  if (p === 'sop'        && _isVisible(document.getElementById('sop-content'))) return true;
+  if (p === 'branch-sop' && _isVisible(document.getElementById('bsop-detail'))) return true;
+  if (p === 'builds'     && _isVisible(document.getElementById('build-detail'))) return true;
+  return false;
+}
+// Returns a CSS+HTML snippet for injecting the watermark into a popup print window
+function _printWatermarkHTML() {
+  var email = _currentUserEmail() || 'unknown';
+  var d = new Date();
+  var date = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  var text = email + '  ·  ' + date + '  ·  CONFIDENTIAL';
+  var size = 18;
+  var charW = size * 0.5;
+  var tileW = Math.ceil(text.length * charW + 220);
+  var tileH = Math.ceil(size * 4.2);
+  var svg =
+    '<svg xmlns="http://www.w3.org/2000/svg" width="' + tileW + '" height="' + tileH + '">' +
+      '<text x="0" y="' + (size * 0.85) + '" font-family="sans-serif" font-size="' + size + '" font-weight="500" fill="#1B2A4A">' + text + '</text>' +
+      '<text x="' + (tileW / 2) + '" y="' + (size * 0.85 + tileH / 2) + '" font-family="sans-serif" font-size="' + size + '" font-weight="500" fill="#1B2A4A">' + text + '</text>' +
+    '</svg>';
+  var dataUrl = 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+  return (
+    '<style>' +
+      '#rh-print-wm{position:fixed;inset:0;pointer-events:none;z-index:9999;overflow:hidden}' +
+      '#rh-print-wm-inner{position:absolute;inset:-100%;transform:rotate(-30deg);transform-origin:center;background-image:url("' + dataUrl + '");background-repeat:repeat;opacity:0.18;-webkit-print-color-adjust:exact;print-color-adjust:exact}' +
+      '@media print{#rh-print-wm{display:block !important}}' +
+    '</style>' +
+    '<div id="rh-print-wm" aria-hidden="true"><div id="rh-print-wm-inner"></div></div>'
+  );
+}
+
+function applyWatermark() {
+  var wm = document.getElementById('rh-watermark');
+  if (!wm) return;
+  var on = _wmShouldShow();
+  document.body.classList.toggle('rh-wm-on', on);
+  if (!on) return;
+  var email = _currentUserEmail() || 'unknown';
+  var d = new Date();
+  var date = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  var text = email + '  ·  ' + date + '  ·  CONFIDENTIAL';
+  // Build SVG tile
+  var size = 22;
+  var charW = size * 0.5;
+  var tileW = Math.ceil(text.length * charW + 220);
+  var tileH = Math.ceil(size * 4.2);
+  var svg =
+    '<svg xmlns="http://www.w3.org/2000/svg" width="' + tileW + '" height="' + tileH + '">' +
+      '<text x="0" y="' + (size * 0.85) + '" font-family="Outfit, sans-serif" font-size="' + size + '" font-weight="500" fill="#1B2A4A">' + text + '</text>' +
+      '<text x="' + (tileW / 2) + '" y="' + (size * 0.85 + tileH / 2) + '" font-family="Outfit, sans-serif" font-size="' + size + '" font-weight="500" fill="#1B2A4A">' + text + '</text>' +
+    '</svg>';
+  var inner = wm.querySelector('.rh-wm-inner');
+  if (inner) inner.style.backgroundImage = 'url("data:image/svg+xml;utf8,' + encodeURIComponent(svg) + '")';
+}
+
+// ─────────── AUDIT LOG (client hook) ───────────
+// Fire-and-forget. Throttles bursts of identical view events from the same tab.
+var _auditRecent = {};
+function auditEvent(action, target_type, target_id, target_label, meta) {
+  try {
+    // Suppress duplicate view of same target within 60s (page re-renders, etc.)
+    if (action && action.endsWith('.view')) {
+      var k = action + '|' + (target_id || '');
+      var now = Date.now();
+      if (_auditRecent[k] && now - _auditRecent[k] < 60000) return;
+      _auditRecent[k] = now;
+    }
+    var email = _currentUserEmail();
+    var body = JSON.stringify({
+      user_email: email,
+      action: action,
+      target_type: target_type || null,
+      target_id: target_id || null,
+      target_label: target_label || null,
+      meta: meta || null,
+    });
+    if (typeof API_BASE === 'undefined' || typeof API_KEY === 'undefined') return;
+    fetch(API_BASE + '/api/audit/event', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + API_KEY },
+      body: body,
+      keepalive: true,
+    }).catch(function(){});
+  } catch(e) {}
+}
+
+// ─────────── AUDIT LOG VIEWER (admin) ───────────
+var _auditTab = 'content'; // 'content' or 'user'
+var _auditDebounceTimer = null;
+var _auditLastEvents = [];
+
+function _auditDebounce() {
+  if (_auditDebounceTimer) clearTimeout(_auditDebounceTimer);
+  _auditDebounceTimer = setTimeout(auditRefresh, 350);
+}
+
+function auditSetTab(tab) {
+  _auditTab = tab;
+  document.getElementById('audit-tab-content').classList.toggle('audit-tab-active', tab === 'content');
+  document.getElementById('audit-tab-user').classList.toggle('audit-tab-active', tab === 'user');
+  // Repopulate the action dropdown subset
+  var sel = document.getElementById('audit-action');
+  var contentActions = ['recipe.view','recipe.edit','recipe.delete','recipe.print','sop.view','branch_sop.view','branch_sop.print','build.view','build.print'];
+  var userActions    = ['user.signin','user.signin_blocked','user.invite','user.approve','user.role_change','user.edit','user.remove'];
+  var keep = (tab === 'user') ? userActions : contentActions;
+  Array.from(sel.options).forEach(function(o) {
+    if (!o.value) return;
+    o.style.display = keep.indexOf(o.value) > -1 ? '' : 'none';
+  });
+  if (sel.value && keep.indexOf(sel.value) === -1) sel.value = '';
+  auditRefresh();
+}
+
+function auditRefresh() {
+  if (_currentPage !== 'audit-log') return;
+  var from = document.getElementById('audit-from').value;
+  var to   = document.getElementById('audit-to').value;
+  var user = document.getElementById('audit-user').value.trim();
+  var action = document.getElementById('audit-action').value;
+  var prefix = _auditTab === 'user' ? 'user.' : null;
+  var qs = new URLSearchParams();
+  if (from)   qs.set('from', from + 'T00:00:00');
+  if (to)     qs.set('to',   to   + 'T23:59:59');
+  if (user)   qs.set('user', user);
+  if (action) qs.set('action', action);
+  else if (prefix) qs.set('actionPrefix', prefix);
+  qs.set('limit', '500');
+  qs.set('as', _currentUserEmail());
+
+  var tbody = document.getElementById('audit-tbody');
+  if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:30px;color:var(--g4)">Loading…</td></tr>';
+
+  fetch(API_BASE + '/api/audit/events?' + qs.toString(), {
+    headers: { 'Authorization': 'Bearer ' + API_KEY },
+  }).then(function(r) {
+    if (r.status === 403) throw new Error('admin only');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  }).then(function(data) {
+    _auditLastEvents = data.events || [];
+    auditRender(data);
+  }).catch(function(err) {
+    if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:30px;color:var(--red)">Failed to load: ' + err.message + '</td></tr>';
+  });
+}
+
+function auditRender(data) {
+  var events = data.events || [];
+  var tbody = document.getElementById('audit-tbody');
+  if (!tbody) return;
+  if (!events.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:30px;color:var(--g4)">No events match your filters</td></tr>';
+  } else {
+    tbody.innerHTML = events.map(function(e) {
+      var ts = e.ts.replace('T', ' ').replace('Z','').slice(0, 19);
+      var actionClass = 'user';
+      if (e.action.indexOf('.view') > -1) actionClass = 'view';
+      else if (e.action.indexOf('.edit') > -1) actionClass = 'edit';
+      else if (e.action.indexOf('.delete') > -1) actionClass = 'delete';
+      else if (e.action.indexOf('.print') > -1) actionClass = 'print';
+      else if (e.action.indexOf('signin') > -1) actionClass = 'signin';
+      else if (e.action === 'user.role_change') actionClass = 'role';
+      var target = e.target_label || e.target_id || '—';
+      return '<tr>' +
+        '<td style="font-family:var(--font-m);font-size:11px;color:var(--g4)">' + ts + '</td>' +
+        '<td style="font-size:12px">' + (e.user_email || '<em style="color:var(--g3)">—</em>') + '</td>' +
+        '<td><span class="audit-action-badge ' + actionClass + '">' + e.action + '</span></td>' +
+        '<td style="font-size:12px;color:var(--g5)">' + _auditEsc(target) + '</td>' +
+        '<td style="font-family:var(--font-m);font-size:10px;color:var(--g4)">' + (e.ip || '—') + '</td>' +
+      '</tr>';
+    }).join('');
+  }
+  var meta = document.getElementById('audit-meta');
+  if (meta) {
+    var counts = data.counts || {};
+    meta.textContent = 'Showing ' + events.length + ' of ' + (counts.total || 0) + ' total events' + (counts.oldest ? ' · oldest: ' + counts.oldest.slice(0,10) : '');
+  }
+}
+function _auditEsc(s) { return String(s||'').replace(/[<>&"]/g, function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]; }); }
+
+function auditExportCSV() {
+  if (!_auditLastEvents.length) { showSaveToast('Nothing to export', true); return; }
+  var rows = [['Timestamp','User','Action','Target Type','Target ID','Target Label','IP','User Agent','Meta']];
+  _auditLastEvents.forEach(function(e) {
+    rows.push([e.ts, e.user_email||'', e.action, e.target_type||'', e.target_id||'', e.target_label||'', e.ip||'', (e.user_agent||'').slice(0,80), e.meta||'']);
+  });
+  var csv = rows.map(function(r) {
+    return r.map(function(v) {
+      v = String(v == null ? '' : v);
+      if (/[",\n]/.test(v)) v = '"' + v.replace(/"/g, '""') + '"';
+      return v;
+    }).join(',');
+  }).join('\n');
+  var blob = new Blob([csv], { type: 'text/csv' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'recipehub-audit-log-' + new Date().toISOString().slice(0,10) + '.csv';
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
 function canAccessPage(pageId) {
   var role = getCurrentUserRole();
   if (role === 'admin') return true;
-  // Only Users & Access is restricted (admin only)
+  // Admin-only pages
   if (pageId === 'users') return false;
+  if (pageId === 'audit-log') return false;
   return true;
 }
 
@@ -5959,6 +6341,19 @@ function nav(id) {
     else if (id === 'comms') { initCommsPage(); }
     else if (id === 'library') { renderLibrary(); }
     else if (id === 'training') { _renderTrainingGrid(); }
+    else if (id === 'audit-log') {
+      // Default to last 30 days when first opened
+      var fromEl = document.getElementById('audit-from');
+      var toEl   = document.getElementById('audit-to');
+      if (fromEl && !fromEl.value) {
+        var d30 = new Date(); d30.setDate(d30.getDate() - 30);
+        fromEl.value = d30.toISOString().slice(0,10);
+      }
+      if (toEl && !toEl.value) {
+        toEl.value = new Date().toISOString().slice(0,10);
+      }
+      auditSetTab(_auditTab);
+    }
     updateSidebarBadges();
     addEmptyStates();
   } catch(e) {}
@@ -6197,6 +6592,7 @@ function downloadPDF(npd, mode) {
   var r = RECIPE_DB[npd];
   if (!r) return;
   var title = r.name + ' — ' + (mode==='kitchen'?'Kitchen':'Factory SOP');
+  auditEvent('recipe.print', 'recipe', npd, r.name + ' (' + (mode || 'factory') + ')');
   var sheet = document.createElement('div');
 
   if (mode === 'kitchen') {
@@ -6231,6 +6627,7 @@ function downloadPDF(npd, mode) {
   w.document.write('<html><head><title>'+title+'</title>');
   w.document.write('<style>@page{size:A4 landscape;margin:8mm}body{margin:0;padding:12mm 14mm;font-family:sans-serif;font-size:9pt;color:#1a1a1a;line-height:1.45}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}table{width:100%;border-collapse:collapse}th{text-align:left;font-size:6.5pt;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:#999;padding:4px 6px;border-bottom:1.5px solid #ccc}td{padding:3px 6px;border-bottom:1px solid #eee}.ps-title{font-size:18pt;font-weight:700}.ps-subtitle{font-size:8pt;color:#666}.ps-section-title{font-size:11pt;font-weight:700;border-bottom:1px solid #ccc;padding-bottom:3px;margin-bottom:6px}.ps-meta-label{font-size:6.5pt;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:#999;display:block;margin-bottom:1px}.ps-step{display:flex;gap:8px;margin-bottom:8px}.ps-step-num{width:20px;height:20px;border-radius:50%;background:#1a1a1a;color:white;display:flex;align-items:center;justify-content:center;font-size:8pt;font-weight:600;flex-shrink:0}.ps-step-title{font-weight:600;font-size:9pt}.ps-step-text{font-size:8.5pt;color:#444}.ps-params{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px}.ps-param{background:#f5f5f5;padding:2px 8px;border-radius:3px;font-size:7.5pt}.ps-param-label{text-transform:uppercase;letter-spacing:0.08em;color:#999;font-size:6pt}.ps-param-value{font-weight:600}.ps-ccp{background:#fff0f0;border-left:2px solid #c00;padding:3px 8px;margin-top:4px;font-size:8pt;font-weight:500;color:#900}.ps-warning{background:#fff8e6;border-left:2px solid #d47000;padding:3px 8px;margin-top:4px;font-size:8pt;color:#8a4500}.num{text-align:right;font-family:monospace}.total-row td{border-top:2px solid #1a1a1a;font-weight:600;border-bottom:none}.ps-batch-size-bar{display:none}</style>');
   w.document.write('</head><body>');
+  w.document.write(_printWatermarkHTML());
   w.document.write(sheet.innerHTML);
   w.document.write(extras);
   w.document.write('</body></html>');
@@ -6879,17 +7276,8 @@ function buildRecipesTable() {
       <td>${statusBadge}</td>
       <td onclick="event.stopPropagation()">
         <div style="display:flex;gap:4px">
-          <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();viewRecipe('${r.npd}')">View</button>
-          <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();editRecipe('${r.npd}')">Edit</button>
-          <div class="print-dd" id="dd-${r.npd}">
-            <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();toggleDD('dd-${r.npd}')">Print ▾</button>
-            <div class="print-dd-menu">
-              <button class="print-dd-item" onclick="event.stopPropagation();openPrint('${r.npd}','kitchen')"><span class="dd-icon">🍳</span> Kitchen Version</button>
-              <div class="print-dd-divider"></div>
-              <button class="print-dd-item" onclick="event.stopPropagation();openPrint('${r.npd}','factory')"><span class="dd-icon">🏭</span> Factory Version</button><div class="print-dd-divider"></div><button class="print-dd-item" onclick="event.stopPropagation();openPrint('${r.npd}','sop-only')"><span class="dd-icon">📋</span> SOP Steps Only</button>
-            </div>
-          </div>
-          <button class="btn btn-danger-sm" onclick="event.stopPropagation();deleteRecipe('${r.npd}')">✕</button>
+          <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();openPrint('${r.npd}','kitchen')">🖨 Print</button>
+          ${(r.status === 'approved' && userRole !== 'admin') ? '' : `<button class="btn btn-danger-sm" onclick="event.stopPropagation();deleteRecipe('${r.npd}')">✕</button>`}
         </div>
       </td>
     `;
@@ -8130,6 +8518,7 @@ function viewRecipe(npd) {
   if (!_wasOnDetail) _navHistory.push(_currentPage);
   const r = RECIPE_DB[npd];
   if (!r) return;
+  auditEvent('recipe.view', 'recipe', npd, r.name + ' — ' + (r.brand || ''));
   // Role gate: hide drafts from non-RD; viewers can only open approved recipes
   var _vrRole = getCurrentUserRole();
   var _vrIsRD = (_vrRole === 'admin' || _vrRole === 'npd');
@@ -9325,6 +9714,7 @@ function viewVisualSOP(npd) {
 
   document.getElementById('sop-landing').style.display = 'none';
   document.getElementById('sop-content').style.display = 'block';
+  applyWatermark();
   document.getElementById('sop-content').innerHTML = `
     <div style="margin-bottom:16px;display:flex;gap:8px;align-items:center">
       <button class="btn btn-outline btn-sm" onclick="backToSOPList()">← Back to SOP List</button>
@@ -9399,7 +9789,7 @@ function saveAllDataNow() {
   // Force immediate save to server — no throttle. Used after photo uploads.
   var data = _buildDataBlob();
   _localDirty = true;
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch(e) { console.warn('localStorage full'); }
+  _persistLocal(data);
   if (_pendingServerSave) { clearTimeout(_pendingServerSave); _pendingServerSave = null; }
   _lastServerSave = Date.now();
   _savingToServer = true;
@@ -9505,6 +9895,7 @@ function printVisualSOP(npd) {
   w.document.write('.vsop-temp.hot{background:#FEF3E2;color:#C0392B}.vsop-temp.cold{background:#E8F4FD;color:#0C6BA8}.vsop-temp.time{background:#E8EDF5;color:#1B2A4A}');
   w.document.write('.vsop-ccp-bar{background:#FFF0F0;border:2px solid #C0392B;padding:8px 12px;font-size:10px;font-weight:500;color:#C0392B}');
   w.document.write('</style></head><body>');
+  w.document.write(_printWatermarkHTML());
 
   // Header
   w.document.write('<div style="background:linear-gradient(135deg,#1B2A4A 0%,#2A4070 100%);padding:16px 24px;display:flex;justify-content:space-between;align-items:center">');
@@ -9525,6 +9916,7 @@ function backToSOPList() {
   document.getElementById('sop-landing').style.display = 'block';
   document.getElementById('sop-content').style.display = 'none';
   buildFactorySOPTable();
+  applyWatermark();
 }
 
 // ── SOP Standard Blocks (shared preamble / closing) ──
@@ -9943,6 +10335,8 @@ function exportToSOP(npd) {
   document.getElementById('sop-content').style.display = 'block';
   showPage('sop');
   applyRoleRestrictions();
+  applyWatermark();
+  auditEvent('sop.view', 'recipe', r.npd, r.name + ' (Factory SOP)');
   updateSOPStatusBadge(r);
 }
 
@@ -10435,12 +10829,16 @@ function generateNPDCode() {
   var year = new Date().getFullYear();
   var prefix = year + '-';
   var maxSeq = 0;
-  Object.keys(RECIPE_DB).forEach(function(k) {
-    if (k.indexOf(prefix) === 0) {
+  // Scan live recipes AND deleted-id list so we never reuse a code the server still
+  // has in deletedRecipeIds (the union-merge would silently strip the new recipe on POST).
+  function bump(k) {
+    if (k && k.indexOf(prefix) === 0) {
       var seq = parseInt(k.substring(prefix.length)) || 0;
       if (seq > maxSeq) maxSeq = seq;
     }
-  });
+  }
+  Object.keys(RECIPE_DB).forEach(bump);
+  (Array.isArray(_deletedRecipeIds) ? _deletedRecipeIds : []).forEach(bump);
   return prefix + String(maxSeq + 1).padStart(3, '0');
 }
 
@@ -12180,12 +12578,19 @@ function editUser(btn) {
 function saveEditUser(email) {
   var u = USERS_DATA.find(function(x){ return (x.email||'').toLowerCase() === email.toLowerCase(); });
   if (!u) return;
+  var oldRole = u.role;
   u.name = document.getElementById('eu-name').value.trim() || u.name;
   u.role = document.getElementById('eu-role').value || u.role;
   u.phone = document.getElementById('eu-phone').value.trim();
   u.dept = document.getElementById('eu-dept').value.trim();
   u.title = document.getElementById('eu-title').value.trim();
   u.brands = document.getElementById('eu-brands').value.trim() || 'All';
+
+  if (oldRole !== u.role) {
+    auditEvent('user.role_change', 'user', u.email, u.name, { from: oldRole, to: u.role });
+  } else {
+    auditEvent('user.edit', 'user', u.email, u.name);
+  }
 
   var tbody = document.getElementById('users-tbody');
   if (tbody) { tbody.innerHTML = ''; buildUsersTable(); }
@@ -12225,7 +12630,11 @@ function confirmRemoveUser() {
     var email = emailCell ? emailCell.textContent.trim().toLowerCase() : '';
     if (email) {
       var idx = USERS_DATA.findIndex(function(u) { return (u.email || '').toLowerCase() === email; });
-      if (idx > -1) USERS_DATA.splice(idx, 1);
+      if (idx > -1) {
+        var removed = USERS_DATA[idx];
+        auditEvent('user.remove', 'user', email, removed.name, { role: removed.role });
+        USERS_DATA.splice(idx, 1);
+      }
     }
     row.style.transition = 'opacity 0.3s';
     row.style.opacity = '0';
@@ -13101,6 +13510,7 @@ function confirmApproveUser(email) {
   // Add to active users
   const newUser = { name:name, email:email, phone:phone, dept:dept, title:title, role:role, brands:brands, last:'Just added', active:true };
   USERS_DATA.push(newUser);
+  auditEvent('user.approve', 'user', email, name, { role: role });
 
   // Remove from pending
   const idx = PENDING_DATA.findIndex(p => (p.email||'').toLowerCase() === email.toLowerCase());
@@ -13221,6 +13631,7 @@ function sendInvite() {
   } else {
     USERS_DATA.push(newUser);
   }
+  auditEvent('user.invite', 'user', newUser.email, displayName, { role: role, brands: brands });
   buildUsersTable();
   buildRoleCards();
   buildPendingTable();
@@ -13519,6 +13930,7 @@ function printQALabReport() {
   w.document.write('<html><head><title>Lab Report — '+r.name+'</title>');
   w.document.write('<style>@page{size:A4 landscape;margin:8mm}body{margin:0;padding:12mm 14mm;font-family:sans-serif;font-size:9pt;color:#1a1a1a;line-height:1.4}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}table{width:100%;border-collapse:collapse}th{text-align:left;font-size:6.5pt;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:#999;padding:4px 6px;border-bottom:1.5px solid #ccc}td{padding:4px 6px;border-bottom:1px solid #eee;font-size:8.5pt}.pass{color:#2D6A4F;font-weight:600}.fail{color:#C0392B;font-weight:600}.section{font-size:10pt;font-weight:700;border-bottom:1px solid #ccc;padding-bottom:3px;margin:12px 0 6px}</style>');
   w.document.write('</head><body>');
+  w.document.write(_printWatermarkHTML());
 
   // Header
   w.document.write('<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1a1a1a;padding-bottom:8px;margin-bottom:10px">');
@@ -13615,6 +14027,7 @@ function printCOA() {
   w.document.write('<html><head><title>COA — '+r.name+'</title>');
   w.document.write('<style>@page{size:A4 portrait;margin:12mm}body{margin:0;padding:14mm 16mm;font-family:sans-serif;font-size:9pt;color:#1a1a1a;line-height:1.4}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}table{width:100%;border-collapse:collapse}th{text-align:left;font-size:7pt;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:#999;padding:5px 8px;border-bottom:1.5px solid #ccc}td{padding:5px 8px;border-bottom:1px solid #eee;font-size:9pt}.pass{color:#2D6A4F;font-weight:600}.fail{color:#C0392B;font-weight:600}</style>');
   w.document.write('</head><body>');
+  w.document.write(_printWatermarkHTML());
 
   // Formal header
   w.document.write('<div style="text-align:center;margin-bottom:16px">');
@@ -13931,6 +14344,10 @@ function confirmDeleteBrand(id) {
 function deleteRecipe(npd) {
   var r = RECIPE_DB[npd];
   if (!r) return;
+  if (r.status === 'approved' && getCurrentUserRole() !== 'admin') {
+    showSaveToast('Only admins can delete approved recipes', true);
+    return;
+  }
   openModal(
     '<div class="card-head" style="background:var(--red);border-radius:16px 16px 0 0">' +
       '<span class="card-title" style="color:white">Delete Recipe</span>' +
@@ -13951,6 +14368,7 @@ function deleteRecipe(npd) {
 
 function confirmDeleteRecipe(npd) {
   var name = RECIPE_DB[npd] ? RECIPE_DB[npd].name : npd;
+  auditEvent('recipe.delete', 'recipe', npd, name);
   delete RECIPE_DB[npd];
   if (_deletedRecipeIds.indexOf(npd) === -1) _deletedRecipeIds.push(npd);
   // Clean up production runs linked to this recipe
@@ -14698,6 +15116,7 @@ function viewBuild(id) {
   var _wasOpen = document.getElementById('build-detail').style.display === 'block';
   const b = BUILDS_DATA.find(x => x.id === id);
   if (!b) return;
+  auditEvent('build.view', 'build', id, b.name + ' — ' + (b.brand || ''));
   const totalCost = b.components.reduce((s,c) => s + (c.cost||0), 0);
   const totalWeight = b.components.reduce((s,c) => s + (parseFloat(c.weight)||0), 0);
   const statusMap = {approved:'badge-approved',review:'badge-review',trial:'badge-trial','prod-trial':'badge-prod-trial',draft:'badge-draft'};
@@ -14718,6 +15137,7 @@ function viewBuild(id) {
   if (buildCard) buildCard.style.display = 'none';
   detail.style.display = 'block';
   window.scrollTo(0, 0);
+  applyWatermark();
 
   content.innerHTML = `
     <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
@@ -15216,6 +15636,7 @@ function closeBuildDetail() {
   var buildCard = document.querySelector('#page-builds > .card');
   if (buildCard) buildCard.style.display = '';
   window.scrollTo(0, 0);
+  applyWatermark();
 }
 
 function confirmDeleteBuild(id) {
@@ -15242,6 +15663,7 @@ function confirmDeleteBuild(id) {
 function printBuild(id) {
   var b = BUILDS_DATA.find(x => x.id === id);
   if (!b) return;
+  auditEvent('build.print', 'build', id, b.name + ' — ' + (b.brand || ''));
   var totalCost = b.components.reduce(function(s,c){return s+(c.cost||0)},0);
   var totalWeight = b.components.reduce(function(s,c){return s+(parseFloat(c.weight)||0)},0);
   var typeColors = {Dough:'#B8820A',Sauce:'#C0392B',Cheese:'#C7A354',Protein:'#1B2A4A',Topping:'#2D6A4F',Finish:'#6B2FA0',Packaging:'#7F8C8D',Bread:'#B8820A',Seasoning:'#D4A84A'};
@@ -15262,6 +15684,7 @@ function printBuild(id) {
   w.document.write('<html><head><title>'+b.name+' — Product Build</title>');
   w.document.write('<style>@page{size:landscape;margin:10mm}body{margin:0;font-family:sans-serif;padding:12mm 14mm;font-size:9pt;color:#1a1a1a}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}table{width:100%;border-collapse:collapse}th{text-align:left;font-size:7pt;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:#999;padding:4px 6px;border-bottom:1.5px solid #ccc}td{padding:3px 6px;border-bottom:1px solid #eee}</style>');
   w.document.write('</head><body>');
+  w.document.write(_printWatermarkHTML());
   w.document.write('<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1a1a1a;padding-bottom:8px;margin-bottom:12px">');
   w.document.write('<div><div style="font-family:sans-serif;font-size:18pt;font-weight:700">'+b.name+'</div><div style="font-size:8pt;color:#666">Product Build — '+b.id+'</div></div>');
   w.document.write('<div style="display:flex;gap:16px;text-align:right;font-size:8pt">');
@@ -17416,13 +17839,15 @@ function viewBranchSOP(id) {
   const detail = document.getElementById('bsop-detail');
   const content = document.getElementById('bsop-detail-content');
   detail.style.display = 'block';
+  applyWatermark();
+  auditEvent('branch_sop.view', 'branch_sop', id, sop.name + ' — ' + (sop.brand || ''));
 
   // Brand colors
   const brandColor = BSOP_BRAND_COLORS[sop.brand] || '#1B2A4A';
 
   content.innerHTML = `
     <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
-      <button class="btn btn-outline btn-sm" onclick="document.getElementById('bsop-detail').style.display='none'">← Back to List</button>
+      <button class="btn btn-outline btn-sm" onclick="document.getElementById('bsop-detail').style.display='none';applyWatermark();">← Back to List</button>
       <button class="btn btn-gold btn-sm" onclick="editBranchSOP('${sop.id}')">✏️ Edit Steps</button>
       <button class="btn btn-outline btn-sm" onclick="printBranchSOP('${sop.id}')">🖨️ Print</button>
     </div>
@@ -17800,6 +18225,7 @@ function deleteBranchSOP(id) {
 function printBranchSOP(id) {
   var sop = BRANCH_SOPS.find(s => s.id === id);
   if (!sop) return;
+  auditEvent('branch_sop.print', 'branch_sop', id, sop.name + ' — ' + (sop.brand || ''));
   var bc = BSOP_BRAND_COLORS[sop.brand] || '#1B2A4A';
   var stepsHTML = sop.steps.map(function(step,i) {
     return '<div style="border:2px solid '+bc+';background:white;overflow:hidden">' +
@@ -17815,6 +18241,7 @@ function printBranchSOP(id) {
 
   var w = window.open('','_blank');
   w.document.write('<html><head><title>'+sop.name+' — Branch SOP</title><style>@page{size:landscape;margin:10mm}body{margin:0;font-family:sans-serif}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body>');
+  w.document.write(_printWatermarkHTML());
   w.document.write('<div style="background:'+bc+';padding:16px 24px;display:flex;align-items:center;gap:16px">');
   w.document.write('<div style="background:white;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;color:'+bc+'">'+sop.brand+'</div>');
   w.document.write('<div style="font-size:28px;font-weight:700;color:white;text-transform:uppercase;letter-spacing:0.02em">'+sop.name+'</div>');
