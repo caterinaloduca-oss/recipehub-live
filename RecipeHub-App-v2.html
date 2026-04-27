@@ -655,13 +655,11 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
 #rh-watermark .rh-wm-inner {
   position: absolute; inset: -100%;
   transform: rotate(-30deg); transform-origin: center;
-  background-repeat: repeat; opacity: 0.10;
+  background-repeat: repeat; opacity: 0.09;
 }
-body.rh-wm-on #rh-watermark { display: block; }
 @media print {
-  body.rh-wm-on #rh-watermark { display: block !important; }
-  #rh-watermark .rh-wm-inner {
-    opacity: 0.18 !important;
+  body.rh-wm-on #rh-watermark {
+    display: block !important;
     -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }
 }
@@ -6083,13 +6081,8 @@ function _currentUserEmail() {
 }
 function _isVisible(el) { return !!el && el.offsetParent !== null; }
 function _wmShouldShow() {
-  var p = _currentPage || '';
-  if (p === 'recipe-detail') return true;
-  // SOP / Branch-SOP / Builds use list+detail in same page — only watermark when in detail view
-  if (p === 'sop'        && _isVisible(document.getElementById('sop-content'))) return true;
-  if (p === 'branch-sop' && _isVisible(document.getElementById('bsop-detail'))) return true;
-  if (p === 'builds'     && _isVisible(document.getElementById('build-detail'))) return true;
-  return false;
+  // Watermark is for recipe printouts only.
+  return (_currentPage || '') === 'recipe-detail';
 }
 // Returns a CSS+HTML snippet for injecting the watermark into a popup print window
 function _printWatermarkHTML() {
@@ -6097,20 +6090,19 @@ function _printWatermarkHTML() {
   var d = new Date();
   var date = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   var text = email + '  ·  ' + date + '  ·  CONFIDENTIAL';
-  var size = 18;
+  var size = 12;
   var charW = size * 0.5;
-  var tileW = Math.ceil(text.length * charW + 220);
-  var tileH = Math.ceil(size * 4.2);
+  var tileW = Math.ceil(text.length * charW + 360);
+  var tileH = Math.ceil(size * 16);
   var svg =
     '<svg xmlns="http://www.w3.org/2000/svg" width="' + tileW + '" height="' + tileH + '">' +
       '<text x="0" y="' + (size * 0.85) + '" font-family="sans-serif" font-size="' + size + '" font-weight="500" fill="#1B2A4A">' + text + '</text>' +
-      '<text x="' + (tileW / 2) + '" y="' + (size * 0.85 + tileH / 2) + '" font-family="sans-serif" font-size="' + size + '" font-weight="500" fill="#1B2A4A">' + text + '</text>' +
     '</svg>';
   var dataUrl = 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
   return (
     '<style>' +
       '#rh-print-wm{position:fixed;inset:0;pointer-events:none;z-index:9999;overflow:hidden}' +
-      '#rh-print-wm-inner{position:absolute;inset:-100%;transform:rotate(-30deg);transform-origin:center;background-image:url("' + dataUrl + '");background-repeat:repeat;opacity:0.18;-webkit-print-color-adjust:exact;print-color-adjust:exact}' +
+      '#rh-print-wm-inner{position:absolute;inset:-100%;transform:rotate(-30deg);transform-origin:center;background-image:url("' + dataUrl + '");background-repeat:repeat;opacity:0.09;-webkit-print-color-adjust:exact;print-color-adjust:exact}' +
       '@media print{#rh-print-wm{display:block !important}}' +
     '</style>' +
     '<div id="rh-print-wm" aria-hidden="true"><div id="rh-print-wm-inner"></div></div>'
@@ -6127,15 +6119,14 @@ function applyWatermark() {
   var d = new Date();
   var date = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   var text = email + '  ·  ' + date + '  ·  CONFIDENTIAL';
-  // Build SVG tile
-  var size = 22;
+  // Build SVG tile — sparse, single line, large gap between rows
+  var size = 13;
   var charW = size * 0.5;
-  var tileW = Math.ceil(text.length * charW + 220);
-  var tileH = Math.ceil(size * 4.2);
+  var tileW = Math.ceil(text.length * charW + 360);
+  var tileH = Math.ceil(size * 16);
   var svg =
     '<svg xmlns="http://www.w3.org/2000/svg" width="' + tileW + '" height="' + tileH + '">' +
       '<text x="0" y="' + (size * 0.85) + '" font-family="Outfit, sans-serif" font-size="' + size + '" font-weight="500" fill="#1B2A4A">' + text + '</text>' +
-      '<text x="' + (tileW / 2) + '" y="' + (size * 0.85 + tileH / 2) + '" font-family="Outfit, sans-serif" font-size="' + size + '" font-weight="500" fill="#1B2A4A">' + text + '</text>' +
     '</svg>';
   var inner = wm.querySelector('.rh-wm-inner');
   if (inner) inner.style.backgroundImage = 'url("data:image/svg+xml;utf8,' + encodeURIComponent(svg) + '")';
@@ -9895,7 +9886,6 @@ function printVisualSOP(npd) {
   w.document.write('.vsop-temp.hot{background:#FEF3E2;color:#C0392B}.vsop-temp.cold{background:#E8F4FD;color:#0C6BA8}.vsop-temp.time{background:#E8EDF5;color:#1B2A4A}');
   w.document.write('.vsop-ccp-bar{background:#FFF0F0;border:2px solid #C0392B;padding:8px 12px;font-size:10px;font-weight:500;color:#C0392B}');
   w.document.write('</style></head><body>');
-  w.document.write(_printWatermarkHTML());
 
   // Header
   w.document.write('<div style="background:linear-gradient(135deg,#1B2A4A 0%,#2A4070 100%);padding:16px 24px;display:flex;justify-content:space-between;align-items:center">');
@@ -13930,7 +13920,6 @@ function printQALabReport() {
   w.document.write('<html><head><title>Lab Report — '+r.name+'</title>');
   w.document.write('<style>@page{size:A4 landscape;margin:8mm}body{margin:0;padding:12mm 14mm;font-family:sans-serif;font-size:9pt;color:#1a1a1a;line-height:1.4}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}table{width:100%;border-collapse:collapse}th{text-align:left;font-size:6.5pt;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:#999;padding:4px 6px;border-bottom:1.5px solid #ccc}td{padding:4px 6px;border-bottom:1px solid #eee;font-size:8.5pt}.pass{color:#2D6A4F;font-weight:600}.fail{color:#C0392B;font-weight:600}.section{font-size:10pt;font-weight:700;border-bottom:1px solid #ccc;padding-bottom:3px;margin:12px 0 6px}</style>');
   w.document.write('</head><body>');
-  w.document.write(_printWatermarkHTML());
 
   // Header
   w.document.write('<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1a1a1a;padding-bottom:8px;margin-bottom:10px">');
@@ -14027,7 +14016,6 @@ function printCOA() {
   w.document.write('<html><head><title>COA — '+r.name+'</title>');
   w.document.write('<style>@page{size:A4 portrait;margin:12mm}body{margin:0;padding:14mm 16mm;font-family:sans-serif;font-size:9pt;color:#1a1a1a;line-height:1.4}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}table{width:100%;border-collapse:collapse}th{text-align:left;font-size:7pt;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:#999;padding:5px 8px;border-bottom:1.5px solid #ccc}td{padding:5px 8px;border-bottom:1px solid #eee;font-size:9pt}.pass{color:#2D6A4F;font-weight:600}.fail{color:#C0392B;font-weight:600}</style>');
   w.document.write('</head><body>');
-  w.document.write(_printWatermarkHTML());
 
   // Formal header
   w.document.write('<div style="text-align:center;margin-bottom:16px">');
@@ -15684,7 +15672,6 @@ function printBuild(id) {
   w.document.write('<html><head><title>'+b.name+' — Product Build</title>');
   w.document.write('<style>@page{size:landscape;margin:10mm}body{margin:0;font-family:sans-serif;padding:12mm 14mm;font-size:9pt;color:#1a1a1a}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}table{width:100%;border-collapse:collapse}th{text-align:left;font-size:7pt;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:#999;padding:4px 6px;border-bottom:1.5px solid #ccc}td{padding:3px 6px;border-bottom:1px solid #eee}</style>');
   w.document.write('</head><body>');
-  w.document.write(_printWatermarkHTML());
   w.document.write('<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1a1a1a;padding-bottom:8px;margin-bottom:12px">');
   w.document.write('<div><div style="font-family:sans-serif;font-size:18pt;font-weight:700">'+b.name+'</div><div style="font-size:8pt;color:#666">Product Build — '+b.id+'</div></div>');
   w.document.write('<div style="display:flex;gap:16px;text-align:right;font-size:8pt">');
@@ -18241,7 +18228,6 @@ function printBranchSOP(id) {
 
   var w = window.open('','_blank');
   w.document.write('<html><head><title>'+sop.name+' — Branch SOP</title><style>@page{size:landscape;margin:10mm}body{margin:0;font-family:sans-serif}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body>');
-  w.document.write(_printWatermarkHTML());
   w.document.write('<div style="background:'+bc+';padding:16px 24px;display:flex;align-items:center;gap:16px">');
   w.document.write('<div style="background:white;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;color:'+bc+'">'+sop.brand+'</div>');
   w.document.write('<div style="font-size:28px;font-weight:700;color:white;text-transform:uppercase;letter-spacing:0.02em">'+sop.name+'</div>');
