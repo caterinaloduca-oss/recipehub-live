@@ -7268,7 +7268,7 @@ function buildRecipesTable() {
       <td onclick="event.stopPropagation()">
         <div style="display:flex;gap:4px">
           <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();openPrint('${r.npd}','kitchen')">🖨 Print</button>
-          ${(r.status === 'approved' && userRole !== 'admin') ? '' : `<button class="btn btn-danger-sm" onclick="event.stopPropagation();deleteRecipe('${r.npd}')">✕</button>`}
+          ${((r.status === 'approved' && userRole !== 'admin') || (r.status !== 'approved' && userRole !== 'admin' && userRole !== 'npd')) ? '' : `<button class="btn btn-danger-sm" onclick="event.stopPropagation();deleteRecipe('${r.npd}')">✕</button>`}
         </div>
       </td>
     `;
@@ -14332,9 +14332,11 @@ function confirmDeleteBrand(id) {
 function deleteRecipe(npd) {
   var r = RECIPE_DB[npd];
   if (!r) return;
-  if (r.status === 'approved' && getCurrentUserRole() !== 'admin') {
-    showSaveToast('Only admins can delete approved recipes', true);
-    return;
+  var role = getCurrentUserRole();
+  if (r.status === 'approved') {
+    if (role !== 'admin') { showSaveToast('Only admins can delete approved recipes', true); return; }
+  } else {
+    if (role !== 'admin' && role !== 'npd') { showSaveToast('Only R&D can delete recipes', true); return; }
   }
   openModal(
     '<div class="card-head" style="background:var(--red);border-radius:16px 16px 0 0">' +
