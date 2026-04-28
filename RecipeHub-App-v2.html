@@ -4767,6 +4767,42 @@ function _prefetchRecipePrices(r) {
   });
 }
 
+// Resolve an Oracle EBS item code from an ingredient name. Used by the recipe detail render
+// so the code pill survives even if the recipe blob's i.itemCode is missing (e.g. dropped by a
+// stale-tab save). Looks at ING_DATA (live, Oracle-pattern only) first, then EBS_RAW_ITEMS as
+// the backup hardcoded snapshot. Cached after first build for perf.
+var _itemCodeByNameCache = null;
+function _buildItemCodeByName() {
+  var map = {};
+  var oraclePat = /^[A-Z]{2,}\d+$/;
+  if (typeof ING_DATA !== 'undefined' && Array.isArray(ING_DATA)) {
+    ING_DATA.forEach(function(row){
+      if (!Array.isArray(row) || row.length < 4) return;
+      var code = String(row[3] || '').trim();
+      if (!oraclePat.test(code)) return;
+      var nm = String(row[1] || '').toLowerCase().trim();
+      if (nm && !map[nm]) map[nm] = code;
+    });
+  }
+  if (typeof EBS_RAW_ITEMS !== 'undefined' && Array.isArray(EBS_RAW_ITEMS)) {
+    EBS_RAW_ITEMS.forEach(function(row){
+      if (!Array.isArray(row) || row.length < 2) return;
+      var code = String(row[0] || '').trim();
+      if (!oraclePat.test(code)) return;
+      var nm = String(row[1] || '').toLowerCase().trim();
+      if (nm && !map[nm]) map[nm] = code;
+    });
+  }
+  return map;
+}
+function resolveItemCode(name) {
+  if (!name) return '';
+  if (!_itemCodeByNameCache) _itemCodeByNameCache = _buildItemCodeByName();
+  return _itemCodeByNameCache[String(name).toLowerCase().trim()] || '';
+}
+// Reset the cache when ING_DATA changes (refresh-from-Oracle, etc.).
+function _invalidateItemCodeCache() { _itemCodeByNameCache = null; }
+
 // Heuristic: ERP item codes start with a letter prefix (RM*, FG*, COPSA*, etc.).
 // Pure-numeric codes are unmapped POS inv_item_ids.
 function _codeIsERP(code) {
@@ -8833,7 +8869,8 @@ function viewRecipe(npd) {
                 var _cost = _usePrice !== null ? (_frac * _usePrice) : null;
                 var _isOverride = i.costPerKg != null;
                 var _isDb = !_isOverride && !isNaN(_dbPrice);
-                var _itemCodePill = i.itemCode ? '<span style="display:inline-block;margin-left:6px;padding:1px 6px;border-radius:4px;background:var(--g1);color:var(--g4);font-family:var(--font-m);font-size:10px;vertical-align:middle" title="Oracle EBS item code">'+i.itemCode+'</span>' : '';
+                var _resolvedCode = i.itemCode || resolveItemCode(i.name);
+                var _itemCodePill = _resolvedCode ? '<span style="display:inline-block;margin-left:6px;padding:1px 6px;border-radius:4px;background:var(--g1);color:var(--g4);font-family:var(--font-m);font-size:10px;vertical-align:middle" title="Oracle EBS item code">'+_resolvedCode+'</span>' : '';
                 return `<tr><td>${i.name}${_itemCodePill}</td><td style="text-align:right;font-family:var(--font-m);font-size:12px">${(_frac*1000).toFixed(1)} g</td><td style="text-align:right;font-family:var(--font-m);font-size:12px;color:var(--g3)">${i.pct.toFixed(1)}%</td><td style="text-align:right;font-family:var(--font-m);font-size:12px;cursor:pointer" onclick="editIngCost('${r.npd}',${idx})" title="Click to edit cost"><span style="color:${_cost !== null ? (_isOverride ? 'var(--blue)' : 'var(--sage)') : 'var(--g3)'}">${_cost !== null ? 'SAR ' + _cost.toFixed(2) : '+ add'}</span>${_isOverride ? '<span style="font-size:8px;color:var(--blue);margin-left:3px" title="Manual override">✎</span>' : ''}</td></tr>`;
               }).join('')}
               <tr style="background:var(--navy)" id="ing-cost-total-${r.npd}"><td style="color:white;font-weight:500">Total</td><td style="text-align:right;color:var(--gold-mid);font-weight:500;font-family:var(--font-m);font-size:12px">1000.0 g</td><td style="text-align:right;color:var(--gold-mid);font-weight:500;font-family:var(--font-m);font-size:12px">100%</td><td style="text-align:right;color:var(--gold-mid);font-weight:500;font-family:var(--font-m);font-size:12px">${(function(){ var _tc = _calcIngCostTotal(r); return _tc !== null ? 'SAR ' + _tc.toFixed(2) : '—'; })()}</td></tr>
