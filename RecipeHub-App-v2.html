@@ -9222,12 +9222,19 @@ function viewRecipe(npd) {
     var _missingLabel = _missingParts.length ? ' (' + _missingParts.join(', ') + ')' : '';
     _statusBtn = `<button class="btn btn-sm" style="background:${_canApprove?'var(--sage)':'var(--g3)'};color:white" onclick="setRecipeStatus('${r.npd}','approved')">✓ Approve${_missingLabel}</button>`;
   }
-  if (r.status==='approved' && !r.archived && !r.discontinued) _statusBtn = `<button class="btn btn-sm" style="background:var(--g3);color:white" onclick="archiveRecipe('${r.npd}')">📦 Archive</button>`;
-  if (r.archived) _statusBtn = `<button class="btn btn-sm" style="background:var(--amber);color:white" onclick="unarchiveRecipe('${r.npd}')">♻️ Restore</button>`;
-  // Discontinue / Reactivate — paused recipes that may come back. Allowed on any non-archived recipe
-  // (covers bulk-imported factory recipes that live as 'draft' status but are real production items).
-  if (!r.archived && !r.discontinued) _statusBtn += ` <button class="btn btn-sm" style="background:var(--red);color:white;margin-left:4px" onclick="discontinueRecipe('${r.npd}')">⏸ Discontinue</button>`;
-  if (r.discontinued) _statusBtn = `<button class="btn btn-sm" style="background:var(--sage);color:white" onclick="reactivateRecipe('${r.npd}')">▶ Reactivate</button>`;
+  // Archive / Restore / Discontinue / Reactivate compose alongside the workflow stage button above.
+  // - Archived  → only show Restore (other buttons are meaningless until restored)
+  // - Otherwise → Archive (for approved or discontinued recipes) + Discontinue|Reactivate
+  if (r.archived) {
+    _statusBtn = `<button class="btn btn-sm" style="background:var(--amber);color:white" onclick="unarchiveRecipe('${r.npd}')">♻️ Restore</button>`;
+  } else {
+    if (r.status === 'approved' || r.discontinued) {
+      _statusBtn += ` <button class="btn btn-sm" style="background:var(--g3);color:white;margin-left:4px" onclick="archiveRecipe('${r.npd}')">📦 Archive</button>`;
+    }
+    _statusBtn += r.discontinued
+      ? ` <button class="btn btn-sm" style="background:var(--sage);color:white;margin-left:4px" onclick="reactivateRecipe('${r.npd}')">▶ Reactivate</button>`
+      : ` <button class="btn btn-sm" style="background:var(--red);color:white;margin-left:4px" onclick="discontinueRecipe('${r.npd}')">⏸ Discontinue</button>`;
+  }
 
   var _detailActions = '';
   if (_isRD) {
@@ -9563,7 +9570,7 @@ function previewAs(role) {
 function archiveRecipe(npd) {
   var r = RECIPE_DB[npd];
   if (!r) return;
-  if (r.status !== 'approved') { showSaveToast('Only approved recipes can be archived', true); return; }
+  if (r.status !== 'approved' && !r.discontinued) { showSaveToast('Only approved or discontinued recipes can be archived', true); return; }
   r.archived = true;
   r.updated = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
   if (!r.changeLog) r.changeLog = [];
