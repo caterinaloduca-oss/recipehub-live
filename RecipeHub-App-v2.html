@@ -860,6 +860,11 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
       <div class="stat-value" style="color:var(--red)" id="dash-pending-qa">—</div>
       <div class="stat-sub">Awaiting sign-off</div>
     </div>
+    <div class="stat-card" style="cursor:pointer" onclick="nav('recipes');setTimeout(function(){if(!_showArchivedRecipes)toggleArchivedRecipes()},100)">
+      <div class="stat-label">Archived</div>
+      <div class="stat-value" style="color:var(--g3)" id="dash-archived">—</div>
+      <div class="stat-sub" id="dash-archived-sub">Click to view</div>
+    </div>
   </div>
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
@@ -14856,6 +14861,9 @@ function updateDashboardStats() {
   if (el('dash-in-dev')) el('dash-in-dev').textContent = inDev;
   if (el('dash-in-dev-sub')) el('dash-in-dev-sub').textContent = trial + ' factory trial, ' + prodTrial + ' prod trial';
   if (el('dash-approved')) el('dash-approved').textContent = approved;
+  var archivedCount = recipes.filter(function(r){ return r.archived; }).length;
+  if (el('dash-archived')) el('dash-archived').textContent = archivedCount;
+  if (el('dash-archived-sub')) el('dash-archived-sub').textContent = archivedCount ? 'Click to view' : 'None';
   if (el('dash-ingredients')) el('dash-ingredients').textContent = ING_DATA.length;
   if (el('dash-users')) el('dash-users').textContent = USERS_DATA.length;
   if (el('dash-users-sub')) el('dash-users-sub').textContent = PENDING_DATA.length + ' pending approval';
