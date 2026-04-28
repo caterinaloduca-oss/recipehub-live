@@ -7547,8 +7547,12 @@ function buildRecipesTable() {
     tr.style.cursor = 'pointer';
     tr.onclick = function() { viewRecipe(r.npd); };
     // Stash ingredient names + item codes on the row so filterRecipes can search them.
+    // itemCode is no longer persisted on recipe ingredients — resolve from the name so search
+    // can still match by code (e.g. typing 'RMADT0006' finds recipes containing Chilled water).
     var _ingHaystack = (r.ingredients || []).map(function(i){
-      return ((i && (i.name||'')) + ' ' + (i && (i.itemCode||''))).toLowerCase();
+      var nm = (i && (i.name||'')).toLowerCase();
+      var code = (resolveItemCode(nm) || '').toLowerCase();
+      return nm + (code ? ' ' + code : '');
     }).join(' ');
     tr.dataset.ingredients = _ingHaystack;
     var statusBadge = r.archived ? '<span class="badge badge-draft">Archived</span>' : `<span class="badge badge-${r.status==='approved'?'approved':r.status==='prod-trial'?'prod-trial':r.status==='trial'?'trial':r.status==='review'?'review':'draft'}">${r.status==='approved'?'Approved':r.status==='prod-trial'?'Production Trial':r.status==='trial'?'Factory Trial':r.status==='review'?'In Review':'Draft'}</span>`;
@@ -9680,16 +9684,12 @@ function setRecipeStatus(npd, newStatus) {
   // can see what they'll need to procure.
   var _eventMap = {review:'recipe-review', trial:'recipe-factory-trial', 'prod-trial':'recipe-prod-trial', approved:'recipe-approved'};
   if (_eventMap[newStatus]) {
-    // Resolve each ingredient name to an Oracle EBS code only — POS / numeric codes are intentionally
-    // never sent to Purchasing. Uses the same resolveItemCode() the recipe detail uses, which checks
-    // ING_DATA + EBS_RAW_ITEMS and filters to the Oracle pattern.
-    var _oraclePat = /^[A-Z]{2,}\d+$/;
+    // Resolve each ingredient name to an Oracle EBS code via resolveItemCode (Oracle pattern only).
+    // itemCode is no longer persisted on recipe ingredients — derived purely from name.
     var _ingForEmail = (newStatus === 'trial' || newStatus === 'prod-trial')
       ? (r.ingredients || []).slice().sort(function(a,b){ return (b.pct||0) - (a.pct||0); }).slice(0, 20)
           .map(function(i){
-            var stored = String(i.itemCode || '').trim();
-            var code = _oraclePat.test(stored) ? stored : (resolveItemCode(i.name) || '');
-            return { name: i.name || '', pct: i.pct || 0, itemCode: code };
+            return { name: i.name || '', pct: i.pct || 0, itemCode: resolveItemCode(i.name) || '' };
           })
       : null;
     // Purchasing wants a single conservative estimate they can plan against. Real batch size is set
