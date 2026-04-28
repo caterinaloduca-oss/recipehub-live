@@ -865,6 +865,11 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
       <div class="stat-value" style="color:var(--g3)" id="dash-archived">—</div>
       <div class="stat-sub" id="dash-archived-sub">Click to view</div>
     </div>
+    <div class="stat-card">
+      <div class="stat-label">Discontinued</div>
+      <div class="stat-value" style="color:var(--red)" id="dash-discontinued">—</div>
+      <div class="stat-sub">Paused, may return</div>
+    </div>
   </div>
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
@@ -7270,7 +7275,7 @@ function buildRecipesTable() {
     tr.onclick = function() { viewRecipe(r.npd); };
     var statusBadge = r.archived ? '<span class="badge badge-draft">Archived</span>' : `<span class="badge badge-${r.status==='approved'?'approved':r.status==='prod-trial'?'prod-trial':r.status==='trial'?'trial':r.status==='review'?'review':'draft'}">${r.status==='approved'?'Approved':r.status==='prod-trial'?'Production Trial':r.status==='trial'?'Factory Trial':r.status==='review'?'In Review':'Draft'}</span>`;
     tr.innerHTML = `
-      <td><strong>${r.name}</strong>${(r.tags&&r.tags.length)?'<div style="margin-top:3px">'+renderTagBadges(r.tags)+'</div>':''}</td>
+      <td><strong>${r.name}</strong>${r.discontinued ? ' <span style="font-size:10px;color:var(--red);font-weight:600;background:var(--red-lt);padding:1px 6px;border-radius:4px;margin-left:4px">DISCONTINUED</span>' : ''}${(r.tags&&r.tags.length)?'<div style="margin-top:3px">'+renderTagBadges(r.tags)+'</div>':''}</td>
       <td style="font-family:var(--font-m);font-size:12px">
         <div style="color:var(--g3)">${r.npd}</div>
         ${r.recipeId ? '<div style="color:#2E7D32;font-weight:600;font-size:11px;margin-top:2px">'+r.recipeId+'</div>' : ''}
@@ -9153,8 +9158,11 @@ function viewRecipe(npd) {
     var _missingLabel = _missingParts.length ? ' (' + _missingParts.join(', ') + ')' : '';
     _statusBtn = `<button class="btn btn-sm" style="background:${_canApprove?'var(--sage)':'var(--g3)'};color:white" onclick="setRecipeStatus('${r.npd}','approved')">✓ Approve${_missingLabel}</button>`;
   }
-  if (r.status==='approved' && !r.archived) _statusBtn = `<button class="btn btn-sm" style="background:var(--g3);color:white" onclick="archiveRecipe('${r.npd}')">📦 Archive</button>`;
+  if (r.status==='approved' && !r.archived && !r.discontinued) _statusBtn = `<button class="btn btn-sm" style="background:var(--g3);color:white" onclick="archiveRecipe('${r.npd}')">📦 Archive</button>`;
   if (r.archived) _statusBtn = `<button class="btn btn-sm" style="background:var(--amber);color:white" onclick="unarchiveRecipe('${r.npd}')">♻️ Restore</button>`;
+  // Discontinue / Reactivate — for approved recipes that are paused but may come back
+  if (r.status==='approved' && !r.archived && !r.discontinued) _statusBtn += ` <button class="btn btn-sm" style="background:var(--red);color:white;margin-left:4px" onclick="discontinueRecipe('${r.npd}')">⏸ Discontinue</button>`;
+  if (r.discontinued) _statusBtn = `<button class="btn btn-sm" style="background:var(--sage);color:white" onclick="reactivateRecipe('${r.npd}')">▶ Reactivate</button>`;
 
   var _detailActions = '';
   if (_isRD) {
@@ -9517,6 +9525,51 @@ function unarchiveRecipe(npd) {
   updateSidebarBadges();
   viewRecipe(npd);
   showSaveToast('Recipe restored');
+  saveAllData();
+}
+
+// ──────────── DISCONTINUE RECIPE ────────────
+// "Discontinued" = approved recipe that's paused for now but may come back. Different from Archive
+// (which tucks the recipe out of view entirely). Discontinued recipes stay visible with a red badge.
+function discontinueRecipe(npd) {
+  var role = getCurrentUserRole();
+  if (role !== 'admin' && role !== 'npd') { showSaveToast('Only admin or R&D can discontinue recipes', true); return; }
+  var r = RECIPE_DB[npd];
+  if (!r) return;
+  if (r.status !== 'approved') { showSaveToast('Only approved recipes can be discontinued', true); return; }
+  r.discontinued = true;
+  r.discontinuedAt = new Date().toISOString();
+  r.discontinuedBy = getCurrentUserName();
+  r.updated = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+  if (!r.changeLog) r.changeLog = [];
+  r.changeLog.push({date:r.discontinuedAt, by:r.discontinuedBy, changes:'Recipe discontinued'});
+  logActivity('status', '⏸', r.name + ' discontinued', 'By ' + r.discontinuedBy);
+  auditEvent('recipe.discontinue', 'recipe', npd, r.name);
+  buildRecipesTable();
+  updateDashboardStats();
+  updateSidebarBadges();
+  viewRecipe(npd);
+  showSaveToast('Recipe discontinued');
+  saveAllData();
+}
+function reactivateRecipe(npd) {
+  var role = getCurrentUserRole();
+  if (role !== 'admin' && role !== 'npd') { showSaveToast('Only admin or R&D can reactivate recipes', true); return; }
+  var r = RECIPE_DB[npd];
+  if (!r) return;
+  r.discontinued = false;
+  r.reactivatedAt = new Date().toISOString();
+  r.reactivatedBy = getCurrentUserName();
+  r.updated = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+  if (!r.changeLog) r.changeLog = [];
+  r.changeLog.push({date:r.reactivatedAt, by:r.reactivatedBy, changes:'Recipe reactivated from discontinued'});
+  logActivity('status', '▶', r.name + ' reactivated', 'By ' + r.reactivatedBy);
+  auditEvent('recipe.reactivate', 'recipe', npd, r.name);
+  buildRecipesTable();
+  updateDashboardStats();
+  updateSidebarBadges();
+  viewRecipe(npd);
+  showSaveToast('Recipe reactivated');
   saveAllData();
 }
 
@@ -14864,6 +14917,8 @@ function updateDashboardStats() {
   var archivedCount = recipes.filter(function(r){ return r.archived; }).length;
   if (el('dash-archived')) el('dash-archived').textContent = archivedCount;
   if (el('dash-archived-sub')) el('dash-archived-sub').textContent = archivedCount ? 'Click to view' : 'None';
+  var discontinuedCount = recipes.filter(function(r){ return r.discontinued; }).length;
+  if (el('dash-discontinued')) el('dash-discontinued').textContent = discontinuedCount;
   if (el('dash-ingredients')) el('dash-ingredients').textContent = ING_DATA.length;
   if (el('dash-users')) el('dash-users').textContent = USERS_DATA.length;
   if (el('dash-users-sub')) el('dash-users-sub').textContent = PENDING_DATA.length + ' pending approval';
