@@ -1797,6 +1797,28 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
 
     </div>
 
+    <!-- Post-approval branches: Discontinued + Archived -->
+    <div style="display:flex;justify-content:center;gap:32px;margin-bottom:32px;flex-wrap:wrap">
+      <div style="text-align:center;width:200px;padding:14px;border:1px dashed var(--g2);border-radius:10px;background:#FAFAFA">
+        <div style="font-size:11px;color:var(--g3);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px">Post-approval branches</div>
+        <div style="font-size:11px;color:var(--g4);line-height:1.5">An approved recipe can be paused or hidden. Both states are reversible.</div>
+      </div>
+      <div style="text-align:center;width:160px">
+        <div style="width:56px;height:56px;border-radius:50%;background:var(--red-lt);border:2px solid #F5B5B0;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;font-size:22px">⏸</div>
+        <div style="font-family:var(--font-d);font-size:13px;font-weight:600;color:var(--navy)">Discontinued</div>
+        <div style="font-size:11px;color:var(--g3);margin-top:4px;line-height:1.4">Paused — no longer produced, but still visible. May come back.</div>
+        <div style="margin-top:6px"><span style="font-size:9px;color:var(--red);font-weight:600;background:var(--red-lt);padding:1px 6px;border-radius:4px">DISCONTINUED</span></div>
+        <div style="margin-top:4px;font-size:10px;color:var(--g3)">Admin / R&D · ▶ Reactivate to undo</div>
+      </div>
+      <div style="text-align:center;width:160px">
+        <div style="width:56px;height:56px;border-radius:50%;background:var(--g1);border:2px solid var(--g2);display:flex;align-items:center;justify-content:center;margin:0 auto 8px;font-size:22px">📦</div>
+        <div style="font-family:var(--font-d);font-size:13px;font-weight:600;color:var(--navy)">Archived</div>
+        <div style="font-size:11px;color:var(--g3);margin-top:4px;line-height:1.4">Hidden from the main list. Use "Show Archived" toggle to view.</div>
+        <div style="margin-top:6px"><span class="badge badge-draft">ARCHIVED</span></div>
+        <div style="margin-top:4px;font-size:10px;color:var(--g3)">Admin / R&D · ♻️ Restore to undo</div>
+      </div>
+    </div>
+
     <!-- Role Responsibilities -->
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:32px">
 
@@ -1934,6 +1956,9 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
             <div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:6px;background:white;border:1px solid var(--g1);font-size:12px">
               <span>🔬</span><span><strong style="color:var(--navy)">QA signs off</strong> <span style="color:var(--g3)">Factory Trial micro + physical</span></span>
             </div>
+            <div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:6px;background:#FEF3E2;border:1px solid #F5D5A0;font-size:12px">
+              <span>⚡</span><span style="color:var(--amber)"><strong>or QA bypass</strong> <span style="color:var(--g3)">— admin/QA only, with reason</span></span>
+            </div>
             <div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:6px;background:#E8F5E9;border:1px solid #C8E6C9;font-size:12px">
               <span>🏭</span><span style="color:#1B5E20"><strong>Factory assigns Recipe ID</strong> <span style="color:var(--g3)">(e.g. 211_BCS v1)</span></span>
             </div>
@@ -1956,6 +1981,9 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
           <div style="flex:1;display:flex;flex-wrap:wrap;gap:8px">
             <div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:6px;background:white;border:1px solid var(--g1);font-size:12px">
               <span>🔬</span><span><strong style="color:var(--navy)">QA signs off</strong> <span style="color:var(--g3)">Prod Trial micro + physical</span></span>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:6px;background:#FEF3E2;border:1px solid #F5D5A0;font-size:12px">
+              <span>⚡</span><span style="color:var(--amber)"><strong>or QA bypass</strong> <span style="color:var(--g3)">— Factory Trial and Prod Trial bypassed independently</span></span>
             </div>
             <div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:6px;background:white;border:1px solid var(--g1);font-size:12px">
               <span>💰</span><span><strong style="color:var(--navy)">Costing complete</strong> <span style="color:var(--g3)">(cost/kg calculated)</span></span>
@@ -2224,16 +2252,16 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
     <!-- Product Build Flow -->
     <div style="text-align:center;margin-bottom:32px">
       <h2 style="font-family:var(--font-d);font-size:24px;color:var(--navy);margin:0 0 6px">Product Build Lifecycle</h2>
-      <p style="font-size:13px;color:var(--g3);margin:0">How a product build goes from creation to branch rollout</p>
+      <p style="font-size:13px;color:var(--g3);margin:0">Build status (draft / approved) is the workflow. Stage (in progress / active / inactive) is the launch state.</p>
     </div>
 
-    <div style="display:flex;align-items:flex-start;gap:0;justify-content:center;margin-bottom:40px;flex-wrap:wrap">
+    <div style="display:flex;align-items:flex-start;gap:0;justify-content:center;margin-bottom:24px;flex-wrap:wrap">
 
       <!-- Create Build -->
       <div style="text-align:center;width:160px">
         <div style="width:64px;height:64px;border-radius:50%;background:#FEF3E2;border:2px solid #F5D5A0;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;font-size:24px">🍕</div>
         <div style="font-family:var(--font-d);font-size:14px;font-weight:600;color:var(--navy)">Create Build</div>
-        <div style="font-size:11px;color:var(--g3);margin-top:4px;line-height:1.4">R&D defines product — components, assembly, portions, costing</div>
+        <div style="font-size:11px;color:var(--g3);margin-top:4px;line-height:1.4">R&D defines product — components, assembly, portions, costing. Build starts as <strong>In Progress</strong>.</div>
         <div style="margin-top:6px"><span class="badge badge-gold">R&D</span></div>
       </div>
 
@@ -2241,7 +2269,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
         <div style="width:40px;height:2px;background:var(--g2)"></div>
       </div>
 
-      <!-- Add Costing & Allergens -->
+      <!-- Cost & Comply -->
       <div style="text-align:center;width:160px">
         <div style="width:64px;height:64px;border-radius:50%;background:var(--sage-lt);border:2px solid var(--sage-mid);display:flex;align-items:center;justify-content:center;margin:0 auto 8px;font-size:24px">💰</div>
         <div style="font-family:var(--font-d);font-size:14px;font-weight:600;color:var(--navy)">Cost & Comply</div>
@@ -2253,26 +2281,62 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
         <div style="width:40px;height:2px;background:var(--g2)"></div>
       </div>
 
-      <!-- Active -->
+      <!-- Branch SOP -->
       <div style="text-align:center;width:160px">
-        <div style="width:64px;height:64px;border-radius:50%;background:var(--sage-lt);border:2px solid var(--sage-mid);display:flex;align-items:center;justify-content:center;margin:0 auto 8px;font-size:24px">✅</div>
-        <div style="font-family:var(--font-d);font-size:14px;font-weight:600;color:var(--navy)">Active</div>
-        <div style="font-size:11px;color:var(--g3);margin-top:4px;line-height:1.4">Build is live. Can be linked to Branch SOPs for rollout</div>
-        <div style="margin-top:6px"><span class="badge badge-approved">ACTIVE</span></div>
+        <div style="width:64px;height:64px;border-radius:50%;background:#E6F1FB;border:2px solid #B3D4F0;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;font-size:24px">📋</div>
+        <div style="font-family:var(--font-d);font-size:14px;font-weight:600;color:var(--navy)">Branch SOP</div>
+        <div style="font-size:11px;color:var(--g3);margin-top:4px;line-height:1.4">Generate one Branch SOP per build (only one allowed). Used by stores to assemble the product.</div>
+        <div style="margin-top:6px"><span class="badge badge-navy">R&D</span></div>
       </div>
 
-      <div style="display:flex;flex-direction:column;align-items:center;padding-top:24px;width:60px">
-        <div style="width:40px;height:2px;background:var(--g2)"></div>
-      </div>
+    </div>
 
-      <!-- Discontinued -->
-      <div style="text-align:center;width:160px">
-        <div style="width:64px;height:64px;border-radius:50%;background:var(--red-lt);border:2px solid #F5B5B0;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;font-size:24px">⛔</div>
-        <div style="font-family:var(--font-d);font-size:14px;font-weight:600;color:var(--navy)">Discontinued</div>
-        <div style="font-size:11px;color:var(--g3);margin-top:4px;line-height:1.4">Product removed from menu. Linked Branch SOPs show warning</div>
-        <div style="margin-top:6px"><span class="badge badge-red">DISCONTINUED</span></div>
+    <!-- Build launch stages -->
+    <div class="card" style="margin-bottom:32px">
+      <div class="card-head">
+        <span class="card-title">Build Stage — Launch State</span>
+        <span style="font-size:11px;color:var(--g3)">Set on the build detail · separate from draft/approved status</span>
       </div>
+      <div class="card-body" style="padding:24px">
+        <div style="display:flex;align-items:flex-start;gap:0;justify-content:center;flex-wrap:wrap">
 
+          <div style="text-align:center;width:180px;padding:0 8px">
+            <div style="width:56px;height:56px;border-radius:50%;background:#FEF3E2;border:2px solid var(--amber);display:flex;align-items:center;justify-content:center;margin:0 auto 8px;font-size:22px">⏳</div>
+            <div style="font-family:var(--font-d);font-size:13px;font-weight:600;color:var(--navy)">In Progress</div>
+            <div style="font-size:11px;color:var(--g3);margin-top:4px;line-height:1.4">Build still being prepared — not yet launched in store. Default for new builds.</div>
+            <div style="margin-top:6px"><span style="display:inline-block;padding:2px 10px;border-radius:40px;font-size:10px;font-weight:600;background:var(--amber);color:white;white-space:nowrap">In Progress</span></div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;align-items:center;padding-top:24px;width:50px">
+            <div style="width:30px;height:2px;background:var(--g2)"></div>
+            <div style="font-size:9px;color:var(--g3);margin-top:4px;text-align:center;font-weight:500">Launch</div>
+          </div>
+
+          <div style="text-align:center;width:180px;padding:0 8px">
+            <div style="width:56px;height:56px;border-radius:50%;background:var(--sage-lt);border:2px solid var(--sage-mid);display:flex;align-items:center;justify-content:center;margin:0 auto 8px;font-size:22px">✓</div>
+            <div style="font-family:var(--font-d);font-size:13px;font-weight:600;color:var(--navy)">Active</div>
+            <div style="font-size:11px;color:var(--g3);margin-top:4px;line-height:1.4">Live in store, on sale. Branch SOPs are in use.</div>
+            <div style="margin-top:6px"><span style="display:inline-block;padding:2px 10px;border-radius:40px;font-size:10px;font-weight:600;background:var(--sage);color:white;white-space:nowrap">Active</span></div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;align-items:center;padding-top:24px;width:50px">
+            <div style="width:30px;height:2px;background:var(--g2)"></div>
+            <div style="font-size:9px;color:var(--g3);margin-top:4px;text-align:center;font-weight:500">Pull from menu</div>
+          </div>
+
+          <div style="text-align:center;width:180px;padding:0 8px">
+            <div style="width:56px;height:56px;border-radius:50%;background:var(--red-lt);border:2px solid #F5B5B0;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;font-size:22px">✕</div>
+            <div style="font-family:var(--font-d);font-size:13px;font-weight:600;color:var(--navy)">Inactive</div>
+            <div style="font-size:11px;color:var(--g3);margin-top:4px;line-height:1.4">Discontinued in store. Linked Branch SOPs show a "discontinued" warning. Reversible.</div>
+            <div style="margin-top:6px"><span style="display:inline-block;padding:2px 10px;border-radius:40px;font-size:10px;font-weight:600;background:var(--red);color:white;white-space:nowrap">Inactive</span></div>
+          </div>
+
+        </div>
+        <div style="margin-top:18px;padding:10px 12px;border-radius:8px;background:var(--g1);font-size:12px;color:var(--g5);display:flex;align-items:flex-start;gap:8px">
+          <span style="font-size:14px">ℹ️</span>
+          <span>The 3-segment toggle on the build detail switches between these. Stage moves are logged. Inactive builds stay searchable; the linked Branch SOP banner alerts stores. <strong>Note:</strong> stage is independent of build <em>status</em> (draft / in review / approved) — a build can be Approved + Active, or Approved + Inactive, etc.</span>
+        </div>
+      </div>
     </div>
 
     <!-- Branch SOP Flow -->
