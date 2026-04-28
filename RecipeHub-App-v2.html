@@ -13494,6 +13494,7 @@ let PENDING_DATA = [];
 function buildUsersTable() {
   const tbody = document.getElementById('users-tbody');
   if (!tbody) return;
+  tbody.innerHTML = ''; // wipe before re-render — same duplication trap as buildRoleCards
   USERS_DATA.forEach(u => {
     const rm = ROLE_META[u.role] || {label:'Unassigned', bg:'var(--g1)', color:'var(--g4)', border:'var(--g2)'};
     const isMe = u.role === 'admin';
@@ -13523,6 +13524,7 @@ function buildUsersTable() {
 function buildPendingTable() {
   const tbody = document.getElementById('pending-tbody');
   if (!tbody) return;
+  tbody.innerHTML = ''; // wipe before re-render
   // Update header count
   const countLabel = document.getElementById('pending-count-label');
   if (countLabel) {
@@ -13556,6 +13558,7 @@ function buildPendingTable() {
 function buildRoleCards() {
   const el = document.getElementById('role-cards-list');
   if (!el) return;
+  el.innerHTML = ''; // wipe before re-render — was duplicating role cards on every nav into Users
   Object.entries(ROLE_META).forEach(([key, rm]) => {
     const count = USERS_DATA.filter(u => u.role === key).length;
     const div = document.createElement('div');
