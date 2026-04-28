@@ -1150,22 +1150,30 @@ app.post('/api/notify', requireAuth, (req, res) => {
         const m = (batchSize || '').match(/(\d+(?:\.\d+)?)/);
         return m ? parseFloat(m[1]) : null;
       })();
+      const escape = (s) => String(s || '').replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
       const rows = ingredients.map(i => {
         const pct = Number(i.pct || 0);
         const kg = batchKg ? (batchKg * pct / 100).toFixed(2) : null;
         return `<tr>
-          <td style="padding:5px 8px;border-bottom:1px solid #eee;font-size:12px">${(i.name || '').replace(/[<>]/g, '')}${i.itemCode ? ` <span style="color:#999;font-size:10px;font-family:monospace">${(i.itemCode || '').replace(/[<>]/g, '')}</span>` : ''}</td>
+          <td style="padding:5px 8px;border-bottom:1px solid #eee;font-size:12px">${escape(i.name)}</td>
+          <td style="padding:5px 8px;border-bottom:1px solid #eee;font-size:11px;font-family:monospace;color:#666">${i.itemCode ? escape(i.itemCode) : '—'}</td>
           <td style="padding:5px 8px;border-bottom:1px solid #eee;font-size:12px;text-align:right;font-family:monospace">${pct.toFixed(2)}%</td>
           ${kg !== null ? `<td style="padding:5px 8px;border-bottom:1px solid #eee;font-size:12px;text-align:right;font-family:monospace;color:#1A5FA5;font-weight:600">${kg} kg</td>` : ''}
         </tr>`;
       }).join('');
+      // At Factory Trial the formula can still change before Prod Trial; warn Purchasing not to lock in.
+      const formulaLockNote = event === 'recipe-factory-trial'
+        ? `<div style="font-size:11px;color:#8a4500;margin-bottom:10px;padding:6px 10px;background:rgba(255,255,255,0.6);border-left:3px solid #d47000;border-radius:4px"><strong>⚠ Note:</strong> Ingredients are not definitive until Production Trial. The formula may change between Factory Trial and Prod Trial.</div>`
+        : '';
       return `
         <div style="margin-top:18px;padding:14px 16px;background:#FEF3E2;border:1px solid #F5D5A0;border-radius:8px">
           <div style="font-size:13px;font-weight:600;color:#8a4500;margin-bottom:8px">📦 Purchasing — ingredients to procure</div>
-          <div style="font-size:11px;color:#8a4500;margin-bottom:10px">${batchKg ? `Estimated weights below assume a ${batchKg} kg batch.` : 'Approximate quantities pending batch size.'}</div>
+          <div style="font-size:11px;color:#8a4500;margin-bottom:10px">${batchKg ? `<strong>Estimate only:</strong> figures below assume a ${batchKg} kg batch. Confirm the real numbers once the run is on the Production Plan.` : 'Approximate quantities pending batch size — confirm once Production Plan is defined.'}</div>
+          ${formulaLockNote}
           <table style="width:100%;border-collapse:collapse;background:white;border-radius:6px;overflow:hidden">
             <thead><tr>
               <th style="padding:6px 8px;background:#fcfaf5;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:#8a4500;text-align:left;border-bottom:1.5px solid #F5D5A0">Ingredient</th>
+              <th style="padding:6px 8px;background:#fcfaf5;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:#8a4500;text-align:left;border-bottom:1.5px solid #F5D5A0">EBS Code</th>
               <th style="padding:6px 8px;background:#fcfaf5;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:#8a4500;text-align:right;border-bottom:1.5px solid #F5D5A0">%</th>
               ${batchKg ? `<th style=\"padding:6px 8px;background:#fcfaf5;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:#8a4500;text-align:right;border-bottom:1.5px solid #F5D5A0\">Est. kg</th>` : ''}
             </tr></thead>

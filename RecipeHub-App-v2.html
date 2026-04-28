@@ -9468,7 +9468,9 @@ function setRecipeStatus(npd, newStatus) {
       ? (r.ingredients || []).slice().sort(function(a,b){ return (b.pct||0) - (a.pct||0); }).slice(0, 20)
           .map(function(i){ return { name: i.name || '', pct: i.pct || 0, itemCode: i.itemCode || '' }; })
       : null;
-    var _batchKg = newStatus === 'trial' ? '150 kg (default trial batch)' : (newStatus === 'prod-trial' ? '400 kg (default prod-trial batch)' : null);
+    // Purchasing wants a single conservative estimate they can plan against. Real batch size is set
+    // when Factory schedules the run on the Production Plan — disclaimer is added in the email body.
+    var _batchKg = (newStatus === 'trial' || newStatus === 'prod-trial') ? '100 kg' : null;
     fetch(API_BASE + '/api/notify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + API_KEY },
