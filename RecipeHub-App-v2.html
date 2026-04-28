@@ -6823,6 +6823,10 @@ function buildIngTable() {
   tbody.innerHTML = '';
   ING_DATA.forEach((row, idx) => {
     const [num,name,supplier,code,cat,cost,storage,shelf,updated] = row;
+    // Oracle-only view: skip rows without an Oracle EBS item code. POS-only ingredients
+    // (numeric POS ids, "POS (unmapped)" supplier) are hidden — they aren't procurable
+    // through Oracle and were creating noise in the table.
+    if (!_codeIsERP(code)) return;
     const catClass = CAT_CLASS[cat] || 'cat-base';
     // Check EBS cache for price, vendor, UOM
     var displayCost = cost;
