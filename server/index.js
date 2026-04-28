@@ -1479,8 +1479,78 @@ app.get('/api/nutrition/recipe', requireAuth, async (req, res) => {
   }
 });
 
+// ── AUDIT LOG ──
+// Helper: resolve role for a given email by reading current state.users
+function _roleForEmail(email) {
+  if (!email) return null;
+  if (email.toLowerCase() === 'caterina.loduca@dailyfoodsa.com') return 'admin';
+  const state = db.getState();
+  const users = (state && state.data && state.data.users) || [];
+  const u = users.find(x => x.email && x.email.toLowerCase() === email.toLowerCase());
+  return u ? (u.role || 'viewer') : null;
+}
+
+// POST /api/audit/event — fire-and-forget event recording
+// Body: { user_email, action, target_type?, target_id?, target_label?, meta? }
+app.post('/api/audit/event', requireAuth, (req, res) => {
+  try {
+    const b = req.body || {};
+    if (!b.action) return res.status(400).json({ error: 'action required' });
+    const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').toString().split(',')[0].trim();
+    const ua = (req.headers['user-agent'] || '').slice(0, 500);
+    db.auditWrite({
+      user_email:   b.user_email || '',
+      action:       String(b.action).slice(0, 80),
+      target_type:  b.target_type ? String(b.target_type).slice(0, 40) : null,
+      target_id:    b.target_id   ? String(b.target_id).slice(0, 200)   : null,
+      target_label: b.target_label ? String(b.target_label).slice(0, 300) : null,
+      ip,
+      user_agent: ua,
+      meta: b.meta || null,
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('audit write failed:', err.message);
+    res.status(500).json({ error: 'audit write failed' });
+  }
+});
+
+// GET /api/audit/events — admin only. Filters: user, action, actionPrefix, from, to, limit
+app.get('/api/audit/events', requireAuth, (req, res) => {
+  try {
+    const requesterEmail = (req.query.as || '').toString();
+    if (_roleForEmail(requesterEmail) !== 'admin') {
+      return res.status(403).json({ error: 'admin only' });
+    }
+    const events = db.auditList({
+      user:         req.query.user,
+      action:       req.query.action,
+      actionPrefix: req.query.actionPrefix,
+      from:         req.query.from,
+      to:           req.query.to,
+      limit:        req.query.limit,
+    });
+    res.json({ events, counts: db.auditCounts() });
+  } catch (err) {
+    console.error('audit list failed:', err.message);
+    res.status(500).json({ error: 'audit list failed' });
+  }
+});
+
+// 180-day retention purge — runs at startup and every 24h
+function _runAuditPurge() {
+  try {
+    const removed = db.auditPurge(180);
+    if (removed) console.log(`audit_log: purged ${removed} rows older than 180 days`);
+  } catch (e) {
+    console.error('audit purge failed:', e.message);
+  }
+}
+
 // Start
 db.init();
+_runAuditPurge();
+setInterval(_runAuditPurge, 24 * 60 * 60 * 1000);
 app.listen(PORT, () => {
   console.log(`RecipeHub API running on port ${PORT}`);
 });

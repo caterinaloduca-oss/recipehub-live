@@ -68,6 +68,24 @@ function init() {
       notes TEXT
     );
     CREATE INDEX IF NOT EXISTS idx_local_map_erp ON local_item_map(erp_item_number);
+
+    -- Forensic audit log for IP protection. Captures recipe / SOP / build views,
+    -- edits, deletes, prints, and user lifecycle events. Auto-purged after 180 days.
+    CREATE TABLE IF NOT EXISTS audit_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      ts TEXT NOT NULL DEFAULT (datetime('now')),
+      user_email TEXT,
+      action TEXT NOT NULL,
+      target_type TEXT,
+      target_id TEXT,
+      target_label TEXT,
+      ip TEXT,
+      user_agent TEXT,
+      meta TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_audit_ts     ON audit_log(ts);
+    CREATE INDEX IF NOT EXISTS idx_audit_user   ON audit_log(user_email);
+    CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_log(action);
   `);
 
   return db;
@@ -276,11 +294,60 @@ function setState(jsonString, dataVersion) {
   return savedAt;
 }
 
+// ── AUDIT LOG ──
+function auditWrite(event) {
+  const meta = event.meta && typeof event.meta === 'object' ? JSON.stringify(event.meta) : (event.meta || null);
+  db.prepare(`
+    INSERT INTO audit_log (user_email, action, target_type, target_id, target_label, ip, user_agent, meta)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    (event.user_email || '').toLowerCase() || null,
+    event.action,
+    event.target_type || null,
+    event.target_id || null,
+    event.target_label || null,
+    event.ip || null,
+    event.user_agent || null,
+    meta
+  );
+}
+
+function auditList(filters) {
+  filters = filters || {};
+  const where = [];
+  const args = [];
+  if (filters.user)        { where.push('user_email = ?');     args.push(filters.user.toLowerCase()); }
+  if (filters.action)      { where.push('action LIKE ?');      args.push(filters.action); }
+  if (filters.actionPrefix){ where.push('action LIKE ?');      args.push(filters.actionPrefix + '%'); }
+  if (filters.from)        { where.push('ts >= ?');            args.push(filters.from); }
+  if (filters.to)          { where.push('ts <= ?');            args.push(filters.to); }
+  const sql =
+    'SELECT id, ts, user_email, action, target_type, target_id, target_label, ip, user_agent, meta FROM audit_log' +
+    (where.length ? ' WHERE ' + where.join(' AND ') : '') +
+    ' ORDER BY ts DESC, id DESC LIMIT ' + Math.max(1, Math.min(5000, +filters.limit || 500));
+  return db.prepare(sql).all(...args);
+}
+
+function auditPurge(retentionDays) {
+  const days = retentionDays || 180;
+  const result = db.prepare(
+    "DELETE FROM audit_log WHERE ts < datetime('now', ? )"
+  ).run('-' + days + ' days');
+  return result.changes;
+}
+
+function auditCounts() {
+  const total = db.prepare('SELECT COUNT(*) AS n FROM audit_log').get().n;
+  const oldest = db.prepare('SELECT MIN(ts) AS ts FROM audit_log').get().ts;
+  return { total, oldest };
+}
+
 module.exports = {
   init, getState, setState,
   getLatestPrices, getPriceHistory, getPriceHistoryAllOrgs, searchPrices, upsertCostRows,
   upsertItemMap, getItemMap,
   setLocalMap, deleteLocalMap, listLocalMaps,
   getSyncLog, logSyncStart, logSyncEnd,
+  auditWrite, auditList, auditPurge, auditCounts,
   ORG_PRIORITY,
 };
