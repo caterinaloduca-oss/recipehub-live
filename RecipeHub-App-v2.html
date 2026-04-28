@@ -6789,9 +6789,14 @@ function populateIngCategoryFilter() {
   const sel = document.getElementById('ing-filter-cat');
   if (!sel) return;
   const prev = sel.value || 'All Categories';
-  // Count categories in ING_DATA
+  // Count categories — only Oracle-mapped rows in non-excluded categories (mirrors the table filter).
   const counts = {};
-  ING_DATA.forEach(r => { const c = r[4] || 'Uncategorised'; counts[c] = (counts[c]||0) + 1; });
+  ING_DATA.forEach(r => {
+    if (!_codeIsERP(r[3])) return;
+    const c = r[4] || 'Uncategorised';
+    if (ING_EXCLUDED_CATEGORIES.has(c)) return;
+    counts[c] = (counts[c]||0) + 1;
+  });
   const FOOD_CATS = new Set(['Food','Sauce','Sauces','Topping','Toppings','Side Dish','Side Dishes','Crust','Crusts','Beverage','Beverages','Oil','Meat & Protein','Dairy','Grain & Flour','Bread & Crumbs','Dough','Burger Dough','Pasta','Pizza','Mac & Cheese','Dessert','Appetizer','Dip','Salad','Seasoning','Additive']);
   const NONFOOD_CATS = new Set(['Packing Material','Operating Supply','Equipment','Service','Cleaning','Tool','Uniform','Non-Food','Smallware','Disposable (Consumables)','Stationery','Marketing','Critical','Chiller']);
   const food = [], nonfood = [], other = [];
@@ -6816,6 +6821,11 @@ function populateIngCategoryFilter() {
   sel.value = available.indexOf(prev) >= 0 ? prev : 'All Categories';
 }
 
+// Categories the Ingredients DB should NOT show — non-procurable / non-recipe items
+// (cleaning supplies, uniforms, equipment, tools, operating supply). The view is for
+// food + drinks + packaging only.
+var ING_EXCLUDED_CATEGORIES = new Set(['Operating Supply','Tool','Uniform','Equipment','Cleaning']);
+
 function buildIngTable() {
   const tbody = document.getElementById('ing-db-tbody');
   if (!tbody) return;
@@ -6827,6 +6837,8 @@ function buildIngTable() {
     // (numeric POS ids, "POS (unmapped)" supplier) are hidden — they aren't procurable
     // through Oracle and were creating noise in the table.
     if (!_codeIsERP(code)) return;
+    // Hide non-recipe categories — operating supply, tools, uniforms, equipment, cleaning.
+    if (ING_EXCLUDED_CATEGORIES.has(cat)) return;
     const catClass = CAT_CLASS[cat] || 'cat-base';
     // Check EBS cache for price, vendor, UOM
     var displayCost = cost;
