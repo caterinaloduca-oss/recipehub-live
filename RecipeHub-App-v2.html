@@ -9649,18 +9649,15 @@ function setRecipeStatus(npd, newStatus) {
   // can see what they'll need to procure.
   var _eventMap = {review:'recipe-review', trial:'recipe-factory-trial', 'prod-trial':'recipe-prod-trial', approved:'recipe-approved'};
   if (_eventMap[newStatus]) {
-    // Resolve each recipe ingredient against ING_DATA to attach its Oracle EBS / POS code (column 3).
-    // Recipe ingredients only carry {name, pct} for older imports — the code lives in the ingredients DB.
-    var _ingByName = {};
-    if (Array.isArray(ING_DATA)) {
-      ING_DATA.forEach(function(row){
-        if (Array.isArray(row) && row[1]) _ingByName[String(row[1]).toLowerCase().trim()] = row[3] || '';
-      });
-    }
+    // Resolve each ingredient name to an Oracle EBS code only — POS / numeric codes are intentionally
+    // never sent to Purchasing. Uses the same resolveItemCode() the recipe detail uses, which checks
+    // ING_DATA + EBS_RAW_ITEMS and filters to the Oracle pattern.
+    var _oraclePat = /^[A-Z]{2,}\d+$/;
     var _ingForEmail = (newStatus === 'trial' || newStatus === 'prod-trial')
       ? (r.ingredients || []).slice().sort(function(a,b){ return (b.pct||0) - (a.pct||0); }).slice(0, 20)
           .map(function(i){
-            var code = i.itemCode || _ingByName[String(i.name || '').toLowerCase().trim()] || '';
+            var stored = String(i.itemCode || '').trim();
+            var code = _oraclePat.test(stored) ? stored : (resolveItemCode(i.name) || '');
             return { name: i.name || '', pct: i.pct || 0, itemCode: code };
           })
       : null;

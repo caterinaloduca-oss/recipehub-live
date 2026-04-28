@@ -1151,12 +1151,16 @@ app.post('/api/notify', requireAuth, (req, res) => {
         return m ? parseFloat(m[1]) : null;
       })();
       const escape = (s) => String(s || '').replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
+      // Oracle EBS codes only — POS numeric codes are masked. Defends against stale clients.
+      const oraclePat = /^[A-Z]{2,}\d+$/;
       const rows = ingredients.map(i => {
         const pct = Number(i.pct || 0);
         const kg = batchKg ? (batchKg * pct / 100).toFixed(2) : null;
+        const rawCode = String(i.itemCode || '').trim();
+        const code = oraclePat.test(rawCode) ? rawCode : '';
         return `<tr>
           <td style="padding:5px 8px;border-bottom:1px solid #eee;font-size:12px">${escape(i.name)}</td>
-          <td style="padding:5px 8px;border-bottom:1px solid #eee;font-size:11px;font-family:monospace;color:#666">${i.itemCode ? escape(i.itemCode) : '—'}</td>
+          <td style="padding:5px 8px;border-bottom:1px solid #eee;font-size:11px;font-family:monospace;color:#666">${code ? escape(code) : '—'}</td>
           <td style="padding:5px 8px;border-bottom:1px solid #eee;font-size:12px;text-align:right;font-family:monospace">${pct.toFixed(2)}%</td>
           ${kg !== null ? `<td style="padding:5px 8px;border-bottom:1px solid #eee;font-size:12px;text-align:right;font-family:monospace;color:#1A5FA5;font-weight:600">${kg} kg</td>` : ''}
         </tr>`;
