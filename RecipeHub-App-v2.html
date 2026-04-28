@@ -1007,6 +1007,9 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
           <input class="form-input" type="date" id="qa-date" />
         </div>
       </div>
+      <div style="display:flex;justify-content:flex-end;margin-top:12px">
+        <button class="btn btn-gold btn-sm" onclick="saveQABatchInfo()">💾 Save Batch Info</button>
+      </div>
       <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--g1);position:relative">
         <label class="form-label" style="font-size:11px;color:var(--g3);text-transform:uppercase;letter-spacing:0.08em">Or look up a past recipe</label>
         <input class="form-input" id="qa-recipe-search" placeholder="Type name, NPD code, or Recipe ID — search any recipe" oninput="qaRecipeSearch(this.value)" onfocus="qaRecipeSearch(this.value)" onblur="setTimeout(function(){var e=document.getElementById('qa-search-results');if(e)e.style.display='none'},200)" autocomplete="off" />
@@ -13772,8 +13775,9 @@ function updateQARecipe(npd) {
   _qaCurrentNPD = npd;
   var batchEl = document.getElementById('qa-batch');
   var dateEl = document.getElementById('qa-date');
-  if (batchEl) batchEl.value = '';
-  if (dateEl) dateEl.value = '';
+  var r = npd ? RECIPE_DB[npd] : null;
+  if (batchEl) batchEl.value = (r && r.qaBatch) || '';
+  if (dateEl)  dateEl.value  = (r && r.qaDate)  || '';
   // Always hide the "past recipe" label; qaPickPastRecipe re-shows it after calling us.
   var label = document.getElementById('qa-current-label');
   if (label) label.style.display = 'none';
@@ -13786,6 +13790,21 @@ function updateQARecipe(npd) {
     if (dv) dv.textContent = '—';
   });
   if (npd) loadNutrition(npd);
+}
+
+function saveQABatchInfo() {
+  var npd = _qaCurrentNPD;
+  if (!npd) { showSaveToast('Pick a recipe first', true); return; }
+  var r = RECIPE_DB[npd];
+  if (!r) { showSaveToast('Recipe not found', true); return; }
+  var batch = (document.getElementById('qa-batch') || {}).value || '';
+  var date  = (document.getElementById('qa-date')  || {}).value || '';
+  r.qaBatch = batch;
+  r.qaDate  = date;
+  r.updatedAt = new Date().toISOString();
+  saveAllData();
+  auditEvent('qa.save_batch', 'recipe', npd, r.name + (batch ? ' · batch ' + batch : ''));
+  showSaveToast('Batch info saved');
 }
 
 function updateQAAllergenDisplay(npd) {
