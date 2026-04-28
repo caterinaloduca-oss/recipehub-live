@@ -7337,6 +7337,11 @@ function buildRecipesTable() {
     tr.style.cursor = 'pointer';
     if (r.archived) tr.style.opacity = '0.5';
     tr.onclick = function() { viewRecipe(r.npd); };
+    // Stash ingredient names + item codes on the row so filterRecipes can search them.
+    var _ingHaystack = (r.ingredients || []).map(function(i){
+      return ((i && (i.name||'')) + ' ' + (i && (i.itemCode||''))).toLowerCase();
+    }).join(' ');
+    tr.dataset.ingredients = _ingHaystack;
     var statusBadge = r.archived ? '<span class="badge badge-draft">Archived</span>' : `<span class="badge badge-${r.status==='approved'?'approved':r.status==='prod-trial'?'prod-trial':r.status==='trial'?'trial':r.status==='review'?'review':'draft'}">${r.status==='approved'?'Approved':r.status==='prod-trial'?'Production Trial':r.status==='trial'?'Factory Trial':r.status==='review'?'In Review':'Draft'}</span>`;
     tr.innerHTML = `
       <td><strong>${r.name}</strong>${r.discontinued ? ' <span style="font-size:10px;color:var(--red);font-weight:600;background:var(--red-lt);padding:1px 6px;border-radius:4px;margin-left:4px">DISCONTINUED</span>' : ''}${(r.tags&&r.tags.length)?'<div style="margin-top:3px">'+renderTagBadges(r.tags)+'</div>':''}</td>
@@ -10881,7 +10886,9 @@ function filterRecipes() {
   const rows = document.getElementById('recipes-tbody').querySelectorAll('tr');
   rows.forEach(row => {
     const text = row.textContent.toLowerCase();
-    const matchQ = !q || text.includes(q);
+    const ingredients = row.dataset.ingredients || '';
+    // The placeholder advertises ingredient search — include the stashed ingredient haystack.
+    const matchQ = !q || text.includes(q) || ingredients.includes(q);
     const matchBrand = brand === 'All Brands' || text.includes(brand.toLowerCase());
     const matchStatus = status === 'All Statuses' || text.includes(status.toLowerCase());
     const matchType = type === 'All Types' || text.includes(type.toLowerCase());
