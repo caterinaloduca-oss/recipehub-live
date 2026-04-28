@@ -9224,8 +9224,9 @@ function viewRecipe(npd) {
   }
   if (r.status==='approved' && !r.archived && !r.discontinued) _statusBtn = `<button class="btn btn-sm" style="background:var(--g3);color:white" onclick="archiveRecipe('${r.npd}')">📦 Archive</button>`;
   if (r.archived) _statusBtn = `<button class="btn btn-sm" style="background:var(--amber);color:white" onclick="unarchiveRecipe('${r.npd}')">♻️ Restore</button>`;
-  // Discontinue / Reactivate — for approved recipes that are paused but may come back
-  if (r.status==='approved' && !r.archived && !r.discontinued) _statusBtn += ` <button class="btn btn-sm" style="background:var(--red);color:white;margin-left:4px" onclick="discontinueRecipe('${r.npd}')">⏸ Discontinue</button>`;
+  // Discontinue / Reactivate — paused recipes that may come back. Allowed on any non-archived recipe
+  // (covers bulk-imported factory recipes that live as 'draft' status but are real production items).
+  if (!r.archived && !r.discontinued) _statusBtn += ` <button class="btn btn-sm" style="background:var(--red);color:white;margin-left:4px" onclick="discontinueRecipe('${r.npd}')">⏸ Discontinue</button>`;
   if (r.discontinued) _statusBtn = `<button class="btn btn-sm" style="background:var(--sage);color:white" onclick="reactivateRecipe('${r.npd}')">▶ Reactivate</button>`;
 
   var _detailActions = '';
@@ -9600,7 +9601,7 @@ function discontinueRecipe(npd) {
   if (role !== 'admin' && role !== 'npd') { showSaveToast('Only admin or R&D can discontinue recipes', true); return; }
   var r = RECIPE_DB[npd];
   if (!r) return;
-  if (r.status !== 'approved') { showSaveToast('Only approved recipes can be discontinued', true); return; }
+  if (r.archived) { showSaveToast('Restore from archive first, then discontinue', true); return; }
   r.discontinued = true;
   r.discontinuedAt = new Date().toISOString();
   r.discontinuedBy = getCurrentUserName();
