@@ -1388,28 +1388,31 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
 
 <!-- BRANCH SOP PAGE -->
 <div id="page-branch-sop" class="page-hidden">
-  <div class="filter-bar">
-    <div class="search-wrap">
-      <span class="search-icon">⌕</span>
-      <input class="search-input" placeholder="Search branch SOPs…" id="bsop-search" oninput="filterBranchSOPs()" />
+  <!-- List view: filter bar + table. Hidden while a single SOP is open. -->
+  <div id="bsop-list-view">
+    <div class="filter-bar">
+      <div class="search-wrap">
+        <span class="search-icon">⌕</span>
+        <input class="search-input" placeholder="Search branch SOPs…" id="bsop-search" oninput="filterBranchSOPs()" />
+      </div>
+      <select class="filter-select" id="bsop-filter-brand" onchange="filterBranchSOPs()"><option>All Brands</option></select>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--g4);cursor:pointer;margin-left:auto">
+        <input type="checkbox" id="bsop-show-archived" onchange="buildBranchSOPTable()" /> Show Archived
+      </label>
     </div>
-    <select class="filter-select" id="bsop-filter-brand" onchange="filterBranchSOPs()"><option>All Brands</option></select>
-    <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--g4);cursor:pointer;margin-left:auto">
-      <input type="checkbox" id="bsop-show-archived" onchange="buildBranchSOPTable()" /> Show Archived
-    </label>
-  </div>
 
-  <div class="card">
-    <div class="card-head">
-      <span class="card-title">Branch SOPs</span>
-      <span style="font-size:11px;color:var(--g3)" id="bsop-count-label"></span>
-      <span style="font-size:11px;color:var(--g3);margin-left:4px" id="bsop-archived-label"></span>
-    </div>
-    <div class="card-body" style="padding:0">
-      <table class="data-table">
-        <thead><tr><th>Product Name</th><th>SOP Code</th><th>Brand</th><th>Version</th><th>Steps</th><th>Status</th><th></th></tr></thead>
-        <tbody id="bsop-tbody"></tbody>
-      </table>
+    <div class="card">
+      <div class="card-head">
+        <span class="card-title">Branch SOPs</span>
+        <span style="font-size:11px;color:var(--g3)" id="bsop-count-label"></span>
+        <span style="font-size:11px;color:var(--g3);margin-left:4px" id="bsop-archived-label"></span>
+      </div>
+      <div class="card-body" style="padding:0">
+        <table class="data-table">
+          <thead><tr><th>Product Name</th><th>SOP Code</th><th>Brand</th><th>Version</th><th>Steps</th><th>Status</th><th></th></tr></thead>
+          <tbody id="bsop-tbody"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 
@@ -6322,9 +6325,11 @@ function nav(id) {
     else if (id === 'builds') { closeBuildDetail(); buildBuildsTable(); }
     else if (id === 'production') { buildProductionTable(); }
     else if (id === 'branch-sop') {
-      // Reset filters on entry — leftover state from a previous visit was making rows look wrong against the dropdown
+      // Reset filters on entry and make sure the list (not a stale detail) is showing.
       var _bsopBrand = document.getElementById('bsop-filter-brand'); if (_bsopBrand) _bsopBrand.value = 'All Brands';
       var _bsopSearch = document.getElementById('bsop-search'); if (_bsopSearch) _bsopSearch.value = '';
+      var _bsopDetail = document.getElementById('bsop-detail'); if (_bsopDetail) _bsopDetail.style.display = 'none';
+      var _bsopList = document.getElementById('bsop-list-view'); if (_bsopList) _bsopList.style.display = '';
       buildBranchSOPTable();
     }
     else if (id === 'qa') { populateQARecipeDropdown(); buildShelfLifeUI(); }
@@ -17768,6 +17773,7 @@ function archiveBranchSOP(id) {
   sop.archived = !sop.archived;
   buildBranchSOPTable();
   document.getElementById('bsop-detail').style.display = 'none';
+  var _lv = document.getElementById('bsop-list-view'); if (_lv) _lv.style.display = '';
   saveAllData();
   showSaveToast(sop.name + (sop.archived ? ' archived' : ' restored'));
   logActivity('sop', '📋', (sop.archived ? 'Archived' : 'Unarchived') + ' branch SOP: ' + sop.name, sop.id);
@@ -17896,6 +17902,8 @@ function viewBranchSOP(id) {
   if (!sop) return;
   const detail = document.getElementById('bsop-detail');
   const content = document.getElementById('bsop-detail-content');
+  var listView = document.getElementById('bsop-list-view');
+  if (listView) listView.style.display = 'none';
   detail.style.display = 'block';
   applyWatermark();
   auditEvent('branch_sop.view', 'branch_sop', id, sop.name + ' — ' + (sop.brand || ''));
@@ -17905,7 +17913,7 @@ function viewBranchSOP(id) {
 
   content.innerHTML = `
     <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
-      <button class="btn btn-outline btn-sm" onclick="document.getElementById('bsop-detail').style.display='none';applyWatermark();">← Back to List</button>
+      <button class="btn btn-outline btn-sm" onclick="document.getElementById('bsop-detail').style.display='none';var _lv=document.getElementById('bsop-list-view');if(_lv)_lv.style.display='';applyWatermark();">← Back to List</button>
       <button class="btn btn-gold btn-sm" onclick="editBranchSOP('${sop.id}')">✏️ Edit Steps</button>
       <button class="btn btn-outline btn-sm" onclick="printBranchSOP('${sop.id}')">🖨️ Print</button>
     </div>
