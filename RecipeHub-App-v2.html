@@ -5545,9 +5545,31 @@ function _persistLocal(blob) {
   } catch(e) { /* quota or private mode */ }
 }
 
+// Recipe ingredients carry derived fields (itemCode) that should never be persisted —
+// codes live in items_master / ING_DATA. Returns a stripped copy of RECIPE_DB safe to POST.
+function _stripDerivedRecipeFields(recipes) {
+  if (!recipes || typeof recipes !== 'object') return recipes;
+  var out = {};
+  Object.keys(recipes).forEach(function(npd) {
+    var r = recipes[npd];
+    if (!r || typeof r !== 'object') { out[npd] = r; return; }
+    var copy = Object.assign({}, r);
+    if (Array.isArray(r.ingredients)) {
+      copy.ingredients = r.ingredients.map(function(i) {
+        if (!i || typeof i !== 'object') return i;
+        var clean = Object.assign({}, i);
+        delete clean.itemCode; // derived from name via resolveItemCode()
+        return clean;
+      });
+    }
+    out[npd] = copy;
+  });
+  return out;
+}
+
 function _buildDataBlob() {
   return {
-    recipes: RECIPE_DB,
+    recipes: _stripDerivedRecipeFields(RECIPE_DB),
     ingredients: ING_DATA,
     users: USERS_DATA,
     pending: PENDING_DATA,
@@ -5656,11 +5678,19 @@ function saveRecipeToServer(npd) {
   // Save to localStorage
   _persistLocal(_buildDataBlob());
   auditEvent('recipe.edit', 'recipe', npd, r.name + ' — ' + (r.brand || ''));
+  // Strip derived itemCode from each ingredient before sending — codes are derived from name.
+  var _rToPost = Object.assign({}, r);
+  if (Array.isArray(r.ingredients)) {
+    _rToPost.ingredients = r.ingredients.map(function(i) {
+      if (!i || typeof i !== 'object') return i;
+      var c = Object.assign({}, i); delete c.itemCode; return c;
+    });
+  }
   // Send just this recipe to server
   fetch(API_BASE + '/api/recipe/' + encodeURIComponent(npd), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + API_KEY },
-    body: JSON.stringify({ recipe: r }),
+    body: JSON.stringify({ recipe: _rToPost }),
   }).then(function(resp) {
     if (!resp.ok) throw new Error('Server ' + resp.status);
     return resp.json();
@@ -8869,7 +8899,8 @@ function viewRecipe(npd) {
                 var _cost = _usePrice !== null ? (_frac * _usePrice) : null;
                 var _isOverride = i.costPerKg != null;
                 var _isDb = !_isOverride && !isNaN(_dbPrice);
-                var _resolvedCode = i.itemCode || resolveItemCode(i.name);
+                // Always resolve from the name — itemCode is no longer persisted.
+                var _resolvedCode = resolveItemCode(i.name);
                 var _itemCodePill = _resolvedCode ? '<span style="display:inline-block;margin-left:6px;padding:1px 6px;border-radius:4px;background:var(--g1);color:var(--g4);font-family:var(--font-m);font-size:10px;vertical-align:middle" title="Oracle EBS item code">'+_resolvedCode+'</span>' : '';
                 return `<tr><td>${i.name}${_itemCodePill}</td><td style="text-align:right;font-family:var(--font-m);font-size:12px">${(_frac*1000).toFixed(1)} g</td><td style="text-align:right;font-family:var(--font-m);font-size:12px;color:var(--g3)">${i.pct.toFixed(1)}%</td><td style="text-align:right;font-family:var(--font-m);font-size:12px;cursor:pointer" onclick="editIngCost('${r.npd}',${idx})" title="Click to edit cost"><span style="color:${_cost !== null ? (_isOverride ? 'var(--blue)' : 'var(--sage)') : 'var(--g3)'}">${_cost !== null ? 'SAR ' + _cost.toFixed(2) : '+ add'}</span>${_isOverride ? '<span style="font-size:8px;color:var(--blue);margin-left:3px" title="Manual override">✎</span>' : ''}</td></tr>`;
               }).join('')}

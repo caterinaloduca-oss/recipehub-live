@@ -1136,11 +1136,33 @@ app.get('/api/pos-recipe/:saleItemId', requireAuth, async (req, res) => {
 // POST /api/notify — send workflow notification
 app.post('/api/notify', requireAuth, (req, res) => {
   try {
-    const { event, recipe, build, run, user, ingredients, batchSize } = req.body;
+    const { event, recipe, build, run, user, ingredients: incomingIngredients, batchSize } = req.body;
     if (!event) return res.status(400).json({ error: 'event required' });
 
     const userName = user || 'Someone';
     let subject, html, recipients;
+
+    // Resolve ingredient codes server-side from app_state.ingredients (Oracle pattern only).
+    // The client may post with empty/wrong codes if its ING_DATA is stale — server is authoritative.
+    const oraclePat = /^[A-Z]{2,}\d+$/;
+    const _ingDb = ((db.getState() || {}).data || {}).ingredients || [];
+    const _nameToCode = {};
+    for (const row of _ingDb) {
+      if (!Array.isArray(row) || row.length < 4) continue;
+      const code = String(row[3] || '').trim();
+      if (!oraclePat.test(code)) continue;
+      const nm = String(row[1] || '').toLowerCase().trim();
+      if (nm && !_nameToCode[nm]) _nameToCode[nm] = code;
+    }
+    const ingredients = Array.isArray(incomingIngredients)
+      ? incomingIngredients.map(i => {
+          const nm = String(i && i.name || '').toLowerCase().trim();
+          const stored = String(i && i.itemCode || '').trim();
+          // Trust client only if it's an Oracle code; else look up server-side.
+          const code = oraclePat.test(stored) ? stored : (_nameToCode[nm] || '');
+          return { name: i.name || '', pct: Number(i.pct || 0), itemCode: code };
+        })
+      : null;
 
     // Build a Purchasing-focused HTML block listing ingredients + estimated kg per batch.
     // Used by the Factory Trial and Production Trial notifications. Trims to top 20 entries.
