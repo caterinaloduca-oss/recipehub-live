@@ -796,6 +796,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
         <option value="factory">Factory</option>
         <option value="purchasing">Purchasing</option>
         <option value="viewer">Viewer</option>
+        <option value="catalog-only">Catalog-only (Recipes off)</option>
       </select>
     </div>
     <div style="display:flex;gap:6px">
@@ -5357,6 +5358,7 @@ function saveProfile() {
     ud.phone = phone;
     ud.dept = dept;
     ud.title = title;
+    ud.updatedAt = new Date().toISOString(); // server keeps newer copy — bump so the edit lands.
   }
 
   saveAllData();
@@ -6365,6 +6367,7 @@ function canAccessPage(pageId) {
 // Whether the *current* signed-in user is restricted to catalog-only recipes (titles only).
 // Driven by the per-user `canViewRecipes` flag toggled from the Users page.
 function isCurrentUserBlindedRecipes() {
+  if (_previewCatalogOnly) return true; // admin previewing
   try {
     var raw = sessionStorage.getItem(AUTH_KEY);
     if (!raw) return false;
@@ -6380,6 +6383,8 @@ function toggleUserRecipeAccess(email) {
   var u = USERS_DATA.find(function(x){ return (x.email || '').toLowerCase() === (email||'').toLowerCase(); });
   if (!u) return;
   u.canViewRecipes = u.canViewRecipes === false ? true : false;
+  // Server keeps its version unless client's updatedAt is newer — so always bump on edit.
+  u.updatedAt = new Date().toISOString();
   auditEvent('user.recipe_access_change', 'user', u.email, u.name, { canViewRecipes: u.canViewRecipes });
   buildUsersTable();
   saveAllData();
@@ -9621,6 +9626,8 @@ function removeTrialQAMedia(npd, stage, idx) {
 
 // Get current user role from auth
 var _previewRole = null;
+// Separate preview flag for catalog-only (per-user 'Recipes' tick = off). Doesn't change role.
+var _previewCatalogOnly = false;
 
 function getCurrentUserRole() {
   if (_previewRole) return _previewRole;
@@ -9639,12 +9646,20 @@ function getCurrentUserRole() {
 function previewAs(role) {
   if (role === 'exit' || !role) {
     _previewRole = null;
+    _previewCatalogOnly = false;
     var banner = document.getElementById('preview-banner');
     if (banner) banner.style.display = 'none';
     var sel = document.getElementById('preview-role-select');
     if (sel) sel.value = '';
+  } else if (role === 'catalog-only') {
+    // Catalog-only is a per-user flag, not a role — don't override the role.
+    _previewRole = null;
+    _previewCatalogOnly = true;
+    var banner = document.getElementById('preview-banner');
+    if (banner) { banner.style.display = 'flex'; banner.querySelector('span').textContent = 'Viewing as: Catalog-only (Recipes tick off)'; }
   } else {
     _previewRole = role;
+    _previewCatalogOnly = false;
     var banner = document.getElementById('preview-banner');
     if (banner) { banner.style.display = 'flex'; banner.querySelector('span').textContent = 'Viewing as ' + {admin:'Admin',npd:'R&D',qa:'QA',factory:'Factory',purchasing:'Purchasing',viewer:'Viewer'}[role]; }
   }
@@ -12842,6 +12857,8 @@ function saveEditUser(email) {
   u.brands = document.getElementById('eu-brands').value.trim() || 'All';
   var canViewEl = document.getElementById('eu-can-view-recipes');
   if (canViewEl) u.canViewRecipes = canViewEl.checked;
+  // Bump updatedAt so the server's "keep newer" merge accepts our changes.
+  u.updatedAt = new Date().toISOString();
 
   if (oldRole !== u.role) {
     auditEvent('user.role_change', 'user', u.email, u.name, { from: oldRole, to: u.role });
