@@ -6321,7 +6321,12 @@ function nav(id) {
     else if (id === 'users') { var ut = document.getElementById('users-tbody'); if (ut) { ut.innerHTML = ''; buildUsersTable(); } var pt = document.getElementById('pending-tbody'); if (pt) { pt.innerHTML = ''; buildPendingTable(); } }
     else if (id === 'builds') { closeBuildDetail(); buildBuildsTable(); }
     else if (id === 'production') { buildProductionTable(); }
-    else if (id === 'branch-sop') { buildBranchSOPTable(); }
+    else if (id === 'branch-sop') {
+      // Reset filters on entry — leftover state from a previous visit was making rows look wrong against the dropdown
+      var _bsopBrand = document.getElementById('bsop-filter-brand'); if (_bsopBrand) _bsopBrand.value = 'All Brands';
+      var _bsopSearch = document.getElementById('bsop-search'); if (_bsopSearch) _bsopSearch.value = '';
+      buildBranchSOPTable();
+    }
     else if (id === 'qa') { populateQARecipeDropdown(); buildShelfLifeUI(); }
     else if (id === 'comms') { initCommsPage(); }
     else if (id === 'library') { renderLibrary(); }
