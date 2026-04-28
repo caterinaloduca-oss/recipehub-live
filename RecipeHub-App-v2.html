@@ -3249,8 +3249,8 @@ var TOUR_TOPICS = {
   'roles-permissions': {
     title: 'Roles & Permissions',
     icon: '👥',
-    minutes: 6,
-    blurb: 'Who can edit what. The 7 roles, their domains, and the gates between them.',
+    minutes: 7,
+    blurb: 'Who can edit what. The 7 roles, role defaults, and per-user overrides.',
     steps: [
       {
         title: 'Seven roles, clear lanes',
@@ -3283,13 +3283,26 @@ var TOUR_TOPICS = {
         page: 'training'
       },
       {
-        title: 'Where to manage roles',
-        body: 'Admin opens <strong>Users & Access</strong> from Settings in the sidebar to invite users and set roles. New users default to Viewer until promoted.',
+        title: 'Adding a user',
+        body: 'Admin opens <strong>Users & Access</strong> from the sidebar and clicks <strong>+ Add User</strong> on the Active Team card. Name, email, and role are set at creation — there\'s no approval queue.',
         page: 'training',
         roleHints: {
-          admin: 'Sidebar → Users & Access. New invites land directly with the role you set.',
-          npd: 'You can\'t change roles. Ask Caterina if someone needs editing rights.',
-          viewer: 'You\'re read-only by design. To change role, contact Admin.'
+          admin: 'Only you can add users. The button on the Active Team card opens the form.',
+          npd: 'You can\'t add users. Ask Caterina if someone new needs access.',
+          viewer: 'You\'re read-only by design. To change role or add people, contact Admin.'
+        }
+      },
+      {
+        title: 'Per-user access overrides role defaults',
+        body: 'Every user has an <strong>Access</strong> column on the Active Team table with toggles for <strong>Recipes / Builds / Prices / Cost / Branch SOP / Factory SOP</strong>. These per-user toggles override the role-level defaults — useful when one Factory user needs to see Cost while the rest don\'t.',
+        page: 'training'
+      },
+      {
+        title: 'Role defaults — Access Control matrix',
+        body: 'The <strong>Access Control</strong> matrix at the bottom of the Users & Access page is collapsed by default. Open it to set what each role can see and do out of the box. Per-user toggles still override this when needed.',
+        page: 'training',
+        roleHints: {
+          admin: 'Click the navy "Access Control" header to expand. Save Changes appears once it\'s open.'
         }
       }
     ]
