@@ -15989,7 +15989,9 @@ function buildProductionTable() {
       var _daysDiff = Math.floor((Date.now() - new Date(run.createdAt).getTime()) / 86400000);
       if (_daysDiff > 0) _daysWaiting = '<div style="font-size:10px;color:var(--red);font-weight:500;margin-top:2px">' + _daysDiff + 'd without date</div>';
     }
-    var _dateChanges = (run.dateLog && run.dateLog.length) ? run.dateLog.length : 0;
+    // Only count real reschedules, not the first-ever date assignment from (none) → date.
+    var _realDateChanges = (run.dateLog || []).filter(function(e){ return e && e.from && e.from !== '(none)'; });
+    var _dateChanges = _realDateChanges.length;
     var _dateChangeSuffix = _dateChanges ? '<div style="font-size:9px;color:var(--amber);font-weight:600;cursor:pointer" onclick="event.stopPropagation();showDateLog(\''+run.id+'\')">+'+_dateChanges+' change'+(_dateChanges>1?'s':'')+'</div>' : '';
     var _runTypeBadge = {'Factory Trial':'badge-factory-trial','Production Trial':'badge-prod-trial-run'};
     var _runTypeLabel = run.runType || 'Production';
@@ -16357,9 +16359,14 @@ function saveEditRun(id) {
   if (!run) return;
   var newDate = document.getElementById('ep-date').value;
   if (newDate !== run.date) {
-    if (!run.dateLog) run.dateLog = [];
-    run.dateLog.push({from: run.date || '(none)', to: newDate || '(none)', at: new Date().toISOString()});
-    logActivity('production', '📅', run.recipe + ': date changed' + (run.date ? ' from ' + run.date : '') + ' → ' + (newDate || 'unset'));
+    // First-ever date assignment is the baseline — don't count it as a "change". Only log when there
+    // was already a real date and the user is moving from one date to another (or clearing it).
+    var hadDate = !!run.date;
+    if (hadDate) {
+      if (!run.dateLog) run.dateLog = [];
+      run.dateLog.push({from: run.date, to: newDate || '(none)', at: new Date().toISOString()});
+      logActivity('production', '📅', run.recipe + ': date changed from ' + run.date + ' → ' + (newDate || 'unset'));
+    }
   }
   run.date=newDate; run.batchSize=document.getElementById('ep-batch').value; run.operator=document.getElementById('ep-operator').value; run.notes=document.getElementById('ep-notes').value; run.yield=document.getElementById('ep-yield').value; run.waste=document.getElementById('ep-waste').value;
   // Auto-promote pending → scheduled when date is set
@@ -16374,7 +16381,10 @@ function saveEditRun(id) {
 function showDateLog(id) {
   var run = PRODUCTION_RUNS.find(function(r){return r.id===id});
   if (!run || !run.dateLog || !run.dateLog.length) return;
-  var rows = run.dateLog.map(function(e, i) {
+  // Hide the legacy "(none) → date" first-assignment entries — those are the baseline, not changes.
+  var realLog = run.dateLog.filter(function(e){ return e && e.from && e.from !== '(none)'; });
+  if (!realLog.length) return;
+  var rows = realLog.map(function(e, i) {
     var d = new Date(e.at);
     var when = d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) + ' ' + d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
     var fromFmt = e.from === '(none)' ? '—' : e.from;
@@ -16383,7 +16393,7 @@ function showDateLog(id) {
   }).join('');
   openModal(
     '<div class="card-head" style="background:var(--navy);border-radius:16px 16px 0 0"><span class="card-title" style="color:white">Date History — ' + run.recipe + '</span><button class="btn btn-sm" style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:none" onclick="closeModal()">✕</button></div>' +
-    '<div class="card-body" style="padding:16px"><div style="font-size:11px;color:var(--g3);margin-bottom:8px">' + run.dateLog.length + ' change' + (run.dateLog.length > 1 ? 's' : '') + '</div><table class="data-table"><thead><tr><th>When</th><th>From</th><th></th><th>To</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
+    '<div class="card-body" style="padding:16px"><div style="font-size:11px;color:var(--g3);margin-bottom:8px">' + realLog.length + ' change' + (realLog.length > 1 ? 's' : '') + '</div><table class="data-table"><thead><tr><th>When</th><th>From</th><th></th><th>To</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
   );
 }
 
