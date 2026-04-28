@@ -2562,9 +2562,8 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
 </div>
 
 <div id="page-users" class="page-hidden">
-  <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:16px;margin-bottom:24px">
+  <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:16px;margin-bottom:24px">
     <div class="stat-card"><div class="stat-label">Total Users</div><div class="stat-value" id="stat-total-users">11</div><div class="stat-sub">Active accounts</div></div>
-    <div class="stat-card"><div class="stat-label">Pending Approval</div><div class="stat-value" style="color:var(--red)" id="stat-pending-users">0</div><div class="stat-sub">Awaiting review</div></div>
     <div class="stat-card"><div class="stat-label">NPD</div><div class="stat-value" style="color:var(--navy)">3</div><div class="stat-sub">Recipe developers</div></div>
     <div class="stat-card"><div class="stat-label">QA</div><div class="stat-value" style="color:var(--sage)">2</div><div class="stat-sub">Lab & quality</div></div>
     <div class="stat-card"><div class="stat-label">Factory</div><div class="stat-value" style="color:var(--amber)">3</div><div class="stat-sub">Production floor</div></div>
@@ -2572,25 +2571,12 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
     <div class="stat-card"><div class="stat-label">Viewer</div><div class="stat-value" style="color:#7C8A97">0</div><div class="stat-sub">Read only</div></div>
   </div>
 
-  <!-- Pending approvals -->
-  <div class="card" style="margin-bottom:20px;border:1.5px solid #F5B5B0">
-    <div class="card-head" style="background:var(--red-lt)">
-      <span class="card-title" style="color:var(--red)">Pending Approval <span id="pending-count-label" style="font-size:12px;font-weight:400;margin-left:6px"></span></span>
-    </div>
-    <div class="card-body" style="padding:0">
-      <table class="data-table">
-        <thead><tr><th>Full Name</th><th>Email</th><th>Phone</th><th>Department</th><th>Job Title</th><th>Requested Role</th><th>Brand Access</th><th>Submitted</th><th></th></tr></thead>
-        <tbody id="pending-tbody"></tbody>
-      </table>
-    </div>
-  </div>
-
   <!-- Active team -->
   <div>
     <div class="card">
       <div class="card-head">
         <span class="card-title">Active Team</span>
-        <button class="btn btn-gold btn-sm" onclick="toggleInviteForm()">+ Invite User</button>
+        <button class="btn btn-gold btn-sm" onclick="toggleInviteForm()">+ Add User</button>
       </div>
       <div style="padding:12px 16px 0">
         <div class="filter-bar" style="margin-bottom:12px">
@@ -2651,12 +2637,15 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
   </div>
 
   <!-- Access Control Matrix -->
-  <div class="card" style="margin-top:24px;border:1.5px solid var(--navy)">
-    <div class="card-head" style="background:var(--navy)">
-      <span class="card-title" style="color:white">Access Control</span>
-      <button class="btn btn-sm" style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:none" onclick="saveAccessControl()">Save Changes</button>
+  <div class="card" id="access-control-card" style="margin-top:24px;border:1.5px solid var(--navy)">
+    <div class="card-head" style="background:var(--navy);cursor:pointer" onclick="toggleAccessControl(event)">
+      <span class="card-title" style="color:white">Access Control <span style="font-size:11px;font-weight:400;opacity:0.7;margin-left:6px">role defaults — per-user access overrides this</span></span>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn btn-sm" id="access-control-save" style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:none;display:none" onclick="event.stopPropagation();saveAccessControl()">Save Changes</button>
+        <span id="access-control-chevron" style="color:white;font-size:14px;line-height:1;user-select:none">▸</span>
+      </div>
     </div>
-    <div class="card-body" style="padding:0">
+    <div class="card-body" id="access-control-body" style="padding:0;display:none">
       <div style="background:var(--navy-lt);padding:10px 16px;font-size:12px;color:var(--navy);border-bottom:1px solid var(--g2)">
         Toggle what each role can see and do. Admin always has full access.
       </div>
@@ -6116,7 +6105,7 @@ const PAGES = {
   brands:         { title:'Brands',                actions:`<button class="btn btn-primary btn-sm" onclick="openBrandForm()">+ New Brand</button>` },
   workflow:       { title:'Workflow',             actions:'' },
   training:       { title:'Training',             actions:'' },
-  users:          { title:'Users & Access',      actions:`<button class="btn btn-gold btn-sm" onclick="toggleInviteForm()">+ Add User</button>` },
+  users:          { title:'Users & Access',      actions:'' },
   'audit-log':    { title:'Audit Log',           actions:'' },
   comms:          { title:'Communications',     actions:'' },
   library:        { title:'Library',            actions:'<button class="btn btn-gold btn-sm" onclick="toggleLibUpload()">+ Upload Document</button>' },
@@ -13910,6 +13899,18 @@ function toggleAccess(el) {
 function saveAccessControl() {
   saveAllData();
   showSaveToast('Access control saved');
+}
+
+function toggleAccessControl(e) {
+  if (e) e.stopPropagation();
+  var body = document.getElementById('access-control-body');
+  var chev = document.getElementById('access-control-chevron');
+  var save = document.getElementById('access-control-save');
+  if (!body) return;
+  var open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : '';
+  if (chev) chev.textContent = open ? '▸' : '▾';
+  if (save) save.style.display = open ? 'none' : '';
 }
 
 function approveUser(btn) {
