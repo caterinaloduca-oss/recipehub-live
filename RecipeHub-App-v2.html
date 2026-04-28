@@ -10545,11 +10545,14 @@ function renderEditableSOPStep(s, idx, npd) {
         <button class="btn btn-danger-sm" onclick="removeSOPStep('${npd}',${idx})" style="flex-shrink:0">✕</button>
       </div>
       <div style="display:flex;gap:14px;margin-bottom:6px">
-        <label style="display:block;width:180px;min-height:120px;flex-shrink:0;border-radius:var(--r-md);overflow:hidden;background:var(--g1);border:1px dashed var(--g2);cursor:pointer;position:relative">
-          ${s.visualImg ? '<img src="'+s.visualImg+'" style="width:100%;height:100%;object-fit:cover" />' : '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;min-height:120px;color:var(--g3)"><span style="font-size:22px">📷</span><span style="font-size:10px;margin-top:4px">Add photo</span></div>'}
-          <div style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.4);color:white;font-size:11px;font-weight:500;align-items:center;justify-content:center" class="vsop-upload-hint">${s.visualImg ? 'Change' : 'Upload'}</div>
-          <input type="file" accept="image/*" style="display:none" onchange="uploadVisualSOPImg('${npd}',${idx},this)" />
-        </label>
+        <div style="position:relative;width:180px;flex-shrink:0">
+          <label style="display:block;width:180px;min-height:120px;border-radius:var(--r-md);overflow:hidden;background:var(--g1);border:1px dashed var(--g2);cursor:pointer;position:relative">
+            ${s.visualImg ? '<img src="'+s.visualImg+'" style="width:100%;height:100%;object-fit:cover" />' : '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;min-height:120px;color:var(--g3)"><span style="font-size:22px">📷</span><span style="font-size:10px;margin-top:4px">Add photo</span></div>'}
+            <div style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.4);color:white;font-size:11px;font-weight:500;align-items:center;justify-content:center" class="vsop-upload-hint">${s.visualImg ? 'Change' : 'Upload'}</div>
+            <input type="file" accept="image/*" style="display:none" onchange="uploadVisualSOPImg('${npd}',${idx},this)" />
+          </label>
+          ${s.visualImg ? `<button title="Delete photo" type="button" onclick="deleteVisualSOPImg('${npd}',${idx});return false;" style="position:absolute;top:6px;right:6px;background:rgba(192,57,43,0.95);color:white;border:none;border-radius:50%;width:24px;height:24px;font-size:13px;cursor:pointer;line-height:1;padding:0;z-index:10;box-shadow:0 1px 3px rgba(0,0,0,0.3)">✕</button>` : ''}
+        </div>
         <div style="flex:1;display:flex;flex-direction:column;gap:6px">
           ${renderIcons(s.icons)}
           <textarea class="form-textarea" style="width:100%;min-height:120px;font-size:13.5px;line-height:1.8;padding:12px 14px;box-sizing:border-box;resize:vertical;flex:1" oninput="updateSOPStepField('${npd}',${idx},'text',this.value)">${s.text}</textarea>
