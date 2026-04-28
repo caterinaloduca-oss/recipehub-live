@@ -16790,6 +16790,10 @@ function selectProdRun(id) {
   var panel = document.getElementById('prod-run-comments');
   var inputWrap = document.getElementById('prod-comment-input-wrap');
   if (inputWrap) inputWrap.style.display = 'flex';
+  // Clear the input on every run-select — was carrying typed-but-unsent text across runs
+  // and felt like the comment was "following you" between rows.
+  var _ci = document.getElementById('prod-comment-input');
+  if (_ci) _ci.value = '';
   // Highlight selected row
   document.querySelectorAll('#prod-tbody tr').forEach(function(tr){tr.style.background='';});
   var rows = document.querySelectorAll('#prod-tbody tr');
