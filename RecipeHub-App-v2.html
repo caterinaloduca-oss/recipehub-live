@@ -5290,6 +5290,9 @@ function saveProfile() {
   }
 
   saveAllData();
+  // Rebuild the users table if it's visible — otherwise the list still shows stale name/title/dept/phone.
+  var _ut = document.getElementById('users-tbody');
+  if (_ut) { _ut.innerHTML = ''; buildUsersTable(); }
   closeModal();
   showSaveToast('Profile updated');
 }
