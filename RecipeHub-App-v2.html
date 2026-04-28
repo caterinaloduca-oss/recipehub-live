@@ -12770,7 +12770,8 @@ function editUser(btn) {
   if (!u) return;
   const rm = ROLE_META[u.role] || {label:'Unassigned'};
 
-  var roleOpts = ['admin','npd','qa','ops','factory','purchasing','viewer'].map(function(r) {
+  // Iterate ROLE_META so newly added roles (blinded, etc.) appear automatically.
+  var roleOpts = Object.keys(ROLE_META).map(function(r) {
     var m = ROLE_META[r];
     return '<option value="'+r+'" '+(u.role===r?'selected':'')+'>'+m.label+'</option>';
   }).join('');
