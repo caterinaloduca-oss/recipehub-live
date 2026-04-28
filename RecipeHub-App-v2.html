@@ -9861,12 +9861,16 @@ function viewVisualSOP(npd) {
     return '<div class="vsop-step">' +
       '<div class="vsop-step-num '+color+'">'+(i+1)+'</div>' +
       '<div class="vsop-step-title">'+s.title+'</div>' +
-      '<label class="vsop-step-img" style="position:relative">' +
-        (s.visualImg ? '<img src="'+s.visualImg+'" />' : '<span style="color:var(--g3);font-size:20px">📷</span>') +
-        '<div class="vsop-upload-hint">' + (s.visualImg ? 'Click to change' : 'Click to upload') + '</div>' +
-        '<input type="file" accept="image/*" style="display:none" onchange="uploadVisualSOPImg(\''+npd+'\','+i+',this)" />' +
-        (s.visualImg ? '<button title="Delete photo" type="button" onclick="event.stopPropagation();event.preventDefault();deleteVisualSOPImg(\''+npd+'\','+i+');return false;" style="position:absolute;top:4px;right:4px;background:rgba(192,57,43,0.95);color:white;border:none;border-radius:50%;width:22px;height:22px;font-size:12px;cursor:pointer;line-height:1;padding:0;z-index:10;box-shadow:0 1px 3px rgba(0,0,0,0.3)">✕</button>' : '') +
-      '</label>' +
+      '<div style="position:relative">' +
+        '<label class="vsop-step-img">' +
+          (s.visualImg ? '<img src="'+s.visualImg+'" />' : '<span style="color:var(--g3);font-size:20px">📷</span>') +
+          '<div class="vsop-upload-hint">' + (s.visualImg ? 'Click to change' : 'Click to upload') + '</div>' +
+          '<input type="file" accept="image/*" style="display:none" onchange="uploadVisualSOPImg(\''+npd+'\','+i+',this)" />' +
+        '</label>' +
+        // Delete button must live OUTSIDE the <label> — otherwise clicking it still triggers the file
+        // picker through the label's associated-control behavior, regardless of stopPropagation.
+        (s.visualImg ? '<button title="Delete photo" type="button" onclick="deleteVisualSOPImg(\''+npd+'\','+i+');return false;" style="position:absolute;top:4px;right:4px;background:rgba(192,57,43,0.95);color:white;border:none;border-radius:50%;width:22px;height:22px;font-size:12px;cursor:pointer;line-height:1;padding:0;z-index:10;box-shadow:0 1px 3px rgba(0,0,0,0.3)">✕</button>' : '') +
+      '</div>' +
       '<div class="vsop-step-body">' + (s.text || '') + '</div>' +
       (temp ? '<span class="vsop-temp '+temp.type+'">🌡 '+temp.value+'</span>' : '') +
       (time ? '<span class="vsop-temp time">⏱ '+time+'</span>' : '') +
