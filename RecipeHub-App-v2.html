@@ -796,6 +796,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
         <option value="factory">Factory</option>
         <option value="purchasing">Purchasing</option>
         <option value="viewer">Viewer</option>
+        <option value="blinded">Blinded Viewer</option>
       </select>
     </div>
     <div style="display:flex;gap:6px">
@@ -2597,7 +2598,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
             <span class="search-icon">⌕</span>
             <input class="search-input" placeholder="Search users by name, email, role…" id="user-search" oninput="filterUsers()" />
           </div>
-          <select class="filter-select" id="user-filter-role" onchange="filterUsers()"><option>All Roles</option><option>Admin</option><option>NPD</option><option>QA</option><option>OPS</option><option>Factory</option><option>Purchasing</option><option>Viewer</option></select>
+          <select class="filter-select" id="user-filter-role" onchange="filterUsers()"><option>All Roles</option><option>Admin</option><option>NPD</option><option>QA</option><option>OPS</option><option>Factory</option><option>Purchasing</option><option>Viewer</option><option>Blinded</option></select>
         </div>
       </div>
       <div class="card-body" style="padding:0">
@@ -2638,6 +2639,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
               <option value="purchasing">Purchasing</option>
               <option value="admin">Admin</option>
               <option value="viewer">Viewer</option>
+              <option value="blinded">Blinded Viewer</option>
             </select>
           </div>
         </div>
@@ -2670,6 +2672,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
             <th style="text-align:center;width:80px"><span style="display:inline-block;padding:3px 10px;border-radius:40px;background:var(--amber-lt);color:var(--amber);font-size:10px;font-weight:500">Factory</span></th>
             <th style="text-align:center;width:80px"><span style="display:inline-block;padding:3px 10px;border-radius:40px;background:#E8F4FD;color:#0C6BA8;font-size:10px;font-weight:500">Purchasing</span></th>
             <th style="text-align:center;width:80px"><span style="display:inline-block;padding:3px 10px;border-radius:40px;background:#F0F2F4;color:#7C8A97;font-size:10px;font-weight:500">Viewer</span></th>
+            <th style="text-align:center;width:90px"><span style="display:inline-block;padding:3px 10px;border-radius:40px;background:#F2EFEC;color:#5E5750;font-size:10px;font-weight:500">Blinded</span></th>
           </tr>
         </thead>
         <tbody id="access-matrix-body"></tbody>
@@ -6359,6 +6362,10 @@ function canAccessPage(pageId) {
   // Admin-only pages
   if (pageId === 'users') return false;
   if (pageId === 'audit-log') return false;
+  // Blinded Viewer: catalog-only — recipes list + workflow + dashboard. Anything else is hidden.
+  if (role === 'blinded') {
+    return ({ dashboard:1, recipes:1, workflow:1, training:1 }[pageId]) ? true : false;
+  }
   return true;
 }
 
@@ -7345,9 +7352,25 @@ function buildRecipesTable() {
     if (r.status === 'draft' && userRole !== 'admin' && userRole !== 'npd') return;
     // Viewers only see approved recipes
     if (userRole === 'viewer' && r.status !== 'approved') return;
+    // Blinded viewers: see only Approved recipes (no drafts / trials), and the row is non-interactive.
+    if (userRole === 'blinded' && r.status !== 'approved') return;
     const tr = document.createElement('tr');
-    tr.style.cursor = 'pointer';
     if (r.archived) tr.style.opacity = '0.5';
+    if (userRole === 'blinded') {
+      tr.style.cursor = 'default';
+      // No click-through, no actions, no ingredient haystack — just the title strip.
+      var _statusBadgeB = r.archived ? '<span class="badge badge-draft">Archived</span>' : '<span class="badge badge-approved">Approved</span>';
+      tr.innerHTML = `
+        <td><strong>${r.name}</strong></td>
+        <td>${renderBrandChips(r)}</td>
+        <td><span class="cat-tag ${r.catClass}">${r.type || '—'}</span></td>
+        <td>${_statusBadgeB}</td>
+        <td colspan="5" style="color:var(--g3);font-size:11px;font-style:italic">— restricted —</td>
+      `;
+      tbody.appendChild(tr);
+      return;
+    }
+    tr.style.cursor = 'pointer';
     tr.onclick = function() { viewRecipe(r.npd); };
     // Stash ingredient names + item codes on the row so filterRecipes can search them.
     var _ingHaystack = (r.ingredients || []).map(function(i){
@@ -8611,6 +8634,11 @@ function addComponentFromModal(npd) {
 }
 
 function viewRecipe(npd) {
+  // Blinded viewers only see the catalog list — no recipe detail allowed.
+  if (getCurrentUserRole() === 'blinded') {
+    showSaveToast('Recipe details are restricted for your role', true);
+    return;
+  }
   var _wasOnDetail = (_currentPage === 'recipe-detail');
   var _scrollY = _wasOnDetail ? window.scrollY : 0;
   var _mainEl = document.querySelector('.main');
@@ -13443,6 +13471,7 @@ const ROLE_META = {
   factory:    {label:'Factory',    color:'var(--amber)', bg:'var(--amber-lt)',border:'#F5D5A0',           perms:['View approved SOPs only','Print & sign batch tickets','Schedule & complete production runs','No access to recipe formulas','No access to costing data','Brand-restricted access']},
   purchasing: {label:'Purchasing', color:'#8B5E3C',      bg:'#FDF3E8',       border:'#E6CEAD',           perms:['View & edit ingredient DB','Update supplier pricing','Manage packaging items','View recipe ingredient lists (read only)','No access to recipe formulas','Access all brands']},
   viewer:     {label:'Viewer',     color:'#7C8A97',      bg:'#F0F2F4',       border:'#D5D9DE',           perms:['Read-only access to all pages','Cannot edit, create or delete anything','Cannot approve or sign off','View approved recipes & SOPs','No access to Users & Access']},
+  blinded:    {label:'Blinded Viewer', color:'#5E5750', bg:'#F2EFEC',        border:'#D5CFC8',           perms:['Sees the recipe catalog (name + brand + type + status only)','Cannot open recipe details — formulation, ingredients, costs are hidden','No access to Ingredients, QA, SOP, Builds, Brands, Production, Branch SOP','No print, edit, delete, or workflow actions','Used for sensory panelists, external chefs, and other restricted roles']},
 };
 
 let USERS_DATA = [
@@ -13547,53 +13576,53 @@ function buildRoleCards() {
 // ──────────── ACCESS CONTROL MATRIX ────────────
 const ACCESS_PERMISSIONS = [
   { group:'Pages', items:[
-    { key:'page_dashboard',    label:'Dashboard',              admin:true, npd:true,  qa:true,  ops:true,  factory:true,  purchasing:true,  viewer:true  },
-    { key:'page_recipes',      label:'Recipes',                admin:true, npd:true,  qa:true,  ops:true,  factory:true,  purchasing:true,  viewer:true  },
-    { key:'page_ingredients',  label:'Ingredients Database',   admin:true, npd:true,  qa:true,  ops:true,  factory:true,  purchasing:true,  viewer:true  },
-    { key:'page_qa',           label:'QA Lab Results',         admin:true, npd:true,  qa:true,  ops:true,  factory:true,  purchasing:true,  viewer:true  },
-    { key:'page_sop',          label:'Factory SOP',            admin:true, npd:true,  qa:true,  ops:true,  factory:true,  purchasing:true,  viewer:true  },
-    { key:'page_brands',       label:'Brands',                 admin:true, npd:true,  qa:true,  ops:true,  factory:true,  purchasing:true,  viewer:true  },
-    { key:'page_builds',       label:'Product Builds',         admin:true, npd:true,  qa:true,  ops:true,  factory:true,  purchasing:true,  viewer:true  },
-    { key:'page_branch_sop',   label:'Branch SOP',             admin:true, npd:true,  qa:true,  ops:true,  factory:true,  purchasing:true,  viewer:true  },
-    { key:'page_production',   label:'Production Plan',        admin:true, npd:true,  qa:true,  ops:true,  factory:true,  purchasing:true,  viewer:true  },
-    { key:'page_workflow',     label:'Workflow',               admin:true, npd:true,  qa:true,  ops:true,  factory:true,  purchasing:true,  viewer:true  },
-    { key:'page_users',        label:'Users & Access',         admin:true, npd:false, qa:false, ops:false, factory:false, purchasing:false, viewer:false },
+    { key:'page_dashboard',    label:'Dashboard',              admin:true, npd:true,  qa:true,  ops:true,  factory:true,  purchasing:true,  viewer:true,  blinded:true },
+    { key:'page_recipes',      label:'Recipes',                admin:true, npd:true,  qa:true,  ops:true,  factory:true,  purchasing:true,  viewer:true,  blinded:true },
+    { key:'page_ingredients',  label:'Ingredients Database',   admin:true, npd:true,  qa:true,  ops:true,  factory:true,  purchasing:true,  viewer:true,  blinded:false },
+    { key:'page_qa',           label:'QA Lab Results',         admin:true, npd:true,  qa:true,  ops:true,  factory:true,  purchasing:true,  viewer:true,  blinded:false },
+    { key:'page_sop',          label:'Factory SOP',            admin:true, npd:true,  qa:true,  ops:true,  factory:true,  purchasing:true,  viewer:true,  blinded:false },
+    { key:'page_brands',       label:'Brands',                 admin:true, npd:true,  qa:true,  ops:true,  factory:true,  purchasing:true,  viewer:true,  blinded:false },
+    { key:'page_builds',       label:'Product Builds',         admin:true, npd:true,  qa:true,  ops:true,  factory:true,  purchasing:true,  viewer:true,  blinded:false },
+    { key:'page_branch_sop',   label:'Branch SOP',             admin:true, npd:true,  qa:true,  ops:true,  factory:true,  purchasing:true,  viewer:true,  blinded:false },
+    { key:'page_production',   label:'Production Plan',        admin:true, npd:true,  qa:true,  ops:true,  factory:true,  purchasing:true,  viewer:true,  blinded:false },
+    { key:'page_workflow',     label:'Workflow',               admin:true, npd:true,  qa:true,  ops:true,  factory:true,  purchasing:true,  viewer:true,  blinded:true },
+    { key:'page_users',        label:'Users & Access',         admin:true, npd:false, qa:false, ops:false, factory:false, purchasing:false, viewer:false, blinded:false },
   ]},
   { group:'Recipe Actions', items:[
-    { key:'recipe_create',     label:'Create new recipes',     admin:true, npd:true,  qa:false, ops:false, factory:false, purchasing:false, viewer:false },
-    { key:'recipe_edit',       label:'Edit recipes',           admin:true, npd:true,  qa:false, ops:false, factory:false, purchasing:false, viewer:false },
-    { key:'recipe_status',     label:'Move recipe stages',     admin:true, npd:true,  qa:false, ops:false, factory:false, purchasing:false, viewer:false },
-    { key:'recipe_approve',    label:'Final approval',         admin:true, npd:true,  qa:false, ops:false, factory:false, purchasing:false, viewer:false },
-    { key:'recipe_delete',     label:'Delete recipes',         admin:true, npd:false, qa:false, ops:false, factory:false, purchasing:false, viewer:false },
+    { key:'recipe_create',     label:'Create new recipes',     admin:true, npd:true,  qa:false, ops:false, factory:false, purchasing:false, viewer:false, blinded:false },
+    { key:'recipe_edit',       label:'Edit recipes',           admin:true, npd:true,  qa:false, ops:false, factory:false, purchasing:false, viewer:false, blinded:false },
+    { key:'recipe_status',     label:'Move recipe stages',     admin:true, npd:true,  qa:false, ops:false, factory:false, purchasing:false, viewer:false, blinded:false },
+    { key:'recipe_approve',    label:'Final approval',         admin:true, npd:true,  qa:false, ops:false, factory:false, purchasing:false, viewer:false, blinded:false },
+    { key:'recipe_delete',     label:'Delete recipes',         admin:true, npd:false, qa:false, ops:false, factory:false, purchasing:false, viewer:false, blinded:false },
   ]},
   { group:'Ingredients', items:[
-    { key:'ing_create',        label:'Add / edit ingredients',  admin:true, npd:true,  qa:false, ops:false, factory:false, purchasing:true,  viewer:false },
-    { key:'ing_pricing',       label:'Edit supplier pricing',   admin:true, npd:true,  qa:false, ops:false, factory:false, purchasing:true,  viewer:false },
+    { key:'ing_create',        label:'Add / edit ingredients',  admin:true, npd:true,  qa:false, ops:false, factory:false, purchasing:true,  viewer:false, blinded:false },
+    { key:'ing_pricing',       label:'Edit supplier pricing',   admin:true, npd:true,  qa:false, ops:false, factory:false, purchasing:true,  viewer:false, blinded:false },
   ]},
   { group:'QA & Data', items:[
-    { key:'qa_enter',          label:'Enter QA results',        admin:true, npd:false, qa:true,  ops:false, factory:false, purchasing:false, viewer:false },
-    { key:'qa_signoff',        label:'QA sign-off',             admin:true, npd:false, qa:true,  ops:false, factory:false, purchasing:false, viewer:false },
+    { key:'qa_enter',          label:'Enter QA results',        admin:true, npd:false, qa:true,  ops:false, factory:false, purchasing:false, viewer:false, blinded:false },
+    { key:'qa_signoff',        label:'QA sign-off',             admin:true, npd:false, qa:true,  ops:false, factory:false, purchasing:false, viewer:false, blinded:false },
   ]},
   { group:'Builds & Branch SOPs', items:[
-    { key:'build_create',      label:'Create / edit builds',    admin:true, npd:true,  qa:true,  ops:false, factory:false, purchasing:false, viewer:false },
-    { key:'build_discontinue', label:'Discontinue builds',      admin:true, npd:true,  qa:false, ops:false, factory:false, purchasing:false, viewer:false },
-    { key:'build_nutrition',   label:'Edit build nutrition',    admin:true, npd:true,  qa:true,  ops:false, factory:false, purchasing:false, viewer:false },
-    { key:'branch_sop_create', label:'Create / edit Branch SOPs',admin:true, npd:true, qa:true,  ops:false, factory:false, purchasing:false, viewer:false },
-    { key:'branch_sop_prepare',label:'Prepare Branch SOP draft (Stage 1)', admin:true, npd:true, qa:true, ops:false, factory:false, purchasing:false, viewer:false },
-    { key:'branch_sop_review', label:'Review Branch SOP (Stage 2 — OPS)',  admin:true, npd:false, qa:false, ops:true, factory:false, purchasing:false, viewer:false },
-    { key:'branch_sop_approve',label:'Approve Branch SOP (Stage 3 — QA)',   admin:true, npd:false, qa:true,  ops:false, factory:false, purchasing:false, viewer:false },
+    { key:'build_create',      label:'Create / edit builds',    admin:true, npd:true,  qa:true,  ops:false, factory:false, purchasing:false, viewer:false, blinded:false },
+    { key:'build_discontinue', label:'Discontinue builds',      admin:true, npd:true,  qa:false, ops:false, factory:false, purchasing:false, viewer:false, blinded:false },
+    { key:'build_nutrition',   label:'Edit build nutrition',    admin:true, npd:true,  qa:true,  ops:false, factory:false, purchasing:false, viewer:false, blinded:false },
+    { key:'branch_sop_create', label:'Create / edit Branch SOPs',admin:true, npd:true, qa:true,  ops:false, factory:false, purchasing:false, viewer:false, blinded:false },
+    { key:'branch_sop_prepare',label:'Prepare Branch SOP draft (Stage 1)', admin:true, npd:true, qa:true, ops:false, factory:false, purchasing:false, viewer:false, blinded:false },
+    { key:'branch_sop_review', label:'Review Branch SOP (Stage 2 — OPS)',  admin:true, npd:false, qa:false, ops:true, factory:false, purchasing:false, viewer:false, blinded:false },
+    { key:'branch_sop_approve',label:'Approve Branch SOP (Stage 3 — QA)',   admin:true, npd:false, qa:true,  ops:false, factory:false, purchasing:false, viewer:false, blinded:false },
   ]},
   { group:'Factory SOPs & Production', items:[
-    { key:'sop_edit',          label:'Edit Factory SOP steps',  admin:true, npd:true,  qa:false, ops:false, factory:false, purchasing:false, viewer:false },
-    { key:'sop_approve',       label:'Approve Factory SOPs',    admin:true, npd:true,  qa:false, ops:false, factory:false, purchasing:false, viewer:false },
-    { key:'prod_edit',         label:'Schedule / edit runs',    admin:true, npd:false, qa:false, ops:true,  factory:true,  purchasing:false, viewer:false },
-    { key:'prod_complete',     label:'Complete runs',           admin:true, npd:false, qa:false, ops:true,  factory:true,  purchasing:false, viewer:false },
+    { key:'sop_edit',          label:'Edit Factory SOP steps',  admin:true, npd:true,  qa:false, ops:false, factory:false, purchasing:false, viewer:false, blinded:false },
+    { key:'sop_approve',       label:'Approve Factory SOPs',    admin:true, npd:true,  qa:false, ops:false, factory:false, purchasing:false, viewer:false, blinded:false },
+    { key:'prod_edit',         label:'Schedule / edit runs',    admin:true, npd:false, qa:false, ops:true,  factory:true,  purchasing:false, viewer:false, blinded:false },
+    { key:'prod_complete',     label:'Complete runs',           admin:true, npd:false, qa:false, ops:true,  factory:true,  purchasing:false, viewer:false, blinded:false },
   ]},
   { group:'User Management', items:[
-    { key:'user_invite',       label:'Invite new users',        admin:true, npd:false, qa:false, ops:false, factory:false, purchasing:false, viewer:false },
-    { key:'user_approve',      label:'Approve user requests',   admin:true, npd:false, qa:false, ops:false, factory:false, purchasing:false, viewer:false },
-    { key:'user_edit',         label:'Edit user details',       admin:true, npd:false, qa:false, ops:false, factory:false, purchasing:false, viewer:false },
-    { key:'user_remove',       label:'Remove users',            admin:true, npd:false, qa:false, ops:false, factory:false, purchasing:false, viewer:false },
+    { key:'user_invite',       label:'Invite new users',        admin:true, npd:false, qa:false, ops:false, factory:false, purchasing:false, viewer:false, blinded:false },
+    { key:'user_approve',      label:'Approve user requests',   admin:true, npd:false, qa:false, ops:false, factory:false, purchasing:false, viewer:false, blinded:false },
+    { key:'user_edit',         label:'Edit user details',       admin:true, npd:false, qa:false, ops:false, factory:false, purchasing:false, viewer:false, blinded:false },
+    { key:'user_remove',       label:'Remove users',            admin:true, npd:false, qa:false, ops:false, factory:false, purchasing:false, viewer:false, blinded:false },
   ]},
 ];
 
@@ -13601,13 +13630,13 @@ function buildAccessMatrix() {
   const tbody = document.getElementById('access-matrix-body');
   if (!tbody) return;
   tbody.innerHTML = '';
-  const roles = ['admin','npd','qa','ops','factory','purchasing','viewer'];
+  const roles = ['admin','npd','qa','ops','factory','purchasing','viewer','blinded'];
   const _currentRole = getCurrentUserRole();
   const _readOnly = _currentRole !== 'admin';
   ACCESS_PERMISSIONS.forEach(group => {
     // Group header row
     const headerRow = document.createElement('tr');
-    headerRow.innerHTML = `<td colspan="8" style="background:var(--g1);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--navy);padding:10px 16px">${group.group}</td>`;
+    headerRow.innerHTML = `<td colspan="9" style="background:var(--g1);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--navy);padding:10px 16px">${group.group}</td>`;
     tbody.appendChild(headerRow);
     // Permission rows
     group.items.forEach(perm => {
