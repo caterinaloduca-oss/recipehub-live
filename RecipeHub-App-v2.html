@@ -4799,18 +4799,14 @@ function _renderRecipeCost(costStr, recipeUnit) {
   return costStr + (recipeUnit && recipeUnit !== '—' ? ' <span style="color:var(--g4);font-size:10px;font-weight:400">/ ' + recipeUnit + '</span>' : '');
 }
 
-// Render ERP + POS codes in one table cell. If only one exists, show just that one.
+// Render the Oracle EBS Item Code only. POS / numeric codes are intentionally not displayed —
+// they are not procurable identifiers and seeing them in the Item Code column was misleading
+// for Purchasing. Items with no Oracle mapping render as a dash; the row's "Map to EBS" button
+// is the path to assign one.
 function _renderItemCodes(primary, posId) {
-  if (!primary && !posId) return '—';
-  // primary is the ERP code when mapped, otherwise the POS id; posId is always the POS id when known
   var erp = _codeIsERP(primary) ? primary : '';
-  var pos = posId || (_codeIsERP(primary) ? '' : primary);
-  if (erp && pos && pos !== erp) {
-    return '<div>' + erp + '</div><div style="font-size:10px;color:var(--g4);margin-top:1px">POS: ' + pos + '</div>';
-  }
   if (erp) return erp;
-  if (pos) return '<span style="color:var(--g4)">POS: ' + pos + '</span>';
-  return primary || '—';
+  return '<span style="color:var(--g3)">—</span>';
 }
 
 // Open the POS→ERP mapping modal: search EBS catalog, select, save.
