@@ -12213,7 +12213,7 @@ function saveEditRecipe(npd) {
       PRODUCTION_RUNS.push({
         id: 'PR-' + String(Date.now()).slice(-6),
         date: '', recipe: r.name, npd: npd, brand: r.brand || '',
-        batchSize: r.status === 'trial' ? '150 kg' : '400 kg',
+        batchSize: '',
         operator: '', status: 'pending', runType: _rt,
         yield: '', waste: '',
         notes: _rt + ' — from recipe edit',
@@ -16098,7 +16098,8 @@ function buildProductionTable() {
     var _dateChanges = _realDateChanges.length;
     var _dateChangeSuffix = _dateChanges ? '<div style="font-size:9px;color:var(--amber);font-weight:600;cursor:pointer" onclick="event.stopPropagation();showDateLog(\''+run.id+'\')">+'+_dateChanges+' change'+(_dateChanges>1?'s':'')+'</div>' : '';
     var _runTypeBadge = {'Factory Trial':'badge-factory-trial','Production Trial':'badge-prod-trial-run'};
-    var _runTypeLabel = run.runType || 'Production';
+    // Shorten labels in the table — full names overflowed the Stage column into Batch.
+    var _runTypeLabel = run.runType === 'Production Trial' ? 'Prod Trial' : (run.runType || 'Production');
     // Sent date (when recipe was moved to this stage)
     var _sentDate = '—';
     if (run.createdAt) { var _sd = new Date(run.createdAt); _sentDate = _sd.toLocaleDateString('en-GB',{day:'2-digit',month:'short'}); }
@@ -16121,7 +16122,7 @@ function buildProductionTable() {
       '<td style="text-align:center">' + _waitingDays + '</td>' +
       '<td style="font-family:var(--font-m);font-size:12px">' + _fmtDate + _dateChangeSuffix + '</td>' +
       '<td style="white-space:nowrap;padding-right:14px"><span class="badge ' + (_runTypeBadge[run.runType] || 'badge-production') + '">' + _runTypeLabel + '</span></td>' +
-      '<td style="font-family:var(--font-m);font-size:12px;white-space:nowrap">' + run.batchSize + '</td>' +
+      '<td style="font-family:var(--font-m);font-size:12px;white-space:nowrap">' + (run.batchSize ? run.batchSize : '<span style="color:var(--g3)">—</span>') + '</td>' +
       '<td style="font-size:12px;color:var(--g4)">' + (run.operator || '—') + '</td>' +
       '<td><span class="badge ' + (statusMap[displayStatus] || 'badge-draft') + '">' + (statusLabel[displayStatus] || displayStatus) + '</span></td>' +
       '<td onclick="event.stopPropagation()"><div style="display:flex;gap:4px;white-space:nowrap">' + actions + '</div></td>';
@@ -16169,7 +16170,7 @@ function filterProductionRuns() {
 function openProductionRun() {
   var recipeOpts = Object.values(RECIPE_DB).map(function(r){return '<option value="'+r.npd+'">'+r.name+'</option>'}).join('');
   var operatorOpts = USERS_DATA.filter(function(u){return u.role==='factory'}).map(function(u){return '<option>'+u.name+'</option>'}).join('');
-  openModal('<div class="card-head" style="background:var(--navy);border-radius:16px 16px 0 0"><span class="card-title" style="color:white">Schedule Production Run</span><button class="btn btn-sm" style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:none" onclick="closeModal()">✕</button></div><div class="card-body" style="padding:24px"><div class="form-grid form-grid-2" style="margin-bottom:16px"><div class="form-group"><label class="form-label">Recipe</label><select class="form-select" id="np-recipe">'+recipeOpts+'</select></div><div class="form-group"><label class="form-label">Run Type</label><select class="form-select" id="np-runtype"><option>Production</option><option>Factory Trial</option><option>Production Trial</option></select></div></div><div class="form-grid form-grid-2" style="margin-bottom:16px"><div class="form-group"><label class="form-label">Date</label><input class="form-input" type="date" id="np-date" value="'+new Date().toISOString().split('T')[0]+'" /></div><div class="form-group"><label class="form-label">Batch Size (kg)</label><input class="form-input" type="number" id="np-batch" value="400" /></div></div><div class="form-grid form-grid-2" style="margin-bottom:16px"><div class="form-group"><label class="form-label">Responsible</label><select class="form-select" id="np-operator"><option value="">— Select —</option>'+operatorOpts+'</select></div><div class="form-group"><label class="form-label">Notes</label><input class="form-input" id="np-notes" placeholder="Special instructions…" /></div></div><div style="display:flex;gap:10px;justify-content:flex-end"><button class="btn btn-outline" onclick="closeModal()">Cancel</button><button class="btn btn-gold" onclick="saveProductionRun()">Schedule</button></div></div>');
+  openModal('<div class="card-head" style="background:var(--navy);border-radius:16px 16px 0 0"><span class="card-title" style="color:white">Schedule Production Run</span><button class="btn btn-sm" style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:none" onclick="closeModal()">✕</button></div><div class="card-body" style="padding:24px"><div class="form-grid form-grid-2" style="margin-bottom:16px"><div class="form-group"><label class="form-label">Recipe</label><select class="form-select" id="np-recipe">'+recipeOpts+'</select></div><div class="form-group"><label class="form-label">Run Type</label><select class="form-select" id="np-runtype"><option>Production</option><option>Factory Trial</option><option>Production Trial</option></select></div></div><div class="form-grid form-grid-2" style="margin-bottom:16px"><div class="form-group"><label class="form-label">Date</label><input class="form-input" type="date" id="np-date" value="'+new Date().toISOString().split('T')[0]+'" /></div><div class="form-group"><label class="form-label">Batch Size (kg)</label><input class="form-input" type="number" id="np-batch" placeholder="kg" /></div></div><div class="form-grid form-grid-2" style="margin-bottom:16px"><div class="form-group"><label class="form-label">Responsible</label><select class="form-select" id="np-operator"><option value="">— Select —</option>'+operatorOpts+'</select></div><div class="form-group"><label class="form-label">Notes</label><input class="form-input" id="np-notes" placeholder="Special instructions…" /></div></div><div style="display:flex;gap:10px;justify-content:flex-end"><button class="btn btn-outline" onclick="closeModal()">Cancel</button><button class="btn btn-gold" onclick="saveProductionRun()">Schedule</button></div></div>');
 }
 
 function _nextPRId() {
@@ -16228,7 +16229,7 @@ function saveProductionRun() {
   var r = RECIPE_DB[npd]; if (!r) return;
   var result = createProductionRunWithSubBatches(r, {
     date:     document.getElementById('np-date').value,
-    batchSize:(parseFloat(document.getElementById('np-batch').value) || 0) + ' kg',
+    batchSize:(function(){ var v = parseFloat(document.getElementById('np-batch').value); return v ? v + ' kg' : ''; })(),
     runType:  document.getElementById('np-runtype').value,
     operator: document.getElementById('np-operator').value,
     notes:    document.getElementById('np-notes').value,
