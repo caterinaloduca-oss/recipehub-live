@@ -13556,8 +13556,11 @@ function buildUsersTable() {
         var locked  = isMe || u.role === 'blinded';
         var bg = allowed ? 'var(--sage)' : 'var(--g2)';
         var glyph = allowed ? '✓' : '✕';
-        var title = u.role === 'blinded' ? 'Blinded role — always off' : (allowed ? 'Click to restrict to title only' : 'Click to allow full recipe view');
-        return `<button title="${title}" onclick="${locked?'':'toggleUserRecipeAccess(\\''+u.email.replace(/'/g,"\\\\\\'")+'\\')'}" style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;border:none;background:${bg};color:white;font-size:13px;font-weight:600;cursor:${locked?'not-allowed':'pointer'};opacity:${locked?'0.6':'1'}">${glyph}</button>`;
+        var title = u.role === 'blinded' ? 'Blinded role - always off' : (allowed ? 'Click to restrict to title only' : 'Click to allow full recipe view');
+        var safeEmail = (u.email || '').replace(/'/g, "\\'");
+        var onclickAttr = locked ? '' : 'onclick="toggleUserRecipeAccess(\'' + safeEmail + '\')"';
+        var style = 'display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;border:none;background:' + bg + ';color:white;font-size:13px;font-weight:600;cursor:' + (locked?'not-allowed':'pointer') + ';opacity:' + (locked?'0.6':'1');
+        return '<button title="' + title + '" ' + onclickAttr + ' style="' + style + '">' + glyph + '</button>';
       })()}</td>
       <td style="font-size:12px;color:var(--g3)">${u.last}</td>
       <td>${isMe ? '' : `<button class="btn btn-outline btn-sm" style="margin-right:4px" onclick="editUser(this)">Edit</button><button class="btn btn-danger-sm" onclick="removeUser(this)">Remove</button>`}</td>
