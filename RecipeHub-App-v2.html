@@ -2603,7 +2603,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
       </div>
       <div class="card-body" style="padding:0">
         <table class="data-table">
-          <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Department</th><th>Role</th><th>Brand Access</th><th title="Can open recipe details. Off = catalog only (title visible).">Recipes</th><th>Last Active</th><th></th></tr></thead>
+          <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Department</th><th>Role</th><th>Brand Access</th><th title="Per-user access — Recipes / Builds / Prices / Cost / Branch SOP / Factory SOP">Access</th><th>Last Active</th><th></th></tr></thead>
           <tbody id="users-tbody"></tbody>
         </table>
       </div>
@@ -6357,38 +6357,123 @@ function auditExportCSV() {
 
 function canAccessPage(pageId) {
   var role = getCurrentUserRole();
-  if (role === 'admin') return true;
-  // Admin-only pages
-  if (pageId === 'users') return false;
-  if (pageId === 'audit-log') return false;
+  // Admin-only pages stay admin-only even with preview-access overrides.
+  if (pageId === 'users') return role === 'admin' && !_previewAccess;
+  if (pageId === 'audit-log') return role === 'admin' && !_previewAccess;
+  // Per-user access toggles can hide pages even from admins (so preview works).
+  if (pageId === 'builds'      && !currentUserHasAccess('builds'))      return false;
+  if (pageId === 'branch-sop'  && !currentUserHasAccess('branchSop'))   return false;
+  if (pageId === 'sop'         && !currentUserHasAccess('factorySop'))  return false;
+  if ((pageId === 'cost-control' || pageId === 'builds-costing') && !currentUserHasAccess('cost')) return false;
+  if (pageId === 'ingredients' && !currentUserHasAccess('prices') && role !== 'admin') return false;
+  if (role === 'admin' && !_previewAccess) return true;
   return true;
 }
 
-// Whether the *current* signed-in user is restricted to catalog-only recipes (titles only).
-// Driven by the per-user `canViewRecipes` flag toggled from the Users page.
-function isCurrentUserBlindedRecipes() {
-  if (_previewCatalogOnly) return true; // admin previewing
-  try {
-    var raw = sessionStorage.getItem(AUTH_KEY);
-    if (!raw) return false;
-    var email = (JSON.parse(raw).email || '').toLowerCase();
-    if (email === 'caterina.loduca@dailyfoodsa.com') return false; // admin override
-    var u = (USERS_DATA || []).find(function(x){ return (x.email || '').toLowerCase() === email; });
-    return !!(u && u.canViewRecipes === false);
-  } catch(e) { return false; }
+// ──────── PER-USER ACCESS TOGGLES ────────
+// Six independent per-user flags. Default: all ON for everyone.
+// - recipes:    OFF → only recipe titles in the catalog list, no detail
+// - builds:     OFF → Product Builds page hidden
+// - prices:     OFF → ingredient prices masked as "—"
+// - cost:       OFF → recipe cost/kg, build cost, FC% masked
+// - branchSop:  OFF → Branch SOP page hidden
+// - factorySop: OFF → Factory SOP page hidden
+var ACCESS_KEYS = ['recipes','builds','prices','cost','branchSop','factorySop'];
+var ACCESS_LABELS = {
+  recipes:    'Recipes',
+  builds:     'Builds',
+  prices:     'Prices',
+  cost:       'Cost',
+  branchSop:  'Branch SOP',
+  factorySop: 'Factory SOP'
+};
+
+// True if user u has access to module key. Defaults to true.
+// Legacy fallback: u.canViewRecipes (from before the matrix existed) maps to access.recipes.
+function getUserAccess(u, key) {
+  if (!u) return true;
+  if (key === 'recipes' && u.canViewRecipes === false) return false;
+  if (u.access && u.access[key] === false) return false;
+  return true;
 }
 
-function toggleUserRecipeAccess(email) {
+// Whether the current signed-in user (or admin preview) has access to a given module.
+function currentUserHasAccess(key) {
+  if (_previewAccess && _previewAccess[key] === false) return false;
+  if (_previewCatalogOnly && key === 'recipes') return false; // legacy preview shim
+  if (getCurrentUserRole() === 'admin' && !_previewAccess) return true;
+  try {
+    var raw = sessionStorage.getItem(AUTH_KEY);
+    if (!raw) return true;
+    var email = (JSON.parse(raw).email || '').toLowerCase();
+    if (email === 'caterina.loduca@dailyfoodsa.com' && !_previewAccess) return true;
+    var u = (USERS_DATA || []).find(function(x){ return (x.email || '').toLowerCase() === email; });
+    return getUserAccess(u, key);
+  } catch(e) { return true; }
+}
+
+// Back-compat shim: returns true when current user can NOT see recipe details.
+function isCurrentUserBlindedRecipes() {
+  return !currentUserHasAccess('recipes');
+}
+
+// Toggle one access key for a user. Bumps updatedAt so server merge accepts the change.
+function toggleUserAccess(email, key) {
   if (getCurrentUserRole() !== 'admin') { showSaveToast('Admin only', true); return; }
+  if (ACCESS_KEYS.indexOf(key) < 0) return;
   var u = USERS_DATA.find(function(x){ return (x.email || '').toLowerCase() === (email||'').toLowerCase(); });
   if (!u) return;
-  u.canViewRecipes = u.canViewRecipes === false ? true : false;
-  // Server keeps its version unless client's updatedAt is newer — so always bump on edit.
+  if (!u.access) u.access = {};
+  u.access[key] = !getUserAccess(u, key);
+  // Mirror legacy field for back-compat readers (server-side merges, etc.)
+  if (key === 'recipes') u.canViewRecipes = u.access[key];
   u.updatedAt = new Date().toISOString();
-  auditEvent('user.recipe_access_change', 'user', u.email, u.name, { canViewRecipes: u.canViewRecipes });
+  auditEvent('user.access_change', 'user', u.email, u.name, { key: key, value: u.access[key] });
   buildUsersTable();
   saveAllData();
-  showSaveToast(u.name + ' — recipes ' + (u.canViewRecipes === false ? 'restricted to title only' : 'full view enabled'));
+  showSaveToast(u.name + ' — ' + ACCESS_LABELS[key] + ': ' + (u.access[key] ? 'on' : 'off'));
+}
+
+// Legacy alias kept so old onclick="toggleUserRecipeAccess(...)" handlers still work.
+function toggleUserRecipeAccess(email) { toggleUserAccess(email, 'recipes'); }
+
+// Popover with the 6 access ticks, anchored under the chip clicked.
+function openAccessPopover(email, anchor) {
+  // Close any existing popover
+  var existing = document.getElementById('access-popover');
+  if (existing) existing.remove();
+  var u = USERS_DATA.find(function(x){ return (x.email || '').toLowerCase() === (email||'').toLowerCase(); });
+  if (!u) return;
+  var safeEmail = (u.email || '').replace(/'/g, "\\'");
+  var rows = ACCESS_KEYS.map(function(k){
+    var on = getUserAccess(u, k);
+    var glyph = on ? '✓' : '✕';
+    var bg = on ? 'var(--sage)' : 'var(--g2)';
+    return '<button onclick="toggleUserAccess(\''+safeEmail+'\',\''+k+'\');setTimeout(function(){openAccessPopover(\''+safeEmail+'\', document.querySelector(\'[data-access-chip=\\\''+safeEmail+'\\\']\'))},80)" style="display:flex;align-items:center;justify-content:space-between;width:100%;padding:8px 12px;border:none;background:none;cursor:pointer;border-bottom:1px solid var(--g1);font-family:inherit;font-size:12px;color:var(--g5)">' +
+      '<span>'+ACCESS_LABELS[k]+'</span>' +
+      '<span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:6px;background:'+bg+';color:white;font-size:12px;font-weight:600">'+glyph+'</span>' +
+    '</button>';
+  }).join('');
+  var rect = anchor.getBoundingClientRect();
+  var pop = document.createElement('div');
+  pop.id = 'access-popover';
+  pop.style.cssText = 'position:fixed;top:'+(rect.bottom+6)+'px;left:'+Math.max(8, rect.left - 80)+'px;background:white;border:1px solid var(--g2);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.12);z-index:1000;width:240px;overflow:hidden';
+  pop.innerHTML =
+    '<div style="padding:10px 12px;border-bottom:1px solid var(--g1);background:var(--g0);font-size:11px;font-weight:600;color:var(--navy);display:flex;justify-content:space-between;align-items:center">' +
+      '<span>'+u.name+'</span>' +
+      '<button onclick="document.getElementById(\'access-popover\').remove()" style="background:none;border:none;font-size:14px;cursor:pointer;color:var(--g3);line-height:1">✕</button>' +
+    '</div>' +
+    rows;
+  document.body.appendChild(pop);
+  // Close on outside click
+  setTimeout(function(){
+    document.addEventListener('click', function _close(e){
+      if (!pop.contains(e.target) && !anchor.contains(e.target)) {
+        pop.remove();
+        document.removeEventListener('click', _close);
+      }
+    });
+  }, 100);
 }
 
 function getRealUserRole() {
@@ -6901,10 +6986,10 @@ function buildIngTable() {
       <td style="color:var(--g4);font-size:12px" id="ing-vendor-${idx}">${displayVendor}</td>
       <td style="font-family:var(--font-m);font-size:12px;color:var(--g3)">${_renderItemCodes(code, row[12])}</td>
       <td><span class="cat-tag ${catClass}">${cat}</span></td>
-      <td style="font-family:var(--font-m);font-size:12px">${_renderStockroomCost(row[14], row[13], row[16])}</td>
+      <td style="font-family:var(--font-m);font-size:12px">${currentUserHasAccess('prices') ? _renderStockroomCost(row[14], row[13], row[16]) : '<span style="color:var(--g3)">—</span>'}</td>
       <td style="font-family:var(--font-m);font-size:11px;color:var(--g4)">${_renderConversion(row[13], displayUOM, row[15])}</td>
-      <td style="font-family:var(--font-m);font-weight:500;color:${costColor}" id="ing-cost-${idx}">${_renderRecipeCost(displayCost, displayUOM)}</td>
-      <td style="font-family:var(--font-m);font-weight:600;color:${costKgColor};cursor:pointer" onclick="editIngCostPerKg(${idx})" title="Click to set cost/kg">${costKgDisplay}</td>
+      <td style="font-family:var(--font-m);font-weight:500;color:${costColor}" id="ing-cost-${idx}">${currentUserHasAccess('prices') ? _renderRecipeCost(displayCost, displayUOM) : '<span style="color:var(--g3)">—</span>'}</td>
+      <td style="font-family:var(--font-m);font-weight:600;color:${costKgColor};${currentUserHasAccess('prices')?'cursor:pointer':''}" ${currentUserHasAccess('prices')?'onclick="editIngCostPerKg('+idx+')" title="Click to set cost/kg"':''}>${currentUserHasAccess('prices') ? costKgDisplay : '<span style="color:var(--g3)">—</span>'}</td>
       <td style="white-space:nowrap"><button class="btn btn-outline btn-sm" style="color:var(--blue);font-weight:700;border-color:var(--blue)" onclick="showIngUsedIn('${name.replace(/'/g,"\\'")}')">Used in</button>${_codeIsERP(code) ? ` <button class="btn btn-outline btn-sm" title="Oracle EBS price history" onclick="openPriceHistory('${code}','${name.replace(/'/g,"\\'")}')">📈 History</button>` : (supplier === 'POS (unmapped)' ? ` <button class="btn btn-sm" style="background:#FFE8A3;color:#8a4500;border:1px solid #d47000" title="Map this POS item to an Oracle EBS item so it gets priced" onclick="openMapModal('${code}','${name.replace(/'/g,"\\'")}')">🔗 Map to EBS</button>` : '')} <button class="btn btn-outline btn-sm" onclick="editIngredient(this)">Edit</button>${supplier !== 'Oracle EBS' ? ' <button class="btn btn-sm" style="background:var(--red-lt);color:var(--red);border:1px solid var(--red);margin-left:4px" onclick="deleteIngredient(this)">✕</button>' : ''}</td>
     `;
     tbody.appendChild(tr);
@@ -7410,7 +7495,7 @@ function buildRecipesTable() {
       <td>${renderBrandChips(r)}</td>
       <td><span class="cat-tag ${r.catClass}">${r.type}</span></td>
       <td><span class="badge badge-navy">${r.version}</span></td>
-      <td style="font-family:var(--font-m);color:${r.costKg ? 'var(--sage);font-weight:500' : 'var(--g3)'}">${r.costKg || '—'}</td>
+      <td style="font-family:var(--font-m);color:${r.costKg ? 'var(--sage);font-weight:500' : 'var(--g3)'}">${currentUserHasAccess('cost') ? (r.costKg || '—') : '<span style="color:var(--g3)">—</span>'}</td>
       <td style="color:var(--g3);font-size:12px">${r.updated}</td>
       <td>${statusBadge}</td>
       <td onclick="event.stopPropagation()">
@@ -9628,6 +9713,9 @@ function removeTrialQAMedia(npd, stage, idx) {
 var _previewRole = null;
 // Separate preview flag for catalog-only (per-user 'Recipes' tick = off). Doesn't change role.
 var _previewCatalogOnly = false;
+// Per-user access matrix preview — when set to a {recipes,builds,...} object, currentUserHasAccess
+// returns false for any key that is explicitly false. Set by previewAs('user:<email>') below.
+var _previewAccess = null;
 
 function getCurrentUserRole() {
   if (_previewRole) return _previewRole;
@@ -12831,11 +12919,18 @@ function editUser(btn) {
         <label class="form-label">Brand Access</label>
         <input class="form-input" id="eu-brands" value="${u.brands || 'All'}" placeholder="All or ${BRANDS.slice(0,2).map(b=>b.name).join(', ')}…" />
       </div>
-      <div class="form-group" style="margin-bottom:16px;padding:10px 12px;background:var(--g0);border:1px solid var(--g2);border-radius:8px">
-        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px">
-          <input type="checkbox" id="eu-can-view-recipes" ${u.canViewRecipes !== false ? 'checked' : ''} style="width:16px;height:16px;cursor:pointer" />
-          <span><strong>Can view full recipe details</strong> — when off, only the recipe title is visible (catalog-only)</span>
-        </label>
+      <div class="form-group" style="margin-bottom:16px;padding:12px 14px;background:var(--g0);border:1px solid var(--g2);border-radius:8px">
+        <div style="font-size:11px;font-weight:600;color:var(--navy);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px">Module access</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 16px">
+          ${ACCESS_KEYS.map(function(k){
+            var on = getUserAccess(u, k);
+            return '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:var(--g5)">' +
+              '<input type="checkbox" id="eu-access-'+k+'" '+(on?'checked':'')+' style="width:15px;height:15px;cursor:pointer" />' +
+              '<span>'+ACCESS_LABELS[k]+'</span>' +
+            '</label>';
+          }).join('')}
+        </div>
+        <div style="font-size:10px;color:var(--g3);margin-top:8px">Off → that module is hidden or values are masked for this user.</div>
       </div>
       <div style="display:flex;gap:10px;justify-content:flex-end">
         <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
@@ -12855,8 +12950,14 @@ function saveEditUser(email) {
   u.dept = document.getElementById('eu-dept').value.trim();
   u.title = document.getElementById('eu-title').value.trim();
   u.brands = document.getElementById('eu-brands').value.trim() || 'All';
-  var canViewEl = document.getElementById('eu-can-view-recipes');
-  if (canViewEl) u.canViewRecipes = canViewEl.checked;
+  // Read all 6 module access checkboxes from the modal.
+  if (!u.access) u.access = {};
+  ACCESS_KEYS.forEach(function(k){
+    var el = document.getElementById('eu-access-'+k);
+    if (el) u.access[k] = !!el.checked;
+  });
+  // Mirror legacy field for back-compat
+  u.canViewRecipes = u.access.recipes !== false;
   // Bump updatedAt so the server's "keep newer" merge accepts our changes.
   u.updatedAt = new Date().toISOString();
 
@@ -13558,16 +13659,16 @@ function buildUsersTable() {
       <td><span class="badge" style="background:${rm.bg};color:${rm.color};border:1px solid ${rm.border}">${rm.label}</span></td>
       <td style="font-size:12px;color:var(--g4)">${u.brands}</td>
       <td>${(function(){
-        // Per-user 'can view full recipe' tick. Default ✓. Click to flip.
-        var allowed = u.canViewRecipes !== false;
+        // Access summary chip — opens the access popover on click.
         var locked  = isMe;
-        var bg = allowed ? 'var(--sage)' : 'var(--g2)';
-        var glyph = allowed ? '✓' : '✕';
-        var title = allowed ? 'Click to restrict to title only' : 'Click to allow full recipe view';
+        var on = ACCESS_KEYS.filter(function(k){ return getUserAccess(u, k); }).length;
+        var total = ACCESS_KEYS.length;
         var safeEmail = (u.email || '').replace(/'/g, "\\'");
-        var onclickAttr = locked ? '' : 'onclick="toggleUserRecipeAccess(\'' + safeEmail + '\')"';
-        var style = 'display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;border:none;background:' + bg + ';color:white;font-size:13px;font-weight:600;cursor:' + (locked?'not-allowed':'pointer') + ';opacity:' + (locked?'0.6':'1');
-        return '<button title="' + title + '" ' + onclickAttr + ' style="' + style + '">' + glyph + '</button>';
+        var bg = on === total ? 'var(--sage-lt)' : (on === 0 ? 'var(--red-lt)' : 'var(--amber-lt)');
+        var col = on === total ? 'var(--sage)' : (on === 0 ? 'var(--red)' : 'var(--amber)');
+        var onclickAttr = locked ? '' : 'onclick="openAccessPopover(\'' + safeEmail + '\', this)"';
+        var style = 'display:inline-flex;align-items:center;justify-content:center;padding:3px 10px;border-radius:40px;border:1px solid '+col+';background:'+bg+';color:'+col+';font-size:11px;font-weight:600;cursor:'+(locked?'not-allowed':'pointer')+';opacity:'+(locked?'0.6':'1')+';white-space:nowrap';
+        return '<button data-access-chip="' + safeEmail + '" title="Click to edit per-user access" ' + onclickAttr + ' style="' + style + '">' + on + ' / ' + total + ' modules</button>';
       })()}</td>
       <td style="font-size:12px;color:var(--g3)">${u.last}</td>
       <td>${isMe ? '' : `<button class="btn btn-outline btn-sm" style="margin-right:4px" onclick="editUser(this)">Edit</button><button class="btn btn-danger-sm" onclick="removeUser(this)">Remove</button>`}</td>
