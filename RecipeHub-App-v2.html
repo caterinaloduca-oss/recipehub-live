@@ -13907,8 +13907,10 @@ function confirmBypassQA() {
   auditEvent('qa.bypass', 'recipe', npd, r.name + ' — ' + reason + (notes ? ' (' + notes + ')' : ''));
   logActivity('recipe', '⚡', 'QA bypassed for ' + r.name, reason + (notes ? ' — ' + notes : ''));
   showSaveToast('QA bypassed for ' + r.name);
-  // Refresh the QA page so the bypass shows
-  if (_currentPage === 'qa') updateQARecipe(npd);
+  // Refresh the QA page so the bypass shows AND the dropdown drops this recipe from the awaiting list.
+  if (_currentPage === 'qa') populateQARecipeDropdown();
+  if (typeof updateDashboardStats === 'function') updateDashboardStats();
+  if (typeof updateSidebarBadges === 'function') updateSidebarBadges();
 }
 
 function updateQAAllergenDisplay(npd) {
