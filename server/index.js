@@ -1136,11 +1136,43 @@ app.get('/api/pos-recipe/:saleItemId', requireAuth, async (req, res) => {
 // POST /api/notify — send workflow notification
 app.post('/api/notify', requireAuth, (req, res) => {
   try {
-    const { event, recipe, build, run, user } = req.body;
+    const { event, recipe, build, run, user, ingredients, batchSize } = req.body;
     if (!event) return res.status(400).json({ error: 'event required' });
 
     const userName = user || 'Someone';
     let subject, html, recipients;
+
+    // Build a Purchasing-focused HTML block listing ingredients + estimated kg per batch.
+    // Used by the Factory Trial and Production Trial notifications. Trims to top 20 entries.
+    const ingredientsBlock = (() => {
+      if (!Array.isArray(ingredients) || !ingredients.length) return '';
+      const batchKg = (() => {
+        const m = (batchSize || '').match(/(\d+(?:\.\d+)?)/);
+        return m ? parseFloat(m[1]) : null;
+      })();
+      const rows = ingredients.map(i => {
+        const pct = Number(i.pct || 0);
+        const kg = batchKg ? (batchKg * pct / 100).toFixed(2) : null;
+        return `<tr>
+          <td style="padding:5px 8px;border-bottom:1px solid #eee;font-size:12px">${(i.name || '').replace(/[<>]/g, '')}${i.itemCode ? ` <span style="color:#999;font-size:10px;font-family:monospace">${(i.itemCode || '').replace(/[<>]/g, '')}</span>` : ''}</td>
+          <td style="padding:5px 8px;border-bottom:1px solid #eee;font-size:12px;text-align:right;font-family:monospace">${pct.toFixed(2)}%</td>
+          ${kg !== null ? `<td style="padding:5px 8px;border-bottom:1px solid #eee;font-size:12px;text-align:right;font-family:monospace;color:#1A5FA5;font-weight:600">${kg} kg</td>` : ''}
+        </tr>`;
+      }).join('');
+      return `
+        <div style="margin-top:18px;padding:14px 16px;background:#FEF3E2;border:1px solid #F5D5A0;border-radius:8px">
+          <div style="font-size:13px;font-weight:600;color:#8a4500;margin-bottom:8px">📦 Purchasing — ingredients to procure</div>
+          <div style="font-size:11px;color:#8a4500;margin-bottom:10px">${batchKg ? `Estimated weights below assume a ${batchKg} kg batch.` : 'Approximate quantities pending batch size.'}</div>
+          <table style="width:100%;border-collapse:collapse;background:white;border-radius:6px;overflow:hidden">
+            <thead><tr>
+              <th style="padding:6px 8px;background:#fcfaf5;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:#8a4500;text-align:left;border-bottom:1.5px solid #F5D5A0">Ingredient</th>
+              <th style="padding:6px 8px;background:#fcfaf5;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:#8a4500;text-align:right;border-bottom:1.5px solid #F5D5A0">%</th>
+              ${batchKg ? `<th style=\"padding:6px 8px;background:#fcfaf5;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:#8a4500;text-align:right;border-bottom:1.5px solid #F5D5A0\">Est. kg</th>` : ''}
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>`;
+    })();
 
     switch (event) {
       case 'recipe-review':
@@ -1156,7 +1188,8 @@ app.post('/api/notify', requireAuth, (req, res) => {
         subject = `Factory Trial requested: ${recipe}`;
         html = `<h2 style="color:#1B2A4A;margin:0 0 12px">${recipe}</h2>
           <p><strong>${userName}</strong> sent this recipe to <span style="color:#1A5FA5;font-weight:600">Factory Trial</span>.</p>
-          <p>A production run has been created. Please schedule a date.</p>
+          <p>A production run has been created. Factory — please schedule a date. Purchasing — please confirm ingredient availability.</p>
+          ${ingredientsBlock}
           <p style="margin-top:16px"><a href="https://recipehub.dailyfoodsa.com" style="background:#1A5FA5;color:white;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:600">View Production Plan</a></p>`;
         break;
 
@@ -1165,7 +1198,8 @@ app.post('/api/notify', requireAuth, (req, res) => {
         subject = `Production Trial requested: ${recipe}`;
         html = `<h2 style="color:#1B2A4A;margin:0 0 12px">${recipe}</h2>
           <p><strong>${userName}</strong> sent this recipe to <span style="color:#6B2FA0;font-weight:600">Production Trial</span>.</p>
-          <p>QA sign-off was completed. A production run has been created.</p>
+          <p>QA sign-off was completed. A production run has been created. Purchasing — full-scale batch, please plan procurement.</p>
+          ${ingredientsBlock}
           <p style="margin-top:16px"><a href="https://recipehub.dailyfoodsa.com" style="background:#6B2FA0;color:white;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:600">Open RecipeHub</a></p>`;
         break;
 

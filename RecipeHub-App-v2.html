@@ -9460,13 +9460,25 @@ function setRecipeStatus(npd, newStatus) {
   showSaveToast('Recipe moved to ' + labels[newStatus]);
   saveAllDataNow();
 
-  // Send email notification
+  // Send email notification. For trial transitions, ship the ingredient list so Purchasing
+  // can see what they'll need to procure.
   var _eventMap = {review:'recipe-review', trial:'recipe-factory-trial', 'prod-trial':'recipe-prod-trial', approved:'recipe-approved'};
   if (_eventMap[newStatus]) {
+    var _ingForEmail = (newStatus === 'trial' || newStatus === 'prod-trial')
+      ? (r.ingredients || []).slice().sort(function(a,b){ return (b.pct||0) - (a.pct||0); }).slice(0, 20)
+          .map(function(i){ return { name: i.name || '', pct: i.pct || 0, itemCode: i.itemCode || '' }; })
+      : null;
+    var _batchKg = newStatus === 'trial' ? '150 kg (default trial batch)' : (newStatus === 'prod-trial' ? '400 kg (default prod-trial batch)' : null);
     fetch(API_BASE + '/api/notify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + API_KEY },
-      body: JSON.stringify({ event: _eventMap[newStatus], recipe: r.name + ' (' + npd + ')', user: _userName }),
+      body: JSON.stringify({
+        event: _eventMap[newStatus],
+        recipe: r.name + ' (' + npd + ')',
+        user: _userName,
+        ingredients: _ingForEmail,
+        batchSize: _batchKg,
+      }),
     }).catch(function() {});
   }
 }
