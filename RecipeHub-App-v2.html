@@ -14103,11 +14103,10 @@ function printCOA() {
     if (parts.length) w.document.write('<div style="margin-top:6px;font-size:8pt;color:#666"><strong>Nutrition (per 100g):</strong> '+parts.join(' · ')+'</div>');
   }
 
-  // Signatures
-  w.document.write('<div style="margin-top:24px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px">');
+  // Signatures — QA only signs the COA
+  w.document.write('<div style="margin-top:24px;display:grid;grid-template-columns:1fr 1fr;gap:20px">');
   w.document.write('<div style="text-align:center"><div style="border-bottom:1px solid #999;height:40px;margin-bottom:4px"></div><div style="font-size:7pt;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:#999">Prepared by — QA Technician</div></div>');
   w.document.write('<div style="text-align:center"><div style="border-bottom:1px solid #999;height:40px;margin-bottom:4px"></div><div style="font-size:7pt;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:#999">Reviewed by — QA Manager</div></div>');
-  w.document.write('<div style="text-align:center"><div style="border-bottom:1px solid #999;height:40px;margin-bottom:4px"></div><div style="font-size:7pt;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:#999">Approved by — NPD / Admin</div></div>');
   w.document.write('</div>');
 
   // Footer
