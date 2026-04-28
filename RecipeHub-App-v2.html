@@ -1657,7 +1657,9 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
     <div style="flex:1;display:flex;align-items:center;gap:14px">
       <div style="text-align:center"><div style="font-size:32px;font-weight:700;color:white;font-family:var(--font-d)" id="builds-active-count">0</div><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--sage)">Active</div></div>
       <div style="width:1px;height:36px;background:rgba(255,255,255,0.15)"></div>
-      <div style="text-align:center"><div style="font-size:32px;font-weight:700;color:rgba(255,255,255,0.4);font-family:var(--font-d)" id="builds-discontinued-count">0</div><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--red)">Discontinued</div></div>
+      <div style="text-align:center"><div style="font-size:32px;font-weight:700;color:rgba(255,255,255,0.6);font-family:var(--font-d)" id="builds-inprogress-count">0</div><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--amber)">In Progress</div></div>
+      <div style="width:1px;height:36px;background:rgba(255,255,255,0.15)"></div>
+      <div style="text-align:center"><div style="font-size:32px;font-weight:700;color:rgba(255,255,255,0.4);font-family:var(--font-d)" id="builds-discontinued-count">0</div><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--red)">Inactive</div></div>
       <div style="width:1px;height:36px;background:rgba(255,255,255,0.15)"></div>
       <div style="text-align:center"><div style="font-size:32px;font-weight:700;color:rgba(255,255,255,0.6);font-family:var(--font-d)" id="builds-total-count">0</div><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.4)">Total</div></div>
     </div>
@@ -1672,7 +1674,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
     <select class="filter-select" id="build-filter-brand" onchange="filterBuilds()"><option>All Brands</option></select>
     <select class="filter-select" id="build-filter-type" onchange="filterBuilds()"><option>All Types</option><option>Pizza</option><option>Sandwich</option><option>Pasta</option><option>Salad</option><option>Wrap</option><option>Dessert</option><option>Side Dish</option></select>
     <select class="filter-select" id="build-filter-size" onchange="filterBuilds()"><option>All Sizes</option><option>Small</option><option>Medium</option><option>Large</option><option>Piano</option></select>
-    <select class="filter-select" id="build-filter-active" onchange="filterBuilds()"><option>All</option><option>Active</option><option>Discontinued</option></select>
+    <select class="filter-select" id="build-filter-active" onchange="filterBuilds()"><option>All</option><option>Active</option><option>In Progress</option><option>Inactive</option></select>
     <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--g4);cursor:pointer;margin-left:auto">
       <input type="checkbox" id="builds-show-archived" onchange="buildBuildsTable()" /> Show Archived
     </label>
@@ -1686,7 +1688,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
     </div>
     <div class="card-body" style="padding:0">
       <table class="data-table">
-        <thead><tr><th>Build Name</th><th>Code</th><th>Brand</th><th>Type</th><th>Size</th><th>Components</th><th>Build Cost</th><th>Status</th><th>Active</th><th></th></tr></thead>
+        <thead><tr><th>Build Name</th><th>Code</th><th>Brand</th><th>Type</th><th>Size</th><th>Components</th><th>Build Cost</th><th>Status</th><th>Stage</th><th></th></tr></thead>
         <tbody id="builds-tbody"></tbody>
       </table>
     </div>
@@ -15024,12 +15026,16 @@ function buildBuildsTable() {
     if (b.archived) { archivedCount++; if (!showArchived) return; }
     visibleCount++;
     const totalCost = b.components.reduce((s,c) => s + (c.cost||0), 0);
+    var _launch = getBuildLaunch(b);
     const tr = document.createElement('tr');
     tr.style.cursor = 'pointer';
-    if (!b.active || b.archived) tr.style.opacity = '0.5';
+    if (_launch === 'inactive' || b.archived) tr.style.opacity = '0.5';
     tr.onclick = function(){ viewBuild(b.id); };
+    var _nameTag = _launch === 'inactive'
+      ? ' <span style="font-size:10px;color:var(--red);font-weight:500">INACTIVE</span>'
+      : (_launch === 'in-progress' ? ' <span style="font-size:10px;color:#B8820A;font-weight:500">IN PROGRESS</span>' : '');
     tr.innerHTML = `
-      <td><strong>${b.name}</strong>${!b.active ? ' <span style="font-size:10px;color:var(--red);font-weight:500">DISCONTINUED</span>' : ''}${b.archived ? ' <span style="font-size:10px;color:var(--g3);font-weight:500">ARCHIVED</span>' : ''}${(b.tags&&b.tags.length)?'<div style="margin-top:3px">'+renderTagBadges(b.tags)+'</div>':''}</td>
+      <td><strong>${b.name}</strong>${_nameTag}${b.archived ? ' <span style="font-size:10px;color:var(--g3);font-weight:500">ARCHIVED</span>' : ''}${(b.tags&&b.tags.length)?'<div style="margin-top:3px">'+renderTagBadges(b.tags)+'</div>':''}</td>
       <td style="font-family:var(--font-m);font-size:12px;color:var(--g3)">${b.id}</td>
       <td>${b.brand}</td>
       <td><span class="cat-tag">${b.type || 'Other'}</span></td>
@@ -15037,7 +15043,7 @@ function buildBuildsTable() {
       <td style="font-size:12px;color:var(--g4)">${b.components.length} items</td>
       <td style="font-family:var(--font-m);color:var(--sage);font-weight:500">SAR ${totalCost.toFixed(2)}</td>
       <td><span class="badge ${statusMap[b.status]}">${statusLabel[b.status]}</span></td>
-      <td><span style="display:inline-block;padding:2px 8px;border-radius:40px;font-size:10px;font-weight:600;background:${b.active===false?'var(--red)':'var(--sage)'};color:white">${b.active===false?'Discontinued':'Active'}</span></td>
+      <td><span style="display:inline-block;padding:2px 10px;border-radius:40px;font-size:10px;font-weight:600;background:${getBuildLaunchColor(_launch)};color:white;white-space:nowrap">${getBuildLaunchLabel(_launch)}</span></td>
       <td onclick="event.stopPropagation()">
         <div style="display:flex;gap:4px">
           <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();viewBuild('${b.id}')">View</button>
@@ -15055,9 +15061,11 @@ function buildBuildsTable() {
   // Update stats (exclude archived from counts)
   const el = id => document.getElementById(id);
   var nonArchived = BUILDS_DATA.filter(function(b){ return !b.archived; });
-  var activeCount = nonArchived.filter(function(b){ return b.active !== false; }).length;
-  var discontinuedCount = nonArchived.filter(function(b){ return b.active === false; }).length;
+  var activeCount = nonArchived.filter(function(b){ return getBuildLaunch(b) === 'active'; }).length;
+  var inProgressCount = nonArchived.filter(function(b){ return getBuildLaunch(b) === 'in-progress'; }).length;
+  var discontinuedCount = nonArchived.filter(function(b){ return getBuildLaunch(b) === 'inactive'; }).length;
   if (el('builds-active-count')) el('builds-active-count').textContent = activeCount;
+  if (el('builds-inprogress-count')) el('builds-inprogress-count').textContent = inProgressCount;
   if (el('builds-discontinued-count')) el('builds-discontinued-count').textContent = discontinuedCount;
   if (el('builds-total-count')) el('builds-total-count').textContent = nonArchived.length;
   if (el('builds-count-label')) el('builds-count-label').textContent = visibleCount + ' builds';
@@ -15085,6 +15093,7 @@ function filterBuilds() {
   const type = document.getElementById('build-filter-type').value;
   const size = document.getElementById('build-filter-size').value;
   const active = document.getElementById('build-filter-active').value;
+  const launchFilter = active === 'Active' ? 'active' : (active === 'In Progress' ? 'in-progress' : (active === 'Inactive' ? 'inactive' : ''));
   const rows = document.getElementById('builds-tbody').querySelectorAll('tr');
   rows.forEach(row => {
     const text = row.textContent.toLowerCase();
@@ -15092,7 +15101,12 @@ function filterBuilds() {
     const matchBrand = brand === 'All Brands' || text.includes(brand.toLowerCase());
     const matchType = type === 'All Types' || text.includes(type.toLowerCase());
     const matchSize = size === 'All Sizes' || text.includes(size.toLowerCase());
-    const matchActive = active === 'All' || text.includes(active.toLowerCase());
+    var matchActive = true;
+    if (launchFilter) {
+      var rowId = (row.children[1] && row.children[1].textContent || '').trim();
+      var rowBuild = BUILDS_DATA.find(function(x){ return x.id === rowId; });
+      matchActive = rowBuild ? (getBuildLaunch(rowBuild) === launchFilter) : false;
+    }
     row.style.display = (matchQ && matchBrand && matchType && matchSize && matchActive) ? '' : 'none';
   });
 }
@@ -15141,7 +15155,20 @@ function viewBuild(id) {
           ? `<button class="btn btn-outline btn-sm" onclick="nav('branch-sop');setTimeout(function(){viewBranchSOP('${_existingSOP.id}')},100)">📋 View Branch SOP</button>`
           : `<button class="btn btn-primary btn-sm" onclick="createSOPFromBuild('${b.id}')">📋 Create Branch SOP</button>`;
       })()}
-      ${b.active===false ? `<button class="btn btn-sm" style="background:var(--sage);color:white" onclick="toggleBuildActive('${b.id}')">✓ Reactivate</button>` : `<button class="btn btn-sm" style="background:var(--red);color:white" onclick="toggleBuildActive('${b.id}')">✕ Discontinue</button>`}
+      ${(function(){
+        var L = getBuildLaunch(b);
+        function seg(v, label){
+          var on = L === v;
+          var bg = on ? getBuildLaunchColor(v) : 'transparent';
+          var col = on ? 'white' : 'var(--g4)';
+          return `<button class="btn btn-sm" style="background:${bg};color:${col};border:1px solid var(--g2);border-radius:0;padding:5px 10px;font-size:11px" onclick="setBuildLaunch('${b.id}','${v}')">${label}</button>`;
+        }
+        return '<div style="display:inline-flex;border-radius:6px;overflow:hidden">'
+          + seg('in-progress','⏳ In Progress')
+          + seg('active','✓ Active')
+          + seg('inactive','✕ Inactive')
+          + '</div>';
+      })()}
     </div>
     <div class="card" style="overflow:hidden;margin-bottom:20px">
       <div style="background:var(--navy);padding:24px 28px;display:flex;justify-content:space-between;align-items:flex-start">
@@ -15152,7 +15179,7 @@ function viewBuild(id) {
           ${(b.tags&&b.tags.length)?'<div style="margin-top:6px">'+b.tags.map(t=>'<span style="display:inline-block;padding:2px 8px;border-radius:40px;font-size:9px;font-weight:500;border:1px solid rgba(255,255,255,0.3);color:rgba(255,255,255,0.7);margin:2px">'+t+'</span>').join('')+'</div>':''}
         </div>
         <div style="display:flex;gap:8px;align-items:center">
-          ${b.active===false ? '<span style="display:inline-block;padding:3px 10px;border-radius:40px;font-size:10px;font-weight:600;background:var(--red);color:white">Discontinued</span>' : '<span style="display:inline-block;padding:3px 10px;border-radius:40px;font-size:10px;font-weight:600;background:var(--sage);color:white">Active</span>'}
+          ${(function(){ var L = getBuildLaunch(b); return '<span style="display:inline-block;padding:3px 12px;border-radius:40px;font-size:10px;font-weight:600;background:'+getBuildLaunchColor(L)+';color:white;white-space:nowrap">'+getBuildLaunchLabel(L)+'</span>'; })()}
           <span class="badge ${statusMap[b.status]}" style="font-size:11px">${statusLabel[b.status]}</span>
         </div>
       </div>
@@ -15289,16 +15316,39 @@ function viewBuild(id) {
   if (_wasOpen) { window.scrollTo(0, _scrollY); if (_mainEl) _mainEl.scrollTop = _mainScroll; }
 }
 
+// Build launch stage — three states: 'in-progress' (not launched yet), 'active' (in store), 'inactive' (discontinued).
+// `b.active` (boolean) is kept in sync as a legacy mirror so older code paths keep working.
+function getBuildLaunch(b) {
+  if (!b) return 'in-progress';
+  if (b.launchStatus === 'in-progress' || b.launchStatus === 'active' || b.launchStatus === 'inactive') return b.launchStatus;
+  return b.active === false ? 'inactive' : 'active';
+}
+function getBuildLaunchLabel(s) {
+  return s === 'in-progress' ? 'In Progress' : (s === 'inactive' ? 'Inactive' : 'Active');
+}
+function getBuildLaunchColor(s) {
+  return s === 'in-progress' ? 'var(--amber)' : (s === 'inactive' ? 'var(--red)' : 'var(--sage)');
+}
+function setBuildLaunch(id, value) {
+  if (value !== 'in-progress' && value !== 'active' && value !== 'inactive') return;
+  var b = BUILDS_DATA.find(function(x){ return x.id === id; });
+  if (!b) return;
+  var prev = getBuildLaunch(b);
+  if (prev === value) return;
+  b.launchStatus = value;
+  b.active = value !== 'inactive';
+  b.updated = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+  logActivity('builds', value === 'active' ? '✓' : (value === 'inactive' ? '✕' : '⏳'), b.name + ' → ' + getBuildLaunchLabel(value));
+  buildBuildsTable();
+  viewBuild(id);
+  showSaveToast(b.name + ' → ' + getBuildLaunchLabel(value));
+  saveAllData();
+}
+// Legacy callers — still flip between active and inactive.
 function toggleBuildActive(id) {
   var b = BUILDS_DATA.find(function(x){ return x.id === id; });
   if (!b) return;
-  b.active = b.active === false ? true : false;
-  b.updated = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
-  logActivity('builds', b.active ? '✓' : '✕', b.name + (b.active ? ' reactivated' : ' discontinued'));
-  buildBuildsTable();
-  viewBuild(id);
-  showSaveToast(b.name + (b.active ? ' reactivated' : ' discontinued'));
-  saveAllData();
+  setBuildLaunch(id, getBuildLaunch(b) === 'inactive' ? 'active' : 'inactive');
 }
 
 function getBuildAllergens(b) {
@@ -15486,6 +15536,8 @@ function saveBuild() {
     type: document.getElementById('nb-build-type').value,
     size: document.getElementById('nb-build-size').value,
     status: 'draft',
+    launchStatus: 'in-progress',
+    active: true,
     components: [],
     instructions: document.getElementById('nb-build-instr').value,
     bakeTemp: document.getElementById('nb-build-temp').value || '—',
@@ -17671,7 +17723,7 @@ function buildBranchSOPTable() {
     if (sop.archived) { archivedCount++; if (!showArchived) return; }
     visibleCount++;
     var linkedBuild = sop.buildRef ? BUILDS_DATA.find(function(x){return x.id===sop.buildRef}) : null;
-    var buildDiscontinued = linkedBuild && linkedBuild.active === false;
+    var buildDiscontinued = linkedBuild && getBuildLaunch(linkedBuild) === 'inactive';
     const tr = document.createElement('tr');
     tr.style.cursor = 'pointer';
     if (buildDiscontinued || sop.archived) tr.style.opacity = '0.5';
@@ -17850,8 +17902,8 @@ function viewBranchSOP(id) {
       <button class="btn btn-gold btn-sm" onclick="editBranchSOP('${sop.id}')">✏️ Edit Steps</button>
       <button class="btn btn-outline btn-sm" onclick="printBranchSOP('${sop.id}')">🖨️ Print</button>
     </div>
-    ${(function(){ var lb = sop.buildRef ? BUILDS_DATA.find(function(x){return x.id===sop.buildRef}) : null; return lb && lb.active===false ? '<div style="background:var(--red);color:white;padding:10px 20px;border-radius:var(--r-lg) var(--r-lg) 0 0;font-size:12px;font-weight:600;display:flex;align-items:center;gap:8px"><span style="font-size:16px">⚠</span> This product has been discontinued — the linked build ('+sop.buildRef+') is no longer active</div>' : ''; })()}
-    <div style="background:white;border-radius:${(function(){ var lb = sop.buildRef ? BUILDS_DATA.find(function(x){return x.id===sop.buildRef}) : null; return lb && lb.active===false ? '0 0 var(--r-lg) var(--r-lg)' : 'var(--r-lg)'; })()};overflow:hidden;box-shadow:var(--sh-md);margin-bottom:20px">
+    ${(function(){ var lb = sop.buildRef ? BUILDS_DATA.find(function(x){return x.id===sop.buildRef}) : null; return lb && getBuildLaunch(lb)==='inactive' ? '<div style="background:var(--red);color:white;padding:10px 20px;border-radius:var(--r-lg) var(--r-lg) 0 0;font-size:12px;font-weight:600;display:flex;align-items:center;gap:8px"><span style="font-size:16px">⚠</span> This product has been discontinued — the linked build ('+sop.buildRef+') is no longer active</div>' : ''; })()}
+    <div style="background:white;border-radius:${(function(){ var lb = sop.buildRef ? BUILDS_DATA.find(function(x){return x.id===sop.buildRef}) : null; return lb && getBuildLaunch(lb)==='inactive' ? '0 0 var(--r-lg) var(--r-lg)' : 'var(--r-lg)'; })()};overflow:hidden;box-shadow:var(--sh-md);margin-bottom:20px">
       <!-- Header banner -->
       <div style="background:${brandColor};padding:20px 28px;display:flex;align-items:center;gap:20px">
         <div style="background:white;border-radius:var(--r-md);padding:8px 14px;font-family:var(--font-d);font-size:14px;font-weight:700;color:${brandColor}">${sop.brand}</div>
