@@ -2637,8 +2637,8 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
   </div>
 
   <!-- Access Control Matrix -->
-  <div class="card" id="access-control-card" style="margin-top:24px;border:1.5px solid var(--navy)">
-    <div class="card-head" style="background:var(--navy);cursor:pointer" onclick="toggleAccessControl(event)">
+  <div class="card" id="access-control-card" style="margin-top:24px">
+    <div class="card-head" style="background:var(--navy);cursor:pointer;border-bottom:none" onclick="toggleAccessControl(event)">
       <span class="card-title" style="color:white">Access Control <span style="font-size:11px;font-weight:400;opacity:0.7;margin-left:6px">role defaults — per-user access overrides this</span></span>
       <div style="display:flex;gap:8px;align-items:center">
         <button class="btn btn-sm" id="access-control-save" style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:none;display:none" onclick="event.stopPropagation();saveAccessControl()">Save Changes</button>
