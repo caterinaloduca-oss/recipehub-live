@@ -13782,23 +13782,26 @@ function updateQARecipe(npd) {
   var r = npd ? RECIPE_DB[npd] : null;
   if (batchEl) batchEl.value = (r && r.qaBatch) || '';
   if (dateEl)  dateEl.value  = (r && r.qaDate)  || '';
-  // Toggle the Bypass QA button: only admin/qa can see it; if already bypassed show that state.
+  // Toggle the Bypass QA button: only admin/qa see it. Per-stage state — Factory Trial and
+  // Production Trial each get their own bypass, so the button reflects the *current* stage only.
   var bypassBtn = document.getElementById('qa-bypass-btn');
   if (bypassBtn) {
     var role = (typeof getCurrentUserRole === 'function') ? getCurrentUserRole() : '';
     var canBypass = role === 'admin' || role === 'qa';
-    if (!canBypass) {
+    var stage = _qaStageInfo(r);
+    var stageQA = stage ? r[stage.key] : null;
+    if (!canBypass || !stage) {
       bypassBtn.style.display = 'none';
-    } else if (r && r.qaBypassed) {
+    } else if (stageQA && stageQA.bypassed) {
       bypassBtn.style.display = '';
-      bypassBtn.textContent = '⚡ QA Bypassed';
+      bypassBtn.textContent = '⚡ ' + stage.label + ' QA Bypassed';
       bypassBtn.disabled = true;
-      bypassBtn.title = 'Bypassed by ' + r.qaBypassed.by + ' — ' + r.qaBypassed.reason;
+      bypassBtn.title = 'Bypassed by ' + (stageQA.bypassedBy || stageQA.signedBy) + ' — ' + (stageQA.bypassReason || '');
       bypassBtn.style.opacity = '0.6';
       bypassBtn.style.cursor = 'default';
     } else {
       bypassBtn.style.display = '';
-      bypassBtn.textContent = '⚡ Bypass QA';
+      bypassBtn.textContent = '⚡ Bypass ' + stage.label + ' QA';
       bypassBtn.disabled = false;
       bypassBtn.title = '';
       bypassBtn.style.opacity = '';
@@ -13844,6 +13847,13 @@ var QA_BYPASS_REASONS = [
   'Already cleared — equivalent recipe approved',
   'Other'
 ];
+// Maps the recipe's current status to the stage key + label used for QA bypass.
+function _qaStageInfo(r) {
+  if (!r) return null;
+  if (r.status === 'trial')      return { key: 'trialQA',      label: 'Factory Trial' };
+  if (r.status === 'prod-trial') return { key: 'prod-trialQA', label: 'Production Trial' };
+  return null;
+}
 function openBypassQAModal() {
   var role = getCurrentUserRole();
   if (role !== 'admin' && role !== 'qa') { showSaveToast('Only admin or QA can bypass QA', true); return; }
@@ -13851,20 +13861,29 @@ function openBypassQAModal() {
   if (!npd) { showSaveToast('Pick a recipe first', true); return; }
   var r = RECIPE_DB[npd];
   if (!r) { showSaveToast('Recipe not found', true); return; }
+  var stage = _qaStageInfo(r);
+  if (!stage) {
+    showSaveToast('Bypass only applies at Factory Trial or Production Trial', true);
+    return;
+  }
+  if (r[stage.key] && r[stage.key].bypassed) {
+    showSaveToast(stage.label + ' QA already bypassed', true);
+    return;
+  }
   var opts = QA_BYPASS_REASONS.map(function(o,i){ return '<option value="'+i+'">'+o+'</option>'; }).join('');
   openModal(
     '<div class="card-head" style="background:var(--amber);border-radius:16px 16px 0 0">' +
-      '<span class="card-title" style="color:white">⚡ Bypass QA Clearance</span>' +
+      '<span class="card-title" style="color:white">⚡ Bypass ' + stage.label + ' QA</span>' +
       '<button class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:white;border:none" onclick="closeModal()">✕</button>' +
     '</div>' +
     '<div class="card-body" style="padding:24px">' +
-      '<div style="font-size:13px;color:var(--g5);margin-bottom:14px">Bypass marks this recipe as not needing QA lab clearance. The recipe stays auditable — bypass is logged with your name, timestamp, and reason. If the recipe is at <strong>Factory Trial</strong> or <strong>Production Trial</strong>, the QA sign-off for that stage is auto-marked as bypassed.</div>' +
+      '<div style="font-size:13px;color:var(--g5);margin-bottom:14px">Bypass marks the <strong>' + stage.label + '</strong> QA gate as not needing lab clearance. Production Trial QA (the next gate) is unaffected — it can be bypassed separately when the recipe gets there.</div>' +
       '<div style="background:var(--g0);border:1px solid var(--g2);border-radius:8px;padding:12px;margin-bottom:14px;font-size:12px">' +
         '<strong>'+r.name+'</strong> · <span style="color:var(--g3)">'+r.npd+' · '+(r.version||'')+' · '+(r.brand||'')+'</span>' +
       '</div>' +
       '<div class="form-group" style="margin-bottom:14px">' +
         '<label class="form-label">Reason</label>' +
-        '<select class="form-select" id="qbp-reason" onchange="document.getElementById(\'qbp-notes-row\').style.display=this.value===\''+(QA_BYPASS_REASONS.length-1)+'\'?\'block\':this.value===\'5\'?\'block\':\'block\'">'+opts+'</select>' +
+        '<select class="form-select" id="qbp-reason">'+opts+'</select>' +
       '</div>' +
       '<div class="form-group" id="qbp-notes-row" style="margin-bottom:18px">' +
         '<label class="form-label">Notes <span style="color:var(--g3);font-weight:400">(optional, required for "Other")</span></label>' +
@@ -13872,7 +13891,7 @@ function openBypassQAModal() {
       '</div>' +
       '<div style="display:flex;gap:10px;justify-content:flex-end">' +
         '<button class="btn btn-outline" onclick="closeModal()">Cancel</button>' +
-        '<button class="btn" style="background:var(--amber);color:white" onclick="confirmBypassQA()">Bypass QA</button>' +
+        '<button class="btn" style="background:var(--amber);color:white" onclick="confirmBypassQA()">Bypass ' + stage.label + ' QA</button>' +
       '</div>' +
     '</div>'
   );
@@ -13881,6 +13900,8 @@ function confirmBypassQA() {
   var npd = _qaCurrentNPD;
   var r = npd ? RECIPE_DB[npd] : null;
   if (!r) { closeModal(); return; }
+  var stage = _qaStageInfo(r);
+  if (!stage) { closeModal(); return; }
   var idx = parseInt((document.getElementById('qbp-reason') || {}).value || '0', 10);
   var reason = QA_BYPASS_REASONS[idx] || QA_BYPASS_REASONS[0];
   var notes = (document.getElementById('qbp-notes') || {}).value.trim();
@@ -13890,24 +13911,20 @@ function confirmBypassQA() {
   }
   var who = getCurrentUserName();
   var nowIso = new Date().toISOString();
-  r.qaBypassed = { by: who, at: nowIso, reason: reason, notes: notes || '' };
-  // If at a trial gate, auto-sign QA so the recipe can move forward
-  var stageKey = r.status === 'trial' ? 'trialQA' : (r.status === 'prod-trial' ? 'prod-trialQA' : null);
-  if (stageKey) {
-    r[stageKey] = r[stageKey] || {};
-    r[stageKey].signed = true;
-    r[stageKey].signedBy = who + ' (QA bypass)';
-    r[stageKey].signedAt = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
-    r[stageKey].bypassed = true;
-    r[stageKey].bypassReason = reason + (notes ? ' — ' + notes : '');
-  }
+  r[stage.key] = r[stage.key] || {};
+  r[stage.key].signed = true;
+  r[stage.key].signedBy = who + ' (QA bypass)';
+  r[stage.key].signedAt = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+  r[stage.key].bypassed = true;
+  r[stage.key].bypassedBy = who;
+  r[stage.key].bypassedAt = nowIso;
+  r[stage.key].bypassReason = reason + (notes ? ' — ' + notes : '');
   r.updatedAt = nowIso;
   closeModal();
   saveAllData();
-  auditEvent('qa.bypass', 'recipe', npd, r.name + ' — ' + reason + (notes ? ' (' + notes + ')' : ''));
-  logActivity('recipe', '⚡', 'QA bypassed for ' + r.name, reason + (notes ? ' — ' + notes : ''));
-  showSaveToast('QA bypassed for ' + r.name);
-  // Refresh the QA page so the bypass shows AND the dropdown drops this recipe from the awaiting list.
+  auditEvent('qa.bypass', 'recipe', npd, r.name + ' · ' + stage.label + ' — ' + reason + (notes ? ' (' + notes + ')' : ''));
+  logActivity('recipe', '⚡', stage.label + ' QA bypassed for ' + r.name, reason + (notes ? ' — ' + notes : ''));
+  showSaveToast(stage.label + ' QA bypassed');
   if (_currentPage === 'qa') populateQARecipeDropdown();
   if (typeof updateDashboardStats === 'function') updateDashboardStats();
   if (typeof updateSidebarBadges === 'function') updateSidebarBadges();
