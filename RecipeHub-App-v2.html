@@ -17753,6 +17753,8 @@ function buildBranchSOPTable() {
   if (countEl) countEl.textContent = visibleCount + ' SOPs';
   const archivedLabel = document.getElementById('bsop-archived-label');
   if (archivedLabel) archivedLabel.textContent = archivedCount ? '(' + archivedCount + ' archived)' : '';
+  // Reapply active search/brand filter after rebuild — otherwise the dropdown shows e.g. "Maestro" but Mad rows appear.
+  if (typeof filterBranchSOPs === 'function') filterBranchSOPs();
 }
 
 function archiveBranchSOP(id) {
