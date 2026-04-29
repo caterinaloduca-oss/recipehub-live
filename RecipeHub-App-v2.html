@@ -3302,7 +3302,7 @@ var TOUR_TOPICS = {
         page: 'ingredients',
         selector: '.nav-item[data-page="ingredients"]',
         roleHints: {
-          purchasing: 'You\'re the only role that can override ingredient prices. Refresh from Oracle keeps things in sync.'
+          purchasing: 'You\'re the only role that can override ingredient prices. Prices sync from Oracle EBS automatically.'
         }
       },
       {
@@ -6084,7 +6084,7 @@ const PAGES = {
   dashboard:      { title:'Overview',           actions:'' },
   recipes:        { title:'Recipes',             actions:`<button class="btn btn-gold btn-sm" onclick="openRecipeForm()">+ New Recipe</button>` },
   'recipe-detail':{ title:'Recipe Detail',       actions:'' },
-  ingredients:    { title:'Ingredients Database',actions:`<button class="btn btn-outline btn-sm" onclick="refreshFromOracle()" title="Sync EBS prices from Oracle (Riyadh org 110), then load the ingredient list from POS recipes (food + packaging only)">↻ Refresh from Oracle</button><button class="btn btn-outline btn-sm" style="margin-left:6px" onclick="exportIngredientsCSV()">⤓ Export CSV</button><button class="btn btn-gold btn-sm" style="margin-left:6px" onclick="openIngredientForm()">+ Add Ingredient</button>` },
+  ingredients:    { title:'Ingredients Database',actions:`<button class="btn btn-outline btn-sm" onclick="exportIngredientsCSV()">⤓ Export CSV</button><button class="btn btn-gold btn-sm" style="margin-left:6px" onclick="openIngredientForm()">+ Add Ingredient</button>` },
   builds:         { title:'Product Builds',       actions:`<button class="btn btn-gold btn-sm" onclick="openBuildForm()">+ New Build</button>` },
   qa:             { title:'QA Lab Results',      actions:`<button class="btn btn-outline btn-sm" onclick="printQALabReport()">🖨️ Lab Report</button><button class="btn btn-outline btn-sm" style="margin-left:6px" onclick="printCOA()">📄 COA</button><button class="btn btn-sage btn-sm" style="margin-left:6px" onclick="addTestPoint()">+ New Test</button>` },
   'branch-sop':   { title:'Branch SOP',           actions:`` },
