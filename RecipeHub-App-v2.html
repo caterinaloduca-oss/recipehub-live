@@ -6223,13 +6223,16 @@ function applyRoleRestrictions() {
     stripPageActions('page-cost-control');
   }
 
-  // Pages where this role can edit (topbar + inline buttons stay visible)
+  // Pages where this role can edit (topbar + inline buttons stay visible).
+  // Substitutions: purchasing creates; npd/qa/factory each approve their step (sequential R&D → QA → Factory).
+  // OPS: branches-only per CLAUDE.md (Stage 2 Branch SOP reviewer).
   var editablePages = {
     viewer:     [],
-    purchasing: ['ingredients','comms'],
-    factory:    ['production','comms'],
-    qa:         ['qa','builds','branch-sop','recipe-detail','comms'],
-    npd:        ['recipes','recipe-detail','ingredients','builds','branch-sop','sop','brands','comms','library'],
+    ops:        ['branch-sop','comms'],
+    purchasing: ['ingredients','comms','substitutions'],
+    factory:    ['production','comms','substitutions'],
+    qa:         ['qa','builds','branch-sop','recipe-detail','comms','substitutions'],
+    npd:        ['recipes','recipe-detail','ingredients','builds','branch-sop','sop','brands','comms','library','substitutions'],
   };
 
   var allowed = editablePages[role] || [];
@@ -6242,7 +6245,7 @@ function applyRoleRestrictions() {
 
   // Strip action buttons from pages this role CANNOT edit
   stripPageActions('page-users');
-  var allPages = ['page-dashboard','page-recipes','page-recipe-detail','page-ingredients','page-qa','page-sop','page-branch-sop','page-production','page-builds','page-brands','page-builds-costing','page-cost-control','page-reports','page-comms','page-library','page-training','page-audit-log'];
+  var allPages = ['page-dashboard','page-recipes','page-recipe-detail','page-ingredients','page-qa','page-sop','page-branch-sop','page-production','page-substitutions','page-builds','page-brands','page-builds-costing','page-cost-control','page-reports','page-comms','page-library','page-training','page-audit-log'];
   allPages.forEach(function(pid) {
     var pageId = pid.replace('page-','');
     if (allowed.indexOf(pageId) === -1) stripPageActions(pid);
