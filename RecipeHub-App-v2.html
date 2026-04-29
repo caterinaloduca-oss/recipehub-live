@@ -566,6 +566,11 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
 }
 
 @media (max-width: 480px) {
+  /* Trial QA rows: label stacks above input on phones (was width:120px squeezing the value input) */
+  div:has(> .qa-row-label) { flex-wrap:wrap !important; }
+  .qa-row-label { width:auto !important; flex-basis:100% !important; font-size:11px !important; color:var(--navy) !important; font-weight:500 !important; margin-bottom:2px !important; }
+  .qa-row-label + input { flex:1 1 65% !important; }
+
   .stats-row { grid-template-columns:1fr !important; }
   .recipe-detail-meta { grid-template-columns:1fr !important; }
   .recipe-detail-meta > div { border-right:none !important; border-bottom:1px solid var(--g2); }
@@ -7187,18 +7192,18 @@ function _syncIngEBSPrices() {
   });
 }
 
-function editIngCostPerKg(idx) {
+async function editIngCostPerKg(idx) {
   var row = ING_DATA[idx];
   if (!row) return;
   var name = row[1];
   var current = row[11] || '';
-  var input = prompt('Cost per kg (SAR) for "' + name + '":\n\nEnter the price per kilogram. Leave empty to clear.', current);
+  var input = await customPromptAsync('Cost per kg (SAR) for "' + name + '":\n\nEnter the price per kilogram. Leave empty to clear.', current);
   if (input === null) return;
   if (input.trim() === '') {
     row[11] = null;
   } else {
     var val = parseFloat(input.replace(/[^0-9.]/g, ''));
-    if (isNaN(val)) { alert('Invalid number'); return; }
+    if (isNaN(val)) { showSaveToast('Invalid number', true); return; }
     row[11] = val;
   }
   buildIngTable();
@@ -8537,7 +8542,7 @@ function _calcActualCostPerKg(r) {
 }
 
 // Edit ingredient cost — click on cost cell to enter manual price per kg
-function editIngCost(npd, idx) {
+async function editIngCost(npd, idx) {
   var role = (typeof getCurrentUserRole === 'function') ? getCurrentUserRole() : 'viewer';
   if (role !== 'admin' && role !== 'npd') { showSaveToast('Only R&D can edit ingredient costs', true); return; }
   var r = RECIPE_DB[npd];
@@ -8551,13 +8556,13 @@ function editIngCost(npd, idx) {
     var fd = ING_DATA.find(function(row){ var dn=row[1].toLowerCase().replace(/[^a-z0-9]/g,''); return dn.includes(n)||n.includes(dn); });
     if (fd) { var p = parseFloat(String(fd[5]).replace(/[^0-9.]/g,'')); if (!isNaN(p)) currentPrice = p; }
   }
-  var input = prompt('Cost per kg (SAR) for "' + ing.name + '":\n\nLeave empty to use database price, or enter a number to override.', currentPrice);
+  var input = await customPromptAsync('Cost per kg (SAR) for "' + ing.name + '":\n\nLeave empty to use database price, or enter a number to override.', currentPrice);
   if (input === null) return; // cancelled
   if (input.trim() === '') {
     delete ing.costPerKg; // remove override, fall back to DB
   } else {
     var val = parseFloat(input.replace(/[^0-9.]/g,''));
-    if (isNaN(val)) { alert('Invalid number'); return; }
+    if (isNaN(val)) { showSaveToast('Invalid number', true); return; }
     ing.costPerKg = val;
   }
   // Update recipe total cost
@@ -9276,7 +9281,7 @@ function viewRecipe(npd) {
             <div style="font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3);margin-bottom:8px">Microbiology</div>
             <div style="display:flex;flex-direction:column;gap:8px">
               <div style="display:flex;align-items:center;gap:8px">
-                <span style="font-size:12px;color:var(--g4);width:120px">TPC (cfu/g)</span>
+                <span class="qa-row-label" style="font-size:12px;color:var(--g4);width:120px">TPC (cfu/g)</span>
                 <input class="form-input" style="flex:1;padding:6px 10px;font-size:12px;font-family:var(--font-m)" id="qa-${r.status}-tpc-${r.npd}" placeholder="e.g. <10,000" value="${(r[r.status+'QA'] && r[r.status+'QA'].tpc) || ''}" onchange="updateTrialQA('${r.npd}','${r.status}','tpc',this.value)" />
                 <select class="form-select" style="width:70px;padding:4px 6px;font-size:11px" id="qa-${r.status}-tpc-v-${r.npd}" onchange="updateTrialQA('${r.npd}','${r.status}','tpcVerdict',this.value)">
                   <option value="">—</option>
@@ -9285,7 +9290,7 @@ function viewRecipe(npd) {
                 </select>
               </div>
               <div style="display:flex;align-items:center;gap:8px">
-                <span style="font-size:12px;color:var(--g4);width:120px">Yeast & Mould</span>
+                <span class="qa-row-label" style="font-size:12px;color:var(--g4);width:120px">Yeast & Mould</span>
                 <input class="form-input" style="flex:1;padding:6px 10px;font-size:12px;font-family:var(--font-m)" id="qa-${r.status}-ym-${r.npd}" placeholder="e.g. <100" value="${(r[r.status+'QA'] && r[r.status+'QA'].ym) || ''}" onchange="updateTrialQA('${r.npd}','${r.status}','ym',this.value)" />
                 <select class="form-select" style="width:70px;padding:4px 6px;font-size:11px" id="qa-${r.status}-ym-v-${r.npd}" onchange="updateTrialQA('${r.npd}','${r.status}','ymVerdict',this.value)">
                   <option value="">—</option>
@@ -9294,7 +9299,7 @@ function viewRecipe(npd) {
                 </select>
               </div>
               <div style="display:flex;align-items:center;gap:8px">
-                <span style="font-size:12px;color:var(--g4);width:120px">Coliforms</span>
+                <span class="qa-row-label" style="font-size:12px;color:var(--g4);width:120px">Coliforms</span>
                 <input class="form-input" style="flex:1;padding:6px 10px;font-size:12px;font-family:var(--font-m)" id="qa-${r.status}-col-${r.npd}" placeholder="e.g. <10" value="${(r[r.status+'QA'] && r[r.status+'QA'].col) || ''}" onchange="updateTrialQA('${r.npd}','${r.status}','col',this.value)" />
                 <select class="form-select" style="width:70px;padding:4px 6px;font-size:11px" id="qa-${r.status}-col-v-${r.npd}" onchange="updateTrialQA('${r.npd}','${r.status}','colVerdict',this.value)">
                   <option value="">—</option>
@@ -9303,7 +9308,7 @@ function viewRecipe(npd) {
                 </select>
               </div>
               <div style="display:flex;align-items:center;gap:8px">
-                <span style="font-size:12px;color:var(--g4);width:120px">E. coli</span>
+                <span class="qa-row-label" style="font-size:12px;color:var(--g4);width:120px">E. coli</span>
                 <input class="form-input" style="flex:1;padding:6px 10px;font-size:12px;font-family:var(--font-m)" id="qa-${r.status}-ecoli-${r.npd}" placeholder="e.g. Not detected" value="${(r[r.status+'QA'] && r[r.status+'QA'].ecoli) || ''}" onchange="updateTrialQA('${r.npd}','${r.status}','ecoli',this.value)" />
                 <select class="form-select" style="width:70px;padding:4px 6px;font-size:11px" id="qa-${r.status}-ecoli-v-${r.npd}" onchange="updateTrialQA('${r.npd}','${r.status}','ecoliVerdict',this.value)">
                   <option value="">—</option>
@@ -9312,7 +9317,7 @@ function viewRecipe(npd) {
                 </select>
               </div>
               <div style="display:flex;align-items:center;gap:8px">
-                <span style="font-size:12px;color:var(--g4);width:120px">Salmonella</span>
+                <span class="qa-row-label" style="font-size:12px;color:var(--g4);width:120px">Salmonella</span>
                 <input class="form-input" style="flex:1;padding:6px 10px;font-size:12px;font-family:var(--font-m)" id="qa-${r.status}-sal-${r.npd}" placeholder="e.g. Not detected/25g" value="${(r[r.status+'QA'] && r[r.status+'QA'].sal) || ''}" onchange="updateTrialQA('${r.npd}','${r.status}','sal',this.value)" />
                 <select class="form-select" style="width:70px;padding:4px 6px;font-size:11px" id="qa-${r.status}-sal-v-${r.npd}" onchange="updateTrialQA('${r.npd}','${r.status}','salVerdict',this.value)">
                   <option value="">—</option>
@@ -9327,7 +9332,7 @@ function viewRecipe(npd) {
             <div style="font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3);margin-bottom:8px">Physical / Chemical</div>
             <div style="display:flex;flex-direction:column;gap:8px">
               <div style="display:flex;align-items:center;gap:8px">
-                <span style="font-size:12px;color:var(--g4);width:120px">pH</span>
+                <span class="qa-row-label" style="font-size:12px;color:var(--g4);width:120px">pH</span>
                 <input class="form-input" style="flex:1;padding:6px 10px;font-size:12px;font-family:var(--font-m)" id="qa-${r.status}-ph-${r.npd}" placeholder="e.g. 4.1" value="${(r[r.status+'QA'] && r[r.status+'QA'].ph) || ''}" onchange="updateTrialQA('${r.npd}','${r.status}','ph',this.value)" />
                 <select class="form-select" style="width:70px;padding:4px 6px;font-size:11px" onchange="updateTrialQA('${r.npd}','${r.status}','phVerdict',this.value)">
                   <option value="">—</option>
@@ -9336,7 +9341,7 @@ function viewRecipe(npd) {
                 </select>
               </div>
               <div style="display:flex;align-items:center;gap:8px">
-                <span style="font-size:12px;color:var(--g4);width:120px">Water Activity</span>
+                <span class="qa-row-label" style="font-size:12px;color:var(--g4);width:120px">Water Activity</span>
                 <input class="form-input" style="flex:1;padding:6px 10px;font-size:12px;font-family:var(--font-m)" id="qa-${r.status}-aw-${r.npd}" placeholder="e.g. 0.88" value="${(r[r.status+'QA'] && r[r.status+'QA'].aw) || ''}" onchange="updateTrialQA('${r.npd}','${r.status}','aw',this.value)" />
                 <select class="form-select" style="width:70px;padding:4px 6px;font-size:11px" onchange="updateTrialQA('${r.npd}','${r.status}','awVerdict',this.value)">
                   <option value="">—</option>
@@ -9345,7 +9350,7 @@ function viewRecipe(npd) {
                 </select>
               </div>
               <div style="display:flex;align-items:center;gap:8px">
-                <span style="font-size:12px;color:var(--g4);width:120px">Brix</span>
+                <span class="qa-row-label" style="font-size:12px;color:var(--g4);width:120px">Brix</span>
                 <input class="form-input" style="flex:1;padding:6px 10px;font-size:12px;font-family:var(--font-m)" id="qa-${r.status}-brix-${r.npd}" placeholder="e.g. 20.5" value="${(r[r.status+'QA'] && r[r.status+'QA'].brix) || ''}" onchange="updateTrialQA('${r.npd}','${r.status}','brix',this.value)" />
                 <select class="form-select" style="width:70px;padding:4px 6px;font-size:11px" onchange="updateTrialQA('${r.npd}','${r.status}','brixVerdict',this.value)">
                   <option value="">—</option>
@@ -9354,7 +9359,7 @@ function viewRecipe(npd) {
                 </select>
               </div>
               <div style="display:flex;align-items:center;gap:8px">
-                <span style="font-size:12px;color:var(--g4);width:120px">Viscosity (cP)</span>
+                <span class="qa-row-label" style="font-size:12px;color:var(--g4);width:120px">Viscosity (cP)</span>
                 <input class="form-input" style="flex:1;padding:6px 10px;font-size:12px;font-family:var(--font-m)" id="qa-${r.status}-visc-${r.npd}" placeholder="e.g. 1050" value="${(r[r.status+'QA'] && r[r.status+'QA'].visc) || ''}" onchange="updateTrialQA('${r.npd}','${r.status}','visc',this.value)" />
                 <select class="form-select" style="width:70px;padding:4px 6px;font-size:11px" onchange="updateTrialQA('${r.npd}','${r.status}','viscVerdict',this.value)">
                   <option value="">—</option>
@@ -9613,7 +9618,7 @@ function renderRecipeIdSlot(r, role) {
     : '';
   return '<div style="margin-top:8px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">' + label + chip + btn + '</div>';
 }
-function editYield(npd, which) {
+async function editYield(npd, which) {
   var r = RECIPE_DB[npd];
   if (!r) return;
   var role = getCurrentUserRole();
@@ -9633,7 +9638,7 @@ function editYield(npd, which) {
   var label = (which === 'indicative') ? 'Indicative yield (Factory Trial)' : 'Validated yield (Production Trial)';
   var cur = r[field];
   var curPct = cur ? (cur * 100).toFixed(1) : '';
-  var input = prompt(label + ' — enter as percent, e.g. 96 or 96.5', curPct);
+  var input = await customPromptAsync(label + ' — enter as percent, e.g. 96 or 96.5', curPct);
   if (input === null) return;
   var val = input.trim();
   if (val === '') {
@@ -9655,7 +9660,7 @@ function editYield(npd, which) {
   showSaveToast(label + ' saved');
 }
 
-function assignRecipeId(npd) {
+async function assignRecipeId(npd) {
   var r = RECIPE_DB[npd];
   if (!r) return;
   var role = getCurrentUserRole();
@@ -9669,7 +9674,7 @@ function assignRecipeId(npd) {
   }
   var current = r.recipeId || '';
   var hint = 'Factory Recipe ID (e.g. 211_BCS v1 for Meat line, 212_XXX v1 for Bakery)';
-  var input = prompt(hint, current);
+  var input = await customPromptAsync(hint, current);
   if (input === null) return;
   var val = input.trim();
   if (!val) {
@@ -9819,7 +9824,7 @@ function updateRecipeShelfLife(npd, val) {
   showSaveToast('Shelf life updated');
 }
 
-function signOffTrialQA(npd, stage) {
+async function signOffTrialQA(npd, stage) {
   if (!_requireRole(['qa'], 'QA')) return;
   const r = RECIPE_DB[npd];
   if (!r) return;
@@ -9840,7 +9845,7 @@ function signOffTrialQA(npd, stage) {
   var verdictFields = ['tpcVerdict','ymVerdict','colVerdict','ecoliVerdict','salVerdict','phVerdict','awVerdict','brixVerdict','viscVerdict'];
   var fails = verdictFields.filter(function(f){ return qa[f] === 'fail'; });
   if (fails.length) {
-    var conditions = prompt('One or more results are marked Fail (' + fails.length + '). Sign-off will be recorded as "Approved with conditions". Describe the conditions / corrective actions required:', qa.conditions || '');
+    var conditions = await customPromptAsync('One or more results are marked Fail (' + fails.length + '). Sign-off will be recorded as "Approved with conditions". Describe the conditions / corrective actions required:', qa.conditions || '');
     if (conditions === null) return;  // user cancelled
     var trimmed = conditions.trim();
     if (!trimmed) { showSaveToast('Conditions note is required when any verdict is Fail', true); return; }
@@ -11040,9 +11045,9 @@ function removeSOPParam(npd, idx, pi) {
   saveAllData();
 }
 
-function toggleSOPCCP(npd, idx) {
+async function toggleSOPCCP(npd, idx) {
   const step = RECIPE_DB[npd].sopSteps[idx];
-  const val = prompt('CCP text (leave empty to remove):', step.ccp || '');
+  const val = await customPromptAsync('CCP text (leave empty to remove):', step.ccp || '');
   if (val === null) return;
   _markSOPChanged(npd);
   step.ccp = val || null;
@@ -11050,9 +11055,9 @@ function toggleSOPCCP(npd, idx) {
   saveAllData();
 }
 
-function toggleSOPWarning(npd, idx) {
+async function toggleSOPWarning(npd, idx) {
   const step = RECIPE_DB[npd].sopSteps[idx];
-  const val = prompt('Warning text (leave empty to remove):', step.warning || '');
+  const val = await customPromptAsync('Warning text (leave empty to remove):', step.warning || '');
   if (val === null) return;
   _markSOPChanged(npd);
   step.warning = val || null;
@@ -11349,6 +11354,56 @@ function closeModal() {
   if (box) box.style.width = '';
 }
 // Modal only closes via X button — no accidental close on background click
+
+// customPrompt(message, defaultValue, callback) — replacement for window.prompt()
+// callback receives the user's string on OK, or null on Cancel. Mobile-friendly.
+function customPrompt(message, defaultValue, callback) {
+  var msg = String(message == null ? '' : message);
+  var def = String(defaultValue == null ? '' : defaultValue);
+  // Detect a multiline prompt by newline in message — render with line breaks
+  var msgHtml = esc(msg).replace(/\n/g, '<br>');
+  var html =
+    '<div class="card-head" style="background:var(--navy);border-radius:16px 16px 0 0">' +
+      '<span class="card-title" style="color:white">Input</span>' +
+      '<button class="btn btn-sm" style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:none" onclick="customPromptCancel()">✕</button>' +
+    '</div>' +
+    '<div class="card-body" style="padding:20px">' +
+      '<div style="font-size:13px;color:var(--navy);margin-bottom:14px;line-height:1.5">' + msgHtml + '</div>' +
+      '<input class="form-input" id="custom-prompt-input" value="' + esc(def) + '" style="width:100%;font-size:14px;padding:10px 12px" />' +
+      '<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">' +
+        '<button class="btn btn-outline" onclick="customPromptCancel()">Cancel</button>' +
+        '<button class="btn btn-gold" onclick="customPromptOk()">OK</button>' +
+      '</div>' +
+    '</div>';
+  openModal(html, '480px');
+  window._customPromptCallback = callback;
+  setTimeout(function(){
+    var inp = document.getElementById('custom-prompt-input');
+    if (inp) {
+      inp.focus(); inp.select();
+      inp.addEventListener('keydown', function(e){
+        if (e.key === 'Enter') { e.preventDefault(); customPromptOk(); }
+        else if (e.key === 'Escape') { customPromptCancel(); }
+      });
+    }
+  }, 50);
+}
+function customPromptOk() {
+  var inp = document.getElementById('custom-prompt-input');
+  var val = inp ? inp.value : '';
+  closeModal();
+  var cb = window._customPromptCallback; window._customPromptCallback = null;
+  if (typeof cb === 'function') cb(val);
+}
+function customPromptCancel() {
+  closeModal();
+  var cb = window._customPromptCallback; window._customPromptCallback = null;
+  if (typeof cb === 'function') cb(null);
+}
+// Promise wrapper — use with async/await
+function customPromptAsync(message, defaultValue) {
+  return new Promise(function(resolve){ customPrompt(message, defaultValue, resolve); });
+}
 
 // ──────────── NEW RECIPE FORM ────────────
 function openRecipeForm() {
@@ -16205,10 +16260,10 @@ function uploadBuildPhoto(id, input) {
   });
 }
 
-function editBuildSellingPrice(id) {
+async function editBuildSellingPrice(id) {
   var b = BUILDS_DATA.find(x => x.id === id);
   if (!b) return;
-  var val = prompt('Selling Price (SAR):', b.sellingPrice || '');
+  var val = await customPromptAsync('Selling Price (SAR):', b.sellingPrice || '');
   if (val === null) return;
   b.sellingPrice = parseFloat(val) || null;
   b.updatedAt = new Date().toISOString();
@@ -18750,14 +18805,14 @@ function viewBranchSOP(id) {
   applyRoleRestrictions();
 }
 
-function setComponentShelfLife(sopId, itemName, selectEl, type) {
+async function setComponentShelfLife(sopId, itemName, selectEl, type) {
   var sop = BRANCH_SOPS.find(function(s) { return s.id === sopId; });
   if (!sop) return;
   var val = selectEl.value;
   var storageKey = type === 'open' ? 'componentShelfLifeOpen' : 'componentShelfLife';
   var activeColor = type === 'open' ? 'var(--amber)' : 'var(--sage)';
   if (val === 'Custom') {
-    var custom = prompt('Enter custom shelf life (e.g. "6 Hours", "2 Days at 4°C"):');
+    var custom = await customPromptAsync('Enter custom shelf life (e.g. "6 Hours", "2 Days at 4°C"):', '');
     if (!custom) { selectEl.value = (sop[storageKey] && sop[storageKey][itemName]) || ''; return; }
     val = custom;
   }
@@ -20390,12 +20445,12 @@ function approveSubRequest(id, role, ok) {
   showSaveToast(ok ? _subRoleLabel(role) + ' approval recorded' : _subRoleLabel(role) + ' approval undone');
 }
 
-function rejectSubRequest(id, role) {
+async function rejectSubRequest(id, role) {
   var r = SUB_REQUESTS.find(function(x){ return x.id === id; });
   if (!r) return;
   if (!_subCanApproveAs(role)) { showSaveToast('You can\'t reject as ' + _subRoleLabel(role), true); return; }
   if (r.status !== 'open') return;
-  var reason = prompt('Reject reason (optional):') || '';
+  var reason = await customPromptAsync('Reject reason (optional):', '') || '';
   var u = _subCurrentUser();
   r.status = 'rejected';
   r.rejection = { by: u.email || 'unknown', byName: u.name || u.email || 'unknown', at: new Date().toISOString(), role: role, reason: reason };
