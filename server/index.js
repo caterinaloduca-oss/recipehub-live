@@ -497,13 +497,16 @@ function mergeBuild(existing, incoming) {
   const eTime = existing.updatedAt || '2000-01-01';
   const iTime = incoming.updatedAt || '2000-01-01';
   if (eTime > iTime) {
-    ['name','brand','type','size','components','instructions','bakeTemp','bakeTime','sellingPrice','status','nutrition','tags'].forEach(f => {
+    ['name','brand','type','size','components','instructions','bakeTemp','bakeTime','sellingPrice','status','launchStatus','active','nutrition','tags'].forEach(f => {
       if (existing[f] !== undefined) result[f] = existing[f];
     });
     result.updatedAt = eTime;
   }
   // Preserve photo
   if (existing.photo && !result.photo) result.photo = existing.photo;
+  // Defensive: if a stale client posts without launchStatus/active, never let the server lose what it had
+  if (result.launchStatus === undefined && existing.launchStatus !== undefined) result.launchStatus = existing.launchStatus;
+  if (result.active === undefined && existing.active !== undefined) result.active = existing.active;
   return result;
 }
 
