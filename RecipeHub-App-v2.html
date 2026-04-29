@@ -5405,23 +5405,23 @@ function openProfileModal() {
   '</div>' +
   '<div class="card-body" style="padding:24px">' +
     '<div style="display:flex;align-items:center;gap:16px;margin-bottom:20px">' +
-      '<div style="width:56px;height:56px;border-radius:50%;background:var(--navy);color:var(--gold-mid);display:flex;align-items:center;justify-content:center;font-family:var(--font-d);font-size:20px;font-weight:700">' + user.name.split(' ').map(function(n){return n[0]}).join('').toUpperCase() + '</div>' +
+      '<div style="width:56px;height:56px;border-radius:50%;background:var(--navy);color:var(--gold-mid);display:flex;align-items:center;justify-content:center;font-family:var(--font-d);font-size:20px;font-weight:700">' + esc((user.name||'').split(' ').map(function(n){return n[0]}).join('').toUpperCase()) + '</div>' +
       '<div>' +
-        '<div style="font-family:var(--font-d);font-size:18px;font-weight:600">' + user.name + '</div>' +
-        '<div style="font-size:12px;color:var(--g4)">' + (user.email||'') + '</div>' +
-        '<div style="font-size:11px;color:var(--gold);margin-top:2px">' + (user.role||'') + '</div>' +
+        '<div style="font-family:var(--font-d);font-size:18px;font-weight:600">' + esc(user.name||'') + '</div>' +
+        '<div style="font-size:12px;color:var(--g4)">' + esc(user.email||'') + '</div>' +
+        '<div style="font-size:11px;color:var(--gold);margin-top:2px">' + esc(user.role||'') + '</div>' +
       '</div>' +
     '</div>' +
     '<div class="form-grid form-grid-2" style="margin-bottom:16px">' +
-      '<div class="form-group"><label class="form-label">Full Name</label><input class="form-input" id="prof-name" value="' + user.name + '" /></div>' +
-      '<div class="form-group"><label class="form-label">Email</label><input class="form-input" value="' + (user.email||'') + '" disabled style="color:var(--g3)" /></div>' +
+      '<div class="form-group"><label class="form-label">Full Name</label><input class="form-input" id="prof-name" value="' + esc(user.name||'') + '" /></div>' +
+      '<div class="form-group"><label class="form-label">Email</label><input class="form-input" value="' + esc(user.email||'') + '" disabled style="color:var(--g3)" /></div>' +
     '</div>' +
     '<div class="form-grid form-grid-2" style="margin-bottom:16px">' +
-      '<div class="form-group"><label class="form-label">Phone</label><input class="form-input" id="prof-phone" value="' + phone + '" placeholder="+966 5x xxx xxxx" /></div>' +
-      '<div class="form-group"><label class="form-label">Department</label><input class="form-input" id="prof-dept" value="' + dept + '" placeholder="e.g. NPD, Quality, Operations" /></div>' +
+      '<div class="form-group"><label class="form-label">Phone</label><input class="form-input" id="prof-phone" value="' + esc(phone) + '" placeholder="+966 5x xxx xxxx" /></div>' +
+      '<div class="form-group"><label class="form-label">Department</label><input class="form-input" id="prof-dept" value="' + esc(dept) + '" placeholder="e.g. NPD, Quality, Operations" /></div>' +
     '</div>' +
     '<div class="form-group" style="margin-bottom:16px">' +
-      '<label class="form-label">Job Title</label><input class="form-input" id="prof-title" value="' + title + '" placeholder="e.g. Senior Food Technologist" />' +
+      '<label class="form-label">Job Title</label><input class="form-input" id="prof-title" value="' + esc(title) + '" placeholder="e.g. Senior Food Technologist" />' +
     '</div>' +
     '<div style="display:flex;gap:10px;justify-content:flex-end">' +
       '<button class="btn btn-outline" onclick="closeModal()">Cancel</button>' +
@@ -12146,13 +12146,24 @@ function saveBatchLog(npd) {
   var r = RECIPE_DB[npd];
   if (!r) return;
   if (!r.batchLog) r.batchLog = [];
+  var batchNo = (document.getElementById('bl-batch').value || '').trim();
+  var dateStr = (document.getElementById('bl-date').value || '').trim();
+  var sizeStr = (document.getElementById('bl-size').value || '').trim();
+  var yieldStr = (document.getElementById('bl-yield').value || '').trim();
+  var operator = (document.getElementById('bl-operator').value || '').trim();
+  if (!batchNo) { showSaveToast('Batch number is required', true); return; }
+  if (!dateStr) { showSaveToast('Date is required', true); return; }
+  var dateObj = new Date(dateStr);
+  if (isNaN(dateObj.getTime())) { showSaveToast('Invalid date', true); return; }
+  var yieldNum = parseFloat(yieldStr);
+  if (yieldStr && (isNaN(yieldNum) || yieldNum < 0 || yieldNum > 100)) { showSaveToast('Yield must be 0–100%', true); return; }
   var entry = {
-    batchNo: document.getElementById('bl-batch').value,
-    date: new Date(document.getElementById('bl-date').value).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}),
-    size: document.getElementById('bl-size').value + ' kg',
-    yield: document.getElementById('bl-yield').value + '%',
-    operator: document.getElementById('bl-operator').value || '—',
-    notes: document.getElementById('bl-notes').value,
+    batchNo: batchNo,
+    date: dateObj.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}),
+    size: sizeStr ? sizeStr + ' kg' : '—',
+    yield: yieldStr ? yieldStr + '%' : '—',
+    operator: operator || '—',
+    notes: (document.getElementById('bl-notes').value || '').trim(),
   };
   r.batchLog.push(entry);
   closeModal();
@@ -14153,7 +14164,7 @@ function quickAddUser() {
   var email = (document.getElementById('inv-email') || {}).value || '';
   var role = (document.getElementById('inv-role') || {}).value || '';
   if (!name.trim()) { showSaveToast('Enter a name', true); return; }
-  if (!email.trim() || !email.includes('@dailyfoodsa.com')) { showSaveToast('Enter a valid @dailyfoodsa.com email', true); return; }
+  if (!email.trim() || !email.trim().toLowerCase().endsWith('@dailyfoodsa.com')) { showSaveToast('Enter a valid @dailyfoodsa.com email', true); return; }
   if (!role) { showSaveToast('Select a role', true); return; }
   // Check duplicate
   if (USERS_DATA.find(function(u){ return u.email.toLowerCase() === email.toLowerCase(); })) {
@@ -14973,6 +14984,7 @@ function loadNutrition(npd) {
 }
 
 function saveQAAllergens(npd) {
+  if (!_requireRole(['qa'], 'QA')) return;
   var contains = [];
   var mayContain = [];
   document.querySelectorAll('#modal-box input[data-group="contains"]:checked').forEach(function(cb){ contains.push(cb.value); });
@@ -16273,12 +16285,15 @@ function openBuildForm() {
 }
 
 function saveBuild() {
-  var name = document.getElementById('nb-build-name').value;
-  if (!name) { document.getElementById('nb-build-name').style.borderColor = '#C0392B'; return; }
+  var name = (document.getElementById('nb-build-name').value || '').trim();
+  if (!name) { document.getElementById('nb-build-name').style.borderColor = '#C0392B'; showSaveToast('Build name is required', true); return; }
+  var id = (document.getElementById('nb-build-id').value || '').trim();
+  if (!id) { document.getElementById('nb-build-id').style.borderColor = '#C0392B'; showSaveToast('Build ID is required', true); return; }
+  if (BUILDS_DATA.find(function(b){ return b.id === id; })) { showSaveToast('A build with ID "' + id + '" already exists', true); return; }
   var build = {
-    id: document.getElementById('nb-build-id').value,
+    id: id,
     name: name,
-    brand: document.getElementById('nb-build-brand').value,
+    brand: (document.getElementById('nb-build-brand').value || '').trim(),
     type: document.getElementById('nb-build-type').value,
     size: document.getElementById('nb-build-size').value,
     status: 'draft',
@@ -16296,7 +16311,7 @@ function saveBuild() {
   closeModal();
   buildBuildsTable();
   logActivity('recipe', '🍕', 'New product build created: ' + name, build.brand + ' · ' + build.size);
-  showSaveToast('Pizza build created');
+  showSaveToast('Build created');
   viewBuild(build.id);
   saveAllData();
 }
@@ -16840,13 +16855,17 @@ function createProductionRunWithSubBatches(r, opts) {
 
 function saveProductionRun() {
   var npd = document.getElementById('np-recipe').value;
+  if (!npd) { showSaveToast('Pick a recipe', true); return; }
   var r = RECIPE_DB[npd]; if (!r) return;
+  var dateStr = (document.getElementById('np-date').value || '').trim();
+  if (!dateStr) { showSaveToast('Run date is required', true); return; }
+  if (isNaN(new Date(dateStr).getTime())) { showSaveToast('Invalid date', true); return; }
   var result = createProductionRunWithSubBatches(r, {
-    date:     document.getElementById('np-date').value,
+    date:     dateStr,
     batchSize:(function(){ var v = parseFloat(document.getElementById('np-batch').value); return v ? v + ' kg' : ''; })(),
     runType:  document.getElementById('np-runtype').value,
-    operator: document.getElementById('np-operator').value,
-    notes:    document.getElementById('np-notes').value,
+    operator: (document.getElementById('np-operator').value || '').trim(),
+    notes:    (document.getElementById('np-notes').value || '').trim(),
   });
   closeModal();
   buildProductionTable();
@@ -20101,13 +20120,13 @@ function buildSubRequestList() {
         statusBadge +
         '<div style="font-size:11px;color:var(--g3)">'+r.id+' · '+when+'</div>'+
         '<div style="flex:1;min-width:200px;font-size:13px">'+
-          '<strong>'+ (r.currentName||'') +'</strong> <span style="color:var(--g3)">→</span> <strong>'+(r.proposedName||'')+'</strong>'+
+          '<strong>'+ esc(r.currentName||'') +'</strong> <span style="color:var(--g3)">→</span> <strong>'+esc(r.proposedName||'')+'</strong>'+
         '</div>'+
         '<div style="font-size:11px;color:var(--g4)">'+approvedCount+'/3 approvals</div>'+
         '<div style="font-size:11px">'+deltaStr+'</div>'+
         '<div style="font-size:11px;color:var(--g3)">'+(r.affectedRecipes||[]).length+' recipes</div>'+
       '</div>'+
-      '<div style="font-size:11px;color:var(--g4);margin-top:6px">Reason: '+r.reason+(r.reasonDetail?' — '+r.reasonDetail:'')+' · raised by '+(r.createdByName||r.createdBy||'?')+'</div>'+
+      '<div style="font-size:11px;color:var(--g4);margin-top:6px">Reason: '+esc(r.reason)+(r.reasonDetail?' — '+esc(r.reasonDetail):'')+' · raised by '+esc(r.createdByName||r.createdBy||'?')+'</div>'+
     '</div>';
   }).join('');
 }
@@ -20147,7 +20166,7 @@ function viewSubRequestDetail(id) {
     '</div>';
   }
   var commentsHtml = (r.comments||[]).map(function(c){
-    return '<div style="padding:6px 0;border-bottom:1px solid var(--g1);font-size:12px"><strong>'+(c.byName||c.by)+'</strong> <span style="color:var(--g3);font-size:10px">'+new Date(c.at).toLocaleString('en-GB')+'</span><div style="color:var(--g5);margin-top:2px">'+c.text+'</div></div>';
+    return '<div style="padding:6px 0;border-bottom:1px solid var(--g1);font-size:12px"><strong>'+esc(c.byName||c.by)+'</strong> <span style="color:var(--g3);font-size:10px">'+new Date(c.at).toLocaleString('en-GB')+'</span><div style="color:var(--g5);margin-top:2px">'+esc(c.text)+'</div></div>';
   }).join('') || '<div style="color:var(--g3);font-size:12px;padding:6px 0">No comments yet.</div>';
 
   var deltaStr = '—';
@@ -20159,12 +20178,12 @@ function viewSubRequestDetail(id) {
   var implBtn = (r.status === 'approved' && _subCanImplement())
     ? '<button class="btn btn-gold btn-sm" onclick="markSubRequestImplemented(\''+r.id+'\')">Mark Implemented</button>'
     : '';
-  var rejNote = r.rejection ? '<div style="background:var(--red-lt);padding:8px 12px;border-radius:6px;font-size:12px;color:var(--red);margin-bottom:10px"><strong>Rejected by '+(r.rejection.byName||r.rejection.by)+' ('+_subRoleLabel(r.rejection.role)+')</strong>' + (r.rejection.reason ? ': '+r.rejection.reason : '') + '</div>' : '';
+  var rejNote = r.rejection ? '<div style="background:var(--red-lt);padding:8px 12px;border-radius:6px;font-size:12px;color:var(--red);margin-bottom:10px"><strong>Rejected by '+esc(r.rejection.byName||r.rejection.by)+' ('+_subRoleLabel(r.rejection.role)+')</strong>' + (r.rejection.reason ? ': '+esc(r.rejection.reason) : '') + '</div>' : '';
 
   box.innerHTML =
     '<div class="card" style="border:2px solid var(--navy)">'+
       '<div class="card-head" style="background:var(--navy)">'+
-        '<span class="card-title" style="color:white">'+r.id+' · '+r.currentName+' → '+r.proposedName+'</span>'+
+        '<span class="card-title" style="color:white">'+esc(r.id)+' · '+esc(r.currentName)+' → '+esc(r.proposedName)+'</span>'+
         '<div style="display:flex;gap:6px">'+
           (_subCanDelete(r) ? '<button class="btn btn-sm" style="background:var(--red-lt);color:var(--red);border:none" onclick="deleteSubRequest(\''+r.id+'\')">Delete</button>' : '') +
           '<button class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:white;border:none" onclick="document.getElementById(\'sub-request-detail\').style.display=\'none\'">✕</button>'+
@@ -20173,7 +20192,7 @@ function viewSubRequestDetail(id) {
       '<div class="card-body" style="padding:18px">'+
         rejNote +
         '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">'+
-          '<div><div style="font-size:10px;color:var(--g3);text-transform:uppercase;letter-spacing:0.05em">Reason</div><div style="font-size:13px;color:var(--navy)">'+r.reason+(r.reasonDetail?' — '+r.reasonDetail:'')+'</div></div>'+
+          '<div><div style="font-size:10px;color:var(--g3);text-transform:uppercase;letter-spacing:0.05em">Reason</div><div style="font-size:13px;color:var(--navy)">'+esc(r.reason)+(r.reasonDetail?' — '+esc(r.reasonDetail):'')+'</div></div>'+
           '<div><div style="font-size:10px;color:var(--g3);text-transform:uppercase;letter-spacing:0.05em">Cost delta</div><div style="font-size:13px">'+deltaStr+'</div></div>'+
           '<div><div style="font-size:10px;color:var(--g3);text-transform:uppercase;letter-spacing:0.05em">Affected recipes</div><div style="font-size:13px">'+(r.affectedRecipes||[]).length+'</div></div>'+
         '</div>'+
