@@ -238,6 +238,7 @@ app.post('/api/data', requireAuth, (req, res) => {
       guardArray('productionRuns', 'id');
       guardArray('commsLog', 'date');
       guardArray('savingsProjects', null);
+      guardArray('substitutionRequests', 'id');
       // Recipes: same guard but recipes is a dict keyed by npd, not an array
       if (old.recipes && typeof old.recipes === 'object' && Object.keys(old.recipes).length >= 4) {
         if (!body.recipes || typeof body.recipes !== 'object') {

@@ -731,6 +731,9 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
   <button class="nav-item" data-page="production" onclick="nav('production')">
     <span class="nav-icon">📅</span> Production Plan
   </button>
+  <button class="nav-item" data-page="substitutions" onclick="nav('substitutions')">
+    <span class="nav-icon">⇄</span> Substitutions <span class="nav-badge" id="nav-badge-subs"></span>
+  </button>
 
   <div class="nav-section-label">Analytics</div>
   <button class="nav-item" data-page="reports" onclick="nav('reports')">
@@ -1716,6 +1719,82 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
   <div id="build-detail" style="display:none;margin-top:24px">
     <div id="build-detail-content"></div>
   </div>
+</div>
+
+<!-- SUBSTITUTIONS PAGE — ingredient replacement requests from Purchasing -->
+<div id="page-substitutions" class="page-hidden">
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+    <div class="stat-card"><div class="stat-label">Open</div><div class="stat-value" style="color:var(--amber)" id="sub-stat-open">0</div><div class="stat-sub">Awaiting sign-off</div></div>
+    <div class="stat-card"><div class="stat-label">Approved</div><div class="stat-value" style="color:var(--sage)" id="sub-stat-approved">0</div><div class="stat-sub">Ready for R&D to apply</div></div>
+    <div class="stat-card"><div class="stat-label">Implemented</div><div class="stat-value" id="sub-stat-impl">0</div><div class="stat-sub">Recipes rewired</div></div>
+    <div class="stat-card"><div class="stat-label">Rejected</div><div class="stat-value" style="color:var(--red)" id="sub-stat-rej">0</div><div class="stat-sub">All-time</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <span class="card-title">Substitution Requests</span>
+      <div style="display:flex;gap:8px;align-items:center">
+        <select class="filter-select" id="sub-filter-status" onchange="buildSubRequestList()" style="font-size:12px;padding:5px 8px">
+          <option value="">All statuses</option>
+          <option value="open">Open</option>
+          <option value="approved">Approved</option>
+          <option value="implemented">Implemented</option>
+          <option value="rejected">Rejected</option>
+        </select>
+      </div>
+    </div>
+    <div class="card-body" style="padding:0">
+      <div id="sub-request-list" style="padding:14px"></div>
+    </div>
+  </div>
+
+  <!-- New Request form (inline modal) -->
+  <div id="sub-request-form" style="display:none;margin-top:20px">
+    <div class="card" style="border:2px solid var(--gold)">
+      <div class="card-head" style="background:var(--gold);color:white">
+        <span class="card-title" style="color:white">New Substitution Request</span>
+        <button class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:white;border:none" onclick="toggleSubRequestForm()">✕</button>
+      </div>
+      <div class="card-body" style="padding:20px">
+        <div class="form-grid form-grid-2" style="margin-bottom:14px">
+          <div class="form-group">
+            <label class="form-label">Current ingredient <span style="color:var(--red)">*</span></label>
+            <select class="form-select" id="sub-current" onchange="onSubCurrentChange()"><option value="">Select…</option></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Proposed replacement <span style="color:var(--red)">*</span></label>
+            <select class="form-select" id="sub-proposed" onchange="onSubProposedChange()"><option value="">Select…</option></select>
+          </div>
+        </div>
+        <div class="form-grid form-grid-2" style="margin-bottom:14px">
+          <div class="form-group">
+            <label class="form-label">Reason <span style="color:var(--red)">*</span></label>
+            <select class="form-select" id="sub-reason">
+              <option value="price">Price increase</option>
+              <option value="availability">Supply / availability</option>
+              <option value="quality">Quality issue</option>
+              <option value="discontinued">Discontinued by supplier</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Detail / notes</label>
+            <input class="form-input" id="sub-reason-detail" placeholder="e.g. price up 18% from supplier X" />
+          </div>
+        </div>
+        <div id="sub-impact-preview" style="background:var(--g0);padding:12px;border-radius:8px;font-size:12px;color:var(--navy);margin-bottom:14px;min-height:40px">
+          <em style="color:var(--g3)">Pick both ingredients to see affected recipes and cost delta…</em>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          <button class="btn btn-outline" onclick="toggleSubRequestForm()">Cancel</button>
+          <button class="btn btn-gold" onclick="saveSubRequest()">Submit Request</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Detail / approval panel (inline modal) -->
+  <div id="sub-request-detail" style="display:none;margin-top:20px"></div>
 </div>
 
 <!-- USERS PAGE -->
@@ -5437,6 +5516,7 @@ function exportBackup() {
     deletedBuildIds: _deletedBuildIds,
     commsLog: COMMS_LOG,
     libraryDocs: LIBRARY_DOCS,
+    substitutionRequests: SUB_REQUESTS,
     ppeLibrary: PPE_LIBRARY,
     exportedAt: new Date().toISOString(), version: 'RecipeHub-v2',
   };
@@ -5476,6 +5556,7 @@ function importBackup(input) {
       if (Array.isArray(data.rejectedEmails)) REJECTED_EMAILS = data.rejectedEmails;
     if (Array.isArray(data.commsLog)) { COMMS_LOG.length = 0; data.commsLog.forEach(function(m){ COMMS_LOG.push(m); }); }
     if (Array.isArray(data.libraryDocs)) { LIBRARY_DOCS.length = 0; data.libraryDocs.forEach(function(doc){ LIBRARY_DOCS.push(doc); }); }
+    if (Array.isArray(data.substitutionRequests)) { SUB_REQUESTS.length = 0; data.substitutionRequests.forEach(function(r){ SUB_REQUESTS.push(r); }); }
       // Rebuild all tables
       populateBrandUI();
       buildIngTable(); buildRecipesTable(); buildBrandCards(); buildUsersTable();
@@ -5570,6 +5651,7 @@ function _buildDataBlob() {
     deletedBuildIds: _deletedBuildIds,
     commsLog: COMMS_LOG,
     libraryDocs: LIBRARY_DOCS,
+    substitutionRequests: SUB_REQUESTS,
     ppeLibrary: PPE_LIBRARY,
     sopStandardBlocks: SOP_STANDARD_BLOCKS,
     savedAt: new Date().toISOString(),
@@ -5787,6 +5869,7 @@ function loadAllData() {
     if (Array.isArray(data.rejectedEmails)) REJECTED_EMAILS = data.rejectedEmails;
     if (Array.isArray(data.commsLog)) { COMMS_LOG.length = 0; data.commsLog.forEach(function(m){ COMMS_LOG.push(m); }); }
     if (Array.isArray(data.libraryDocs)) { LIBRARY_DOCS.length = 0; data.libraryDocs.forEach(function(doc){ LIBRARY_DOCS.push(doc); }); }
+    if (Array.isArray(data.substitutionRequests)) { SUB_REQUESTS.length = 0; data.substitutionRequests.forEach(function(r){ SUB_REQUESTS.push(r); }); }
     if (data.shelfLifeData) { SHELF_LIFE_DATA.points = data.shelfLifeData.points || []; SHELF_LIFE_DATA.notes = data.shelfLifeData.notes || ''; }
     if (Array.isArray(data.accessPermissions)) {
       data.accessPermissions.forEach(function(savedGroup) {
@@ -6089,6 +6172,7 @@ const PAGES = {
   qa:             { title:'QA Lab Results',      actions:`<button class="btn btn-outline btn-sm" onclick="printQALabReport()">🖨️ Lab Report</button><button class="btn btn-outline btn-sm" style="margin-left:6px" onclick="printCOA()">📄 COA</button><button class="btn btn-sage btn-sm" style="margin-left:6px" onclick="addTestPoint()">+ New Test</button>` },
   'branch-sop':   { title:'Branch SOP',           actions:`` },
   production:     { title:'Production Plan',     actions:`<button class="btn btn-gold btn-sm" onclick="openProductionRun()">+ Schedule Run</button>` },
+  substitutions:  { title:'Substitution Requests', actions:`<button class="btn btn-gold btn-sm" id="sub-new-btn" onclick="toggleSubRequestForm()">+ New Request</button>` },
   reports:        { title:'Recipe Analytics', actions:`<button class="btn btn-outline btn-sm" onclick="refreshReports()">↻ Refresh</button>` },
   'builds-costing': { title:'Build Analytics', actions:`<button class="btn btn-outline btn-sm" onclick="refreshReports()">↻ Refresh</button>` },
   'cost-control': { title:'KPI & Goals', actions:`<button class="btn btn-outline btn-sm" onclick="refreshReports()">↻ Refresh</button>` },
@@ -6561,6 +6645,7 @@ function nav(id) {
     else if (id === 'users') { var ut = document.getElementById('users-tbody'); if (ut) { ut.innerHTML = ''; buildUsersTable(); } var pt = document.getElementById('pending-tbody'); if (pt) { pt.innerHTML = ''; buildPendingTable(); } }
     else if (id === 'builds') { closeBuildDetail(); buildBuildsTable(); }
     else if (id === 'production') { buildProductionTable(); }
+    else if (id === 'substitutions') { var d = document.getElementById('sub-request-detail'); if (d) d.style.display = 'none'; var f = document.getElementById('sub-request-form'); if (f) f.style.display = 'none'; buildSubRequestList(); updateSubBadge(); var btn = document.getElementById('sub-new-btn'); if (btn) btn.style.display = (typeof _subCanCreate==='function' && _subCanCreate()) ? '' : 'none'; }
     else if (id === 'branch-sop') {
       // Reset filters on entry and make sure the list (not a stale detail) is showing.
       var _bsopBrand = document.getElementById('bsop-filter-brand'); if (_bsopBrand) _bsopBrand.value = 'All Brands';
@@ -7428,6 +7513,7 @@ var _deletedSOPIds = [];
 var _deletedBuildIds = [];
 var COMMS_LOG = [];
 var LIBRARY_DOCS = [];
+var SUB_REQUESTS = [];
 
 // ──────────── FACTORY SOP STANDARD BLOCKS ────────────
 // Shared preamble/closing blocks used across most Factory SOPs.
@@ -19515,6 +19601,7 @@ function updateSidebarBadges() {
   setBadge('nav-badge-recipes', inReview);
   setBadge('nav-badge-qa', pendingQA);
   setBadge('nav-badge-users', pendingUsers);
+  if (typeof updateSubBadge === 'function') updateSubBadge();
 
   // Update users page stat cards
   var statTotal = document.getElementById('stat-total-users');
@@ -19684,6 +19771,363 @@ function loadStressTest(action) {
 }
 
 // Version check removed — was fetching full HTML every 60s. Use Refresh Data button instead.
+
+// ──────────── SUBSTITUTION REQUESTS ────────────
+// Purchasing raises a request to swap one ingredient for another (price, supply, quality).
+// R&D + QA + Factory each sign off; QA's lab retest is a hard requirement. Once all 3 approve,
+// R&D manually rewires affected recipes (we don't auto-update — recipes may need % adjustments).
+
+function _subRoles() { return ['rd', 'qa', 'factory']; }
+function _subRoleLabel(r) { return ({rd:'R&D', qa:'QA', factory:'Factory'})[r] || r; }
+function _subCurrentUser() {
+  try { var u = JSON.parse(localStorage.getItem('rh_auth_user') || 'null'); return u || {}; } catch(e) { return {}; }
+}
+function _subUserRole() {
+  var role = (typeof getCurrentUserRole === 'function') ? getCurrentUserRole() : 'viewer';
+  return role;
+}
+function _subCanCreate() { var r = _subUserRole(); return r === 'purchasing' || r === 'admin'; }
+function _subCanApproveAs(approvalRole) {
+  var r = _subUserRole();
+  if (r === 'admin') return true;
+  if (approvalRole === 'rd' && r === 'npd') return true;
+  return r === approvalRole;
+}
+function _subCanImplement() { var r = _subUserRole(); return r === 'npd' || r === 'admin'; }
+
+function _subFindIngredient(code) {
+  if (!code) return null;
+  var row = ING_DATA.find(function(r){ return String(r[3]) === String(code); });
+  if (!row) return null;
+  return { code: row[3], name: row[1], cat: row[4], priceStr: row[5], costNum: row[14], unit: row[10] };
+}
+function _subAffectedRecipes(currentName) {
+  if (!currentName) return [];
+  var lc = currentName.toLowerCase().trim();
+  var out = [];
+  Object.keys(RECIPE_DB).forEach(function(npd) {
+    var r = RECIPE_DB[npd];
+    if (!r || !Array.isArray(r.ingredients)) return;
+    var hit = r.ingredients.some(function(ri){ return ri && (ri.name || '').toLowerCase().trim() === lc; });
+    if (hit) out.push({ npd: npd, name: r.name || npd, brand: r.brand || '' });
+  });
+  return out;
+}
+function _subCostDelta(curIng, newIng) {
+  if (!curIng || !newIng) return null;
+  var a = Number(curIng.costNum) || 0, b = Number(newIng.costNum) || 0;
+  if (!a && !b) return null;
+  return { curCost: a, newCost: b, delta: b - a, pct: a ? ((b - a) / a) * 100 : null };
+}
+
+function _populateSubIngredientSelects() {
+  // Both selects use the same Oracle-coded ingredient list, sorted by name.
+  var rows = ING_DATA.filter(function(r){ return r[3] && /^[A-Z]/.test(String(r[3])); })
+    .map(function(r){ return { code: r[3], name: r[1] || '', cat: r[4] || '' }; })
+    .sort(function(a,b){ return (a.name||'').localeCompare(b.name||''); });
+  ['sub-current','sub-proposed'].forEach(function(id){
+    var sel = document.getElementById(id);
+    if (!sel) return;
+    sel.innerHTML = '<option value="">Select ingredient…</option>' +
+      rows.map(function(r){ return '<option value="'+r.code+'">'+r.name+' ('+r.code+')</option>'; }).join('');
+  });
+}
+
+function toggleSubRequestForm() {
+  var f = document.getElementById('sub-request-form');
+  if (!f) return;
+  if (!_subCanCreate()) { showSaveToast('Only Purchasing or Admin can raise requests', true); return; }
+  if (f.style.display === 'none' || !f.style.display) {
+    _populateSubIngredientSelects();
+    document.getElementById('sub-current').value = '';
+    document.getElementById('sub-proposed').value = '';
+    document.getElementById('sub-reason').value = 'price';
+    document.getElementById('sub-reason-detail').value = '';
+    document.getElementById('sub-impact-preview').innerHTML = '<em style="color:var(--g3)">Pick both ingredients to see affected recipes and cost delta…</em>';
+    f.style.display = '';
+    f.scrollIntoView({behavior:'smooth', block:'start'});
+  } else {
+    f.style.display = 'none';
+  }
+}
+
+function _renderSubImpactPreview() {
+  var box = document.getElementById('sub-impact-preview');
+  if (!box) return;
+  var cur = _subFindIngredient(document.getElementById('sub-current').value);
+  var prop = _subFindIngredient(document.getElementById('sub-proposed').value);
+  if (!cur || !prop) {
+    box.innerHTML = '<em style="color:var(--g3)">Pick both ingredients to see affected recipes and cost delta…</em>';
+    return;
+  }
+  var affected = _subAffectedRecipes(cur.name);
+  var delta = _subCostDelta(cur, prop);
+  var deltaHtml = '<span style="color:var(--g3)">no price data</span>';
+  if (delta && (delta.curCost || delta.newCost)) {
+    var sign = delta.delta >= 0 ? '+' : '';
+    var color = delta.delta > 0 ? 'var(--red)' : delta.delta < 0 ? 'var(--sage)' : 'var(--navy)';
+    var pctStr = delta.pct == null ? '' : ' ('+sign+delta.pct.toFixed(1)+'%)';
+    deltaHtml = '<span style="color:'+color+';font-weight:600">'+sign+delta.delta.toFixed(2)+' SAR'+pctStr+'</span>';
+  }
+  box.innerHTML =
+    '<div style="display:flex;gap:24px;flex-wrap:wrap">' +
+      '<div><strong>Affected recipes:</strong> '+affected.length+'</div>' +
+      '<div><strong>Cost delta (per stockroom unit):</strong> '+deltaHtml+'</div>' +
+    '</div>' +
+    (affected.length ? '<div style="margin-top:8px;font-size:11px;color:var(--g4)">' + affected.slice(0,8).map(function(a){return a.npd+' — '+a.name}).join(' · ') + (affected.length>8?' …':'') + '</div>' : '');
+}
+function onSubCurrentChange() { _renderSubImpactPreview(); }
+function onSubProposedChange() { _renderSubImpactPreview(); }
+
+function saveSubRequest() {
+  if (!_subCanCreate()) { showSaveToast('Only Purchasing or Admin can raise requests', true); return; }
+  var curCode = document.getElementById('sub-current').value;
+  var propCode = document.getElementById('sub-proposed').value;
+  if (!curCode || !propCode) { showSaveToast('Pick both ingredients', true); return; }
+  if (curCode === propCode) { showSaveToast('Current and proposed must differ', true); return; }
+  var cur = _subFindIngredient(curCode);
+  var prop = _subFindIngredient(propCode);
+  if (!cur || !prop) { showSaveToast('Could not resolve ingredients', true); return; }
+  var reason = document.getElementById('sub-reason').value;
+  var detail = (document.getElementById('sub-reason-detail').value || '').trim();
+  var affected = _subAffectedRecipes(cur.name);
+  var delta = _subCostDelta(cur, prop);
+  var u = _subCurrentUser();
+  var id = 'SR-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 6);
+  var entry = {
+    id: id,
+    createdAt: new Date().toISOString(),
+    createdBy: u.email || 'unknown',
+    createdByName: u.name || u.email || 'unknown',
+    currentCode: cur.code,
+    currentName: cur.name,
+    proposedCode: prop.code,
+    proposedName: prop.name,
+    reason: reason,
+    reasonDetail: detail,
+    affectedRecipes: affected.map(function(a){ return a.npd; }),
+    costImpact: delta ? delta.delta : null,
+    costImpactPct: delta ? delta.pct : null,
+    status: 'open',
+    approvals: { rd:{ok:false}, qa:{ok:false,testRef:null}, factory:{ok:false} },
+    rejection: null,
+    comments: [],
+    implementedAt: null,
+    implementedBy: null,
+  };
+  SUB_REQUESTS.unshift(entry);
+  if (typeof auditEvent === 'function') auditEvent('sub.create', 'substitution', id, cur.name + ' → ' + prop.name, { reason: reason, affected: affected.length });
+  toggleSubRequestForm();
+  buildSubRequestList();
+  saveAllData();
+  showSaveToast('Substitution request raised — R&D, QA, and Factory notified');
+}
+
+function buildSubRequestList() {
+  var box = document.getElementById('sub-request-list');
+  if (!box) return;
+  var filterStatus = (document.getElementById('sub-filter-status') || {}).value || '';
+  var rows = SUB_REQUESTS.slice();
+  if (filterStatus) rows = rows.filter(function(r){ return r.status === filterStatus; });
+
+  // Stats
+  var stats = { open:0, approved:0, implemented:0, rejected:0 };
+  SUB_REQUESTS.forEach(function(r){ if (stats[r.status] !== undefined) stats[r.status]++; });
+  var ids = ['sub-stat-open','sub-stat-approved','sub-stat-impl','sub-stat-rej'];
+  var keys = ['open','approved','implemented','rejected'];
+  ids.forEach(function(id, i){ var el = document.getElementById(id); if (el) el.textContent = stats[keys[i]]; });
+
+  if (!rows.length) {
+    box.innerHTML = '<div style="padding:30px;text-align:center;color:var(--g3);font-size:13px">No substitution requests' + (filterStatus ? ' with status "'+filterStatus+'"' : '') + '.</div>';
+    return;
+  }
+  box.innerHTML = rows.map(function(r){
+    var statusBadge = ({
+      open:        '<span class="badge badge-pending-prod">OPEN</span>',
+      approved:    '<span class="badge badge-approved">APPROVED</span>',
+      rejected:    '<span class="badge" style="background:var(--red-lt);color:var(--red)">REJECTED</span>',
+      implemented: '<span class="badge badge-approved">IMPLEMENTED</span>',
+    })[r.status] || r.status;
+    var approvedCount = _subRoles().filter(function(role){ return r.approvals && r.approvals[role] && r.approvals[role].ok; }).length;
+    var deltaStr = '';
+    if (r.costImpact != null) {
+      var sign = r.costImpact >= 0 ? '+' : '';
+      var color = r.costImpact > 0 ? 'var(--red)' : 'var(--sage)';
+      deltaStr = '<span style="color:'+color+';font-weight:600">'+sign+(+r.costImpact).toFixed(2)+' SAR</span>';
+    }
+    var when = new Date(r.createdAt).toLocaleDateString('en-GB',{day:'2-digit',month:'short'});
+    return ''+
+    '<div style="border:1px solid var(--g1);border-radius:10px;padding:14px;margin-bottom:10px;background:white;cursor:pointer" onclick="viewSubRequestDetail(\''+r.id+'\')">'+
+      '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">'+
+        statusBadge +
+        '<div style="font-size:11px;color:var(--g3)">'+r.id+' · '+when+'</div>'+
+        '<div style="flex:1;min-width:200px;font-size:13px">'+
+          '<strong>'+ (r.currentName||'') +'</strong> <span style="color:var(--g3)">→</span> <strong>'+(r.proposedName||'')+'</strong>'+
+        '</div>'+
+        '<div style="font-size:11px;color:var(--g4)">'+approvedCount+'/3 approvals</div>'+
+        '<div style="font-size:11px">'+deltaStr+'</div>'+
+        '<div style="font-size:11px;color:var(--g3)">'+(r.affectedRecipes||[]).length+' recipes</div>'+
+      '</div>'+
+      '<div style="font-size:11px;color:var(--g4);margin-top:6px">Reason: '+r.reason+(r.reasonDetail?' — '+r.reasonDetail:'')+' · raised by '+(r.createdByName||r.createdBy||'?')+'</div>'+
+    '</div>';
+  }).join('');
+}
+
+function viewSubRequestDetail(id) {
+  var r = SUB_REQUESTS.find(function(x){ return x.id === id; });
+  if (!r) return;
+  var box = document.getElementById('sub-request-detail');
+  if (!box) return;
+  function approvalCard(role) {
+    var a = (r.approvals && r.approvals[role]) || {};
+    var ok = a.ok;
+    var label = _subRoleLabel(role);
+    var stateHtml = ok
+      ? '<div style="font-size:11px;color:var(--sage);font-weight:600">✓ approved by '+(a.byName||a.by||'?')+'</div><div style="font-size:10px;color:var(--g3)">'+(a.at?new Date(a.at).toLocaleString('en-GB'):'')+'</div>'
+      : '<div style="font-size:11px;color:var(--amber);font-weight:600">⏳ pending</div>';
+    var btns = '';
+    if (r.status === 'open' && _subCanApproveAs(role)) {
+      btns = '<div style="margin-top:8px;display:flex;gap:6px">'+
+        (ok
+          ? '<button class="btn btn-outline btn-sm" onclick="event.stopPropagation();approveSubRequest(\''+r.id+'\',\''+role+'\',false)">Undo</button>'
+          : '<button class="btn btn-sage btn-sm" onclick="event.stopPropagation();approveSubRequest(\''+r.id+'\',\''+role+'\',true)">Approve</button>'
+        ) +
+        (!ok ? '<button class="btn btn-outline btn-sm" style="border-color:var(--red);color:var(--red)" onclick="event.stopPropagation();rejectSubRequest(\''+r.id+'\',\''+role+'\')">Reject</button>' : '')+
+        '</div>';
+    }
+    return '<div style="border:1px solid var(--g1);border-radius:8px;padding:12px;background:'+(ok?'#F1F7F0':'white')+'"><div style="font-family:var(--font-d);font-size:13px;font-weight:600;color:var(--navy)">'+label+'</div>'+stateHtml+btns+'</div>';
+  }
+  var commentsHtml = (r.comments||[]).map(function(c){
+    return '<div style="padding:6px 0;border-bottom:1px solid var(--g1);font-size:12px"><strong>'+(c.byName||c.by)+'</strong> <span style="color:var(--g3);font-size:10px">'+new Date(c.at).toLocaleString('en-GB')+'</span><div style="color:var(--g5);margin-top:2px">'+c.text+'</div></div>';
+  }).join('') || '<div style="color:var(--g3);font-size:12px;padding:6px 0">No comments yet.</div>';
+
+  var deltaStr = '—';
+  if (r.costImpact != null) {
+    var sign = r.costImpact >= 0 ? '+' : '';
+    var color = r.costImpact > 0 ? 'var(--red)' : 'var(--sage)';
+    deltaStr = '<span style="color:'+color+';font-weight:600">'+sign+(+r.costImpact).toFixed(2)+' SAR' + (r.costImpactPct!=null ? ' ('+sign+(+r.costImpactPct).toFixed(1)+'%)' : '') +'</span>';
+  }
+  var implBtn = (r.status === 'approved' && _subCanImplement())
+    ? '<button class="btn btn-gold btn-sm" onclick="markSubRequestImplemented(\''+r.id+'\')">Mark Implemented</button>'
+    : '';
+  var rejNote = r.rejection ? '<div style="background:var(--red-lt);padding:8px 12px;border-radius:6px;font-size:12px;color:var(--red);margin-bottom:10px"><strong>Rejected by '+(r.rejection.byName||r.rejection.by)+' ('+_subRoleLabel(r.rejection.role)+')</strong>' + (r.rejection.reason ? ': '+r.rejection.reason : '') + '</div>' : '';
+
+  box.innerHTML =
+    '<div class="card" style="border:2px solid var(--navy)">'+
+      '<div class="card-head" style="background:var(--navy)">'+
+        '<span class="card-title" style="color:white">'+r.id+' · '+r.currentName+' → '+r.proposedName+'</span>'+
+        '<button class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:white;border:none" onclick="document.getElementById(\'sub-request-detail\').style.display=\'none\'">✕</button>'+
+      '</div>'+
+      '<div class="card-body" style="padding:18px">'+
+        rejNote +
+        '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">'+
+          '<div><div style="font-size:10px;color:var(--g3);text-transform:uppercase;letter-spacing:0.05em">Reason</div><div style="font-size:13px;color:var(--navy)">'+r.reason+(r.reasonDetail?' — '+r.reasonDetail:'')+'</div></div>'+
+          '<div><div style="font-size:10px;color:var(--g3);text-transform:uppercase;letter-spacing:0.05em">Cost delta</div><div style="font-size:13px">'+deltaStr+'</div></div>'+
+          '<div><div style="font-size:10px;color:var(--g3);text-transform:uppercase;letter-spacing:0.05em">Affected recipes</div><div style="font-size:13px">'+(r.affectedRecipes||[]).length+'</div></div>'+
+        '</div>'+
+        ((r.affectedRecipes||[]).length ? '<div style="background:var(--g0);padding:10px;border-radius:6px;font-size:11px;color:var(--navy);margin-bottom:14px"><strong>NPDs:</strong> '+r.affectedRecipes.join(' · ')+'</div>' : '') +
+        '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">'+
+          approvalCard('rd') + approvalCard('qa') + approvalCard('factory')+
+        '</div>'+
+        '<div style="border-top:1px solid var(--g1);padding-top:12px">'+
+          '<div style="font-family:var(--font-d);font-size:12px;font-weight:600;color:var(--navy);margin-bottom:6px">Comments</div>'+
+          commentsHtml +
+          '<div style="display:flex;gap:6px;margin-top:8px">'+
+            '<input class="form-input" id="sub-comment-input" placeholder="Add a comment…" style="flex:1" />'+
+            '<button class="btn btn-outline btn-sm" onclick="addSubComment(\''+r.id+'\')">Post</button>'+
+          '</div>'+
+        '</div>'+
+        (implBtn ? '<div style="margin-top:14px;display:flex;justify-content:flex-end">'+implBtn+'</div>' : '')+
+      '</div>'+
+    '</div>';
+  box.style.display = '';
+  box.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function approveSubRequest(id, role, ok) {
+  var r = SUB_REQUESTS.find(function(x){ return x.id === id; });
+  if (!r) return;
+  if (!_subCanApproveAs(role)) { showSaveToast('You can\'t approve as ' + _subRoleLabel(role), true); return; }
+  if (r.status !== 'open') { showSaveToast('Already ' + r.status, true); return; }
+  var u = _subCurrentUser();
+  r.approvals[role] = { ok: !!ok, by: u.email || 'unknown', byName: u.name || u.email || 'unknown', at: new Date().toISOString() };
+  // Auto-promote to "approved" if all 3 ok
+  var allOk = _subRoles().every(function(rl){ return r.approvals[rl] && r.approvals[rl].ok; });
+  if (allOk) r.status = 'approved';
+  if (typeof auditEvent === 'function') auditEvent('sub.' + (ok?'approve':'undo'), 'substitution', id, _subRoleLabel(role), {});
+  saveAllData();
+  viewSubRequestDetail(id);
+  buildSubRequestList();
+  showSaveToast(ok ? _subRoleLabel(role) + ' approval recorded' : _subRoleLabel(role) + ' approval undone');
+}
+
+function rejectSubRequest(id, role) {
+  var r = SUB_REQUESTS.find(function(x){ return x.id === id; });
+  if (!r) return;
+  if (!_subCanApproveAs(role)) { showSaveToast('You can\'t reject as ' + _subRoleLabel(role), true); return; }
+  if (r.status !== 'open') return;
+  var reason = prompt('Reject reason (optional):') || '';
+  var u = _subCurrentUser();
+  r.status = 'rejected';
+  r.rejection = { by: u.email || 'unknown', byName: u.name || u.email || 'unknown', at: new Date().toISOString(), role: role, reason: reason };
+  if (typeof auditEvent === 'function') auditEvent('sub.reject', 'substitution', id, _subRoleLabel(role), { reason: reason });
+  saveAllData();
+  viewSubRequestDetail(id);
+  buildSubRequestList();
+  showSaveToast('Request rejected');
+}
+
+function markSubRequestImplemented(id) {
+  var r = SUB_REQUESTS.find(function(x){ return x.id === id; });
+  if (!r) return;
+  if (!_subCanImplement()) { showSaveToast('Only R&D or Admin can mark implemented', true); return; }
+  if (r.status !== 'approved') { showSaveToast('Request must be approved first', true); return; }
+  var u = _subCurrentUser();
+  r.status = 'implemented';
+  r.implementedAt = new Date().toISOString();
+  r.implementedBy = u.email || 'unknown';
+  r.implementedByName = u.name || u.email || 'unknown';
+  if (typeof auditEvent === 'function') auditEvent('sub.implement', 'substitution', id, '', {});
+  saveAllData();
+  viewSubRequestDetail(id);
+  buildSubRequestList();
+  showSaveToast('Marked implemented — recipes should now reference the new ingredient');
+}
+
+function addSubComment(id) {
+  var inp = document.getElementById('sub-comment-input');
+  var txt = inp ? (inp.value || '').trim() : '';
+  if (!txt) return;
+  var r = SUB_REQUESTS.find(function(x){ return x.id === id; });
+  if (!r) return;
+  var u = _subCurrentUser();
+  r.comments = r.comments || [];
+  r.comments.push({ by: u.email || 'unknown', byName: u.name || u.email || 'unknown', at: new Date().toISOString(), text: txt });
+  saveAllData();
+  viewSubRequestDetail(id);
+}
+
+function updateSubBadge() {
+  var el = document.getElementById('nav-badge-subs');
+  if (!el) return;
+  var role = _subUserRole();
+  var myRoleKey = role === 'npd' ? 'rd' : (role === 'qa' || role === 'factory') ? role : null;
+  var n = 0;
+  if (myRoleKey) {
+    SUB_REQUESTS.forEach(function(r){
+      if (r.status === 'open' && r.approvals && r.approvals[myRoleKey] && !r.approvals[myRoleKey].ok) n++;
+    });
+  } else if (role === 'admin' || role === 'purchasing') {
+    n = SUB_REQUESTS.filter(function(r){ return r.status === 'open'; }).length;
+  }
+  if (n > 0) {
+    el.textContent = String(n);
+    el.style.display = '';
+  } else {
+    el.textContent = '';
+    el.style.display = 'none';
+  }
+}
 
 </script>
 </body>
