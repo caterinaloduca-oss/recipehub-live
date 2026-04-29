@@ -1273,6 +1273,66 @@ app.post('/api/notify', requireAuth, (req, res) => {
           <p style="margin-top:16px"><a href="https://recipehub.dailyfoodsa.com" style="background:#2D6A4F;color:white;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:600">Open RecipeHub</a></p>`;
         break;
 
+      case 'sub-created': {
+        recipients = getEmailsByRole(['npd', 'qa', 'factory']);
+        const sub = req.body.sub || {};
+        const reason = sub.reason || '—';
+        const detail = sub.reasonDetail || '';
+        const affectedN = (sub.affectedRecipes || []).length;
+        const delta = sub.costImpact;
+        const deltaStr = (delta == null) ? '—' : `${delta >= 0 ? '+' : ''}${Number(delta).toFixed(2)} SAR`;
+        subject = `Substitution request: ${sub.currentName || '?'} → ${sub.proposedName || '?'}`;
+        html = `<h2 style="color:#1B2A4A;margin:0 0 12px">Ingredient substitution request</h2>
+          <p><strong>${userName}</strong> (Purchasing) raised a request to swap an ingredient.</p>
+          <table style="border-collapse:collapse;margin:12px 0">
+            <tr><td style="padding:6px 12px;font-size:12px;color:#666">Current</td><td style="padding:6px 12px;font-size:13px;font-weight:600">${sub.currentName||''} <span style="font-family:monospace;color:#999">(${sub.currentCode||''})</span></td></tr>
+            <tr><td style="padding:6px 12px;font-size:12px;color:#666">Proposed</td><td style="padding:6px 12px;font-size:13px;font-weight:600">${sub.proposedName||''} <span style="font-family:monospace;color:#999">(${sub.proposedCode||''})</span></td></tr>
+            <tr><td style="padding:6px 12px;font-size:12px;color:#666">Reason</td><td style="padding:6px 12px;font-size:13px">${reason}${detail ? ' — ' + detail : ''}</td></tr>
+            <tr><td style="padding:6px 12px;font-size:12px;color:#666">Affected recipes</td><td style="padding:6px 12px;font-size:13px">${affectedN}</td></tr>
+            <tr><td style="padding:6px 12px;font-size:12px;color:#666">Cost delta</td><td style="padding:6px 12px;font-size:13px">${deltaStr}</td></tr>
+          </table>
+          <p style="background:#FEF3E2;padding:10px 14px;border-left:3px solid #d47000;border-radius:4px;font-size:13px">QA — lab retest is required before this can be approved.</p>
+          <p>R&D, QA, and Factory each need to sign off in the Substitutions page.</p>
+          <p style="margin-top:16px"><a href="https://recipehub.dailyfoodsa.com" style="background:#B8820A;color:white;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:600">Open Substitutions</a></p>`;
+        break;
+      }
+
+      case 'sub-approved': {
+        recipients = getEmailsByRole(['npd', 'purchasing']);
+        const sub = req.body.sub || {};
+        subject = `Substitution APPROVED: ${sub.currentName || '?'} → ${sub.proposedName || '?'}`;
+        html = `<h2 style="color:#2D6A4F;margin:0 0 12px">Substitution approved ✅</h2>
+          <p>All three sign-offs (R&D, QA, Factory) are in. The swap is cleared.</p>
+          <p><strong>${sub.currentName||''}</strong> → <strong>${sub.proposedName||''}</strong></p>
+          <p>R&D — please rewire affected recipes and mark the request as <em>Implemented</em> when done.</p>
+          <p style="margin-top:16px"><a href="https://recipehub.dailyfoodsa.com" style="background:#2D6A4F;color:white;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:600">Open Substitutions</a></p>`;
+        break;
+      }
+
+      case 'sub-rejected': {
+        recipients = getEmailsByRole(['purchasing']);
+        const sub = req.body.sub || {};
+        const rej = sub.rejection || {};
+        subject = `Substitution rejected: ${sub.currentName || '?'} → ${sub.proposedName || '?'}`;
+        html = `<h2 style="color:#C0392B;margin:0 0 12px">Substitution rejected</h2>
+          <p><strong>${rej.byName || rej.by || '?'}</strong> (${rej.role || '?'}) rejected the request.</p>
+          <p><strong>${sub.currentName||''}</strong> → <strong>${sub.proposedName||''}</strong></p>
+          ${rej.reason ? `<p style="background:#FCE7E5;padding:10px 14px;border-radius:4px;font-size:13px"><strong>Reason:</strong> ${rej.reason}</p>` : ''}
+          <p style="margin-top:16px"><a href="https://recipehub.dailyfoodsa.com" style="background:#1B2A4A;color:white;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:600">Open Substitutions</a></p>`;
+        break;
+      }
+
+      case 'sub-implemented': {
+        recipients = getEmailsByRole(['purchasing', 'qa', 'factory']);
+        const sub = req.body.sub || {};
+        subject = `Substitution implemented: ${sub.currentName || '?'} → ${sub.proposedName || '?'}`;
+        html = `<h2 style="color:#2D6A4F;margin:0 0 12px">Substitution implemented</h2>
+          <p>R&D has rewired the affected recipes to use the new ingredient.</p>
+          <p><strong>${sub.currentName||''}</strong> → <strong>${sub.proposedName||''}</strong></p>
+          <p style="margin-top:16px"><a href="https://recipehub.dailyfoodsa.com" style="background:#2D6A4F;color:white;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:600">Open RecipeHub</a></p>`;
+        break;
+      }
+
       default:
         return res.json({ ok: true, sent: false, reason: 'Unknown event' });
     }

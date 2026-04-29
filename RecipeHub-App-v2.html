@@ -19879,6 +19879,16 @@ function _renderSubImpactPreview() {
 function onSubCurrentChange() { _renderSubImpactPreview(); }
 function onSubProposedChange() { _renderSubImpactPreview(); }
 
+function _subNotify(event, sub) {
+  try {
+    fetch(API_BASE + '/api/notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + API_KEY },
+      body: JSON.stringify({ event: event, sub: sub, user: (typeof getCurrentUserName === 'function') ? getCurrentUserName() : (sub && sub.createdByName) || 'Someone' }),
+    }).catch(function(){});
+  } catch (e) {}
+}
+
 function saveSubRequest() {
   if (!_subCanCreate()) { showSaveToast('Only Purchasing or Admin can raise requests', true); return; }
   var curCode = document.getElementById('sub-current').value;
@@ -19920,6 +19930,7 @@ function saveSubRequest() {
   toggleSubRequestForm();
   buildSubRequestList();
   saveAllData();
+  _subNotify('sub-created', entry);
   showSaveToast('Substitution request raised — R&D, QA, and Factory notified');
 }
 
@@ -20053,9 +20064,11 @@ function approveSubRequest(id, role, ok) {
   r.approvals[role] = { ok: !!ok, by: u.email || 'unknown', byName: u.name || u.email || 'unknown', at: new Date().toISOString() };
   // Auto-promote to "approved" if all 3 ok
   var allOk = _subRoles().every(function(rl){ return r.approvals[rl] && r.approvals[rl].ok; });
-  if (allOk) r.status = 'approved';
+  var justApproved = false;
+  if (allOk && r.status !== 'approved') { r.status = 'approved'; justApproved = true; }
   if (typeof auditEvent === 'function') auditEvent('sub.' + (ok?'approve':'undo'), 'substitution', id, _subRoleLabel(role), {});
   saveAllData();
+  if (justApproved) _subNotify('sub-approved', r);
   viewSubRequestDetail(id);
   buildSubRequestList();
   showSaveToast(ok ? _subRoleLabel(role) + ' approval recorded' : _subRoleLabel(role) + ' approval undone');
@@ -20072,6 +20085,7 @@ function rejectSubRequest(id, role) {
   r.rejection = { by: u.email || 'unknown', byName: u.name || u.email || 'unknown', at: new Date().toISOString(), role: role, reason: reason };
   if (typeof auditEvent === 'function') auditEvent('sub.reject', 'substitution', id, _subRoleLabel(role), { reason: reason });
   saveAllData();
+  _subNotify('sub-rejected', r);
   viewSubRequestDetail(id);
   buildSubRequestList();
   showSaveToast('Request rejected');
@@ -20089,6 +20103,7 @@ function markSubRequestImplemented(id) {
   r.implementedByName = u.name || u.email || 'unknown';
   if (typeof auditEvent === 'function') auditEvent('sub.implement', 'substitution', id, '', {});
   saveAllData();
+  _subNotify('sub-implemented', r);
   viewSubRequestDetail(id);
   buildSubRequestList();
   showSaveToast('Marked implemented — recipes should now reference the new ingredient');
