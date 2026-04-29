@@ -6812,7 +6812,10 @@ function getRecipeAllergens(npd, _seen) {
     if (dbMatch && dbMatch[9]) {
       dbMatch[9].split(',').forEach(function(a) {
         a = a.trim();
-        if (a && allergens.indexOf(a) === -1) allergens.push(a);
+        // Defensive: only accept entries that are real allergens. col[9] is meant for
+        // a comma-separated allergen list, but legacy / sync data sometimes leaks
+        // unrelated tags (e.g. "oracle_resync_..."). Drop anything not in ALLERGEN_LIST.
+        if (a && ALLERGEN_LIST.indexOf(a) > -1 && allergens.indexOf(a) === -1) allergens.push(a);
       });
     }
     addAll(detectAllergens(ing.name));
