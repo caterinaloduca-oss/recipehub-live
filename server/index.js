@@ -1256,13 +1256,24 @@ app.post('/api/notify', requireAuth, (req, res) => {
           <p style="margin-top:16px"><a href="https://recipehub.dailyfoodsa.com" style="background:#B8820A;color:white;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:600">Open RecipeHub</a></p>`;
         break;
 
-      case 'run-scheduled':
-        recipients = getEmailsByRole(['npd', 'factory']);
-        subject = `Production run scheduled: ${recipe}`;
+      case 'run-scheduled': {
+        recipients = getEmailsByRole(['npd', 'qa', 'purchasing']);
+        const r2 = req.body.run || {};
+        const dateStr = r2.date || '—';
+        const timeStr = r2.time ? ` at <strong>${r2.time}</strong>` : '';
+        const batchStr = r2.batchSize ? r2.batchSize : '—';
+        const runType = r2.runType || 'Production';
+        subject = `Production run scheduled: ${recipe} · ${dateStr}${r2.time ? ' ' + r2.time : ''}`;
         html = `<h2 style="color:#1B2A4A;margin:0 0 12px">${recipe}</h2>
-          <p><strong>${userName}</strong> scheduled a production run.</p>
+          <p><strong>${userName}</strong> scheduled a <strong>${runType}</strong> run.</p>
+          <table style="border-collapse:collapse;margin:12px 0;font-size:13px">
+            <tr><td style="padding:6px 12px;color:#666">Date</td><td style="padding:6px 12px;font-weight:600"><strong>${dateStr}</strong>${timeStr}</td></tr>
+            <tr><td style="padding:6px 12px;color:#666">Batch size</td><td style="padding:6px 12px">${batchStr}</td></tr>
+            <tr><td style="padding:6px 12px;color:#666">Type</td><td style="padding:6px 12px">${runType}</td></tr>
+          </table>
           <p style="margin-top:16px"><a href="https://recipehub.dailyfoodsa.com" style="background:#1B2A4A;color:white;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:600">View Production Plan</a></p>`;
         break;
+      }
 
       case 'run-completed':
         recipients = getEmailsByRole(['npd', 'qa']);

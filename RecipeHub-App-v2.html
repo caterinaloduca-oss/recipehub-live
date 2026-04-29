@@ -16952,6 +16952,19 @@ function saveProductionRun() {
   logActivity('production','📅','Run scheduled: '+r.name + (childN ? ' (+ '+childN+' sub-batches)' : ''));
   showSaveToast(childN ? 'Run scheduled + '+childN+' sub-batches auto-created' : 'Run scheduled');
   saveAllData();
+  // Notify R&D, QA, Purchasing
+  if (dateStr) {
+    fetch(API_BASE + '/api/notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + API_KEY },
+      body: JSON.stringify({
+        event: 'run-scheduled',
+        recipe: r.name + ' (' + r.npd + ')',
+        user: getCurrentUserName(),
+        run: { date: dateStr, time: timeStr, batchSize: result.parent.batchSize || '', runType: result.parent.runType || 'Production' },
+      }),
+    }).catch(function(){});
+  }
 }
 
 function changeRunStatus(id) {
@@ -17022,7 +17035,12 @@ function setRunStatus(id, status) {
     fetch(API_BASE + '/api/notify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + API_KEY },
-      body: JSON.stringify({ event: 'run-scheduled', recipe: run.recipe, user: getCurrentUserName() }),
+      body: JSON.stringify({
+        event: 'run-scheduled',
+        recipe: run.recipe + ' (' + (run.npd || '') + ')',
+        user: getCurrentUserName(),
+        run: { date: run.date || '', time: run.time || '', batchSize: run.batchSize || '', runType: run.runType || 'Production' },
+      }),
     }).catch(function() {});
   }
 }
@@ -17182,6 +17200,8 @@ function saveEditRun(id) {
   var run = PRODUCTION_RUNS.find(function(r){return r.id===id});
   if (!run) return;
   var newDate = document.getElementById('ep-date').value;
+  var newTime = document.getElementById('ep-time').value || '';
+  var dateOrTimeChanged = (newDate !== run.date) || (newTime !== (run.time||''));
   if (newDate !== run.date) {
     // First-ever date assignment is the baseline — don't count it as a "change". Only log when there
     // was already a real date and the user is moving from one date to another (or clearing it).
@@ -17192,7 +17212,7 @@ function saveEditRun(id) {
       logActivity('production', '📅', run.recipe + ': date changed from ' + run.date + ' → ' + (newDate || 'unset'));
     }
   }
-  run.date=newDate; run.time=document.getElementById('ep-time').value || ''; run.batchSize=document.getElementById('ep-batch').value; run.operator=document.getElementById('ep-operator').value; run.notes=document.getElementById('ep-notes').value; run.yield=document.getElementById('ep-yield').value; run.waste=document.getElementById('ep-waste').value;
+  run.date=newDate; run.time=newTime; run.batchSize=document.getElementById('ep-batch').value; run.operator=document.getElementById('ep-operator').value; run.notes=document.getElementById('ep-notes').value; run.yield=document.getElementById('ep-yield').value; run.waste=document.getElementById('ep-waste').value;
   // Auto-promote pending → scheduled when date is set
   if (run.status === 'pending' && newDate) {
     run.status = 'scheduled';
@@ -17200,6 +17220,19 @@ function saveEditRun(id) {
   }
   closeModal(); buildProductionTable(); showSaveToast('Updated');
   saveAllData();
+  // Notify R&D, QA, Purchasing when the schedule is set or rescheduled
+  if (dateOrTimeChanged && newDate) {
+    fetch(API_BASE + '/api/notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + API_KEY },
+      body: JSON.stringify({
+        event: 'run-scheduled',
+        recipe: run.recipe + ' (' + (run.npd || '') + ')',
+        user: getCurrentUserName(),
+        run: { date: newDate, time: newTime, batchSize: run.batchSize || '', runType: run.runType || 'Production' },
+      }),
+    }).catch(function(){});
+  }
 }
 
 function showDateLog(id) {
