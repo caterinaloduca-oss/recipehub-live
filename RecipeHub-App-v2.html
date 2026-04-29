@@ -1763,7 +1763,8 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
           </div>
           <div class="form-group">
             <label class="form-label">Proposed replacement <span style="color:var(--red)">*</span></label>
-            <select class="form-select" id="sub-proposed" onchange="onSubProposedChange()"><option value="">Select…</option></select>
+            <input class="form-input" id="sub-proposed-input" placeholder="Search Oracle catalog by name or code…" autocomplete="off" oninput="onSubProposedTyping()" />
+            <div id="sub-proposed-meta" style="font-size:11px;color:var(--g4);margin-top:4px">Type at least 2 characters to search the Oracle EBS catalog. Pick a result, or leave the code blank if it's brand-new.</div>
           </div>
         </div>
         <div class="form-grid form-grid-2" style="margin-bottom:14px">
@@ -19821,16 +19822,49 @@ function _subCostDelta(curIng, newIng) {
 }
 
 function _populateSubIngredientSelects() {
-  // Both selects use the same Oracle-coded ingredient list, sorted by name.
+  // Current ingredient: dropdown of master DB items (must already be in use).
   var rows = ING_DATA.filter(function(r){ return r[3] && /^[A-Z]/.test(String(r[3])); })
     .map(function(r){ return { code: r[3], name: r[1] || '', cat: r[4] || '' }; })
     .sort(function(a,b){ return (a.name||'').localeCompare(b.name||''); });
-  ['sub-current','sub-proposed'].forEach(function(id){
-    var sel = document.getElementById(id);
-    if (!sel) return;
+  var sel = document.getElementById('sub-current');
+  if (sel) {
     sel.innerHTML = '<option value="">Select ingredient…</option>' +
       rows.map(function(r){ return '<option value="'+r.code+'">'+r.name+' ('+r.code+')</option>'; }).join('');
-  });
+  }
+  // Proposed: free EBS-catalog search via autocomplete (may be a brand-new item).
+  _subProposedState = { code: '', name: '' };
+  var inp = document.getElementById('sub-proposed-input');
+  if (inp && typeof ebsAutocomplete === 'function' && !inp._subACWired) {
+    ebsAutocomplete(inp, function(item){
+      _subProposedState = { code: item.code || '', name: item.name || inp.value };
+      inp.value = (item.name || '') + (item.code ? ' ('+item.code+')' : '');
+      var meta = document.getElementById('sub-proposed-meta');
+      if (meta) meta.innerHTML = item.code
+        ? '<span style="color:var(--sage)">✓ Oracle code <strong>'+item.code+'</strong></span>'
+        : '<span style="color:var(--amber)">No Oracle code — will be flagged for new-item creation</span>';
+      _renderSubImpactPreview();
+    });
+    inp._subACWired = true;
+  }
+}
+
+var _subProposedState = { code: '', name: '' };
+
+function onSubProposedTyping() {
+  // If user hand-edits after picking, treat it as free-text (no code).
+  var inp = document.getElementById('sub-proposed-input');
+  if (!inp) return;
+  var typed = (inp.value || '').trim();
+  // If typed text differs from picked label, drop the cached code.
+  var pickedLabel = (_subProposedState.name || '') + (_subProposedState.code ? ' ('+_subProposedState.code+')' : '');
+  if (typed !== pickedLabel) {
+    _subProposedState = { code: '', name: typed };
+    var meta = document.getElementById('sub-proposed-meta');
+    if (meta) meta.innerHTML = typed
+      ? '<span style="color:var(--g4)">Free-text — no Oracle code yet. Pick a search result to attach one.</span>'
+      : 'Type at least 2 characters to search the Oracle EBS catalog. Pick a result, or leave the code blank if it\'s brand-new.';
+  }
+  _renderSubImpactPreview();
 }
 
 function toggleSubRequestForm() {
@@ -19840,10 +19874,14 @@ function toggleSubRequestForm() {
   if (f.style.display === 'none' || !f.style.display) {
     _populateSubIngredientSelects();
     document.getElementById('sub-current').value = '';
-    document.getElementById('sub-proposed').value = '';
+    var pInp = document.getElementById('sub-proposed-input');
+    if (pInp) pInp.value = '';
+    _subProposedState = { code: '', name: '' };
+    var meta = document.getElementById('sub-proposed-meta');
+    if (meta) meta.innerHTML = 'Type at least 2 characters to search the Oracle EBS catalog. Pick a result, or leave the code blank if it\'s brand-new.';
     document.getElementById('sub-reason').value = 'price';
     document.getElementById('sub-reason-detail').value = '';
-    document.getElementById('sub-impact-preview').innerHTML = '<em style="color:var(--g3)">Pick both ingredients to see affected recipes and cost delta…</em>';
+    document.getElementById('sub-impact-preview').innerHTML = '<em style="color:var(--g3)">Pick the current ingredient and propose a replacement to see affected recipes and cost delta…</em>';
     f.style.display = '';
     f.scrollIntoView({behavior:'smooth', block:'start'});
   } else {
@@ -19855,19 +19893,23 @@ function _renderSubImpactPreview() {
   var box = document.getElementById('sub-impact-preview');
   if (!box) return;
   var cur = _subFindIngredient(document.getElementById('sub-current').value);
-  var prop = _subFindIngredient(document.getElementById('sub-proposed').value);
-  if (!cur || !prop) {
-    box.innerHTML = '<em style="color:var(--g3)">Pick both ingredients to see affected recipes and cost delta…</em>';
+  var hasProp = !!(_subProposedState && (_subProposedState.code || _subProposedState.name));
+  if (!cur || !hasProp) {
+    box.innerHTML = '<em style="color:var(--g3)">Pick the current ingredient and propose a replacement to see affected recipes and cost delta…</em>';
     return;
   }
   var affected = _subAffectedRecipes(cur.name);
-  var delta = _subCostDelta(cur, prop);
+  // Cost delta only if the proposed has an Oracle code we can look up
+  var prop = _subProposedState.code ? _subFindIngredient(_subProposedState.code) : null;
+  var delta = prop ? _subCostDelta(cur, prop) : null;
   var deltaHtml = '<span style="color:var(--g3)">no price data</span>';
   if (delta && (delta.curCost || delta.newCost)) {
     var sign = delta.delta >= 0 ? '+' : '';
     var color = delta.delta > 0 ? 'var(--red)' : delta.delta < 0 ? 'var(--sage)' : 'var(--navy)';
     var pctStr = delta.pct == null ? '' : ' ('+sign+delta.pct.toFixed(1)+'%)';
     deltaHtml = '<span style="color:'+color+';font-weight:600">'+sign+delta.delta.toFixed(2)+' SAR'+pctStr+'</span>';
+  } else if (!_subProposedState.code) {
+    deltaHtml = '<span style="color:var(--amber)">pending — no Oracle code yet</span>';
   }
   box.innerHTML =
     '<div style="display:flex;gap:24px;flex-wrap:wrap">' +
@@ -19877,7 +19919,6 @@ function _renderSubImpactPreview() {
     (affected.length ? '<div style="margin-top:8px;font-size:11px;color:var(--g4)">' + affected.slice(0,8).map(function(a){return a.npd+' — '+a.name}).join(' · ') + (affected.length>8?' …':'') + '</div>' : '');
 }
 function onSubCurrentChange() { _renderSubImpactPreview(); }
-function onSubProposedChange() { _renderSubImpactPreview(); }
 
 function _subNotify(event, sub) {
   try {
@@ -19892,12 +19933,16 @@ function _subNotify(event, sub) {
 function saveSubRequest() {
   if (!_subCanCreate()) { showSaveToast('Only Purchasing or Admin can raise requests', true); return; }
   var curCode = document.getElementById('sub-current').value;
-  var propCode = document.getElementById('sub-proposed').value;
-  if (!curCode || !propCode) { showSaveToast('Pick both ingredients', true); return; }
-  if (curCode === propCode) { showSaveToast('Current and proposed must differ', true); return; }
+  var propCode = (_subProposedState && _subProposedState.code) || '';
+  var propName = (_subProposedState && _subProposedState.name) || '';
+  if (!curCode) { showSaveToast('Pick the current ingredient', true); return; }
+  if (!propName && !propCode) { showSaveToast('Enter or pick the proposed replacement', true); return; }
+  if (propCode && curCode === propCode) { showSaveToast('Current and proposed must differ', true); return; }
   var cur = _subFindIngredient(curCode);
-  var prop = _subFindIngredient(propCode);
-  if (!cur || !prop) { showSaveToast('Could not resolve ingredients', true); return; }
+  if (!cur) { showSaveToast('Could not resolve current ingredient', true); return; }
+  var prop = propCode ? _subFindIngredient(propCode) : null;
+  // If proposed is brand-new (no Oracle code yet), prop will be null — that's allowed.
+  if (!prop) prop = { code: propCode || '', name: propName, costNum: null };
   var reason = document.getElementById('sub-reason').value;
   var detail = (document.getElementById('sub-reason-detail').value || '').trim();
   var affected = _subAffectedRecipes(cur.name);
