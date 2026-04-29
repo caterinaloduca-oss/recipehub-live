@@ -20214,7 +20214,12 @@ function viewSubRequestDetail(id) {
           '<div><div style="font-size:10px;color:var(--g3);text-transform:uppercase;letter-spacing:0.05em">Cost delta</div><div style="font-size:13px">'+deltaStr+'</div></div>'+
           '<div><div style="font-size:10px;color:var(--g3);text-transform:uppercase;letter-spacing:0.05em">Affected recipes</div><div style="font-size:13px">'+(r.affectedRecipes||[]).length+'</div></div>'+
         '</div>'+
-        ((r.affectedRecipes||[]).length ? '<div style="background:var(--g0);padding:10px;border-radius:6px;font-size:11px;color:var(--navy);margin-bottom:14px"><strong>NPDs:</strong> '+r.affectedRecipes.join(' · ')+'</div>' : '') +
+        ((r.affectedRecipes||[]).length ? (function(){
+          var list = r.affectedRecipes || [];
+          var shown = list.slice(0,5).map(esc).join(' · ');
+          var more = list.length > 5 ? ' <span style="color:var(--g4)">+'+(list.length-5)+' more</span>' : '';
+          return '<div style="background:var(--g0);padding:10px;border-radius:6px;font-size:11px;color:var(--navy);margin-bottom:14px;line-height:1.5"><strong>NPDs:</strong> '+shown+more+'</div>';
+        })() : '') +
         '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">'+
           approvalCard('rd') + approvalCard('qa') + approvalCard('factory')+
         '</div>'+
