@@ -6894,6 +6894,7 @@ function renderTagBadges(tags) {
 }
 
 function editRecipeTags(npd) {
+  if (!_requireRole(['npd'], 'R&D')) return;
   var r = RECIPE_DB[npd];
   if (!r) return;
   if (!r.tags) r.tags = [];
@@ -7771,6 +7772,7 @@ function renderBannerForStep(r, step) {
 
 // ──────────── MEDIA UPLOAD ────────────
 function handleMediaUpload(npd, inputEl) {
+  if (!_requireRole(['npd','qa'], 'R&D or QA')) return;
   const r = RECIPE_DB[npd];
   if (!r) return;
   if (!r.media) r.media = [];
@@ -7800,6 +7802,7 @@ function handleMediaUpload(npd, inputEl) {
 }
 
 function removeMedia(npd, idx) {
+  if (!_requireRole(['npd','qa'], 'R&D or QA')) return;
   const r = RECIPE_DB[npd];
   if (!r) return;
   r.media.splice(idx, 1);
@@ -8480,6 +8483,7 @@ function calcRecipeCost(npd) {
 }
 
 function updateRecipeCost(npd) {
+  if (!_requireRole(['npd'], 'R&D')) return;
   const result = calcRecipeCost(npd);
   if (result) {
     RECIPE_DB[npd].costKg = 'SAR ' + result.costKg.toFixed(2);
@@ -8531,6 +8535,8 @@ function _calcActualCostPerKg(r) {
 
 // Edit ingredient cost — click on cost cell to enter manual price per kg
 function editIngCost(npd, idx) {
+  var role = (typeof getCurrentUserRole === 'function') ? getCurrentUserRole() : 'viewer';
+  if (role !== 'admin' && role !== 'npd') { showSaveToast('Only R&D can edit ingredient costs', true); return; }
   var r = RECIPE_DB[npd];
   if (!r || !r.ingredients[idx]) return;
   var ing = r.ingredients[idx];
@@ -8561,6 +8567,8 @@ function editIngCost(npd, idx) {
 // Update food cost section live as user types (debounced save)
 var _fcSaveTimer = null;
 function updateFoodCost(npd) {
+  var role = (typeof getCurrentUserRole === 'function') ? getCurrentUserRole() : 'viewer';
+  if (role !== 'admin' && role !== 'npd') { showSaveToast('Only R&D can edit cost / portion / sale price', true); return; }
   var r = RECIPE_DB[npd];
   if (!r) return;
   var portionInput = document.getElementById('portion-size-' + npd);
@@ -8779,6 +8787,8 @@ function renderUsedInPill(r) {
 }
 
 function convertToComposite(npd) {
+  var role = (typeof getCurrentUserRole === 'function') ? getCurrentUserRole() : 'viewer';
+  if (role !== 'admin' && role !== 'npd') { showSaveToast('Only R&D can convert recipes', true); return; }
   var r = RECIPE_DB[npd]; if (!r) return;
   if (isCompositeRecipe(r)) { showSaveToast('Already composite'); return; }
   if (!confirm('Convert this recipe to a composite? You can add sub-recipe components. The existing flat ingredients will stay on the recipe but won\'t be used for cost — cost rolls up from the components + main material.')) return;
@@ -8790,6 +8800,8 @@ function convertToComposite(npd) {
 }
 
 function revertToFlat(npd) {
+  var role = (typeof getCurrentUserRole === 'function') ? getCurrentUserRole() : 'viewer';
+  if (role !== 'admin' && role !== 'npd') { showSaveToast('Only R&D can revert recipes', true); return; }
   var r = RECIPE_DB[npd]; if (!r) return;
   if (!confirm('Revert to flat recipe? Components and main material will be kept in data but hidden.')) return;
   r.recipeKind = 'flat';
@@ -8898,6 +8910,10 @@ function viewRecipe(npd) {
   // Role gate: hide drafts from non-RD; viewers can only open approved recipes
   var _vrRole = getCurrentUserRole();
   var _vrIsRD = (_vrRole === 'admin' || _vrRole === 'npd');
+  var _vrIsQA = (_vrRole === 'admin' || _vrRole === 'qa');
+  var _vrIsFactory = (_vrRole === 'admin' || _vrRole === 'factory');
+  var _vrIsRDorQA = (_vrRole === 'admin' || _vrRole === 'npd' || _vrRole === 'qa');
+  var _vrIsRDorFactory = (_vrRole === 'admin' || _vrRole === 'npd' || _vrRole === 'factory');
   if (r.status === 'draft' && !_vrIsRD) { showSaveToast('Draft not available', true); return; }
   if (_vrRole === 'viewer' && r.status !== 'approved') { showSaveToast('Recipe not yet approved', true); return; }
   // Prefetch EBS prices for ingredients without costs
@@ -8924,11 +8940,11 @@ function viewRecipe(npd) {
         </div>
         <div style="display:flex;gap:8px;align-items:center">
           <span class="badge ${statusMap[r.status]}" style="font-size:11px">${statusLabel[r.status]}</span>
-          ${isCompositeRecipe(r)
+          ${_vrIsRD ? (isCompositeRecipe(r)
             ? '<button class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:white;border:none" onclick="revertToFlat(\''+r.npd+'\')" title="Switch back to flat ingredient list">↩ Flat</button>'
-            : '<button class="btn btn-sm" style="background:rgba(184,130,10,0.85);color:white;border:none" onclick="convertToComposite(\''+r.npd+'\')" title="Turn into a multi-stage recipe with linked sub-recipes">🧩 Composite</button>'}
-          <button class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:white;border:none" onclick="editRecipe('${r.npd}')">Edit</button>
-          <button class="btn btn-sm" style="background:var(--sage);color:white;border:none" onclick="saveRecipeToServer('${r.npd}');showSaveToast('Recipe saved')">Save</button>
+            : '<button class="btn btn-sm" style="background:rgba(184,130,10,0.85);color:white;border:none" onclick="convertToComposite(\''+r.npd+'\')" title="Turn into a multi-stage recipe with linked sub-recipes">🧩 Composite</button>') : ''}
+          ${_vrIsRD ? `<button class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:white;border:none" onclick="editRecipe('${r.npd}')">Edit</button>` : ''}
+          ${_vrIsRD ? `<button class="btn btn-sm" style="background:var(--sage);color:white;border:none" onclick="saveRecipeToServer('${r.npd}');showSaveToast('Recipe saved')">Save</button>` : ''}
           <div class="print-dd" id="dd-detail-${r.npd}">
             <button class="btn btn-sm" style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:none" onclick="event.stopPropagation();toggleDD('dd-detail-${r.npd}')">Print ▾</button>
             <div class="print-dd-menu">
@@ -8957,7 +8973,7 @@ function viewRecipe(npd) {
           <div style="display:flex;align-items:center;gap:8px">
             <span style="font-size:11px;color:var(--g3)">Per 1 kg</span>
             ${(r.type === 'Dough' || r.ingredients.some(function(i){ return /flour|dough/i.test(i.name); })) ? '<button class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 10px" onclick="toggleBakerPct(\''+r.npd+'\')" id="baker-btn-'+r.npd+'">Baker\'s %</button>' : ''}
-            <button class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 10px" onclick="editRecipe('${r.npd}')">Edit</button>
+            ${_vrIsRD ? `<button class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 10px" onclick="editRecipe('${r.npd}')">Edit</button>` : ''}
           </div>
         </div>
         <div class="card-body" style="padding:0">
@@ -8976,7 +8992,8 @@ function viewRecipe(npd) {
                 // Always resolve from the name — itemCode is no longer persisted.
                 var _resolvedCode = resolveItemCode(i.name);
                 var _itemCodePill = _resolvedCode ? '<span style="display:inline-block;margin-left:6px;padding:1px 6px;border-radius:4px;background:var(--g1);color:var(--g4);font-family:var(--font-m);font-size:10px;vertical-align:middle" title="Oracle EBS item code">'+_resolvedCode+'</span>' : '';
-                return `<tr><td>${i.name}${_itemCodePill}</td><td style="text-align:right;font-family:var(--font-m);font-size:12px">${(_frac*1000).toFixed(1)} g</td><td style="text-align:right;font-family:var(--font-m);font-size:12px;color:var(--g3)">${i.pct.toFixed(1)}%</td><td style="text-align:right;font-family:var(--font-m);font-size:12px;cursor:pointer" onclick="editIngCost('${r.npd}',${idx})" title="Click to edit cost"><span style="color:${_cost !== null ? (_isOverride ? 'var(--blue)' : 'var(--sage)') : 'var(--g3)'}">${_cost !== null ? 'SAR ' + _cost.toFixed(2) : '+ add'}</span>${_isOverride ? '<span style="font-size:8px;color:var(--blue);margin-left:3px" title="Manual override">✎</span>' : ''}</td></tr>`;
+                var _costCellAttrs = _vrIsRD ? `style="text-align:right;font-family:var(--font-m);font-size:12px;cursor:pointer" onclick="editIngCost('${r.npd}',${idx})" title="Click to edit cost"` : `style="text-align:right;font-family:var(--font-m);font-size:12px"`;
+                return `<tr><td>${i.name}${_itemCodePill}</td><td style="text-align:right;font-family:var(--font-m);font-size:12px">${(_frac*1000).toFixed(1)} g</td><td style="text-align:right;font-family:var(--font-m);font-size:12px;color:var(--g3)">${i.pct.toFixed(1)}%</td><td ${_costCellAttrs}><span style="color:${_cost !== null ? (_isOverride ? 'var(--blue)' : 'var(--sage)') : 'var(--g3)'}">${_cost !== null ? 'SAR ' + _cost.toFixed(2) : (_vrIsRD ? '+ add' : '—')}</span>${_isOverride ? '<span style="font-size:8px;color:var(--blue);margin-left:3px" title="Manual override">✎</span>' : ''}</td></tr>`;
               }).join('')}
               <tr style="background:var(--navy)" id="ing-cost-total-${r.npd}"><td style="color:white;font-weight:500">Total</td><td style="text-align:right;color:var(--gold-mid);font-weight:500;font-family:var(--font-m);font-size:12px">1000.0 g</td><td style="text-align:right;color:var(--gold-mid);font-weight:500;font-family:var(--font-m);font-size:12px">100%</td><td style="text-align:right;color:var(--gold-mid);font-weight:500;font-family:var(--font-m);font-size:12px">${(function(){ var _tc = _calcIngCostTotal(r); return _tc !== null ? 'SAR ' + _tc.toFixed(2) : '—'; })()}</td></tr>
             </tbody>
@@ -8986,7 +9003,7 @@ function viewRecipe(npd) {
 
       <!-- Method -->
       <div class="card">
-        <div class="card-head"><span class="card-title">Method</span><div style="display:flex;align-items:center;gap:8px"><span class="badge badge-navy">${r.method.length} Steps</span><button class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 10px" onclick="importStepsToRecipe('${r.npd}')">⬆ Import</button><button class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 10px" onclick="editRecipe('${r.npd}')">Edit</button></div></div>
+        <div class="card-head"><span class="card-title">Method</span><div style="display:flex;align-items:center;gap:8px"><span class="badge badge-navy">${r.method.length} Steps</span>${_vrIsRD ? `<button class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 10px" onclick="importStepsToRecipe('${r.npd}')">⬆ Import</button><button class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 10px" onclick="editRecipe('${r.npd}')">Edit</button>` : ''}</div></div>
         <div class="card-body">
           ${r.method.map((s,i) => `
             <div class="sop-step" style="margin-bottom:14px">
@@ -9028,7 +9045,7 @@ function viewRecipe(npd) {
             '<div style="padding:16px 20px;border-right:1px solid var(--g2);text-align:center">' +
               '<div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3);margin-bottom:6px">Portion Cost</div>' +
               '<div style="display:flex;align-items:center;justify-content:center;gap:4px;margin-bottom:4px">' +
-                '<input type="number" id="portion-size-' + r.npd + '" value="' + (r.portionSize || '') + '" placeholder="g" min="1" max="5000" style="width:55px;padding:4px 6px;border:1px solid var(--g2);border-radius:var(--r-sm);font-family:var(--font-m);font-size:12px;text-align:right" oninput="updateFoodCost(\'' + r.npd + '\')" />' +
+                '<input type="number" id="portion-size-' + r.npd + '" value="' + (r.portionSize || '') + '" placeholder="g" min="1" max="5000" ' + (_vrIsRD ? '' : 'disabled ') + 'style="width:55px;padding:4px 6px;border:1px solid var(--g2);border-radius:var(--r-sm);font-family:var(--font-m);font-size:12px;text-align:right" oninput="updateFoodCost(\'' + r.npd + '\')" />' +
                 '<span style="font-size:11px;color:var(--g3)">g</span>' +
               '</div>' +
               '<div id="fc-portion-' + r.npd + '" style="font-family:var(--font-m);font-size:18px;font-weight:700;color:' + (_portionCost !== null ? 'var(--sage)' : 'var(--g3)') + '">' + (_portionCost !== null ? 'SAR ' + _portionCost.toFixed(3) : '—') + '</div>' +
@@ -9037,7 +9054,7 @@ function viewRecipe(npd) {
               '<div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3);margin-bottom:6px">Selling Price</div>' +
               '<div style="display:flex;align-items:center;justify-content:center;gap:4px;margin-bottom:4px">' +
                 '<span style="font-size:11px;color:var(--g3)">SAR</span>' +
-                '<input type="number" id="selling-price-' + r.npd + '" value="' + (r.sellingPrice || '') + '" placeholder="0.00" min="0" step="0.01" style="width:65px;padding:4px 6px;border:1px solid var(--g2);border-radius:var(--r-sm);font-family:var(--font-m);font-size:12px;text-align:right" oninput="updateFoodCost(\'' + r.npd + '\')" />' +
+                '<input type="number" id="selling-price-' + r.npd + '" value="' + (r.sellingPrice || '') + '" placeholder="0.00" min="0" step="0.01" ' + (_vrIsRD ? '' : 'disabled ') + 'style="width:65px;padding:4px 6px;border:1px solid var(--g2);border-radius:var(--r-sm);font-family:var(--font-m);font-size:12px;text-align:right" oninput="updateFoodCost(\'' + r.npd + '\')" />' +
               '</div>' +
               '<div id="fc-margin-' + r.npd + '" style="font-family:var(--font-m);font-size:14px;font-weight:600;color:' + (_margin !== null ? 'var(--sage)' : 'var(--g3)') + '">' + (_margin !== null ? 'SAR ' + _margin.toFixed(2) + ' margin' : '—') + '</div>' +
             '</div>' +
@@ -9049,7 +9066,7 @@ function viewRecipe(npd) {
             '<div style="padding:16px 20px;text-align:center">' +
               '<div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3);margin-bottom:6px">Yield</div>' +
               '<div style="display:flex;align-items:center;justify-content:center;gap:4px;margin-bottom:4px">' +
-                '<input type="number" id="yield-input-' + r.npd + '" value="' + (_yld ? (_yld * 100).toFixed(0) : '') + '" placeholder="%" min="1" max="100" style="width:50px;padding:4px 6px;border:1px solid var(--g2);border-radius:var(--r-sm);font-family:var(--font-m);font-size:12px;text-align:right" oninput="updateFoodCost(\'' + r.npd + '\')" />' +
+                '<input type="number" id="yield-input-' + r.npd + '" value="' + (_yld ? (_yld * 100).toFixed(0) : '') + '" placeholder="%" min="1" max="100" disabled title="Edit yield on the Production Yield card below" style="width:50px;padding:4px 6px;border:1px solid var(--g2);border-radius:var(--r-sm);font-family:var(--font-m);font-size:12px;text-align:right;background:var(--g0)" />' +
                 '<span style="font-size:11px;color:var(--g3)">%</span>' +
               '</div>' +
               '<div style="font-size:10px;color:var(--g3)">' + (_yld ? _lossPct + '% loss' : 'enter yield') + '</div>' +
@@ -9063,11 +9080,11 @@ function viewRecipe(npd) {
     <div class="card" style="margin-bottom:20px">
       <div class="card-head"><span class="card-title">📷 Photos & Videos</span><span style="font-size:11px;color:var(--g3)">${(r.media||[]).length} files</span></div>
       <div class="card-body">
-        <div class="media-zone" onclick="document.getElementById('media-input-${r.npd}').click()">
+        ${_vrIsRDorQA ? `<div class="media-zone" onclick="document.getElementById('media-input-${r.npd}').click()">
           <div class="media-zone-icon">📁</div>
           <div class="media-zone-text"><strong>Click to upload</strong> photos or videos<br>JPG, PNG, MP4 — max 50MB each</div>
           <input type="file" id="media-input-${r.npd}" multiple accept="image/*,video/*" style="display:none" onchange="handleMediaUpload('${r.npd}',this)" />
-        </div>
+        </div>` : ''}
         <div class="media-grid" id="media-grid-${r.npd}"></div>
       </div>
     </div>
@@ -9101,8 +9118,8 @@ function viewRecipe(npd) {
       <div class="card-head">
         <span class="card-title">🥗 Nutrition (per 100g)</span>
         <div style="display:flex;gap:6px">
-          <button class="btn btn-outline btn-sm" style="font-size:10px;color:var(--sage);border-color:var(--sage)" onclick="calcRecipeNutritionUSDA('${r.npd}')">USDA Auto</button>
-          <button class="btn btn-outline btn-sm" onclick="toggleNutritionEdit('${r.npd}')">Edit</button>
+          ${_vrIsRDorQA ? `<button class="btn btn-outline btn-sm" style="font-size:10px;color:var(--sage);border-color:var(--sage)" onclick="calcRecipeNutritionUSDA('${r.npd}')">USDA Auto</button>
+          <button class="btn btn-outline btn-sm" onclick="toggleNutritionEdit('${r.npd}')">Edit</button>` : ''}
         </div>
       </div>
       <div class="card-body" style="padding:0">
@@ -9243,10 +9260,10 @@ function viewRecipe(npd) {
     ${(r.status === 'trial' || r.status === 'prod-trial') ? `
     <div class="card" style="margin-top:20px;border:2px solid ${r.status === 'trial' ? '#0C6BA8' : '#6B2FA0'}">
       <div class="card-head" style="background:${r.status === 'trial' ? '#0C6BA8' : '#6B2FA0'}">
-        <span class="card-title" style="color:white">${r.status === 'trial' ? 'Factory Trial' : 'Production Trial'} — QA Results</span>
+        <span class="card-title" style="color:white">${r.status === 'trial' ? 'Factory Trial' : 'Production Trial'} — QA Results${_vrIsQA ? '' : ' <span style=\"font-size:10px;color:rgba(255,255,255,0.55);font-weight:400;margin-left:6px\">view-only — QA owns the lab call</span>'}</span>
         <span class="badge" style="background:rgba(255,255,255,0.15);color:white;font-size:10px">${(r[r.status+'QA'] && r[r.status+'QA'].signed) ? 'Signed Off' : 'Pending QA'}</span>
       </div>
-      <div class="card-body">
+      <div class="card-body" ${_vrIsQA ? '' : 'style="opacity:0.65;pointer-events:none"'}>
         <div style="background:${r.status === 'trial' ? '#E8F4FD' : '#F3E8FD'};border-left:3px solid ${r.status === 'trial' ? '#0C6BA8' : '#6B2FA0'};border-radius:0 var(--r-md) var(--r-md) 0;padding:10px 14px;margin-bottom:16px;font-size:12px;color:${r.status === 'trial' ? '#0C6BA8' : '#6B2FA0'}">
           QA must upload micro results and sign off before this recipe can ${r.status === 'trial' ? 'proceed to Production Trial' : 'be approved for production'}.
         </div>
@@ -9363,7 +9380,7 @@ function viewRecipe(npd) {
             </div>
             <div class="form-group" style="width:150px;margin:0">
               <label class="form-label">Shelf Life</label>
-              <input class="form-input" placeholder="e.g. 6 Months" id="qa-shelf-${r.npd}" value="${r.shelfLife || ''}" onchange="RECIPE_DB['${r.npd}'].shelfLife=this.value;saveAllData();showSaveToast('Shelf life updated')" />
+              <input class="form-input" placeholder="e.g. 6 Months" id="qa-shelf-${r.npd}" value="${r.shelfLife || ''}" onchange="updateRecipeShelfLife('${r.npd}',this.value)" />
             </div>
             <button class="btn btn-sage" style="margin-bottom:0;white-space:nowrap" onclick="signOffTrialQA('${r.npd}','${r.status}')">✓ Sign Off QA</button>
           </div>
@@ -9399,7 +9416,7 @@ function viewRecipe(npd) {
         <span class="card-title">Production Batch Log</span>
         <div style="display:flex;gap:8px;align-items:center">
           <span style="font-size:11px;color:var(--g3)">${(r.batchLog && r.batchLog.length) || 0} runs</span>
-          <button class="btn btn-outline btn-sm" onclick="addBatchLog('${r.npd}')">+ Log Batch</button>
+          ${_vrIsRDorFactory ? `<button class="btn btn-outline btn-sm" onclick="addBatchLog('${r.npd}')">+ Log Batch</button>` : ''}
         </div>
       </div>
       <div class="card-body" style="padding:0">
@@ -9415,7 +9432,7 @@ function viewRecipe(npd) {
                 <td><span class="badge ${parseFloat(b.yield)>=90?'badge-approved':'badge-review'}" style="font-size:10px">${b.yield}</span></td>
                 <td style="font-size:12px;color:var(--g4)">${b.operator}</td>
                 <td style="font-size:11px;color:var(--g3);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${b.notes || '—'}</td>
-                <td><button class="btn btn-danger-sm" onclick="removeBatchLog('${r.npd}',${bi})">✕</button></td>
+                <td>${_vrIsRDorFactory ? `<button class="btn btn-danger-sm" onclick="removeBatchLog('${r.npd}',${bi})">✕</button>` : ''}</td>
               </tr>
             `).join('')}
           </tbody>
@@ -9780,6 +9797,7 @@ function setRecipeStatus(npd, newStatus) {
 }
 
 function updateTrialQA(npd, stage, field, value) {
+  if (!_requireRole(['qa'], 'QA')) return;
   const r = RECIPE_DB[npd];
   if (!r) return;
   if (!r[stage+'QA']) r[stage+'QA'] = { signed:false, files:[] };
@@ -9787,7 +9805,17 @@ function updateTrialQA(npd, stage, field, value) {
   saveAllData();
 }
 
+function updateRecipeShelfLife(npd, val) {
+  if (!_requireRole(['qa'], 'QA')) return;
+  var r = RECIPE_DB[npd];
+  if (!r) return;
+  r.shelfLife = val;
+  saveAllData();
+  showSaveToast('Shelf life updated');
+}
+
 function signOffTrialQA(npd, stage) {
+  if (!_requireRole(['qa'], 'QA')) return;
   const r = RECIPE_DB[npd];
   if (!r) return;
   if (!r[stage+'QA']) r[stage+'QA'] = { signed:false, files:[] };
@@ -9821,6 +9849,7 @@ function signOffTrialQA(npd, stage) {
 }
 
 function handleTrialQAMedia(npd, stage, inputEl) {
+  if (!_requireRole(['qa'], 'QA')) return;
   const r = RECIPE_DB[npd];
   if (!r) return;
   if (!r[stage+'QA']) r[stage+'QA'] = { signed:false, files:[] };
@@ -9837,6 +9866,7 @@ function handleTrialQAMedia(npd, stage, inputEl) {
 }
 
 function removeTrialQAMedia(npd, stage, idx) {
+  if (!_requireRole(['qa'], 'QA')) return;
   const r = RECIPE_DB[npd];
   if (!r || !r[stage+'QA'] || !r[stage+'QA'].files) return;
   r[stage+'QA'].files.splice(idx, 1);
@@ -9851,6 +9881,16 @@ var _previewCatalogOnly = false;
 // Per-user access matrix preview — when set to a {recipes,builds,...} object, currentUserHasAccess
 // returns false for any key that is explicitly false. Set by previewAs('user:<email>') below.
 var _previewAccess = null;
+
+// Defense-in-depth role check used by recipe-detail action handlers.
+// Returns true if the current role is allowed; otherwise shows a toast and returns false.
+function _requireRole(allowedRoles, label) {
+  var r = (typeof getCurrentUserRole === 'function') ? getCurrentUserRole() : 'viewer';
+  if (r === 'admin') return true;
+  if (Array.isArray(allowedRoles) && allowedRoles.indexOf(r) >= 0) return true;
+  if (typeof showSaveToast === 'function') showSaveToast('Only ' + (label || allowedRoles.join('/')) + ' can do that', true);
+  return false;
+}
 
 function getCurrentUserRole() {
   if (_previewRole) return _previewRole;
@@ -9894,6 +9934,7 @@ function previewAs(role) {
 
 // ──────────── ARCHIVE RECIPE ────────────
 function archiveRecipe(npd) {
+  if (!_requireRole(['npd'], 'R&D')) return;
   var r = RECIPE_DB[npd];
   if (!r) return;
   if (r.status !== 'approved' && !r.discontinued) { showSaveToast('Only approved or discontinued recipes can be archived', true); return; }
@@ -9911,6 +9952,7 @@ function archiveRecipe(npd) {
 }
 
 function unarchiveRecipe(npd) {
+  if (!_requireRole(['npd'], 'R&D')) return;
   var r = RECIPE_DB[npd];
   if (!r) return;
   r.archived = false;
@@ -10672,6 +10714,7 @@ function deleteStandardBlock(i) {
 }
 
 function exportToSOP(npd) {
+  if (!_requireRole(['npd'], 'R&D')) return;
   const r = RECIPE_DB[npd];
   if (!r) return;
 
@@ -12065,6 +12108,7 @@ function restoreVersion(npd, idx) {
 
 // ──────────── BATCH LOG ────────────
 function addBatchLog(npd) {
+  if (!_requireRole(['npd','factory'], 'R&D or Factory')) return;
   var r = RECIPE_DB[npd];
   if (!r) return;
   if (!r.batchLog) r.batchLog = [];
@@ -12095,6 +12139,7 @@ function addBatchLog(npd) {
 }
 
 function saveBatchLog(npd) {
+  if (!_requireRole(['npd','factory'], 'R&D or Factory')) return;
   var r = RECIPE_DB[npd];
   if (!r) return;
   if (!r.batchLog) r.batchLog = [];
@@ -12115,6 +12160,7 @@ function saveBatchLog(npd) {
 }
 
 function removeBatchLog(npd, idx) {
+  if (!_requireRole(['npd','factory'], 'R&D or Factory')) return;
   var r = RECIPE_DB[npd];
   if (!r || !r.batchLog) return;
   r.batchLog.splice(idx, 1);
@@ -12175,6 +12221,8 @@ function compareVersion(npd, idx) {
 
 // ──────────── EDIT RECIPE ────────────
 function editRecipe(npd) {
+  var role = (typeof getCurrentUserRole === 'function') ? getCurrentUserRole() : 'viewer';
+  if (role !== 'admin' && role !== 'npd') { showSaveToast('Only R&D can edit recipes', true); return; }
   const r = RECIPE_DB[npd];
   if (!r) return;
 
@@ -12439,6 +12487,7 @@ function moveStepDown(btn) {
 }
 
 function importStepsToRecipe(npd) {
+  if (!_requireRole(['npd'], 'R&D')) return;
   var r = RECIPE_DB[npd];
   if (!r) return;
   openModal(
@@ -12458,6 +12507,7 @@ function importStepsToRecipe(npd) {
 }
 
 function doImportStepsToRecipe(npd) {
+  if (!_requireRole(['npd'], 'R&D')) return;
   var r = RECIPE_DB[npd];
   if (!r) return;
   var text = document.getElementById('import-steps-text').value.trim();
@@ -14514,6 +14564,7 @@ function editQAAllergens() {
 
 // ──────────── RECIPE DETAIL NUTRITION EDIT ────────────
 function toggleNutritionEdit(npd) {
+  if (!_requireRole(['npd','qa'], 'R&D or QA')) return;
   var fields = ['energy','fat','satfat','carbs','sugars','fibre','protein','sodium'];
   var firstInput = document.getElementById('rd-nut-energy-'+npd);
   var isDisabled = firstInput && firstInput.disabled;
@@ -14526,6 +14577,7 @@ function toggleNutritionEdit(npd) {
 }
 
 function saveRecipeNutrition(npd) {
+  if (!_requireRole(['npd','qa'], 'R&D or QA')) return;
   var r = RECIPE_DB[npd];
   if (!r) return;
   if (!r.nutrition) r.nutrition = {};
@@ -14788,6 +14840,7 @@ function saveNutrition() {
 
 // Calculate nutrition from USDA for a recipe (QA page or recipe detail)
 function calcRecipeNutritionUSDA(npd) {
+  if (!_requireRole(['npd','qa'], 'R&D or QA')) return;
   if (!npd) npd = _qaCurrentNPD;
   var r = RECIPE_DB[npd];
   if (!r) { showSaveToast('Select a recipe first', true); return; }
@@ -19620,6 +19673,7 @@ function updateSidebarBadges() {
 
 // ──────────── DUPLICATE RECIPE ────────────
 function duplicateRecipe(npd) {
+  if (!_requireRole(['npd'], 'R&D')) return;
   const r = RECIPE_DB[npd];
   if (!r) return;
   // Generate new NPD code
