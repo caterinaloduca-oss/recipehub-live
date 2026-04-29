@@ -19804,6 +19804,16 @@ function _subCanApproveAs(approvalRole) {
   return r === approvalRole;
 }
 function _subCanImplement() { var r = _subUserRole(); return r === 'npd' || r === 'admin'; }
+function _subCanDelete(req) {
+  var role = _subUserRole();
+  if (role === 'admin') return true;
+  // Purchasing (creator) can delete their own — but only while still open
+  if (role === 'purchasing' && req && req.createdBy) {
+    var u = _subCurrentUser();
+    return u.email === req.createdBy && req.status === 'open';
+  }
+  return false;
+}
 
 function _subFindIngredient(code) {
   if (!code) return null;
@@ -20091,7 +20101,10 @@ function viewSubRequestDetail(id) {
     '<div class="card" style="border:2px solid var(--navy)">'+
       '<div class="card-head" style="background:var(--navy)">'+
         '<span class="card-title" style="color:white">'+r.id+' · '+r.currentName+' → '+r.proposedName+'</span>'+
-        '<button class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:white;border:none" onclick="document.getElementById(\'sub-request-detail\').style.display=\'none\'">✕</button>'+
+        '<div style="display:flex;gap:6px">'+
+          (_subCanDelete(r) ? '<button class="btn btn-sm" style="background:var(--red-lt);color:var(--red);border:none" onclick="deleteSubRequest(\''+r.id+'\')">Delete</button>' : '') +
+          '<button class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:white;border:none" onclick="document.getElementById(\'sub-request-detail\').style.display=\'none\'">✕</button>'+
+        '</div>'+
       '</div>'+
       '<div class="card-body" style="padding:18px">'+
         rejNote +
@@ -20182,6 +20195,21 @@ function markSubRequestImplemented(id) {
   viewSubRequestDetail(id);
   buildSubRequestList();
   showSaveToast('Marked implemented — recipes should now reference the new ingredient');
+}
+
+function deleteSubRequest(id) {
+  var r = SUB_REQUESTS.find(function(x){ return x.id === id; });
+  if (!r) return;
+  if (!_subCanDelete(r)) { showSaveToast('You can\'t delete this request', true); return; }
+  if (!confirm('Delete this substitution request? This cannot be undone.')) return;
+  var idx = SUB_REQUESTS.indexOf(r);
+  if (idx >= 0) SUB_REQUESTS.splice(idx, 1);
+  if (typeof auditEvent === 'function') auditEvent('sub.delete', 'substitution', id, r.currentName + ' → ' + r.proposedName, {});
+  saveAllData();
+  var d = document.getElementById('sub-request-detail'); if (d) d.style.display = 'none';
+  buildSubRequestList();
+  updateSubBadge();
+  showSaveToast('Request deleted');
 }
 
 function addSubComment(id) {
