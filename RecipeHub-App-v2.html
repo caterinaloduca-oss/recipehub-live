@@ -9264,7 +9264,7 @@ function viewRecipe(npd) {
     <div class="card" style="margin-top:20px;border:2px solid ${r.status === 'trial' ? '#0C6BA8' : '#6B2FA0'}">
       <div class="card-head" style="background:${r.status === 'trial' ? '#0C6BA8' : '#6B2FA0'}">
         <span class="card-title" style="color:white">${r.status === 'trial' ? 'Factory Trial' : 'Production Trial'} — QA Results${_vrIsQA ? '' : ' <span style=\"font-size:10px;color:rgba(255,255,255,0.55);font-weight:400;margin-left:6px\">view-only — QA owns the lab call</span>'}</span>
-        <span class="badge" style="background:rgba(255,255,255,0.15);color:white;font-size:10px">${(r[r.status+'QA'] && r[r.status+'QA'].signed) ? 'Signed Off' : 'Pending QA'}</span>
+        <span class="badge" style="background:rgba(255,255,255,0.15);color:white;font-size:10px">${(r[r.status+'QA'] && r[r.status+'QA'].signed) ? (r[r.status+'QA'].conditional ? '⚠ Signed Off (with conditions)' : 'Signed Off') : 'Pending QA'}</span>
       </div>
       <div class="card-body" ${_vrIsQA ? '' : 'style="opacity:0.65;pointer-events:none"'}>
         <div style="background:${r.status === 'trial' ? '#E8F4FD' : '#F3E8FD'};border-left:3px solid ${r.status === 'trial' ? '#0C6BA8' : '#6B2FA0'};border-radius:0 var(--r-md) var(--r-md) 0;padding:10px 14px;margin-bottom:16px;font-size:12px;color:${r.status === 'trial' ? '#0C6BA8' : '#6B2FA0'}">
@@ -9403,12 +9403,14 @@ function viewRecipe(npd) {
 
     ${(r.status !== 'trial' && r.status !== 'prod-trial' && r.trialQA && r.trialQA.signed) ? `
     <div class="card" style="margin-top:20px;opacity:0.7">
-      <div class="card-head" style="background:#0C6BA8"><span class="card-title" style="color:white">Factory Trial — QA Results</span><span class="badge" style="background:rgba(255,255,255,0.15);color:white;font-size:10px">Signed Off by ${r.trialQA.signedBy} · ${r.trialQA.signedAt}</span></div>
+      <div class="card-head" style="background:${r.trialQA.conditional ? '#D47000' : '#0C6BA8'}"><span class="card-title" style="color:white">Factory Trial — QA Results${r.trialQA.conditional ? ' <span style=\"font-size:11px;font-weight:500;margin-left:6px\">⚠ Approved with conditions</span>' : ''}</span><span class="badge" style="background:rgba(255,255,255,0.15);color:white;font-size:10px">Signed Off by ${esc(r.trialQA.signedBy||'')} · ${r.trialQA.signedAt}</span></div>
+      ${r.trialQA.conditional && r.trialQA.conditions ? `<div class="card-body" style="padding:10px 16px;background:#FEF3E2;border-top:1px solid #F5D5A0;font-size:12px;color:#8a4500"><strong>Conditions:</strong> ${esc(r.trialQA.conditions)}</div>` : ''}
     </div>
     ` : ''}
     ${(r.status !== 'trial' && r.status !== 'prod-trial' && r['prod-trialQA'] && r['prod-trialQA'].signed) ? `
     <div class="card" style="margin-top:8px;opacity:0.7">
-      <div class="card-head" style="background:#6B2FA0"><span class="card-title" style="color:white">Production Trial — QA Results</span><span class="badge" style="background:rgba(255,255,255,0.15);color:white;font-size:10px">Signed Off by ${r['prod-trialQA'].signedBy} · ${r['prod-trialQA'].signedAt}</span></div>
+      <div class="card-head" style="background:${r['prod-trialQA'].conditional ? '#D47000' : '#6B2FA0'}"><span class="card-title" style="color:white">Production Trial — QA Results${r['prod-trialQA'].conditional ? ' <span style=\"font-size:11px;font-weight:500;margin-left:6px\">⚠ Approved with conditions</span>' : ''}</span><span class="badge" style="background:rgba(255,255,255,0.15);color:white;font-size:10px">Signed Off by ${esc(r['prod-trialQA'].signedBy||'')} · ${r['prod-trialQA'].signedAt}</span></div>
+      ${r['prod-trialQA'].conditional && r['prod-trialQA'].conditions ? `<div class="card-body" style="padding:10px 16px;background:#FEF3E2;border-top:1px solid #F5D5A0;font-size:12px;color:#8a4500"><strong>Conditions:</strong> ${esc(r['prod-trialQA'].conditions)}</div>` : ''}
     </div>
     ` : ''}
 
@@ -9834,13 +9836,29 @@ function signOffTrialQA(npd, stage) {
     return;
   }
 
+  // Detect failing verdicts → "approved with conditions" path
+  var verdictFields = ['tpcVerdict','ymVerdict','colVerdict','ecoliVerdict','salVerdict','phVerdict','awVerdict','brixVerdict','viscVerdict'];
+  var fails = verdictFields.filter(function(f){ return qa[f] === 'fail'; });
+  if (fails.length) {
+    var conditions = prompt('One or more results are marked Fail (' + fails.length + '). Sign-off will be recorded as "Approved with conditions". Describe the conditions / corrective actions required:', qa.conditions || '');
+    if (conditions === null) return;  // user cancelled
+    var trimmed = conditions.trim();
+    if (!trimmed) { showSaveToast('Conditions note is required when any verdict is Fail', true); return; }
+    qa.conditional = true;
+    qa.conditions = trimmed;
+  } else {
+    qa.conditional = false;
+    qa.conditions = '';
+  }
+
   qa.signed = true;
   qa.signedAt = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
-  logActivity('qa', '🔬', 'QA signed off ' + (stage === 'trial' ? 'Factory Trial' : 'Production Trial') + ' for ' + r.name, 'By ' + qa.signedBy);
+  var statusLabel = qa.conditional ? 'with conditions' : 'clean';
+  logActivity('qa', qa.conditional ? '⚠️' : '🔬', 'QA signed off (' + statusLabel + ') ' + (stage === 'trial' ? 'Factory Trial' : 'Production Trial') + ' for ' + r.name, 'By ' + qa.signedBy + (qa.conditional ? ' · ' + qa.conditions : ''));
   updateSidebarBadges();
   updateDashboardStats();
   viewRecipe(npd);
-  showSaveToast('QA sign-off recorded for ' + (stage === 'trial' ? 'Factory Trial' : 'Production Trial'));
+  showSaveToast('QA sign-off recorded' + (qa.conditional ? ' (with conditions)' : '') + ' for ' + (stage === 'trial' ? 'Factory Trial' : 'Production Trial'));
   saveAllData();
 
   // Notify R&D that QA signed off
