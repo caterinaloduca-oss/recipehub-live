@@ -6957,8 +6957,8 @@ function populateIngCategoryFilter() {
     if (ING_EXCLUDED_CATEGORIES.has(c)) return;
     counts[c] = (counts[c]||0) + 1;
   });
-  const FOOD_CATS = new Set(['Food','Sauce','Sauces','Topping','Toppings','Side Dish','Side Dishes','Crust','Crusts','Beverage','Beverages','Oil','Meat & Protein','Dairy','Grain & Flour','Bread & Crumbs','Dough','Burger Dough','Pasta','Pizza','Mac & Cheese','Dessert','Appetizer','Dip','Salad','Seasoning','Additive']);
-  const NONFOOD_CATS = new Set(['Packing Material','Operating Supply','Equipment','Service','Cleaning','Tool','Uniform','Non-Food','Smallware','Disposable (Consumables)','Stationery','Marketing','Critical','Chiller']);
+  const FOOD_CATS = new Set(['Food','Sauce','Sauces','Topping','Toppings','Side Dish','Side Dishes','Crust','Crusts','Beverage','Beverages','Oil','Oil / Fat','Meat & Protein','Protein','Dairy','Grain & Flour','Base / Starch','Bread & Crumbs','Dough','Burger Dough','Pasta','Pizza','Mac & Cheese','Dessert','Appetizer','Dip','Salad','Seasoning','Spice / Herb','Acid','Vegetable','Additive','Semi-finished']);
+  const NONFOOD_CATS = new Set(['Packing Material','Packaging','Operating Supply','Equipment','Service','Cleaning','Tool','Uniform','Non-Food','Smallware','Disposable (Consumables)','Stationery','Marketing','Critical','Chiller']);
   const food = [], nonfood = [], other = [];
   Object.entries(counts).sort((a,b) => b[1]-a[1]).forEach(([c,n]) => {
     if (FOOD_CATS.has(c)) food.push([c,n]);
@@ -12701,7 +12701,7 @@ function openIngredientForm() {
       </div>
       <div class="form-grid form-grid-3" style="margin-bottom:16px">
         <div class="form-group"><label class="form-label">Item Code</label><input class="form-input" id="ni-code" placeholder="e.g. SP-006" /></div>
-        <div class="form-group"><label class="form-label">Category</label><select class="form-select" id="ni-cat"><option>Spice / Herb</option><option>Base / Starch</option><option>Oil / Fat</option><option>Acid</option><option>Dairy</option><option>Vegetable</option><option>Additive</option><option>Packaging</option></select></div>
+        <div class="form-group"><label class="form-label">Category</label><select class="form-select" id="ni-cat"><option>Spice / Herb</option><option>Base / Starch</option><option>Oil / Fat</option><option>Acid</option><option>Dairy</option><option>Protein</option><option>Vegetable</option><option>Beverage</option><option>Additive</option><option>Semi-finished</option><option>Packaging</option><option>Other</option></select></div>
         <div class="form-group"><label class="form-label">Cost / kg (SAR)</label><input class="form-input" id="ni-cost" type="number" step="0.50" placeholder="0.00" /></div>
       </div>
       <div class="form-grid form-grid-2" style="margin-bottom:16px">
