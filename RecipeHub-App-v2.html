@@ -19778,8 +19778,17 @@ function loadStressTest(action) {
 // R&D + QA + Factory each sign off; QA's lab retest is a hard requirement. Once all 3 approve,
 // R&D manually rewires affected recipes (we don't auto-update — recipes may need % adjustments).
 
-function _subRoles() { return ['rd', 'qa', 'factory']; }
+function _subRoles() { return ['rd', 'qa', 'factory']; }  // sequential order — R&D, then QA (lab retest), then Factory sign-off
 function _subRoleLabel(r) { return ({rd:'R&D', qa:'QA', factory:'Factory'})[r] || r; }
+function _subRoleStep(r) { return _subRoles().indexOf(r); }
+function _subRoleHint(r) { return ({rd:'Confirms formulation fit', qa:'Mandatory lab retest — allergens, shelf life, micro', factory:'Confirms production constraints'})[r] || ''; }
+// A role can only act after every prior role in the sequence has approved.
+function _subRoleUnlocked(req, role) {
+  var idx = _subRoleStep(role);
+  if (idx <= 0) return true;
+  var prev = _subRoles().slice(0, idx);
+  return prev.every(function(p){ return req.approvals && req.approvals[p] && req.approvals[p].ok; });
+}
 function _subCurrentUser() {
   try { var u = JSON.parse(localStorage.getItem('rh_auth_user') || 'null'); return u || {}; } catch(e) { return {}; }
 }
@@ -20038,11 +20047,15 @@ function viewSubRequestDetail(id) {
     var a = (r.approvals && r.approvals[role]) || {};
     var ok = a.ok;
     var label = _subRoleLabel(role);
+    var stepNo = _subRoleStep(role) + 1;
+    var unlocked = _subRoleUnlocked(r, role);
     var stateHtml = ok
       ? '<div style="font-size:11px;color:var(--sage);font-weight:600">✓ approved by '+(a.byName||a.by||'?')+'</div><div style="font-size:10px;color:var(--g3)">'+(a.at?new Date(a.at).toLocaleString('en-GB'):'')+'</div>'
-      : '<div style="font-size:11px;color:var(--amber);font-weight:600">⏳ pending</div>';
+      : (unlocked
+          ? '<div style="font-size:11px;color:var(--amber);font-weight:600">⏳ awaiting sign-off</div>'
+          : '<div style="font-size:11px;color:var(--g3);font-weight:600">🔒 locked — needs prior step</div>');
     var btns = '';
-    if (r.status === 'open' && _subCanApproveAs(role)) {
+    if (r.status === 'open' && _subCanApproveAs(role) && unlocked) {
       btns = '<div style="margin-top:8px;display:flex;gap:6px">'+
         (ok
           ? '<button class="btn btn-outline btn-sm" onclick="event.stopPropagation();approveSubRequest(\''+r.id+'\',\''+role+'\',false)">Undo</button>'
@@ -20051,7 +20064,13 @@ function viewSubRequestDetail(id) {
         (!ok ? '<button class="btn btn-outline btn-sm" style="border-color:var(--red);color:var(--red)" onclick="event.stopPropagation();rejectSubRequest(\''+r.id+'\',\''+role+'\')">Reject</button>' : '')+
         '</div>';
     }
-    return '<div style="border:1px solid var(--g1);border-radius:8px;padding:12px;background:'+(ok?'#F1F7F0':'white')+'"><div style="font-family:var(--font-d);font-size:13px;font-weight:600;color:var(--navy)">'+label+'</div>'+stateHtml+btns+'</div>';
+    var bg = ok ? '#F1F7F0' : (unlocked ? 'white' : 'var(--g0)');
+    return '<div style="border:1px solid var(--g1);border-radius:8px;padding:12px;background:'+bg+';opacity:'+(unlocked||ok?'1':'0.65')+'">'+
+      '<div style="font-family:var(--font-d);font-size:11px;color:var(--g3);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:2px">Step '+stepNo+' of 3</div>'+
+      '<div style="font-family:var(--font-d);font-size:13px;font-weight:600;color:var(--navy)">'+label+'</div>'+
+      '<div style="font-size:11px;color:var(--g4);margin:2px 0 6px">'+_subRoleHint(role)+'</div>'+
+      stateHtml+btns+
+    '</div>';
   }
   var commentsHtml = (r.comments||[]).map(function(c){
     return '<div style="padding:6px 0;border-bottom:1px solid var(--g1);font-size:12px"><strong>'+(c.byName||c.by)+'</strong> <span style="color:var(--g3);font-size:10px">'+new Date(c.at).toLocaleString('en-GB')+'</span><div style="color:var(--g5);margin-top:2px">'+c.text+'</div></div>';
@@ -20105,15 +20124,26 @@ function approveSubRequest(id, role, ok) {
   if (!r) return;
   if (!_subCanApproveAs(role)) { showSaveToast('You can\'t approve as ' + _subRoleLabel(role), true); return; }
   if (r.status !== 'open') { showSaveToast('Already ' + r.status, true); return; }
+  if (ok && !_subRoleUnlocked(r, role)) {
+    var prev = _subRoles().slice(0, _subRoleStep(role));
+    var pending = prev.find(function(p){ return !(r.approvals[p] && r.approvals[p].ok); });
+    showSaveToast('Locked — ' + _subRoleLabel(pending) + ' must approve first', true);
+    return;
+  }
   var u = _subCurrentUser();
   r.approvals[role] = { ok: !!ok, by: u.email || 'unknown', byName: u.name || u.email || 'unknown', at: new Date().toISOString() };
-  // Auto-promote to "approved" if all 3 ok
+  // Auto-promote to "approved" if all 3 ok (must be the last step in the sequence)
   var allOk = _subRoles().every(function(rl){ return r.approvals[rl] && r.approvals[rl].ok; });
   var justApproved = false;
   if (allOk && r.status !== 'approved') { r.status = 'approved'; justApproved = true; }
   if (typeof auditEvent === 'function') auditEvent('sub.' + (ok?'approve':'undo'), 'substitution', id, _subRoleLabel(role), {});
   saveAllData();
-  if (justApproved) _subNotify('sub-approved', r);
+  // Notify the next role in the sequence (or "all approved" once Factory closes it)
+  if (ok) {
+    if (justApproved) _subNotify('sub-approved', r);
+    else if (role === 'rd') _subNotify('sub-rd-approved', r);
+    else if (role === 'qa') _subNotify('sub-qa-approved', r);
+  }
   viewSubRequestDetail(id);
   buildSubRequestList();
   showSaveToast(ok ? _subRoleLabel(role) + ' approval recorded' : _subRoleLabel(role) + ' approval undone');
@@ -20174,8 +20204,12 @@ function updateSubBadge() {
   var myRoleKey = role === 'npd' ? 'rd' : (role === 'qa' || role === 'factory') ? role : null;
   var n = 0;
   if (myRoleKey) {
+    // Only count requests where it's actually MY turn (unlocked + not yet approved by me)
     SUB_REQUESTS.forEach(function(r){
-      if (r.status === 'open' && r.approvals && r.approvals[myRoleKey] && !r.approvals[myRoleKey].ok) n++;
+      if (r.status !== 'open') return;
+      if (!_subRoleUnlocked(r, myRoleKey)) return;
+      if (r.approvals && r.approvals[myRoleKey] && r.approvals[myRoleKey].ok) return;
+      n++;
     });
   } else if (role === 'admin' || role === 'purchasing') {
     n = SUB_REQUESTS.filter(function(r){ return r.status === 'open'; }).length;

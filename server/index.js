@@ -1297,12 +1297,39 @@ app.post('/api/notify', requireAuth, (req, res) => {
         break;
       }
 
+      case 'sub-rd-approved': {
+        // R&D done; QA's turn (lab retest)
+        recipients = getEmailsByRole(['qa', 'purchasing']);
+        const sub = req.body.sub || {};
+        subject = `Your turn (QA): ${sub.currentName || '?'} → ${sub.proposedName || '?'}`;
+        html = `<h2 style="color:#1B2A4A;margin:0 0 12px">R&D approved — QA, your turn</h2>
+          <p><strong>${userName}</strong> (R&D) confirmed the formulation fit.</p>
+          <p><strong>${sub.currentName||''}</strong> → <strong>${sub.proposedName||''}</strong></p>
+          <p style="background:#FEF3E2;padding:10px 14px;border-left:3px solid #d47000;border-radius:4px;font-size:13px"><strong>QA action required:</strong> run the lab retest (allergens, shelf life, micro), then sign off on the request.</p>
+          <p style="margin-top:16px"><a href="https://recipehub.dailyfoodsa.com" style="background:#B8820A;color:white;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:600">Open Substitutions</a></p>`;
+        break;
+      }
+
+      case 'sub-qa-approved': {
+        // QA done; Factory's turn (sign-off)
+        recipients = getEmailsByRole(['factory', 'purchasing']);
+        const sub = req.body.sub || {};
+        subject = `Your turn (Factory sign-off): ${sub.currentName || '?'} → ${sub.proposedName || '?'}`;
+        html = `<h2 style="color:#1B2A4A;margin:0 0 12px">QA cleared — Factory, your sign-off</h2>
+          <p><strong>${userName}</strong> (QA) signed off after the lab retest.</p>
+          <p><strong>${sub.currentName||''}</strong> → <strong>${sub.proposedName||''}</strong></p>
+          <p>Factory — confirm any production-line constraints and sign off to close the loop.</p>
+          <p style="margin-top:16px"><a href="https://recipehub.dailyfoodsa.com" style="background:#B8820A;color:white;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:600">Open Substitutions</a></p>`;
+        break;
+      }
+
       case 'sub-approved': {
-        recipients = getEmailsByRole(['npd', 'purchasing']);
+        // Final state — Factory sign-off completes the chain
+        recipients = getEmailsByRole(['npd', 'qa', 'factory', 'purchasing']);
         const sub = req.body.sub || {};
         subject = `Substitution APPROVED: ${sub.currentName || '?'} → ${sub.proposedName || '?'}`;
         html = `<h2 style="color:#2D6A4F;margin:0 0 12px">Substitution approved ✅</h2>
-          <p>All three sign-offs (R&D, QA, Factory) are in. The swap is cleared.</p>
+          <p>All three sign-offs (R&D → QA → Factory) are in. The swap is cleared.</p>
           <p><strong>${sub.currentName||''}</strong> → <strong>${sub.proposedName||''}</strong></p>
           <p>R&D — please rewire affected recipes and mark the request as <em>Implemented</em> when done.</p>
           <p style="margin-top:16px"><a href="https://recipehub.dailyfoodsa.com" style="background:#2D6A4F;color:white;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:600">Open Substitutions</a></p>`;
