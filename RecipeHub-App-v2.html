@@ -6168,7 +6168,7 @@ const PAGES = {
   dashboard:      { title:'Overview',           actions:'' },
   recipes:        { title:'Recipes',             actions:`<button class="btn btn-gold btn-sm" onclick="openRecipeForm()">+ New Recipe</button>` },
   'recipe-detail':{ title:'Recipe Detail',       actions:'' },
-  ingredients:    { title:'Ingredients Database',actions:`<button class="btn btn-outline btn-sm" onclick="exportIngredientsCSV()">⤓ Export CSV</button><button class="btn btn-gold btn-sm" style="margin-left:6px" onclick="openIngredientForm()">+ Add Ingredient</button>` },
+  ingredients:    { title:'Ingredients Database',actions:`<button class="btn btn-outline btn-sm" id="ing-reconcile-btn" onclick="openIngredientReconcile()" title="Recipe ingredient names that don't resolve to an Oracle item">⚠ Reconcile</button><button class="btn btn-outline btn-sm" style="margin-left:6px" onclick="exportIngredientsCSV()">⤓ Export CSV</button><button class="btn btn-gold btn-sm" style="margin-left:6px" onclick="openIngredientForm()">+ Add Ingredient</button>` },
   builds:         { title:'Product Builds',       actions:`<button class="btn btn-gold btn-sm" onclick="openBuildForm()">+ New Build</button>` },
   qa:             { title:'QA Lab Results',      actions:`<button class="btn btn-outline btn-sm" onclick="printQALabReport()">🖨️ Lab Report</button><button class="btn btn-outline btn-sm" style="margin-left:6px" onclick="printCOA()">📄 COA</button><button class="btn btn-sage btn-sm" style="margin-left:6px" onclick="addTestPoint()">+ New Test</button>` },
   'branch-sop':   { title:'Branch SOP',           actions:`` },
@@ -19873,6 +19873,128 @@ function loadStressTest(action) {
 }
 
 // Version check removed — was fetching full HTML every 60s. Use Refresh Data button instead.
+
+// ──────────── INGREDIENT RECONCILE TOOL ────────────
+// Walks RECIPE_DB, finds ingredient names that don't resolve to an Oracle-pattern
+// row in ING_DATA. Each row gets an EBS-catalog autocomplete to pick a canonical
+// Oracle code; on pick we add an alias row to ING_DATA tagged "alias_<date>".
+
+function _ingResUnresolved() {
+  var oraclePat = /^[A-Z]/;
+  var master = new Set();
+  ING_DATA.forEach(function(r){
+    if (!Array.isArray(r) || r.length < 4) return;
+    var code = String(r[3] || '');
+    if (!oraclePat.test(code)) return;
+    var nm = (r[1] || '').trim().toLowerCase();
+    if (nm) master.add(nm);
+  });
+  var counts = {};
+  var sampleRecipes = {};
+  Object.keys(RECIPE_DB).forEach(function(npd){
+    var r = RECIPE_DB[npd];
+    if (!r || !Array.isArray(r.ingredients)) return;
+    r.ingredients.forEach(function(ri){
+      if (!ri) return;
+      var n = (ri.name || '').trim();
+      if (!n) return;
+      if (master.has(n.toLowerCase())) return;
+      counts[n] = (counts[n] || 0) + 1;
+      if (!sampleRecipes[n]) sampleRecipes[n] = [];
+      if (sampleRecipes[n].length < 4) sampleRecipes[n].push(npd + (r.name ? ' (' + r.name + ')' : ''));
+    });
+  });
+  var rows = Object.keys(counts).map(function(n){
+    return { name: n, uses: counts[n], recipes: sampleRecipes[n] || [] };
+  });
+  rows.sort(function(a,b){ return b.uses - a.uses; });
+  return rows;
+}
+
+function openIngredientReconcile() {
+  if (!_requireRole(['npd','purchasing'], 'R&D, Purchasing or Admin')) return;
+  var rows = _ingResUnresolved();
+  var html =
+    '<div class="card-head" style="background:var(--navy);border-radius:16px 16px 0 0">' +
+      '<span class="card-title" style="color:white">Reconcile Recipe Ingredients <span style="font-size:11px;font-weight:400;opacity:0.7;margin-left:6px">' + rows.length + ' names · ' + rows.reduce(function(s,r){return s+r.uses;},0) + ' refs</span></span>' +
+      '<button class="btn btn-sm" style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:none" onclick="closeModal()">✕</button>' +
+    '</div>' +
+    '<div class="card-body" style="padding:0">' +
+      '<div style="background:var(--navy-lt);padding:10px 16px;font-size:11px;color:var(--navy);border-bottom:1px solid var(--g2)">' +
+        'Recipe ingredient names below don\'t match any Oracle-coded master row. Search the Oracle catalog and pick a canonical code to add it as an alias — recipes will resolve automatically.' +
+      '</div>' +
+      '<div id="ing-rec-list" style="max-height:60vh;overflow-y:auto;padding:8px 0">' +
+        rows.map(function(r, i){
+          return '<div class="ing-rec-row" data-name="' + esc(r.name) + '" style="padding:12px 16px;border-bottom:1px solid var(--g1);display:flex;gap:12px;align-items:flex-start">' +
+            '<div style="flex:1;min-width:0">' +
+              '<div style="font-size:13px;font-weight:600;color:var(--navy)">' + esc(r.name) + '</div>' +
+              '<div style="font-size:10px;color:var(--g4);margin-top:2px">' + r.uses + ' uses · ' + r.recipes.map(esc).join(' · ') + (r.recipes.length < r.uses ? ' …' : '') + '</div>' +
+            '</div>' +
+            '<div style="position:relative;width:300px;flex-shrink:0">' +
+              '<input class="form-input" id="ing-rec-input-' + i + '" placeholder="Search Oracle catalog…" style="width:100%;padding:6px 10px;font-size:11px" autocomplete="off" />' +
+            '</div>' +
+            '<button class="btn btn-outline btn-sm" style="font-size:10px;padding:4px 10px" onclick="_ingResSkip(this)">Skip</button>' +
+          '</div>';
+        }).join('') +
+      '</div>' +
+    '</div>';
+  openModal(html, '900px');
+  // Wire EBS autocomplete on each row's input after modal opens
+  setTimeout(function(){
+    rows.forEach(function(r, i){
+      var inp = document.getElementById('ing-rec-input-' + i);
+      if (!inp || typeof ebsAutocomplete !== 'function') return;
+      ebsAutocomplete(inp, function(item){
+        _ingResAddAlias(r.name, item, inp);
+      });
+    });
+  }, 50);
+}
+
+function _ingResSkip(btn) {
+  var row = btn.closest('.ing-rec-row');
+  if (row) { row.style.opacity = '0.3'; row.style.pointerEvents = 'none'; }
+}
+
+function _ingResAddAlias(recipeName, item, inputEl) {
+  if (!item || !item.code) return;
+  // Build the alias row, mirroring the canonical's price if we already have it
+  var canonical = ING_DATA.find(function(r){ return Array.isArray(r) && String(r[3]) === item.code; });
+  var nextId = ING_DATA.reduce(function(m,r){ var n = (Array.isArray(r) && typeof r[0]==='number') ? r[0] : 0; return n>m?n:m; }, 0) + 1;
+  var priceStr = canonical ? canonical[5] : (item.price ? 'SAR ' + Number(item.price).toFixed(2) : '—');
+  var costNum  = canonical ? (canonical[14] || '') : (item.price || '');
+  var ppk      = canonical ? (canonical[11] || '') : '';
+  var org      = canonical ? (canonical[16] || '') : '';
+  var uom      = canonical ? (canonical[10] || '') : (item.uom || '');
+  var cat      = canonical ? (canonical[4] || 'Other') : 'Other';
+  // Skip if already exists
+  var exists = ING_DATA.some(function(r){ return Array.isArray(r) && (r[1]||'').toLowerCase() === recipeName.toLowerCase() && String(r[3]) === item.code; });
+  if (exists) {
+    showSaveToast('Alias already exists for ' + recipeName);
+    return;
+  }
+  var today = new Date().toISOString().slice(0,10);
+  ING_DATA.push([
+    nextId, recipeName, 'Oracle EBS', item.code, cat, priceStr,
+    'Ambient', '—', 'EBS Sync', 'alias_' + today,
+    uom, ppk, '', '', costNum, '', org
+  ]);
+  saveAllData();
+  // Visual feedback — fade the row
+  var row = inputEl.closest('.ing-rec-row');
+  if (row) {
+    row.style.background = '#F1F7F0';
+    row.style.opacity = '0.6';
+    row.style.pointerEvents = 'none';
+    var hint = document.createElement('div');
+    hint.style.cssText = 'font-size:11px;color:var(--sage);margin-top:4px;font-weight:500';
+    hint.textContent = '✓ aliased to ' + item.code;
+    var meta = row.querySelector('div[style*="flex:1"]');
+    if (meta) meta.appendChild(hint);
+  }
+  buildIngTable();
+  showSaveToast('Alias added: ' + recipeName + ' → ' + item.code);
+}
 
 // ──────────── SUBSTITUTION REQUESTS ────────────
 // Purchasing raises a request to swap one ingredient for another (price, supply, quality).
