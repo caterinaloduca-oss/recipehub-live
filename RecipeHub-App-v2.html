@@ -1641,8 +1641,8 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
     <div class="card-head">
       <span class="card-title">Savings Goal Tracker</span>
       <div style="display:flex;gap:8px;align-items:center">
-        <span style="font-size:11px;color:var(--g3)">FY Target:</span>
-        <input class="form-input" id="savings-goal-input" type="number" value="500000" style="width:110px;padding:4px 8px;font-size:12px;font-family:var(--font-m);text-align:right" onchange="updateSavingsGoal()" />
+        <span style="font-size:11px;color:var(--g3)">✎ FY Target:</span>
+        <input class="form-input" id="savings-goal-input" type="number" value="500000" style="width:120px;padding:5px 10px;font-size:13px;font-family:var(--font-m);text-align:right;background:white;border:1.5px solid var(--g2);color:var(--navy);font-weight:600" onchange="updateSavingsGoal()" onfocus="this.style.borderColor='var(--gold)';this.select()" onblur="this.style.borderColor='var(--g2)'" title="Click to edit" />
         <span style="font-size:11px;color:var(--g3)">SAR</span>
         <button class="btn btn-sage btn-sm" onclick="openAddSavingsProject()">+ Log Saving</button>
       </div>
