@@ -10612,6 +10612,68 @@ function renderFlowchartView(r, editable) {
   }).join('');
 }
 
+// ── Captured flowchart archive viewer (read-only modal of legacy SOP flowchart pages) ──
+var _capturedFlow = { npd: null, idx: 0 };
+
+function openCapturedFlowchart(npd) {
+  var r = RECIPE_DB[npd];
+  if (!r || !Array.isArray(r.flowchart_archive) || !r.flowchart_archive.length) {
+    showSaveToast('No captured flowchart for this recipe', true);
+    return;
+  }
+  _capturedFlow.npd = npd;
+  _capturedFlow.idx = 0;
+  _renderCapturedFlow();
+  auditEvent('sop.flowchart_archive_view', 'recipe', r.npd, r.name);
+}
+
+function _renderCapturedFlow() {
+  var r = RECIPE_DB[_capturedFlow.npd];
+  if (!r) return;
+  var pages = (r.flowchart_archive || []).slice().sort(function(a,b){ return (a.page_index||0) - (b.page_index||0); });
+  if (!pages.length) { closeModal(); return; }
+  var i = Math.max(0, Math.min(_capturedFlow.idx, pages.length - 1));
+  _capturedFlow.idx = i;
+  var p = pages[i];
+  var captured = '—';
+  if (p.captured_at) {
+    try { captured = new Date(p.captured_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}); }
+    catch(e) { captured = p.captured_at; }
+  }
+  var hasPrev = i > 0;
+  var hasNext = i < pages.length - 1;
+  var html =
+    '<div style="padding:14px 16px;border-bottom:1px solid var(--g1);display:flex;justify-content:space-between;align-items:flex-start;gap:12px">' +
+      '<div style="flex:1">' +
+        '<div style="font-family:var(--font-d);font-size:15px;font-weight:600;color:var(--navy)">Captured Flowchart — ' + r.name + '</div>' +
+        '<div style="font-size:11px;color:var(--g4);margin-top:2px;line-height:1.4">Archived from the source SOP. The <strong>Live flowchart</strong> on the SOP page is the source of truth for production.</div>' +
+      '</div>' +
+      '<button onclick="closeModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--g3);padding:0 4px;line-height:1">✕</button>' +
+    '</div>' +
+    '<div style="padding:0;background:#FDFCF8;min-height:480px;display:flex;align-items:center;justify-content:center;position:relative">' +
+      '<img src="' + p.url + '" alt="captured flowchart page ' + (i+1) + '" style="max-width:100%;max-height:70vh;display:block;background:white" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'block\'" />' +
+      '<div style="display:none;padding:40px;color:var(--g3);font-size:13px;text-align:center">Image failed to load: <code style="font-size:11px;word-break:break-all">' + p.url + '</code></div>' +
+      (pages.length > 1 ?
+        '<button onclick="_prevCapturedFlow()" ' + (hasPrev ? '' : 'disabled') + ' aria-label="Previous page" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);background:rgba(27,42,74,0.7);color:white;border:none;border-radius:50%;width:36px;height:36px;font-size:20px;cursor:' + (hasPrev ? 'pointer' : 'not-allowed') + ';opacity:' + (hasPrev ? '1' : '0.25') + '">‹</button>' +
+        '<button onclick="_nextCapturedFlow()" ' + (hasNext ? '' : 'disabled') + ' aria-label="Next page" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:rgba(27,42,74,0.7);color:white;border:none;border-radius:50%;width:36px;height:36px;font-size:20px;cursor:' + (hasNext ? 'pointer' : 'not-allowed') + ';opacity:' + (hasNext ? '1' : '0.25') + '">›</button>'
+        : '') +
+    '</div>' +
+    '<div style="padding:10px 16px;display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--g4);background:var(--g1);border-top:1px solid var(--g2);gap:12px;flex-wrap:wrap">' +
+      '<div><strong style="color:var(--navy)">Page ' + (i+1) + ' of ' + pages.length + '</strong>' + (p.source_sop ? ' · ' + p.source_sop : '') + '</div>' +
+      '<div>Captured ' + captured + '</div>' +
+    '</div>';
+  openModal(html, '760px');
+}
+
+function _prevCapturedFlow() {
+  if (_capturedFlow.idx > 0) { _capturedFlow.idx--; _renderCapturedFlow(); }
+}
+function _nextCapturedFlow() {
+  var r = RECIPE_DB[_capturedFlow.npd]; if (!r) return;
+  var pages = r.flowchart_archive || [];
+  if (_capturedFlow.idx < pages.length - 1) { _capturedFlow.idx++; _renderCapturedFlow(); }
+}
+
 function openSOPFlowchart(npd) {
   var r = RECIPE_DB[npd]; if (!r) return;
   // Seed sopFlowchart from auto if not set, so user edits persist
@@ -10829,7 +10891,8 @@ function exportToSOP(npd) {
           <span class="badge ${r.sopStatus==='approved'?'badge-approved':(r.sopStatus==='pending-review'||r.sopStatus==='pending-approval'||r.sopStatus==='pending')?'badge-review':'badge-draft'}" style="font-size:11px" id="sop-status-badge">${r.sopStatus==='approved'?'Approved for Production':r.sopStatus==='pending-approval'?'Pending Final Approval':(r.sopStatus==='pending-review'||r.sopStatus==='pending')?'Pending Review':'Draft'}</span>
           <div style="display:flex;gap:6px">
             <button class="btn btn-sm" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15)" onclick="saveAllData();showSaveToast('SOP saved')">💾 Save</button>
-            <button class="btn btn-sm" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15)" onclick="openSOPFlowchart('${r.npd}')">🔀 Flowchart</button>
+            <button class="btn btn-sm" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15)" onclick="openSOPFlowchart('${r.npd}')">🔀 Flowchart</button>${(Array.isArray(r.flowchart_archive) && r.flowchart_archive.length) ? `
+            <button class="btn btn-sm" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15)" onclick="openCapturedFlowchart('${r.npd}')" title="View the original captured flowchart pages from the source SOP">📑 As captured (${r.flowchart_archive.length})</button>` : ''}
             <div class="print-dd" id="dd-sop-${r.npd}" style="position:relative">
               <button class="btn btn-sm" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15)" onclick="event.stopPropagation();document.getElementById('dd-sop-${r.npd}').classList.toggle('open')">🖨️ Print ▾</button>
               <div class="print-dd-menu" style="color:var(--g5)">
