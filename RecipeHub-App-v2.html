@@ -6526,6 +6526,30 @@ function syncFromServer() {
     var localRaw = localStorage.getItem(STORAGE_KEY);
     var localSavedAt = localRaw ? (JSON.parse(localRaw).savedAt || '') : '';
     var serverSavedAt = serverData.savedAt || result.savedAt || '';
+
+    // Always reconcile server deletion lists with local state, regardless of savedAt
+    // comparison. Without this, a tab whose local savedAt matches the server's never
+    // notices when another tab deleted something and the server filtered it out — the
+    // stale entry hangs around forever in this tab's COMMS_LOG / RECIPE_DB / etc.
+    var _commsCleaned = false;
+    if (Array.isArray(serverData.deletedCommsLogDates) && serverData.deletedCommsLogDates.length) {
+      var _serverDeletedComms = new Set(serverData.deletedCommsLogDates);
+      // Merge into local list so future saves carry the deletion intent
+      serverData.deletedCommsLogDates.forEach(function(d){
+        if (_deletedCommsLogDates.indexOf(d) === -1) _deletedCommsLogDates.push(d);
+      });
+      // Drop any local commsLog entry whose date is in the deletion set
+      for (var _i = COMMS_LOG.length - 1; _i >= 0; _i--) {
+        if (COMMS_LOG[_i] && _serverDeletedComms.has(COMMS_LOG[_i].date)) {
+          COMMS_LOG.splice(_i, 1);
+          _commsCleaned = true;
+        }
+      }
+      if (_commsCleaned && typeof renderCommsLog === 'function' && _currentPage === 'comms') {
+        try { renderCommsLog(); } catch(e) {}
+      }
+    }
+
     // If server is newer AND no local edits happened during fetch, hydrate
     if (serverSavedAt > localSavedAt && !_localDirty && !_savingToServer) {
       _hydrateFromData(serverData);
