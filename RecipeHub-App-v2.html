@@ -8088,6 +8088,7 @@ function openPrint(npd, mode) {
     case 'full-text':    sheet.innerHTML = renderFactoryFull(r, factoryBatch, true); break;
     case 'flowchart':    sheet.innerHTML = renderFlowchartOnly(r); break;
     case 'batch':        sheet.innerHTML = renderBatchTicketOnly(r, factoryBatch); break;
+    case 'qas':          sheet.innerHTML = renderQasPrint(r); break;
     case 'cover':        sheet.innerHTML = renderCoverSignoff(r); break;
     case 'annexure':     sheet.innerHTML = renderAnnexureOnly(r); break;
     default:             sheet.innerHTML = renderFactory(r, factoryBatch, false);
@@ -8396,6 +8397,79 @@ function renderSOPOnly(r) {
       <span>${r.npd} · ${r.version} · SOP Only</span>
     </div>
   `;
+}
+
+function renderQasPrint(r) {
+  // Defensive read — recipe may not have qas data yet.
+  var qas = r.qas || { visualSpecs: [], referencePhotos: [], defectPhotos: [] };
+  var specs = (qas.visualSpecs || []).filter(function(s){ return s.attribute || s.target || s.accept || s.reject; });
+  var refPh = qas.referencePhotos || [];
+  var defPh = qas.defectPhotos || [];
+  var status = (typeof qasGetEffectiveStatus === 'function') ? qasGetEffectiveStatus(r) : (r.qasStatus || 'missing');
+  var statusLabel = (typeof qasStatusLabel === 'function') ? qasStatusLabel(status) : status;
+  var statusColor = ({approved:'#1F4811',rejected:'#8C1A1A',bypassed:'#8A4500',pending:'#0C6BA8',draft:'#6B6357',missing:'#888'}[status] || '#1a1a1a');
+  var signedBy = r.qasApproval ? (r.qasApproval.by + ' · ' + new Date(r.qasApproval.at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})) : null;
+  var bypassMsg = r.qasBypass ? (r.qasBypass.by + ' · ' + new Date(r.qasBypass.at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) + ' — "' + (r.qasBypass.reason || '') + '"') : null;
+
+  var specsTable = specs.length ? (
+    '<table style="width:100%;border-collapse:collapse;font-size:9pt">' +
+      '<thead><tr style="background:#F5F4F2"><th style="text-align:left;padding:6px 8px;border:1px solid #D5D5D5;width:22%">Attribute</th><th style="text-align:left;padding:6px 8px;border:1px solid #D5D5D5">Target / spec</th><th style="text-align:left;padding:6px 8px;border:1px solid #D5D5D5">Acceptable</th><th style="text-align:left;padding:6px 8px;border:1px solid #D5D5D5">Reject</th></tr></thead>' +
+      '<tbody>' + specs.map(function(s){
+        return '<tr><td style="padding:6px 8px;border:1px solid #D5D5D5;font-weight:600">' + (s.attribute || '') + '</td>' +
+          '<td style="padding:6px 8px;border:1px solid #D5D5D5">' + (s.target || '—') + '</td>' +
+          '<td style="padding:6px 8px;border:1px solid #D5D5D5;color:#1F4811">' + (s.accept || '—') + '</td>' +
+          '<td style="padding:6px 8px;border:1px solid #D5D5D5;color:#8C1A1A">' + (s.reject || '—') + '</td></tr>';
+      }).join('') +
+      '</tbody></table>'
+  ) : '<div style="padding:14px;text-align:center;font-size:9pt;color:#888;border:1px dashed #D5D5D5;border-radius:4px">No visual specs filled in yet.</div>';
+
+  function renderPhotoBlock(arr, title, color) {
+    if (!arr.length) return '<div style="padding:8px 10px;font-size:8pt;color:#888;border:1px dashed #D5D5D5;border-radius:4px;background:#FAFAFA">' + title + ' — no photos</div>';
+    return '<div style="border:1px solid #D5D5D5;border-radius:4px;padding:8px;page-break-inside:avoid">' +
+      '<div style="font-size:8pt;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:' + color + ';margin-bottom:6px">' + title + ' (' + arr.length + ')</div>' +
+      '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">' + arr.map(function(p){
+        var captionText = (p.caption || '').replace(/"/g,'&quot;');
+        var commentsCount = Array.isArray(p.comments) ? p.comments.length : 0;
+        return '<div style="border:1px solid #E5E5E5;border-radius:3px;overflow:hidden;background:white">' +
+          '<div style="aspect-ratio:1/1;background:#F5F4F2"><img src="' + p.url + '" style="width:100%;height:100%;object-fit:cover;display:block" /></div>' +
+          (captionText ? '<div style="padding:4px 6px;font-size:7.5pt;border-top:1px solid #EEE">' + captionText + '</div>' : '') +
+          (commentsCount ? '<div style="padding:3px 6px;font-size:7pt;color:#888;background:#FAFAFA;border-top:1px solid #EEE">' + commentsCount + ' comment' + (commentsCount === 1 ? '' : 's') + '</div>' : '') +
+        '</div>';
+      }).join('') + '</div>' +
+    '</div>';
+  }
+
+  return _printHeader(r, 'QAS — Visual Acceptance Specification', ['Brand','Storage','Shelf Life','Date']) +
+
+    // Status strip
+    '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;border:1px solid #D5D5D5;background:#FAFAFA;margin-bottom:12px;font-size:8.5pt">' +
+      '<div><strong>Status:</strong> <span style="color:' + statusColor + ';font-weight:700">' + statusLabel.toUpperCase() + '</span>' + (signedBy ? ' · Signed off by ' + signedBy : '') + (bypassMsg ? ' · ⚠ Bypassed by ' + bypassMsg : '') + '</div>' +
+      '<div>' + (r.recipeId ? r.recipeId + ' · ' : '') + r.npd + '</div>' +
+    '</div>' +
+
+    // Visual specs
+    '<div style="font-size:9pt;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#1B2A4A;margin:0 0 6px">Visual Specs</div>' +
+    specsTable +
+
+    // Photos
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px">' +
+      renderPhotoBlock(refPh, 'Reference photos · correct product', '#1F4811') +
+      renderPhotoBlock(defPh, 'Defect photos · what to reject',   '#8C1A1A') +
+    '</div>' +
+
+    // Sign-off block at bottom
+    '<div style="margin-top:18px;padding:10px 14px;border:1px solid #D5D5D5;border-radius:4px;font-size:9pt;page-break-inside:avoid">' +
+      '<div style="font-size:8pt;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#1B2A4A;margin-bottom:6px">Sign-off</div>' +
+      (signedBy ? '<div>Approved by <strong>' + signedBy + '</strong></div>' : '') +
+      (bypassMsg ? '<div style="color:#8A4500">⚠ Bypassed by <strong>' + bypassMsg + '</strong></div>' : '') +
+      (!signedBy && !bypassMsg ? '<div style="color:#888">Pending — not yet signed off.</div>' : '') +
+    '</div>' +
+
+    // Footer
+    '<div style="margin-top:20px;padding-top:8px;border-top:1px solid #D5D5D5;display:flex;justify-content:space-between;font-size:7.5pt;color:#888">' +
+      '<span>RecipeHub · ' + (r.brand || '—') + '</span>' +
+      '<span>QAS · ' + r.npd + ' · ' + (r.version || 'v1') + '</span>' +
+    '</div>';
 }
 
 function _printHeader(r, subtitle, meta) {
@@ -11224,7 +11298,7 @@ function _renderQasDetail(r) {
   var signedBy = r.qasApproval ? (r.qasApproval.by + ' · ' + _qasNarrowDate(r.qasApproval.at)) : null;
   var bypassMsg = r.qasBypass ? (r.qasBypass.by + ' · ' + _qasNarrowDate(r.qasBypass.at) + ' — “' + (r.qasBypass.reason || '') + '”') : null;
 
-  return '<div style="margin-bottom:16px"><button class="btn btn-outline btn-sm" onclick="qasBackToLanding();renderQasLanding()">← Back to QAS list</button></div>' +
+  return '<div style="margin-bottom:16px;display:flex;gap:8px;align-items:center"><button class="btn btn-outline btn-sm" onclick="qasBackToLanding();renderQasLanding()">← Back to QAS list</button><span style="flex:1"></span><button class="btn btn-outline btn-sm" onclick="openPrint(\'' + r.npd + '\',\'qas\')">🖨 Print QAS</button></div>' +
     // Header
     '<div class="card" style="margin-bottom:16px;overflow:hidden">' +
       '<div style="background:var(--navy);padding:18px 22px;color:white;display:flex;justify-content:space-between;align-items:flex-start;gap:16px">' +
