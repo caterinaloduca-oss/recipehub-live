@@ -121,6 +121,10 @@ body { font-family:var(--font-b); background:var(--cream); color:var(--g5); font
 
 .page-content { padding:28px; flex:1; display:flex; flex-direction:column; align-items:stretch; justify-content:flex-start; }
 .page-content > [id^="page-"]:not(.page-hidden) { width:100%; align-self:flex-start; flex-shrink:0; }
+/* Defensive: style blocks living inside page-content must never take flex layout space */
+.page-content > style,
+.page-content > script { display: none !important; }
+.page-hidden { display: none !important; }
 .page-hidden { display:none; }
 
 /* ──────────── BUTTONS ──────────── */
