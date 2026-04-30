@@ -6516,6 +6516,17 @@ function canAccessPage(pageId) {
   if (pageId === 'sop'         && !currentUserHasAccess('factorySop'))  return false;
   if ((pageId === 'cost-control' || pageId === 'builds-costing') && !currentUserHasAccess('cost')) return false;
   if (pageId === 'ingredients' && !currentUserHasAccess('prices') && role !== 'admin') return false;
+  // KPI & Goals: temporary allowlist — admin + R&D team + Subhanshu (by email).
+  // Edit rights stay separately gated to Caterina + Subhanshu in applyRoleRestrictions.
+  if (pageId === 'cost-control') {
+    if (role === 'admin' || role === 'npd') return true;
+    try {
+      var _raw = sessionStorage.getItem(AUTH_KEY);
+      var _email = _raw ? (JSON.parse(_raw).email || '').toLowerCase() : '';
+      if (_email === 'subhanshu.tripathi@dailyfoodsa.com') return true;
+    } catch(e) {}
+    return false;
+  }
   if (role === 'admin' && !_previewAccess) return true;
   return true;
 }
