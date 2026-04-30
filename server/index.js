@@ -206,7 +206,7 @@ app.post('/api/data', requireAuth, (req, res) => {
       // to lose the whole array. Diagnosed 2026-04-26 after a wipe of users /
       // ingredients / builds / branchSOPs while recipes survived because they
       // had per-key merge but the others didn't.
-      const guardArray = (key, idField) => {
+      const guardArray = (key, idField, deletedSet) => {
         const oldArr = old[key];
         const newArr = body[key];
         if (!Array.isArray(oldArr) || oldArr.length < 4) return;
@@ -218,11 +218,15 @@ app.post('/api/data', requireAuth, (req, res) => {
         }
         // If new is suspiciously shorter than old (>50% drop), keep server's
         if (newArr.length < oldArr.length * 0.5) {
-          // Merge by id (keep client's edits but re-add missing entries)
+          // Merge by id (keep client's edits but re-add missing entries — except deletes)
           if (idField) {
             const seen = new Set(newArr.map(x => x && x[idField]).filter(Boolean));
             const merged = newArr.slice();
-            oldArr.forEach(x => { if (x && x[idField] && !seen.has(x[idField])) merged.push(x); });
+            oldArr.forEach(x => {
+              if (!x || !x[idField] || seen.has(x[idField])) return;
+              if (deletedSet && deletedSet.has(x[idField])) return; // intentional delete — skip re-add
+              merged.push(x);
+            });
             body[key] = merged;
             console.warn('[guardArray] ' + key + ' dropped from ' + oldArr.length + ' to ' + newArr.length + '; merged back to ' + merged.length);
           } else {
@@ -231,13 +235,18 @@ app.post('/api/data', requireAuth, (req, res) => {
           }
         }
       };
+      // Build deletion sets early so guardArray can respect them when re-adding
+      const _commsDeleted = new Set([
+        ...(body.deletedCommsLogDates || []),
+        ...((existing && existing.data && existing.data.deletedCommsLogDates) || []),
+      ]);
       guardArray('users', 'email');
       guardArray('ingredients', 'item_code');
       guardArray('builds', 'id');
       guardArray('branchSOPs', 'id');
       guardArray('brands', 'id');
       guardArray('productionRuns', 'id');
-      guardArray('commsLog', 'date');
+      guardArray('commsLog', 'date', _commsDeleted);
       guardArray('savingsProjects', null);
       guardArray('substitutionRequests', 'id');
       // Recipes: same guard but recipes is a dict keyed by npd, not an array
@@ -415,6 +424,15 @@ app.post('/api/data', requireAuth, (req, res) => {
     // a deleted build in its local BUILDS_DATA will resurrect it on the next push.
     if (existing && existing.data && Array.isArray(existing.data.deletedBuildIds)) {
       body.deletedBuildIds = Array.from(new Set([...(body.deletedBuildIds || []), ...existing.data.deletedBuildIds]));
+    }
+    // Same protection for deletedCommsLogDates — admin deletes of comms log entries
+    // were getting resurrected by guardArray() when commsLog dropped >50%.
+    if (existing && existing.data && Array.isArray(existing.data.deletedCommsLogDates)) {
+      body.deletedCommsLogDates = Array.from(new Set([...(body.deletedCommsLogDates || []), ...existing.data.deletedCommsLogDates]));
+    }
+    if (body.commsLog && body.deletedCommsLogDates && body.deletedCommsLogDates.length) {
+      const deletedDates = new Set(body.deletedCommsLogDates);
+      body.commsLog = body.commsLog.filter(m => !m || !deletedDates.has(m.date));
     }
     if (body.builds && body.deletedBuildIds && body.deletedBuildIds.length) {
       const deletedBuilds = new Set(body.deletedBuildIds);

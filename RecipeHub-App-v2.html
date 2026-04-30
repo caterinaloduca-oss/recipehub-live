@@ -5750,6 +5750,7 @@ function exportBackup() {
     deletedRecipeIds: _deletedRecipeIds,
     deletedSOPIds: _deletedSOPIds,
     deletedBuildIds: _deletedBuildIds,
+    deletedCommsLogDates: _deletedCommsLogDates,
     commsLog: COMMS_LOG,
     libraryDocs: LIBRARY_DOCS,
     substitutionRequests: SUB_REQUESTS,
@@ -5885,6 +5886,7 @@ function _buildDataBlob() {
     deletedRecipeIds: _deletedRecipeIds,
     deletedSOPIds: _deletedSOPIds,
     deletedBuildIds: _deletedBuildIds,
+    deletedCommsLogDates: _deletedCommsLogDates,
     commsLog: COMMS_LOG,
     libraryDocs: LIBRARY_DOCS,
     substitutionRequests: SUB_REQUESTS,
@@ -6056,6 +6058,7 @@ function loadAllData() {
     if (Array.isArray(data.deletedRecipeIds)) { _deletedRecipeIds = data.deletedRecipeIds; }
     if (Array.isArray(data.deletedSOPIds)) { _deletedSOPIds = data.deletedSOPIds; }
     if (Array.isArray(data.deletedBuildIds)) { _deletedBuildIds = data.deletedBuildIds; }
+    if (Array.isArray(data.deletedCommsLogDates)) { _deletedCommsLogDates = data.deletedCommsLogDates; }
     if (Array.isArray(data.ppeLibrary)) { PPE_LIBRARY = data.ppeLibrary.slice(); }
     // Merge recipes: saved data wins, add new hardcoded recipes, skip deleted ones
     if (data.recipes) {
@@ -6335,6 +6338,7 @@ function _hydrateFromData(data) {
   if (Array.isArray(data.deletedRecipeIds)) { _deletedRecipeIds = data.deletedRecipeIds; }
   if (Array.isArray(data.deletedSOPIds)) { _deletedSOPIds = data.deletedSOPIds; }
   if (Array.isArray(data.deletedBuildIds)) { _deletedBuildIds = data.deletedBuildIds; }
+  if (Array.isArray(data.deletedCommsLogDates)) { _deletedCommsLogDates = data.deletedCommsLogDates; }
   if (data.recipes) {
     var _hc = {}; Object.keys(RECIPE_DB).forEach(function(k) { _hc[k] = RECIPE_DB[k]; });
     Object.keys(RECIPE_DB).forEach(function(k) { delete RECIPE_DB[k]; });
@@ -7783,6 +7787,7 @@ var _RECIPE_DB_SEED_REMOVED = {
 var _deletedRecipeIds = [];
 var _deletedSOPIds = [];
 var _deletedBuildIds = [];
+var _deletedCommsLogDates = [];
 var COMMS_LOG = [];
 var LIBRARY_DOCS = [];
 var SUB_REQUESTS = [];
@@ -20739,6 +20744,8 @@ function deleteCommsLogEntry(idx, ev) {
   var entry = COMMS_LOG[idx];
   if (!entry) return;
   if (!confirm('Delete this log entry?\n\n"' + (entry.subject || '(no subject)') + '"\n\nThis only removes the record from the log — recipients still received the email.')) return;
+  // Track the deletion so the server-side guardArray + merge don't resurrect it
+  if (entry.date && _deletedCommsLogDates.indexOf(entry.date) === -1) _deletedCommsLogDates.push(entry.date);
   COMMS_LOG.splice(idx, 1);
   saveAllData();
   renderCommsLog();
