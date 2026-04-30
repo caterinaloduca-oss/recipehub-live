@@ -9615,7 +9615,7 @@ function viewRecipe(npd) {
         <span class="badge" style="background:rgba(255,255,255,0.15);color:white;font-size:10px">${(r[r.status+'QA'] && r[r.status+'QA'].signed) ? (r[r.status+'QA'].conditional ? '⚠ Signed Off (with conditions)' : 'Signed Off') : 'Pending QA'}</span>
       </div>
       <div class="card-body" ${_vrIsQA ? '' : 'style="opacity:0.65;pointer-events:none"'}>
-        <div style="background:${r.status === 'trial' ? '#E8F4FD' : '#F3E8FD'};border-left:3px solid ${r.status === 'trial' ? '#0C6BA8' : '#6B2FA0'};border-radius:0 var(--r-md) var(--r-md) 0;padding:10px 14px;margin-bottom:16px;font-size:12px;color:${r.status === 'trial' ? '#0C6BA8' : '#6B2FA0'}">
+        <div style="font-size:11px;color:var(--g4);margin-bottom:14px;font-style:italic">
           QA must upload micro results and sign off before this recipe can ${r.status === 'trial' ? 'proceed to Production Trial' : 'be approved for production'}.
         </div>
 
