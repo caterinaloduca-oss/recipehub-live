@@ -1272,12 +1272,15 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
       <select class="filter-select" id="fsop-filter-brand" onchange="filterFactorySOPs()"><option>All Brands</option></select>
       <select class="filter-select" id="fsop-filter-status" onchange="filterFactorySOPs()"><option>All Statuses</option><option>Draft</option><option>Pending</option><option>Approved</option></select>
     </div>
-    <div class="card">
-      <div class="card-head">
-        <span class="card-title">Factory SOPs</span>
+    <div class="card" id="fsop-card">
+      <div class="card-head" style="cursor:pointer;user-select:none" onclick="toggleFsopCollapsed()">
+        <span style="display:flex;align-items:center;gap:10px">
+          <span id="fsop-toggle-arrow" style="font-size:18px;line-height:1;color:var(--navy);transition:transform 0.2s">▾</span>
+          <span class="card-title">Factory SOPs</span>
+        </span>
         <span style="font-size:11px;color:var(--g3)" id="fsop-count-label"></span>
       </div>
-      <div class="card-body" style="padding:0">
+      <div class="card-body" id="fsop-card-body" style="padding:0">
         <table class="data-table">
           <thead><tr><th>Recipe</th><th>SOP Code</th><th>Brand</th><th>Version</th><th>Steps</th><th>Status</th><th></th></tr></thead>
           <tbody id="fsop-tbody"></tbody>
@@ -10419,6 +10422,44 @@ function autoDetectIcons(title, text) {
   // dedupe
   return [...new Set(icons)].slice(0, 3);
 }
+
+// Factory SOPs card collapse toggle (preference saved to localStorage)
+function toggleFsopCollapsed() {
+  var body = document.getElementById('fsop-card-body');
+  var arrow = document.getElementById('fsop-toggle-arrow');
+  if (!body || !arrow) return;
+  var collapsed = body.style.display === 'none';
+  if (collapsed) {
+    body.style.display = '';
+    arrow.style.transform = 'rotate(0deg)';
+    arrow.textContent = '▾';
+    try { localStorage.removeItem('rh_fsop_collapsed'); } catch(e) {}
+  } else {
+    body.style.display = 'none';
+    arrow.style.transform = 'rotate(0deg)';
+    arrow.textContent = '▸';
+    try { localStorage.setItem('rh_fsop_collapsed', '1'); } catch(e) {}
+  }
+}
+
+// Restore collapsed state on first load
+(function _restoreFsopCollapsed() {
+  function apply() {
+    try {
+      if (localStorage.getItem('rh_fsop_collapsed') === '1') {
+        var body = document.getElementById('fsop-card-body');
+        var arrow = document.getElementById('fsop-toggle-arrow');
+        if (body) body.style.display = 'none';
+        if (arrow) arrow.textContent = '▸';
+      }
+    } catch(e) {}
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', apply);
+  } else {
+    apply();
+  }
+})();
 
 // ──────────── FACTORY SOP LIST ────────────
 function buildFactorySOPTable() {
