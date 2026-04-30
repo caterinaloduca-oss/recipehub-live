@@ -3221,8 +3221,19 @@ var TOUR_TOPICS = {
         }
       },
       {
+        title: 'The QAS gate before Approved',
+        body: 'There\'s one more gate just before Approved: the <strong>🎯 QAS — Visual Spec</strong>. R&D must sign off the visual acceptance criteria (shape, colour, size, surface) and reference / defect photos before the recipe can move to Approved. <strong>Hard gate</strong> — bypass is R&D / Admin only with a written reason. Walk the dedicated <em>QAS — Visual Spec</em> tour for the details.',
+        page: 'qas',
+        selector: '.nav-item[data-page="qas"]',
+        roleHints: {
+          npd: 'You sign off the QAS. Fill in the visual specs, upload reference and defect photos, then ✓ Sign off — Approve QAS on the recipe\'s QAS page.',
+          qa: 'You can read every QAS but R&D owns the sign-off. Use the comments under photos when you spot a defect drift on a production run.',
+          factory: 'You read the QAS on the line as the visual reference for what passes and what gets rejected.'
+        }
+      },
+      {
         title: 'You\'ve seen the lifecycle',
-        body: 'That\'s the full path. Next, try the <strong>Factory SOP</strong> tour to see how each approved recipe gets a step-by-step SOP with HACCP checks, or <strong>Roles & Permissions</strong> to understand who can edit what.',
+        body: 'That\'s the full path. Next, try the <strong>Factory SOP</strong> tour to see how each approved recipe gets a step-by-step SOP with HACCP checks, the <strong>QAS — Visual Spec</strong> tour for the new visual gate, or <strong>Roles & Permissions</strong> to understand who can edit what.',
         page: 'training'
       }
     ]
@@ -11105,8 +11116,8 @@ function _qasInitDefaults(r) {
 function qasBackToLanding() {
   var land = document.getElementById('qas-landing');
   var det  = document.getElementById('qas-detail');
-  if (land) land.style.display = '';
-  if (det)  { det.style.display = 'none'; det.innerHTML = ''; }
+  if (land) { land.style.cssText = ''; }
+  if (det)  { det.style.cssText = 'display:none'; det.innerHTML = ''; }
   PAGES.qas.title = 'QAS — Visual Acceptance Specification';
   var t = document.getElementById('topbar-title'); if (t) t.textContent = PAGES.qas.title;
   window.scrollTo(0, 0);
@@ -11173,14 +11184,19 @@ function openQasDetail(npd) {
   _qasInitDefaults(r);
   var land = document.getElementById('qas-landing');
   var det  = document.getElementById('qas-detail');
-  if (land) land.style.display = 'none';
-  if (det)  { det.style.display = ''; det.innerHTML = _renderQasDetail(r); }
+  // Force-collapse the landing — display:none alone wasn't reliably zeroing out
+  // height in this layout, so add height:0 + overflow:hidden + margin:0 belt-and-braces.
+  if (land) {
+    land.style.cssText = 'display:none !important; height:0; max-height:0; overflow:hidden; margin:0; padding:0;';
+  }
+  if (det) {
+    det.style.cssText = 'display:block; margin:0; padding:0;';
+    det.innerHTML = _renderQasDetail(r);
+  }
   auditEvent('qas.view', 'recipe', r.npd, r.name);
   PAGES.qas.title = 'QAS — ' + r.name;
   document.getElementById('topbar-title').textContent = PAGES.qas.title;
-  // Reset scroll — the landing table's scrollTop was preserved when we hid it
   window.scrollTo(0, 0);
-  if (det) det.scrollIntoView({block:'start', behavior:'instant'});
 }
 
 function _renderQasDetail(r) {
