@@ -1356,33 +1356,8 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
       </div>
     </div>
 
-    <!-- Right column: Batch ticket + sign-off -->
+    <!-- Right column: sign-off -->
     <div>
-      <div class="card" style="margin-bottom:20px">
-        <div class="card-head"><span class="card-title">Batch Ticket</span><span style="font-size:11px;color:var(--g3);font-family:var(--font-m)">Target per run</span></div>
-        <div class="card-body" style="padding:0">
-          <table class="data-table" style="font-size:12px">
-            <thead><tr><th>Ingredient</th><th style="text-align:right">kg</th><th style="text-align:right">Weighed</th></tr></thead>
-            <tbody>
-              <tr><td>Water</td><td style="text-align:right;font-family:var(--font-m)">160.000</td><td style="text-align:right"><input type="checkbox" /></td></tr>
-              <tr><td>Vinegar (5% acidity)</td><td style="text-align:right;font-family:var(--font-m)">80.000</td><td style="text-align:right"><input type="checkbox" /></td></tr>
-              <tr><td>Salt</td><td style="text-align:right;font-family:var(--font-m)">28.000</td><td style="text-align:right"><input type="checkbox" /></td></tr>
-              <tr><td>Hasawi Spice Blend</td><td style="text-align:right;font-family:var(--font-m)">48.000</td><td style="text-align:right"><input type="checkbox" /></td></tr>
-              <tr><td>Sunflower Oil</td><td style="text-align:right;font-family:var(--font-m)">52.000</td><td style="text-align:right"><input type="checkbox" /></td></tr>
-              <tr><td>Xanthan Gum</td><td style="text-align:right;font-family:var(--font-m)">2.800</td><td style="text-align:right"><input type="checkbox" /></td></tr>
-              <tr><td>Citric Acid</td><td style="text-align:right;font-family:var(--font-m)">1.200</td><td style="text-align:right"><input type="checkbox" /></td></tr>
-              <tr><td>Rosemary Extract</td><td style="text-align:right;font-family:var(--font-m)">0.400</td><td style="text-align:right"><input type="checkbox" /></td></tr>
-              <tr style="background:var(--navy)">
-                <td style="font-weight:500;color:white">TOTAL</td>
-                <td style="text-align:right;font-family:var(--font-m);color:var(--gold-mid);font-weight:500">372.400</td>
-                <td></td>
-              </tr>
-              <tr><td style="color:var(--g3);font-size:11px">After yield (93%)</td><td style="text-align:right;font-family:var(--font-m);color:var(--sage);font-size:11px">400.000 kg</td><td></td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
       <div class="card">
         <div class="card-head"><span class="card-title">Sign-off</span></div>
         <div class="card-body">
@@ -10900,19 +10875,6 @@ function exportToSOP(npd) {
       </div>
 
       <div>
-        <div class="card" style="margin-bottom:16px">
-          <div class="card-head"><span class="card-title">Batch Ticket</span><span style="font-size:11px;color:var(--g3)" id="sop-batch-label">${defaultBatch} kg target</span></div>
-          <div class="card-body" style="padding:0">
-            <table class="data-table" style="font-size:12px">
-              <thead><tr><th>Ingredient</th><th style="text-align:right">kg</th><th style="text-align:right">Weighed</th></tr></thead>
-              <tbody id="sop-batch-tbody">
-                ${scaled.map(i => `<tr><td>${i.name}</td><td style="text-align:right;font-family:var(--font-m)">${i.kg.toFixed(3)}</td><td style="text-align:right"><input type="checkbox" /></td></tr>`).join('')}
-                <tr style="background:var(--navy)"><td style="font-weight:500;color:white">TOTAL</td><td style="text-align:right;font-family:var(--font-m);color:var(--gold-mid);font-weight:500">${totalKg.toFixed(3)}</td><td></td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
         <div class="card" id="sop-approval-card">
           <div class="card-head"><span class="card-title">Document Approval</span></div>
           <div class="card-body" id="sop-approval-body">${renderSOPApprovalStages(r)}</div>
@@ -11146,12 +11108,20 @@ function moveSOPStep(npd, idx, dir) {
 }
 
 function updateSOPBatch(npd) {
-  const batchKg = parseFloat(document.getElementById('sop-batch-input').value) || 400;
+  // Batch Ticket card was removed from the SOP detail page; this handler now
+  // only updates the live ingredient table if it still exists (it doesn't on
+  // the SOP page anymore, but keep null-safe for the standalone batch print).
+  const input = document.getElementById('sop-batch-input');
+  if (!input) return;
+  const batchKg = parseFloat(input.value) || 400;
+  const label = document.getElementById('sop-batch-label');
+  const tbody = document.getElementById('sop-batch-tbody');
+  if (!label || !tbody) return;
   const r = RECIPE_DB[npd];
   const scaled = scaleIngredients(r.ingredients, batchKg);
   const totalKg = scaled.reduce((s, i) => s + i.kg, 0);
-  document.getElementById('sop-batch-label').textContent = batchKg + ' kg target';
-  document.getElementById('sop-batch-tbody').innerHTML =
+  label.textContent = batchKg + ' kg target';
+  tbody.innerHTML =
     scaled.map(i => `<tr><td>${i.name}</td><td style="text-align:right;font-family:var(--font-m)">${i.kg.toFixed(3)}</td><td style="text-align:right"><input type="checkbox" /></td></tr>`).join('')
     + `<tr style="background:var(--navy)"><td style="font-weight:500;color:white">TOTAL</td><td style="text-align:right;font-family:var(--font-m);color:var(--gold-mid);font-weight:500">${totalKg.toFixed(3)}</td><td></td></tr>`;
 }
