@@ -2884,7 +2884,16 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
         </div>
         <div class="form-group" style="margin-bottom:16px">
           <label class="form-label">Message</label>
-          <textarea class="form-textarea" id="comms-body" style="min-height:120px" placeholder="Type your message..."></textarea>
+          <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center">
+            <button type="button" class="btn btn-outline btn-sm" style="font-weight:700;font-size:12px;padding:4px 10px;min-width:32px" onclick="commsApplyFormat('bold')" title="Bold — wraps selection in **">B</button>
+            <button type="button" class="btn btn-outline btn-sm" style="font-style:italic;font-size:12px;padding:4px 10px;min-width:32px" onclick="commsApplyFormat('italic')" title="Italic — wraps selection in *">I</button>
+            <button type="button" class="btn btn-outline btn-sm" style="font-size:12px;padding:4px 10px" onclick="commsApplyFormat('plain')" title="Remove formatting from selection">Regular</button>
+            <span style="flex:1"></span>
+            <button type="button" id="comms-preview-btn" class="btn btn-outline btn-sm" style="font-size:12px;padding:4px 10px" onclick="commsTogglePreview()">Preview</button>
+          </div>
+          <textarea class="form-textarea" id="comms-body" style="min-height:120px" placeholder="Type your message... Use the toolbar or **bold** / *italic* markers."></textarea>
+          <div id="comms-preview" style="display:none;min-height:120px;padding:12px 14px;background:#FDFCF8;border:1px solid var(--g2);border-radius:var(--r-sm);font-size:14px;line-height:1.6;color:#333"></div>
+          <div style="font-size:11px;color:var(--g4);margin-top:4px">Tip: wrap text in <code>**double stars**</code> for bold or <code>*single stars*</code> for italic.</div>
         </div>
         <div style="display:flex;gap:10px;justify-content:flex-end">
           <button class="btn btn-outline" onclick="clearCommsForm()">Clear</button>
@@ -19265,6 +19274,13 @@ function clearCommsForm() {
   document.getElementById('comms-recipe').value = '';
   document.getElementById('comms-individual-wrap').style.display = 'none';
   document.getElementById('comms-recipients-preview').textContent = '';
+  // Snap preview pane back to edit mode
+  var pv = document.getElementById('comms-preview');
+  var ta = document.getElementById('comms-body');
+  var pvBtn = document.getElementById('comms-preview-btn');
+  if (pv) pv.style.display = 'none';
+  if (ta) ta.style.display = '';
+  if (pvBtn) pvBtn.textContent = 'Preview';
 }
 
 var COMMS_DRAFTS = JSON.parse(localStorage.getItem('_commsDrafts') || '[]');
@@ -19316,6 +19332,60 @@ function deleteCommsDraft(idx) {
   renderCommsDrafts();
 }
 
+function escHtmlComms(s) {
+  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// Convert composer text (with **bold** / *italic* markers) into safe HTML.
+// Escape first, then apply markers, then convert newlines.
+function formatCommsBody(raw) {
+  var s = escHtmlComms(raw);
+  s = s.replace(/\*\*([^*\n][^*\n]*?)\*\*/g, '<strong>$1</strong>');
+  s = s.replace(/\*([^*\n]+?)\*/g, '<em>$1</em>');
+  s = s.replace(/\n/g, '<br>');
+  return s;
+}
+
+function commsApplyFormat(kind) {
+  var ta = document.getElementById('comms-body');
+  if (!ta) return;
+  var s = ta.selectionStart, e = ta.selectionEnd;
+  var v = ta.value;
+  var sel = v.substring(s, e);
+  if (kind === 'plain') {
+    if (s === e) { showSaveToast('Select some text first', true); return; }
+    var stripped = sel.replace(/\*\*([^*\n]+?)\*\*/g, '$1').replace(/\*([^*\n]+?)\*/g, '$1');
+    ta.value = v.substring(0, s) + stripped + v.substring(e);
+    ta.focus();
+    ta.setSelectionRange(s, s + stripped.length);
+    return;
+  }
+  var marker = (kind === 'bold') ? '**' : '*';
+  if (!sel) sel = (kind === 'bold') ? 'bold text' : 'italic text';
+  var inserted = marker + sel + marker;
+  ta.value = v.substring(0, s) + inserted + v.substring(e);
+  ta.focus();
+  ta.setSelectionRange(s + marker.length, s + marker.length + sel.length);
+}
+
+function commsTogglePreview() {
+  var ta = document.getElementById('comms-body');
+  var pv = document.getElementById('comms-preview');
+  var btn = document.getElementById('comms-preview-btn');
+  if (!ta || !pv || !btn) return;
+  if (pv.style.display === 'none' || !pv.style.display) {
+    var raw = ta.value.trim();
+    pv.innerHTML = raw ? formatCommsBody(raw) : '<span style="color:var(--g3);font-style:italic">(empty message)</span>';
+    pv.style.display = 'block';
+    ta.style.display = 'none';
+    btn.textContent = 'Edit';
+  } else {
+    pv.style.display = 'none';
+    ta.style.display = '';
+    btn.textContent = 'Preview';
+  }
+}
+
 function sendCommsMessage() {
   var to = document.getElementById('comms-to').value;
   var subject = document.getElementById('comms-subject').value.trim();
@@ -19343,7 +19413,7 @@ function sendCommsMessage() {
 
   showSaveToast('Sending...');
 
-  var htmlBody = '<p>' + body.replace(/\n/g, '<br>') + '</p>';
+  var htmlBody = '<p>' + formatCommsBody(body) + '</p>';
   if (recipeName) {
     htmlBody += '<div style="margin-top:16px;padding:12px 16px;background:#F5F4F2;border-radius:6px;font-size:13px">' +
       '<strong>Regarding:</strong> ' + recipeName +
