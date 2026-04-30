@@ -3422,9 +3422,19 @@ var TOUR_TOPICS = {
         body: '<strong>Food cost % = portion cost ÷ retail price.</strong> Targets vary by brand and channel. Goals are set in <strong>KPI & Goals</strong> and tracked in <strong>Build Analytics</strong>.',
         page: 'cost-control',
         selector: '.nav-item[data-page="cost-control"]',
+        // Roles without KPI & Goals access (QA / Factory / OPS / Purchasing / Viewer)
+        // get sent to Build Analytics instead, with a body that drops the KPI page mention.
+        fallback: {
+          body: '<strong>Food cost % = portion cost ÷ retail price.</strong> Targets vary by brand and channel. Live FC% for every product is tracked in <strong>Build Analytics</strong>.',
+          page: 'builds-costing',
+          selector: '.nav-item[data-page="builds-costing"]'
+        },
         roleHints: {
           admin: 'You and Subhanshu are the only editors of KPI & Goals.',
-          npd: 'You see the targets and design recipes to hit them.'
+          npd: 'You see the targets and design recipes to hit them.',
+          qa: 'Watch FC% drift across runs — sudden moves usually mean yield or ingredient-cost changes.',
+          factory: 'Validated yield is the lever you control. Higher yield → lower FC%.',
+          purchasing: 'Ingredient prices flow straight into FC%. Focus negotiations on the heavy hitters.'
         }
       }
     ]
@@ -3472,9 +3482,24 @@ function startTour(topicKey) {
   _showTourStep();
 }
 
+// Resolve a tour step against the current user's access. If the step's page
+// is gated (e.g. cost-control hidden from QA/Factory/etc.) and the step has a
+// fallback, return a copy with fallback fields applied. Otherwise return the
+// step as-is.
+function _resolveTourStep(step) {
+  if (!step || !step.fallback) return step;
+  if (step.page && typeof canAccessPage === 'function' && !canAccessPage(step.page)) {
+    var resolved = {};
+    Object.keys(step).forEach(function(k){ resolved[k] = step[k]; });
+    Object.keys(step.fallback).forEach(function(k){ resolved[k] = step.fallback[k]; });
+    return resolved;
+  }
+  return step;
+}
+
 function _showTourStep() {
   var topic = TOUR_TOPICS[_tour.topic];
-  var step = topic.steps[_tour.idx];
+  var step = _resolveTourStep(topic.steps[_tour.idx]);
   if (!step) { endTour(); return; }
   if (step.page && _currentPage !== step.page) {
     nav(step.page);
@@ -3486,7 +3511,7 @@ function _showTourStep() {
 
 function _renderTourStep() {
   var topic = TOUR_TOPICS[_tour.topic];
-  var step = topic.steps[_tour.idx];
+  var step = _resolveTourStep(topic.steps[_tour.idx]);
   var ov = document.getElementById('tour-overlay');
   if (!ov) return;
   ov.classList.add('tour-active');
