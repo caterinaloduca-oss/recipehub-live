@@ -11256,13 +11256,70 @@ function _renderQasDetail(r) {
 function _qasRenderPhotoGrid(r, kind, canEdit) {
   var arr = (kind === 'reference') ? (r.qas.referencePhotos || []) : (r.qas.defectPhotos || []);
   if (!arr.length) return '<div style="padding:18px 0;text-align:center;color:var(--g3);font-size:12px">No photos yet.</div>';
-  return '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px">' + arr.map(function(p, i) {
-    return '<div style="position:relative;background:var(--g1);border-radius:6px;overflow:hidden;aspect-ratio:1/1">' +
-      '<img src="' + p.url + '" alt="" style="width:100%;height:100%;object-fit:cover;display:block" />' +
-      (canEdit ? '<button title="Remove" onclick="removeQasPhoto(\'' + r.npd + '\',\'' + kind + '\',' + i + ')" style="position:absolute;top:4px;right:4px;background:rgba(192,57,43,0.95);color:white;border:none;border-radius:50%;width:22px;height:22px;font-size:11px;cursor:pointer;line-height:1">✕</button>' : '') +
-      '<input type="text" placeholder="Caption (optional)" value="' + (p.caption || '').replace(/"/g,'&quot;') + '" ' + (canEdit ? '' : 'disabled') + ' style="position:absolute;bottom:0;left:0;right:0;border:none;background:rgba(255,255,255,0.92);padding:4px 8px;font-size:10.5px;font-family:inherit" onchange="updateQasPhotoCaption(\'' + r.npd + '\',\'' + kind + '\',' + i + ',this.value)" />' +
+  var meName = (typeof getCurrentUserName === 'function') ? getCurrentUserName() : 'Anon';
+  return '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px">' + arr.map(function(p, i) {
+    var comments = Array.isArray(p.comments) ? p.comments : [];
+    var commentsHtml = comments.length ? comments.map(function(c, ci) {
+      var when = '—';
+      try { when = new Date(c.at).toLocaleDateString('en-GB',{day:'2-digit',month:'short'}) + ' ' + new Date(c.at).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}); } catch(e) {}
+      var canDelete = (c.by === meName) || (typeof getCurrentUserRole === 'function' && getCurrentUserRole() === 'admin');
+      return '<div style="padding:6px 8px;background:white;border-radius:4px;border:1px solid var(--g1);font-size:11.5px;line-height:1.4;display:flex;gap:6px;align-items:flex-start">' +
+        '<div style="flex:1"><div style="font-size:10px;color:var(--g4);font-weight:500;margin-bottom:2px">' + (c.by || 'Anon') + ' <span style="color:var(--g3);font-weight:400">· ' + when + '</span></div><div>' + (c.text || '') + '</div></div>' +
+        (canDelete ? '<button title="Delete comment" onclick="removeQasPhotoComment(\'' + r.npd + '\',\'' + kind + '\',' + i + ',' + ci + ')" style="background:none;border:none;color:var(--g3);cursor:pointer;font-size:10px;padding:0">✕</button>' : '') +
+      '</div>';
+    }).join('') : '<div style="padding:8px 0;font-size:11px;color:var(--g3);text-align:center">No comments yet.</div>';
+
+    return '<div style="background:white;border:1px solid var(--g2);border-radius:8px;overflow:hidden;display:flex;flex-direction:column">' +
+      // Photo
+      '<div style="position:relative;aspect-ratio:1/1;background:var(--g1)">' +
+        '<img src="' + p.url + '" alt="" style="width:100%;height:100%;object-fit:cover;display:block" />' +
+        (canEdit ? '<button title="Remove photo" onclick="removeQasPhoto(\'' + r.npd + '\',\'' + kind + '\',' + i + ')" style="position:absolute;top:4px;right:4px;background:rgba(192,57,43,0.95);color:white;border:none;border-radius:50%;width:22px;height:22px;font-size:11px;cursor:pointer;line-height:1">✕</button>' : '') +
+      '</div>' +
+      // Caption
+      '<input type="text" placeholder="Caption (optional)" value="' + (p.caption || '').replace(/"/g,'&quot;') + '" ' + (canEdit ? '' : 'disabled') + ' style="border:none;border-bottom:1px solid var(--g1);background:white;padding:6px 10px;font-size:11.5px;font-family:inherit;font-weight:500;color:var(--navy)" onchange="updateQasPhotoCaption(\'' + r.npd + '\',\'' + kind + '\',' + i + ',this.value)" />' +
+      // Comments
+      '<div style="background:#FAF8F2;padding:8px 8px 6px;border-top:1px solid var(--g1);display:flex;flex-direction:column;gap:4px;max-height:180px;overflow-y:auto">' + commentsHtml + '</div>' +
+      // Add comment
+      '<div style="display:flex;border-top:1px solid var(--g1);background:white">' +
+        '<input type="text" id="qas-cm-' + kind + '-' + i + '" placeholder="Add a comment…" style="flex:1;border:none;padding:8px 10px;font-size:11.5px;font-family:inherit;outline:none" onkeydown="if(event.key===\'Enter\'){addQasPhotoComment(\'' + r.npd + '\',\'' + kind + '\',' + i + ');event.preventDefault();}" />' +
+        '<button onclick="addQasPhotoComment(\'' + r.npd + '\',\'' + kind + '\',' + i + ')" style="background:var(--navy);color:white;border:none;padding:0 12px;font-size:11.5px;font-weight:500;cursor:pointer">Post</button>' +
+      '</div>' +
     '</div>';
   }).join('') + '</div>';
+}
+
+// ── photo comment handlers ──
+function addQasPhotoComment(npd, kind, idx) {
+  var r = RECIPE_DB[npd]; if (!r || !r.qas) return;
+  var key = (kind === 'reference') ? 'referencePhotos' : 'defectPhotos';
+  var photo = r.qas[key][idx]; if (!photo) return;
+  var input = document.getElementById('qas-cm-' + kind + '-' + idx);
+  if (!input) return;
+  var text = input.value.trim();
+  if (!text) return;
+  if (!Array.isArray(photo.comments)) photo.comments = [];
+  photo.comments.push({ by: getCurrentUserName(), at: new Date().toISOString(), text: text });
+  r.updatedAt = new Date().toISOString();
+  saveAllData();
+  _qasRefresh(npd);
+  auditEvent('qas.photo_comment_add', 'recipe', r.npd, r.name, { kind: kind, photoIndex: idx });
+}
+
+function removeQasPhotoComment(npd, kind, idx, ci) {
+  var r = RECIPE_DB[npd]; if (!r || !r.qas) return;
+  var key = (kind === 'reference') ? 'referencePhotos' : 'defectPhotos';
+  var photo = r.qas[key][idx]; if (!photo || !Array.isArray(photo.comments)) return;
+  var c = photo.comments[ci];
+  if (!c) return;
+  // Author or admin only
+  if (c.by !== getCurrentUserName() && getCurrentUserRole() !== 'admin') {
+    showSaveToast('You can only delete your own comments', true);
+    return;
+  }
+  photo.comments.splice(ci, 1);
+  r.updatedAt = new Date().toISOString();
+  saveAllData();
+  _qasRefresh(npd);
 }
 
 // ── handlers ──
