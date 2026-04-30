@@ -7206,7 +7206,10 @@ function downloadPDF(npd, mode) {
 function deleteRecipeComment(npd, idx) {
   var r = RECIPE_DB[npd];
   if (!r || !r.comments) return;
+  if (!confirm('Delete this comment?')) return;
   r.comments.splice(idx, 1);
+  // Bump updatedAt so the server's mergeRecipe knows our delete is newer than its copy
+  r.updatedAt = new Date().toISOString();
   viewRecipe(npd);
   saveRecipeToServer(npd);
 }
@@ -7218,6 +7221,7 @@ function addRecipeComment(npd) {
   if (!input || !input.value.trim()) return;
   if (!r.comments) r.comments = [];
   r.comments.push({by:getCurrentUserName(), date:new Date().toISOString(), text:input.value.trim()});
+  r.updatedAt = new Date().toISOString();
   logActivity('comment', '💬', 'Comment on ' + r.name, input.value.trim().substring(0,50));
   viewRecipe(npd);
   saveRecipeToServer(npd);

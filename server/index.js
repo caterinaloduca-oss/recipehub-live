@@ -453,13 +453,17 @@ function mergeRecipe(existing, incoming) {
     result.updatedAt = eTime;
   }
 
-  // Always union-merge media
+  // Always union-merge media (deletes go through the bulk /api/data path, not here)
   result.media = unionByKey(existing.media, result.media, 'name');
-  // Union-merge append-only logs
+  // Union-merge append-only logs (audit trails — never delete)
   result.changeLog = unionByKey(existing.changeLog, result.changeLog, 'date');
   result.versionHistory = unionByKey(existing.versionHistory, result.versionHistory, 'savedAt');
-  // Preserve comments from both
-  result.comments = unionByKey(existing.comments, result.comments, 'date');
+  // Comments: respect deletes when the client is newer. Stale tabs still get protected
+  // because their updatedAt is older than the server's, so we union them in.
+  const _commentsClientWins = (incoming.updatedAt || '') > (existing.updatedAt || '');
+  result.comments = _commentsClientWins
+    ? (Array.isArray(incoming.comments) ? incoming.comments : [])
+    : unionByKey(existing.comments, result.comments, 'date');
 
   // QA: preserve signed data
   ['trialQA', 'prodQA', 'prod-trialQA'].forEach(stage => {
