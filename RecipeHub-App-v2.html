@@ -11107,6 +11107,9 @@ function qasBackToLanding() {
   var det  = document.getElementById('qas-detail');
   if (land) land.style.display = '';
   if (det)  { det.style.display = 'none'; det.innerHTML = ''; }
+  PAGES.qas.title = 'QAS — Visual Acceptance Specification';
+  var t = document.getElementById('topbar-title'); if (t) t.textContent = PAGES.qas.title;
+  window.scrollTo(0, 0);
 }
 
 function renderQasLanding() {
@@ -11175,6 +11178,9 @@ function openQasDetail(npd) {
   auditEvent('qas.view', 'recipe', r.npd, r.name);
   PAGES.qas.title = 'QAS — ' + r.name;
   document.getElementById('topbar-title').textContent = PAGES.qas.title;
+  // Reset scroll — the landing table's scrollTop was preserved when we hid it
+  window.scrollTo(0, 0);
+  if (det) det.scrollIntoView({block:'start', behavior:'instant'});
 }
 
 function _renderQasDetail(r) {
@@ -11331,7 +11337,15 @@ function _qasRefresh(npd) {
 
 function addQasSpec(npd)        { var r = RECIPE_DB[npd]; if (!r) return; _qasInitDefaults(r); r.qas.visualSpecs.push({attribute:'', target:'', accept:'', reject:''}); r.updatedAt = new Date().toISOString(); saveAllData(); _qasRefresh(npd); }
 function removeQasSpec(npd, i)  { var r = RECIPE_DB[npd]; if (!r || !r.qas) return; r.qas.visualSpecs.splice(i, 1); r.updatedAt = new Date().toISOString(); saveAllData(); _qasRefresh(npd); }
-function updateQasSpec(npd, i, field, val) { var r = RECIPE_DB[npd]; if (!r || !r.qas || !r.qas.visualSpecs[i]) return; r.qas.visualSpecs[i][field] = val; r.updatedAt = new Date().toISOString(); saveAllData(); }
+function updateQasSpec(npd, i, field, val) {
+  var r = RECIPE_DB[npd]; if (!r) return;
+  _qasInitDefaults(r);
+  if (!r.qas.visualSpecs[i]) return;
+  r.qas.visualSpecs[i][field] = val;
+  r.updatedAt = new Date().toISOString();
+  saveAllData();
+  showSaveToast('Saved');
+}
 
 function uploadQasPhotos(npd, kind, input) {
   var r = RECIPE_DB[npd]; if (!r) return;
