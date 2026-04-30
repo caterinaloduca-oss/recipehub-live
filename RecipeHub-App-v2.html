@@ -164,6 +164,7 @@ body { font-family:var(--font-b); background:var(--cream); color:var(--g5); font
 .badge-trial    { background:#E8F4FD; color:#0C6BA8; border:1px solid #B0D9F1; }
 .badge-prod-trial { background:#F3E8FD; color:#6B2FA0; border:1px solid #D4B0F1; }
 .badge-approved { background:var(--sage-lt); color:var(--sage); border:1px solid var(--sage-mid); }
+.badge-amber    { background:#FEF3E2; color:#8A4500; border:1px solid #F5D5A0; }
 .badge-gold     { background:var(--gold-lt); color:var(--gold); border:1px solid #E8C875; }
 .badge-navy     { background:var(--navy-lt); color:var(--navy); border:1px solid var(--navy-mlt); }
 .badge-red      { background:var(--red-lt); color:var(--red); border:1px solid #F5B5B0; }
@@ -796,6 +797,9 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
   <div class="nav-section-label">Quality & Production</div>
   <button class="nav-item" data-page="qa" onclick="nav('qa')">
     <span class="nav-icon">✓</span> QA Lab Results <span class="nav-badge" id="nav-badge-qa"></span>
+  </button>
+  <button class="nav-item" data-page="qas" onclick="nav('qas')">
+    <span class="nav-icon">👁</span> QAS — Visual Spec <span class="nav-badge" id="nav-badge-qas"></span>
   </button>
   <button class="nav-item" data-page="production" onclick="nav('production')">
     <span class="nav-icon">📅</span> Production Plan
@@ -2101,6 +2105,12 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
             <div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:6px;background:white;border:1px dashed var(--g2);font-size:12px">
               <span>📈</span><span><strong style="color:var(--navy)">Factory records Validated yield</strong> <span style="color:var(--g3)">(soft step — cost math falls back to indicative if missing)</span></span>
             </div>
+            <div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:6px;background:#F0F6FF;border:1px solid #C9DBF7;font-size:12px">
+              <span>👁</span><span style="color:#0E2C44"><strong>QAS signed off</strong> <span style="color:var(--g3)">— Visual spec approved by R&D (hard gate)</span></span>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:6px;background:#FEF3E2;border:1px solid #F5D5A0;font-size:12px">
+              <span>⚡</span><span style="color:#8A4500"><strong>or QAS bypass</strong> <span style="color:var(--g3)">— R&D / Admin only, with reason</span></span>
+            </div>
           </div>
         </div>
 
@@ -2922,6 +2932,52 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
     <button class="btn btn-outline btn-sm" onclick="nav('recipes')">← Back to Recipes</button>
   </div>
   <div id="recipe-detail-content"></div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     PAGE: QAS — VISUAL ACCEPTANCE SPECIFICATION
+══════════════════════════════════════════ -->
+<div id="page-qas" class="page-hidden">
+  <div id="qas-landing">
+    <div class="filter-bar" style="margin-bottom:14px">
+      <input class="form-input" id="qas-search" placeholder="Search recipes..." style="flex:1;max-width:300px" oninput="renderQasLanding()" />
+      <select class="form-select" id="qas-status-filter" style="width:180px" onchange="renderQasLanding()">
+        <option value="">All statuses</option>
+        <option value="missing">Not started</option>
+        <option value="draft">Draft</option>
+        <option value="pending">Pending sign-off</option>
+        <option value="approved">Approved</option>
+        <option value="rejected">Rejected</option>
+        <option value="bypassed">Bypassed</option>
+      </select>
+      <select class="form-select" id="qas-brand-filter" style="width:180px" onchange="renderQasLanding()">
+        <option value="">All brands</option>
+      </select>
+    </div>
+    <div class="card">
+      <div class="card-head">
+        <span class="card-title">QAS — Visual Acceptance Specification</span>
+        <span style="font-size:11px;color:var(--g3)" id="qas-landing-count"></span>
+      </div>
+      <div class="card-body" style="padding:0;overflow-x:auto">
+        <table class="data-table" id="qas-landing-table">
+          <thead>
+            <tr>
+              <th style="width:120px">NPD</th>
+              <th>Recipe</th>
+              <th style="width:140px">Brand</th>
+              <th style="width:100px">Recipe status</th>
+              <th style="width:140px">QAS status</th>
+              <th style="width:100px">Photos</th>
+              <th style="width:120px">Last sign-off</th>
+            </tr>
+          </thead>
+          <tbody id="qas-landing-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div id="qas-detail" style="display:none"></div>
 </div>
 
 <!-- COMMUNICATIONS PAGE -->
@@ -6314,6 +6370,7 @@ const PAGES = {
   ingredients:    { title:'Ingredients Database',actions:`<button class="btn btn-outline btn-sm" id="ing-reconcile-btn" onclick="openIngredientReconcile()" title="Recipe ingredient names that don't resolve to an Oracle item">⚠ Reconcile</button><button class="btn btn-outline btn-sm" style="margin-left:6px" onclick="exportIngredientsCSV()">⤓ Export CSV</button><button class="btn btn-gold btn-sm" style="margin-left:6px" onclick="openIngredientForm()">+ Add Ingredient</button>` },
   builds:         { title:'Product Builds',       actions:`<button class="btn btn-gold btn-sm" onclick="openBuildForm()">+ New Build</button>` },
   qa:             { title:'QA Lab Results',      actions:`<button class="btn btn-outline btn-sm" onclick="printQALabReport()">🖨️ Lab Report</button><button class="btn btn-outline btn-sm" style="margin-left:6px" onclick="printCOA()">📄 COA</button><button class="btn btn-sage btn-sm" style="margin-left:6px" onclick="addTestPoint()">+ New Test</button>` },
+  qas:            { title:'QAS — Visual Acceptance Specification', actions:'' },
   'branch-sop':   { title:'Branch SOP',           actions:`` },
   production:     { title:'Production Plan',     actions:`<button class="btn btn-gold btn-sm" onclick="openProductionRun()">+ Schedule Run</button>` },
   substitutions:  { title:'Substitution Requests', actions:`<button class="btn btn-gold btn-sm" id="sub-new-btn" onclick="toggleSubRequestForm()">+ New Request</button>` },
@@ -6375,7 +6432,7 @@ function applyRoleRestrictions() {
     purchasing: ['ingredients','comms','substitutions'],
     factory:    ['production','comms','substitutions'],
     qa:         ['qa','builds','branch-sop','recipe-detail','comms','substitutions'],
-    npd:        ['recipes','recipe-detail','ingredients','builds','branch-sop','sop','brands','comms','library','substitutions'],
+    npd:        ['recipes','recipe-detail','ingredients','builds','branch-sop','sop','brands','comms','library','substitutions','qas'],
   };
 
   var allowed = editablePages[role] || [];
@@ -6388,7 +6445,7 @@ function applyRoleRestrictions() {
 
   // Strip action buttons from pages this role CANNOT edit
   stripPageActions('page-users');
-  var allPages = ['page-dashboard','page-recipes','page-recipe-detail','page-ingredients','page-qa','page-sop','page-branch-sop','page-production','page-substitutions','page-builds','page-brands','page-builds-costing','page-cost-control','page-reports','page-comms','page-library','page-training','page-audit-log'];
+  var allPages = ['page-dashboard','page-recipes','page-recipe-detail','page-ingredients','page-qa','page-qas','page-sop','page-branch-sop','page-production','page-substitutions','page-builds','page-brands','page-builds-costing','page-cost-control','page-reports','page-comms','page-library','page-training','page-audit-log'];
   allPages.forEach(function(pid) {
     var pageId = pid.replace('page-','');
     if (allowed.indexOf(pageId) === -1) stripPageActions(pid);
@@ -6805,6 +6862,7 @@ function nav(id) {
     else if (id === 'ingredients') { buildIngTable(); filterIngredients(); }
     else if (id === 'users') { var ut = document.getElementById('users-tbody'); if (ut) { ut.innerHTML = ''; buildUsersTable(); } var pt = document.getElementById('pending-tbody'); if (pt) { pt.innerHTML = ''; buildPendingTable(); } }
     else if (id === 'builds') { closeBuildDetail(); buildBuildsTable(); }
+    else if (id === 'qas') { qasBackToLanding(); renderQasLanding(); }
     else if (id === 'production') { buildProductionTable(); }
     else if (id === 'substitutions') { var d = document.getElementById('sub-request-detail'); if (d) d.style.display = 'none'; var f = document.getElementById('sub-request-form'); if (f) f.style.display = 'none'; buildSubRequestList(); updateSubBadge(); var btn = document.getElementById('sub-new-btn'); if (btn) btn.style.display = (typeof _subCanCreate==='function' && _subCanCreate()) ? '' : 'none'; }
     else if (id === 'branch-sop') {
@@ -9880,7 +9938,7 @@ function setRecipeStatus(npd, newStatus) {
     showSaveToast('Factory must assign a Recipe ID before moving to Production Trial', true);
     return;
   }
-  // Approval gate: Production Trial → Approved requires QA + all data
+  // Approval gate: Production Trial → Approved requires QA + all data + QAS sign-off (or R&D bypass)
   if (newStatus === 'approved') {
     if (!(r['prod-trialQA'] && r['prod-trialQA'].signed)) {
       showSaveToast('QA must sign off Production Trial results first', true);
@@ -9892,6 +9950,21 @@ function setRecipeStatus(npd, newStatus) {
     if (!r.nutrition) _missing.push('nutrition');
     if (_missing.length) {
       showSaveToast('Missing data: ' + _missing.join(', ') + ' — complete before approving', true);
+      return;
+    }
+    // QAS hard gate — bypass is R&D / Admin only with a written reason
+    if (typeof qasIsCleared === 'function' && !qasIsCleared(r)) {
+      var msg = 'QAS visual spec must be signed off before this recipe can be Approved.';
+      if (_role === 'admin' || _role === 'npd') {
+        if (confirm(msg + '\n\nOpen QAS now? Click Cancel to bypass with a reason.')) {
+          nav('qas');
+          setTimeout(function(){ openQasDetail(r.npd); }, 60);
+        } else {
+          qasBypass(r.npd);
+        }
+      } else {
+        showSaveToast(msg, true);
+      }
       return;
     }
   }
@@ -10982,6 +11055,338 @@ function _nextCapturedFlow() {
   var r = RECIPE_DB[_capturedFlow.npd]; if (!r) return;
   var pages = r.flowchart_archive || [];
   if (_capturedFlow.idx < pages.length - 1) { _capturedFlow.idx++; _renderCapturedFlow(); }
+}
+
+// ────────────────── QAS — Visual Acceptance Specification ──────────────────
+// Per-recipe data shape:
+//   r.qas              = { visualSpecs: [{attribute, target, accept, reject}], referencePhotos: [{url, caption}], defectPhotos: [{url, caption}] }
+//   r.qasStatus        = 'draft' | 'pending' | 'approved' | 'rejected'  (missing = "not started")
+//   r.qasApproval      = { by, at, comment }
+//   r.qasBypass        = { by, at, reason }   // present iff R&D bypassed the gate
+
+var QAS_DEFAULT_ROWS = [
+  { attribute: 'Shape',           target: '', accept: '', reject: '' },
+  { attribute: 'Colour',          target: '', accept: '', reject: '' },
+  { attribute: 'Size / dimensions',target: '', accept: '', reject: '' },
+  { attribute: 'Surface / texture',target: '', accept: '', reject: '' },
+];
+
+function qasGetEffectiveStatus(r) {
+  if (r.qasBypass && r.qasBypass.by) return 'bypassed';
+  return r.qasStatus || 'missing';
+}
+
+function qasIsCleared(r) {
+  return r.qasStatus === 'approved' || (r.qasBypass && r.qasBypass.by);
+}
+
+function qasStatusLabel(s) {
+  return ({missing:'Not started',draft:'Draft',pending:'Pending',approved:'Approved',rejected:'Rejected',bypassed:'Bypassed'}[s] || s);
+}
+function qasStatusClass(s) {
+  return ({missing:'badge-draft',draft:'badge-draft',pending:'badge-review',approved:'badge-approved',rejected:'badge-trial',bypassed:'badge-amber'}[s] || 'badge-draft');
+}
+
+function _qasNarrowDate(iso) {
+  if (!iso) return '—';
+  try { return new Date(iso).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}); } catch(e) { return iso; }
+}
+
+function _qasInitDefaults(r) {
+  if (!r.qas) r.qas = { visualSpecs: [], referencePhotos: [], defectPhotos: [] };
+  if (!Array.isArray(r.qas.visualSpecs)) r.qas.visualSpecs = [];
+  if (!Array.isArray(r.qas.referencePhotos)) r.qas.referencePhotos = [];
+  if (!Array.isArray(r.qas.defectPhotos)) r.qas.defectPhotos = [];
+  if (!r.qas.visualSpecs.length) r.qas.visualSpecs = QAS_DEFAULT_ROWS.map(function(x){ return Object.assign({}, x); });
+  if (!r.qasStatus) r.qasStatus = 'draft';
+}
+
+// ── Landing list ──
+function qasBackToLanding() {
+  var land = document.getElementById('qas-landing');
+  var det  = document.getElementById('qas-detail');
+  if (land) land.style.display = '';
+  if (det)  { det.style.display = 'none'; det.innerHTML = ''; }
+}
+
+function renderQasLanding() {
+  var body = document.getElementById('qas-landing-body');
+  if (!body) return;
+  // Brand filter options (lazy)
+  var brandFilter = document.getElementById('qas-brand-filter');
+  if (brandFilter && brandFilter.options.length <= 1) {
+    var brandSet = {};
+    Object.values(RECIPE_DB).forEach(function(r){ if (r.brand) brandSet[r.brand] = 1; });
+    Object.keys(brandSet).sort().forEach(function(b){
+      var opt = document.createElement('option'); opt.value = b; opt.textContent = b; brandFilter.appendChild(opt);
+    });
+  }
+
+  var search = (document.getElementById('qas-search').value || '').toLowerCase();
+  var statusF = document.getElementById('qas-status-filter').value;
+  var brandF  = document.getElementById('qas-brand-filter').value;
+
+  var rows = Object.values(RECIPE_DB).filter(function(r){
+    if (r.archived) return false;
+    if (search && !((r.name||'').toLowerCase().includes(search) || (r.npd||'').toLowerCase().includes(search))) return false;
+    if (brandF && r.brand !== brandF) return false;
+    var s = qasGetEffectiveStatus(r);
+    if (statusF && s !== statusF) return false;
+    return true;
+  });
+
+  // Sort: not-started first, then by status weight, then by name
+  var weight = {missing:0,draft:1,pending:2,rejected:3,bypassed:4,approved:5};
+  rows.sort(function(a, b){
+    var sa = qasGetEffectiveStatus(a), sb = qasGetEffectiveStatus(b);
+    var d = (weight[sa] || 99) - (weight[sb] || 99);
+    return d !== 0 ? d : (a.name || '').localeCompare(b.name || '');
+  });
+
+  body.innerHTML = rows.map(function(r){
+    var s = qasGetEffectiveStatus(r);
+    var nPhotos = ((r.qas && r.qas.referencePhotos) || []).length + ((r.qas && r.qas.defectPhotos) || []).length;
+    var lastSign = (r.qasApproval && r.qasApproval.at) || (r.qasBypass && r.qasBypass.at) || null;
+    var statusBadge = '<span class="badge ' + qasStatusClass(s) + '">' + qasStatusLabel(s) + '</span>';
+    var recipeStatusLabel = ({approved:'Approved','prod-trial':'Prod Trial',trial:'Factory Trial',review:'In Review',draft:'Draft'}[r.status] || r.status || '—');
+    return '<tr style="cursor:pointer" onclick="openQasDetail(\'' + r.npd + '\')">' +
+      '<td style="font-family:var(--font-m);font-size:11.5px">' + r.npd + '</td>' +
+      '<td><strong style="color:var(--navy)">' + (r.name || '') + '</strong></td>' +
+      '<td style="font-size:11.5px;color:var(--g4)">' + (r.brand || '—') + '</td>' +
+      '<td style="font-size:11px;color:var(--g4)">' + recipeStatusLabel + '</td>' +
+      '<td>' + statusBadge + '</td>' +
+      '<td style="font-size:11.5px;color:var(--g4)">' + (nPhotos ? nPhotos + ' photo' + (nPhotos === 1 ? '' : 's') : '—') + '</td>' +
+      '<td style="font-size:11px;color:var(--g4)">' + _qasNarrowDate(lastSign) + '</td>' +
+    '</tr>';
+  }).join('') || '<tr><td colspan="7" style="padding:30px;text-align:center;color:var(--g3);font-size:12.5px">No recipes match the filter.</td></tr>';
+
+  var c = document.getElementById('qas-landing-count');
+  if (c) c.textContent = rows.length + ' recipe' + (rows.length === 1 ? '' : 's');
+}
+
+// ── Detail view ──
+function openQasDetail(npd) {
+  var r = RECIPE_DB[npd]; if (!r) return;
+  _qasInitDefaults(r);
+  var land = document.getElementById('qas-landing');
+  var det  = document.getElementById('qas-detail');
+  if (land) land.style.display = 'none';
+  if (det)  { det.style.display = ''; det.innerHTML = _renderQasDetail(r); }
+  auditEvent('qas.view', 'recipe', r.npd, r.name);
+  PAGES.qas.title = 'QAS — ' + r.name;
+  document.getElementById('topbar-title').textContent = PAGES.qas.title;
+}
+
+function _renderQasDetail(r) {
+  var role = getCurrentUserRole();
+  var canEdit = role === 'admin' || role === 'npd';
+  var canSign = canEdit;
+  var s = qasGetEffectiveStatus(r);
+
+  var specsRows = (r.qas.visualSpecs || []).map(function(sp, i){
+    if (canEdit) {
+      return '<tr>' +
+        '<td><input class="form-input" value="' + (sp.attribute || '').replace(/"/g,'&quot;') + '" placeholder="Attribute" style="width:100%;padding:5px 8px;font-size:12px" onchange="updateQasSpec(\'' + r.npd + '\',' + i + ',\'attribute\',this.value)" /></td>' +
+        '<td><input class="form-input" value="' + (sp.target    || '').replace(/"/g,'&quot;') + '" placeholder="Target / spec" style="width:100%;padding:5px 8px;font-size:12px" onchange="updateQasSpec(\'' + r.npd + '\',' + i + ',\'target\',this.value)" /></td>' +
+        '<td><input class="form-input" value="' + (sp.accept    || '').replace(/"/g,'&quot;') + '" placeholder="Acceptable / pass" style="width:100%;padding:5px 8px;font-size:12px" onchange="updateQasSpec(\'' + r.npd + '\',' + i + ',\'accept\',this.value)" /></td>' +
+        '<td><input class="form-input" value="' + (sp.reject    || '').replace(/"/g,'&quot;') + '" placeholder="Reject" style="width:100%;padding:5px 8px;font-size:12px" onchange="updateQasSpec(\'' + r.npd + '\',' + i + ',\'reject\',this.value)" /></td>' +
+        '<td style="text-align:center"><button class="btn btn-danger-sm" onclick="removeQasSpec(\'' + r.npd + '\',' + i + ')">✕</button></td>' +
+      '</tr>';
+    }
+    return '<tr><td><strong>' + (sp.attribute||'—') + '</strong></td><td>' + (sp.target||'—') + '</td><td style="color:#1F4811">' + (sp.accept||'—') + '</td><td style="color:#8C1A1A">' + (sp.reject||'—') + '</td></tr>';
+  }).join('');
+
+  var refPhotos = _qasRenderPhotoGrid(r, 'reference', canEdit);
+  var defPhotos = _qasRenderPhotoGrid(r, 'defect', canEdit);
+
+  var signedBy = r.qasApproval ? (r.qasApproval.by + ' · ' + _qasNarrowDate(r.qasApproval.at)) : null;
+  var bypassMsg = r.qasBypass ? (r.qasBypass.by + ' · ' + _qasNarrowDate(r.qasBypass.at) + ' — “' + (r.qasBypass.reason || '') + '”') : null;
+
+  return '<div style="margin-bottom:16px"><button class="btn btn-outline btn-sm" onclick="qasBackToLanding();renderQasLanding()">← Back to QAS list</button></div>' +
+    // Header
+    '<div class="card" style="margin-bottom:16px;overflow:hidden">' +
+      '<div style="background:var(--navy);padding:18px 22px;color:white;display:flex;justify-content:space-between;align-items:flex-start;gap:16px">' +
+        '<div>' +
+          '<div style="font-size:10px;font-weight:500;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.5);margin-bottom:4px">QAS — Visual Acceptance Specification</div>' +
+          '<div style="font-family:var(--font-d);font-size:22px;font-weight:600">' + r.name + '</div>' +
+          '<div style="font-size:12px;color:rgba(255,255,255,0.55);margin-top:3px">' + r.npd + (r.recipeId ? ' · ' + r.recipeId : '') + ' · ' + (r.brand || '—') + ' · v' + (r.version || '1') + '</div>' +
+        '</div>' +
+        '<div style="text-align:right">' +
+          '<span class="badge ' + qasStatusClass(s) + '" style="font-size:12px">' + qasStatusLabel(s) + '</span>' +
+          (signedBy ? '<div style="font-size:11px;color:rgba(255,255,255,0.55);margin-top:4px">Signed off by ' + signedBy + '</div>' : '') +
+          (bypassMsg ? '<div style="font-size:11px;color:#FFD9A8;margin-top:4px">⚠ Bypassed by ' + bypassMsg + '</div>' : '') +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+
+    // Visual specs
+    '<div class="card" style="margin-bottom:16px">' +
+      '<div class="card-head">' +
+        '<span class="card-title">Visual Specs</span>' +
+        (canEdit ? '<button class="btn btn-outline btn-sm" onclick="addQasSpec(\'' + r.npd + '\')">+ Add row</button>' : '') +
+      '</div>' +
+      '<div class="card-body" style="padding:0;overflow-x:auto">' +
+        '<table class="data-table" style="font-size:12.5px">' +
+          '<thead><tr><th style="width:160px">Attribute</th><th>Target / spec</th><th>Acceptable</th><th>Reject</th>' + (canEdit ? '<th style="width:50px"></th>' : '') + '</tr></thead>' +
+          '<tbody>' + (specsRows || '<tr><td colspan="' + (canEdit ? 5 : 4) + '" style="padding:24px;text-align:center;color:var(--g3)">No specs yet — click + Add row</td></tr>') + '</tbody>' +
+        '</table>' +
+      '</div>' +
+    '</div>' +
+
+    // Reference + defect photos
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">' +
+      '<div class="card"><div class="card-head"><span class="card-title">Reference photos · correct product</span>' + (canEdit ? '<button class="btn btn-outline btn-sm" onclick="document.getElementById(\'qas-photo-ref-' + r.npd + '\').click()">+ Upload</button><input type="file" id="qas-photo-ref-' + r.npd + '" accept="image/*" multiple style="display:none" onchange="uploadQasPhotos(\'' + r.npd + '\',\'reference\',this)" />' : '') + '</div><div class="card-body">' + refPhotos + '</div></div>' +
+      '<div class="card"><div class="card-head"><span class="card-title">Defect photos · what to reject</span>' + (canEdit ? '<button class="btn btn-outline btn-sm" onclick="document.getElementById(\'qas-photo-def-' + r.npd + '\').click()">+ Upload</button><input type="file" id="qas-photo-def-' + r.npd + '" accept="image/*" multiple style="display:none" onchange="uploadQasPhotos(\'' + r.npd + '\',\'defect\',this)" />' : '') + '</div><div class="card-body">' + defPhotos + '</div></div>' +
+    '</div>' +
+
+    // Sign-off
+    '<div class="card" style="margin-bottom:16px">' +
+      '<div class="card-head"><span class="card-title">Sign-off</span><span style="font-size:11px;color:var(--g3)">R&amp;D approves before this recipe can be Approved</span></div>' +
+      '<div class="card-body" style="padding:18px 22px">' +
+        (canSign ? (
+          (s === 'approved'
+            ? '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span class="badge badge-approved">Approved</span><span style="font-size:12px;color:var(--g4)">' + signedBy + '</span><span style="flex:1"></span><button class="btn btn-outline btn-sm" onclick="qasUnsign(\'' + r.npd + '\')">Withdraw approval</button></div>'
+            : '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-gold btn-sm" onclick="qasSignOff(\'' + r.npd + '\')">✓ Sign off — Approve QAS</button>' + (s !== 'rejected' ? '<button class="btn btn-outline btn-sm" onclick="qasSetStatus(\'' + r.npd + '\',\'pending\')" ' + (s === 'pending' ? 'disabled' : '') + '>Mark as Pending</button>' : '') + '<button class="btn btn-outline btn-sm" style="color:#B81A1A" onclick="qasReject(\'' + r.npd + '\')">Reject</button></div>'
+          )
+        ) : '<div style="font-size:12px;color:var(--g4)">Sign-off is restricted to R&amp;D and Admin.</div>') +
+      '</div>' +
+    '</div>';
+}
+
+function _qasRenderPhotoGrid(r, kind, canEdit) {
+  var arr = (kind === 'reference') ? (r.qas.referencePhotos || []) : (r.qas.defectPhotos || []);
+  if (!arr.length) return '<div style="padding:18px 0;text-align:center;color:var(--g3);font-size:12px">No photos yet.</div>';
+  return '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px">' + arr.map(function(p, i) {
+    return '<div style="position:relative;background:var(--g1);border-radius:6px;overflow:hidden;aspect-ratio:1/1">' +
+      '<img src="' + p.url + '" alt="" style="width:100%;height:100%;object-fit:cover;display:block" />' +
+      (canEdit ? '<button title="Remove" onclick="removeQasPhoto(\'' + r.npd + '\',\'' + kind + '\',' + i + ')" style="position:absolute;top:4px;right:4px;background:rgba(192,57,43,0.95);color:white;border:none;border-radius:50%;width:22px;height:22px;font-size:11px;cursor:pointer;line-height:1">✕</button>' : '') +
+      '<input type="text" placeholder="Caption (optional)" value="' + (p.caption || '').replace(/"/g,'&quot;') + '" ' + (canEdit ? '' : 'disabled') + ' style="position:absolute;bottom:0;left:0;right:0;border:none;background:rgba(255,255,255,0.92);padding:4px 8px;font-size:10.5px;font-family:inherit" onchange="updateQasPhotoCaption(\'' + r.npd + '\',\'' + kind + '\',' + i + ',this.value)" />' +
+    '</div>';
+  }).join('') + '</div>';
+}
+
+// ── handlers ──
+function _qasRefresh(npd) {
+  var det = document.getElementById('qas-detail');
+  var r = RECIPE_DB[npd]; if (!r || !det) return;
+  det.innerHTML = _renderQasDetail(r);
+}
+
+function addQasSpec(npd)        { var r = RECIPE_DB[npd]; if (!r) return; _qasInitDefaults(r); r.qas.visualSpecs.push({attribute:'', target:'', accept:'', reject:''}); r.updatedAt = new Date().toISOString(); saveAllData(); _qasRefresh(npd); }
+function removeQasSpec(npd, i)  { var r = RECIPE_DB[npd]; if (!r || !r.qas) return; r.qas.visualSpecs.splice(i, 1); r.updatedAt = new Date().toISOString(); saveAllData(); _qasRefresh(npd); }
+function updateQasSpec(npd, i, field, val) { var r = RECIPE_DB[npd]; if (!r || !r.qas || !r.qas.visualSpecs[i]) return; r.qas.visualSpecs[i][field] = val; r.updatedAt = new Date().toISOString(); saveAllData(); }
+
+function uploadQasPhotos(npd, kind, input) {
+  var r = RECIPE_DB[npd]; if (!r) return;
+  _qasInitDefaults(r);
+  var files = Array.from(input.files || []);
+  if (!files.length) return;
+  var key = (kind === 'reference') ? 'referencePhotos' : 'defectPhotos';
+  showSaveToast('Uploading ' + files.length + ' photo' + (files.length === 1 ? '' : 's') + '...');
+  var doneN = 0;
+  files.forEach(function(file) {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      var dataUrl = e.target.result;
+      fetch(API_BASE + '/api/img/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + API_KEY },
+        body: JSON.stringify({ key: 'qas/' + r.npd + '/' + kind + '_' + Date.now(), data: dataUrl }),
+      }).then(function(resp){ return resp.json(); }).then(function(body){
+        if (body && body.url) {
+          r.qas[key].push({ url: body.url, caption: '' });
+          r.updatedAt = new Date().toISOString();
+          saveAllData();
+        } else {
+          showSaveToast('Upload failed: ' + (body && body.error || 'no url'), true);
+        }
+      }).catch(function(err){
+        showSaveToast('Upload error: ' + err.message, true);
+      }).finally(function(){
+        doneN++;
+        if (doneN === files.length) { _qasRefresh(npd); showSaveToast(files.length + ' photo' + (files.length === 1 ? '' : 's') + ' uploaded'); }
+      });
+    };
+    reader.readAsDataURL(file);
+  });
+  input.value = '';
+}
+
+function removeQasPhoto(npd, kind, i) {
+  var r = RECIPE_DB[npd]; if (!r || !r.qas) return;
+  var key = (kind === 'reference') ? 'referencePhotos' : 'defectPhotos';
+  r.qas[key].splice(i, 1);
+  r.updatedAt = new Date().toISOString();
+  saveAllData(); _qasRefresh(npd);
+}
+
+function updateQasPhotoCaption(npd, kind, i, val) {
+  var r = RECIPE_DB[npd]; if (!r || !r.qas) return;
+  var key = (kind === 'reference') ? 'referencePhotos' : 'defectPhotos';
+  if (!r.qas[key][i]) return;
+  r.qas[key][i].caption = val;
+  r.updatedAt = new Date().toISOString();
+  saveAllData();
+}
+
+function qasSetStatus(npd, status) {
+  var r = RECIPE_DB[npd]; if (!r) return;
+  r.qasStatus = status;
+  r.updatedAt = new Date().toISOString();
+  saveAllData(); _qasRefresh(npd);
+  auditEvent('qas.status_change', 'recipe', r.npd, r.name, { status: status });
+}
+
+function qasSignOff(npd) {
+  var r = RECIPE_DB[npd]; if (!r) return;
+  var role = getCurrentUserRole();
+  if (role !== 'admin' && role !== 'npd') { showSaveToast('Only R&D / Admin can sign off the QAS', true); return; }
+  if (!r.qas || !r.qas.visualSpecs.some(function(s){ return s.attribute && (s.target || s.accept); })) {
+    showSaveToast('Add at least one visual spec with target or acceptability before signing off', true);
+    return;
+  }
+  r.qasStatus = 'approved';
+  r.qasApproval = { by: getCurrentUserName(), at: new Date().toISOString(), comment: '' };
+  delete r.qasBypass; // approval supersedes any earlier bypass
+  r.updatedAt = new Date().toISOString();
+  saveAllData(); _qasRefresh(npd);
+  auditEvent('qas.signoff', 'recipe', r.npd, r.name, { by: r.qasApproval.by });
+  showSaveToast('QAS approved — recipe can now be moved to Approved');
+}
+
+function qasUnsign(npd) {
+  var r = RECIPE_DB[npd]; if (!r) return;
+  if (!confirm('Withdraw the QAS approval? Recipe approval gate will close again.')) return;
+  r.qasStatus = 'draft';
+  delete r.qasApproval;
+  r.updatedAt = new Date().toISOString();
+  saveAllData(); _qasRefresh(npd);
+  auditEvent('qas.unsign', 'recipe', r.npd, r.name);
+}
+
+function qasReject(npd) {
+  customPrompt('Reason for rejection (optional):', '', function(reason) {
+    var r = RECIPE_DB[npd]; if (!r) return;
+    r.qasStatus = 'rejected';
+    r.qasApproval = { by: getCurrentUserName(), at: new Date().toISOString(), comment: reason || '' };
+    r.updatedAt = new Date().toISOString();
+    saveAllData(); _qasRefresh(npd);
+    auditEvent('qas.reject', 'recipe', r.npd, r.name, { reason: reason });
+  });
+}
+
+function qasBypass(npd) {
+  var role = getCurrentUserRole();
+  if (role !== 'admin' && role !== 'npd') { showSaveToast('Only R&D / Admin can bypass the QAS gate', true); return; }
+  customPrompt('Reason for bypassing the QAS gate (required):', '', function(reason) {
+    if (!reason) { showSaveToast('A reason is required to bypass', true); return; }
+    var r = RECIPE_DB[npd]; if (!r) return;
+    r.qasBypass = { by: getCurrentUserName(), at: new Date().toISOString(), reason: reason };
+    r.updatedAt = new Date().toISOString();
+    saveAllData();
+    auditEvent('qas.bypass', 'recipe', r.npd, r.name, { reason: reason });
+    showSaveToast('QAS gate bypassed — proceed to set Approved');
+  });
 }
 
 function openSOPFlowchart(npd) {
