@@ -9612,7 +9612,10 @@ function viewRecipe(npd) {
     <div class="card" style="margin-top:20px;border:2px solid ${r.status === 'trial' ? '#0C6BA8' : '#6B2FA0'}">
       <div class="card-head" style="background:${r.status === 'trial' ? '#0C6BA8' : '#6B2FA0'}">
         <span class="card-title" style="color:white">${r.status === 'trial' ? 'Factory Trial' : 'Production Trial'} — QA Results${_vrIsQA ? '' : ' <span style=\"font-size:10px;color:rgba(255,255,255,0.55);font-weight:400;margin-left:6px\">view-only — QA owns the lab call</span>'}</span>
-        <span class="badge" style="background:rgba(255,255,255,0.15);color:white;font-size:10px">${(r[r.status+'QA'] && r[r.status+'QA'].signed) ? (r[r.status+'QA'].conditional ? '⚠ Signed Off (with conditions)' : 'Signed Off') : 'Pending QA'}</span>
+        ${(r[r.status+'QA'] && r[r.status+'QA'].signed)
+          ? `<span class="badge" style="background:#A6D588;color:#1F4811;font-size:10px;font-weight:600;padding:3px 10px;border-radius:40px;border:1px solid #5C9C42">${r[r.status+'QA'].conditional ? '⚠ Signed (conditional)' : '✓ Signed Off'}</span>`
+          : `<span class="badge" style="background:#FEF3E2;color:#8A4500;font-size:10px;font-weight:600;padding:3px 10px;border-radius:40px;border:1px solid #F5D5A0">⏳ Pending QA</span>`
+        }
       </div>
       <div class="card-body" ${_vrIsQA ? '' : 'style="opacity:0.65;pointer-events:none"'}>
         <div style="font-size:11px;color:var(--g4);margin-bottom:14px;font-style:italic">
