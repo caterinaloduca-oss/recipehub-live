@@ -1239,6 +1239,23 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
       </div>
     </div>
   </div>
+
+  <!-- 📷 Photos, Videos & Files (QA evidence per recipe) -->
+  <div class="card" id="qa-media-card" style="margin-top:20px">
+    <div class="card-head">
+      <span class="card-title">📷 Photos, Videos & Files</span>
+      <div style="display:flex;gap:6px;align-items:center" id="qa-media-actions">
+        <span style="font-size:11px;color:var(--g3)" id="qa-media-count"></span>
+        <input type="file" id="qa-media-photo-input" accept="image/*" multiple style="display:none" onchange="uploadQaMedia('photo', this)" />
+        <input type="file" id="qa-media-video-input" accept="video/mp4,video/quicktime,video/webm" multiple style="display:none" onchange="uploadQaMedia('video', this)" />
+        <input type="file" id="qa-media-file-input" accept="application/pdf" multiple style="display:none" onchange="uploadQaMedia('file', this)" />
+        <button class="btn btn-outline btn-sm" id="qa-media-add-photo" onclick="document.getElementById('qa-media-photo-input').click()">+ Photo</button>
+        <button class="btn btn-outline btn-sm" id="qa-media-add-video" onclick="document.getElementById('qa-media-video-input').click()">+ Video</button>
+        <button class="btn btn-outline btn-sm" id="qa-media-add-file"  onclick="document.getElementById('qa-media-file-input').click()">+ PDF</button>
+      </div>
+    </div>
+    <div class="card-body" id="qa-media-body" style="padding:18px 22px"></div>
+  </div>
 </div>
 
 <!-- ══════════════════════════════════════════
@@ -15404,6 +15421,7 @@ function qaPickPastRecipe(npd) {
 
 function updateQARecipe(npd) {
   _qaCurrentNPD = npd;
+  renderQaMedia();
   var batchEl = document.getElementById('qa-batch');
   var dateEl = document.getElementById('qa-date');
   var r = npd ? RECIPE_DB[npd] : null;
@@ -15447,6 +15465,159 @@ function updateQARecipe(npd) {
     if (dv) dv.textContent = '—';
   });
   if (npd) loadNutrition(npd);
+}
+
+// ──────────── QA media (photos, videos, files) — per recipe ────────────
+// Stored as r.qaMedia = [{kind:'photo'|'video'|'file', url, name, caption, mime, by, at}]
+// Backend: POST /api/qa/media/upload  (50MB cap, image/* or video/* or application/pdf)
+
+function _qaMediaCanEdit() {
+  var role = (typeof getCurrentUserRole === 'function') ? getCurrentUserRole() : '';
+  return role === 'admin' || role === 'qa';
+}
+
+function renderQaMedia() {
+  var body = document.getElementById('qa-media-body');
+  var countEl = document.getElementById('qa-media-count');
+  var actions = document.getElementById('qa-media-actions');
+  if (!body) return;
+
+  var canEdit = _qaMediaCanEdit();
+  // Hide add buttons for non-editors
+  ['qa-media-add-photo','qa-media-add-video','qa-media-add-file'].forEach(function(id){
+    var b = document.getElementById(id);
+    if (b) b.style.display = canEdit ? '' : 'none';
+  });
+
+  var npd = _qaCurrentNPD;
+  if (!npd) {
+    body.innerHTML = '<div style="padding:24px 0;text-align:center;color:var(--g3);font-size:13px">Pick a recipe to view its photos / videos / files.</div>';
+    if (countEl) countEl.textContent = '';
+    return;
+  }
+  var r = RECIPE_DB[npd];
+  if (!r) { body.innerHTML = ''; return; }
+  var media = Array.isArray(r.qaMedia) ? r.qaMedia : [];
+  if (countEl) countEl.textContent = media.length ? (media.length + ' item' + (media.length === 1 ? '' : 's')) : '';
+
+  if (!media.length) {
+    body.innerHTML = '<div style="padding:24px 0;text-align:center;color:var(--g3);font-size:13px">No media yet for this recipe.' + (canEdit ? ' Use the buttons above to add photos, videos, or PDFs.' : '') + '</div>';
+    return;
+  }
+
+  var meName = (typeof getCurrentUserName === 'function') ? getCurrentUserName() : '';
+  body.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px">' + media.map(function(m, i) {
+    var when = '—';
+    try { when = new Date(m.at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}); } catch(e) {}
+    var canDelete = canEdit && (m.by === meName || (typeof getCurrentUserRole === 'function' && getCurrentUserRole() === 'admin'));
+    var preview;
+    if (m.kind === 'video') {
+      preview = '<video src="' + m.url + '" controls preload="metadata" style="width:100%;aspect-ratio:16/9;background:#000;display:block"></video>';
+    } else if (m.kind === 'photo') {
+      preview = '<a href="' + m.url + '" target="_blank" style="display:block;aspect-ratio:1/1;background:var(--g1)"><img src="' + m.url + '" style="width:100%;height:100%;object-fit:cover;display:block" /></a>';
+    } else {
+      // file (PDF)
+      var fname = m.name || (m.url || '').split('/').pop();
+      preview = '<a href="' + m.url + '" target="_blank" style="display:flex;flex-direction:column;align-items:center;justify-content:center;aspect-ratio:1/1;background:var(--g1);text-decoration:none;color:var(--navy);padding:16px;text-align:center"><div style="font-size:42px;line-height:1">📄</div><div style="font-size:11px;margin-top:8px;font-weight:500;word-break:break-all">' + fname + '</div><div style="font-size:10px;color:var(--g3);margin-top:4px">Click to open</div></a>';
+    }
+    return '<div style="background:white;border:1px solid var(--g2);border-radius:8px;overflow:hidden">' +
+      '<div style="position:relative">' + preview +
+        (canDelete ? '<button title="Delete" onclick="removeQaMedia(\'' + npd + '\',' + i + ')" style="position:absolute;top:6px;right:6px;background:rgba(192,57,43,0.95);color:white;border:none;border-radius:50%;width:24px;height:24px;font-size:12px;cursor:pointer;line-height:1">✕</button>' : '') +
+      '</div>' +
+      '<input type="text" placeholder="Caption (optional)" value="' + (m.caption || '').replace(/"/g,'&quot;') + '" ' + (canEdit ? '' : 'disabled') + ' style="border:none;border-bottom:1px solid var(--g1);background:white;padding:6px 10px;width:100%;font-size:11.5px;font-family:inherit;font-weight:500;color:var(--navy);box-sizing:border-box" onchange="updateQaMediaCaption(\'' + npd + '\',' + i + ',this.value)" />' +
+      '<div style="padding:6px 10px;font-size:10px;color:var(--g4);background:#FAF8F2;display:flex;justify-content:space-between;gap:6px">' +
+        '<span>' + (m.by || 'Anon') + '</span>' +
+        '<span>' + when + '</span>' +
+      '</div>' +
+    '</div>';
+  }).join('') + '</div>';
+}
+
+function uploadQaMedia(kind, input) {
+  if (!_qaMediaCanEdit()) { showSaveToast('Only QA / Admin can upload', true); return; }
+  var npd = _qaCurrentNPD;
+  if (!npd) { showSaveToast('Pick a recipe first', true); return; }
+  var r = RECIPE_DB[npd]; if (!r) return;
+  var files = Array.from(input.files || []);
+  if (!files.length) return;
+  // 50MB cap on each file (server enforces; we pre-check for nicer UX)
+  var oversize = files.find(function(f){ return f.size > 50 * 1024 * 1024; });
+  if (oversize) {
+    showSaveToast('"' + oversize.name + '" is over 50 MB — please trim or compress', true);
+    input.value = '';
+    return;
+  }
+  if (!Array.isArray(r.qaMedia)) r.qaMedia = [];
+  showSaveToast('Uploading ' + files.length + ' ' + kind + (files.length === 1 ? '' : 's') + '...');
+  var doneN = 0;
+  var failN = 0;
+  files.forEach(function(file) {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      var dataUrl = e.target.result;
+      fetch(API_BASE + '/api/qa/media/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + API_KEY },
+        body: JSON.stringify({ key: 'qa/' + r.npd + '/' + kind + '_' + Date.now(), data: dataUrl }),
+      }).then(function(resp){ return resp.json().then(function(body){ return { ok: resp.ok, body: body }; }); }).then(function(out){
+        if (out.ok && out.body && out.body.url) {
+          r.qaMedia.push({
+            kind: kind,
+            url: out.body.url,
+            name: file.name,
+            mime: out.body.mime || '',
+            caption: '',
+            by: getCurrentUserName(),
+            at: new Date().toISOString(),
+          });
+          r.updatedAt = new Date().toISOString();
+          saveAllData();
+          auditEvent('qa.media_upload', 'recipe', r.npd, r.name, { kind: kind, name: file.name });
+        } else {
+          failN++;
+          showSaveToast('Upload failed for "' + file.name + '": ' + ((out.body && out.body.error) || 'unknown'), true);
+        }
+      }).catch(function(err) {
+        failN++;
+        showSaveToast('Upload error: ' + err.message, true);
+      }).finally(function() {
+        doneN++;
+        if (doneN === files.length) {
+          renderQaMedia();
+          if (!failN) showSaveToast(files.length + ' ' + kind + (files.length === 1 ? '' : 's') + ' uploaded');
+        }
+      });
+    };
+    reader.readAsDataURL(file);
+  });
+  input.value = '';
+}
+
+function removeQaMedia(npd, idx) {
+  if (!_qaMediaCanEdit()) { showSaveToast('Only QA / Admin can delete', true); return; }
+  var r = RECIPE_DB[npd]; if (!r || !Array.isArray(r.qaMedia)) return;
+  var m = r.qaMedia[idx]; if (!m) return;
+  // Author or admin only
+  var role = getCurrentUserRole();
+  if (m.by !== getCurrentUserName() && role !== 'admin') {
+    showSaveToast('Only the author or an admin can delete', true);
+    return;
+  }
+  if (!confirm('Delete "' + (m.name || m.kind) + '"?')) return;
+  r.qaMedia.splice(idx, 1);
+  r.updatedAt = new Date().toISOString();
+  saveAllData();
+  renderQaMedia();
+  auditEvent('qa.media_delete', 'recipe', r.npd, r.name, { kind: m.kind, name: m.name });
+}
+
+function updateQaMediaCaption(npd, idx, val) {
+  if (!_qaMediaCanEdit()) return;
+  var r = RECIPE_DB[npd]; if (!r || !Array.isArray(r.qaMedia)) return;
+  if (!r.qaMedia[idx]) return;
+  r.qaMedia[idx].caption = val;
+  r.updatedAt = new Date().toISOString();
+  saveAllData();
 }
 
 function saveQABatchInfo() {

@@ -73,6 +73,7 @@ app.use('/api/comms/', rateLimit({ windowMs: 60000, max: 10, message: { error: '
 app.use('/api/notify', rateLimit({ windowMs: 60000, max: 20, message: { error: 'Too many requests' } }));
 app.use('/api/ebs/', rateLimit({ windowMs: 60000, max: 300, message: { error: 'Too many requests' } }));
 app.use('/api/img/', rateLimit({ windowMs: 60000, max: 50, message: { error: 'Too many requests' } }));
+app.use('/api/qa/media/', rateLimit({ windowMs: 60000, max: 20, message: { error: 'Too many requests' } }));
 
 // Request logging
 app.use((req, res, next) => {
@@ -1424,6 +1425,38 @@ app.post('/api/img/upload', requireAuth, (req, res) => {
     res.json({ ok: true, url: '/docs/img/' + safeName });
   } catch (err) {
     console.error('Image upload error:', err);
+    res.status(500).json({ error: 'Upload failed: ' + err.message });
+  }
+});
+
+// ── QA media upload (photos / videos / files attached to QA Lab Results per recipe) ──
+const QA_MEDIA_DIR = '/var/www/recipehub/docs/qa-media';
+if (!fs.existsSync(QA_MEDIA_DIR)) fs.mkdirSync(QA_MEDIA_DIR, { recursive: true });
+
+// 70 MB JSON body to fit a 50 MB binary as base64 (~67 MB on the wire).
+const qaMediaJson = express.json({ limit: '70mb' });
+
+app.post('/api/qa/media/upload', qaMediaJson, requireAuth, (req, res) => {
+  try {
+    const { key, data } = req.body;
+    if (!key || !data) return res.status(400).json({ error: 'key and data required' });
+    const matches = data.match(/^data:([^;]+);base64,(.+)$/);
+    if (!matches) return res.status(400).json({ error: 'Invalid data URL' });
+    const mime = matches[1];
+    const allowed = {
+      'image/jpeg': 'jpg', 'image/png': 'png', 'image/gif': 'gif', 'image/webp': 'webp',
+      'video/mp4': 'mp4', 'video/quicktime': 'mov', 'video/webm': 'webm',
+      'application/pdf': 'pdf',
+    };
+    if (!(mime in allowed)) return res.status(400).json({ error: 'MIME not allowed: ' + mime });
+    const buffer = Buffer.from(matches[2], 'base64');
+    if (buffer.length > 50 * 1024 * 1024) return res.status(400).json({ error: 'Media too large — max 50MB' });
+    const safeKey = key.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const safeName = safeKey + '-' + Date.now() + '.' + allowed[mime];
+    fs.writeFileSync(QA_MEDIA_DIR + '/' + safeName, buffer);
+    res.json({ ok: true, url: '/docs/qa-media/' + safeName, mime, bytes: buffer.length });
+  } catch (err) {
+    console.error('QA media upload error:', err);
     res.status(500).json({ error: 'Upload failed: ' + err.message });
   }
 });
