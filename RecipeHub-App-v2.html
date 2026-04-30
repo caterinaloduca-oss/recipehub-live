@@ -2054,6 +2054,48 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
       </div>
     </div>
 
+    <!-- Flowcharts Divider -->
+    <div style="border-top:2px solid var(--g1);margin:40px 0;position:relative">
+      <span style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--bg);padding:0 16px;font-size:11px;color:var(--g3);text-transform:uppercase;letter-spacing:0.1em;font-weight:500">Process Flowcharts</span>
+    </div>
+
+    <div style="text-align:center;margin-bottom:24px">
+      <h2 style="font-family:var(--font-d);font-size:24px;color:var(--navy);margin:0 0 6px">Each Recipe Has a Process Flowchart</h2>
+      <p style="font-size:13px;color:var(--g3);margin:0">Two layers — a Live diagram operators run from, and (for imported recipes) a Captured archive of the legacy version</p>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+      <div class="card">
+        <div class="card-body" style="padding:20px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+            <span style="font-size:20px">🔀</span>
+            <div style="font-family:var(--font-d);font-size:15px;font-weight:600;color:var(--navy)">Live flowchart</div>
+            <span style="margin-left:auto;background:#DDEFD0;color:#1F4811;font-size:10px;padding:2px 8px;border-radius:40px;font-weight:600;letter-spacing:0.04em">SOURCE OF TRUTH</span>
+          </div>
+          <p style="font-size:12.5px;color:var(--g4);line-height:1.55;margin:0 0 12px">The diagram operators run from. Auto-built from your Shared blocks + Recipe-specific steps. R&D edits titles, OPRP/CCP tags, and order. Always reflects the current SOP page.</p>
+          <div style="font-size:11px;color:var(--g3);margin-bottom:3px"><strong style="color:var(--navy)">Who edits:</strong> R&D · QA · Admin</div>
+          <div style="font-size:11px;color:var(--g3)"><strong style="color:var(--navy)">How to open:</strong> Factory SOPs → recipe → 🔀 Flowchart</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-body" style="padding:20px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+            <span style="font-size:20px">📑</span>
+            <div style="font-family:var(--font-d);font-size:15px;font-weight:600;color:var(--navy)">Captured flowchart</div>
+            <span style="margin-left:auto;background:white;border:1px solid var(--g2);color:var(--g4);font-size:10px;padding:2px 8px;border-radius:40px;font-weight:600;letter-spacing:0.04em">REFERENCE</span>
+          </div>
+          <p style="font-size:12.5px;color:var(--g4);line-height:1.55;margin:0 0 12px">Image archive of the original flowchart from the old DFC-MP SOP doc. Read-only — kept while the team rebuilds the Live version. <strong>New recipes don't have one</strong>, they're authored Live from day one.</p>
+          <div style="font-size:11px;color:var(--g3);margin-bottom:3px"><strong style="color:var(--navy)">Currently on:</strong> 65 of 185 recipes</div>
+          <div style="font-size:11px;color:var(--g3)"><strong style="color:var(--navy)">How to open:</strong> Factory SOPs → recipe → 📑 As captured (N)</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="padding:10px 12px;border-radius:8px;background:#F0F6FF;border:1px solid #C9DBF7;font-size:12px;color:#0E2C44;display:flex;align-items:flex-start;gap:8px;margin-bottom:32px">
+      <span style="font-size:14px;line-height:1.5">ℹ️</span>
+      <span>When both buttons are present, always trust the <strong>Live flowchart</strong>. The captured archive is a frozen snapshot from the legacy SOP — it doesn't update when steps change. If the two diverge unintentionally, raise it with R&D.</span>
+    </div>
+
     <!-- Code System Divider -->
     <div style="border-top:2px solid var(--g1);margin:40px 0;position:relative">
       <span style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--bg);padding:0 16px;font-size:11px;color:var(--g3);text-transform:uppercase;letter-spacing:0.1em;font-weight:500">Code System</span>
@@ -3106,6 +3148,26 @@ var TOUR_TOPICS = {
         title: 'Photos, PPE strip, Hazards strip',
         body: 'Each step can carry a photo (uploaded inline). The SOP page also shows a <strong>PPE strip</strong> at the top (hairnet, gloves, mask, safety shoes, goggles) and a <strong>Hazards strip</strong> (biological, chemical, physical, allergen) — the icons we shipped in Phase B.',
         page: 'sop'
+      },
+      {
+        title: 'Live flowchart — the source of truth',
+        body: 'Every SOP page has a <strong>🔀 Flowchart</strong> button. It opens a process diagram of the recipe — auto-built from your shared blocks + recipe-specific steps. Edit titles, attach OPRP/CCP tags, reorder. <strong>This is the version operators run from</strong>, and it stays in sync with the SOP page automatically.',
+        page: 'sop',
+        roleHints: {
+          npd: 'You shape the Live flowchart by editing steps. The diagram updates as you edit.',
+          factory: 'You read it on the line. If it doesn\'t match what you actually do, flag R&D — don\'t treat it as wrong on your own.',
+          qa: 'You sign off the CCPs and OPRPs that show on the diagram. They mirror the spec.'
+        }
+      },
+      {
+        title: 'Captured flowchart — the legacy reference',
+        body: '65 of the imported recipes also show a <strong>📑 As captured (N)</strong> button next to the Flowchart button. That\'s the original diagram from the old DFC-MP SOP doc, archived as image pages. <strong>Read-only — reference only.</strong> When both buttons are present, the Live flowchart wins. New recipes (anything authored from R&D draft onward) don\'t get a captured archive — they\'re Live from day one.',
+        page: 'sop',
+        roleHints: {
+          factory: 'Useful when you want to compare the Live flowchart against the version you trained on years ago.',
+          npd: 'Keep this open in a second window while you rebuild the Live version of an imported recipe — it shows you what the original diagram intended.',
+          qa: 'When the Live flowchart drifts from the captured one and that drift wasn\'t intentional, that\'s a finding worth raising.'
+        }
       },
       {
         title: 'Edit Library to manage shared blocks',
