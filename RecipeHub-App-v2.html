@@ -3363,6 +3363,23 @@ var TOUR_TOPICS = {
         roleHints: {
           qa: 'You\'re the only role that can generate these. They carry your sign-off.'
         }
+      },
+      {
+        title: 'Editable spec tables — define your own pass/fail',
+        body: 'The <strong>Physical & Chemical</strong> and <strong>Microbiology</strong> tables let QA define the spec range per parameter (Spec Min / Spec Max for phys-chem; Spec Limit for micro), capture the measured Result, and mark <strong>Pass / Fail / Review</strong> per row. Every cell is editable for QA / Admin and saved per-recipe to <code>r.qaLab</code>. The count badge in each card head (0/7, 0/9) updates live as you mark verdicts.',
+        page: 'qa',
+        roleHints: {
+          qa: 'You author the specs. Be careful — these become the gate the recipe is judged against on every batch.',
+          npd: 'You can read these but the specs and verdicts are QA\'s call.'
+        }
+      },
+      {
+        title: '📷 Photos, Videos & Files',
+        body: 'Bottom of the QA page: <strong>📷 Photos, Videos & Files</strong> per recipe. Upload <strong>photos</strong> (defects on the line), <strong>videos</strong> up to 50 MB (.mp4 / .mov / .webm), and <strong>PDFs</strong> (lab certificates, COAs, supplier specs). Each item gets a caption, an author + date footer, and ✕ to delete (your own or admin). Useful as evidence attached to the recipe.',
+        page: 'qa',
+        roleHints: {
+          qa: 'You and Admin can add. Anyone with QA access can view.'
+        }
       }
     ]
   },
@@ -3611,6 +3628,243 @@ var TOUR_TOPICS = {
           qa: 'Watch FC% drift across runs — sudden moves usually mean yield or ingredient-cost changes.',
           factory: 'Validated yield is the lever you control. Higher yield → lower FC%.',
           purchasing: 'Ingredient prices flow straight into FC%. Focus negotiations on the heavy hitters.'
+        }
+      }
+    ]
+  },
+
+  'qas': {
+    title: 'QAS — Visual Spec',
+    icon: '🎯',
+    minutes: 4,
+    blurb: 'Visual acceptance specification — shape, colour, size, photos. R&D signs off before a recipe can be Approved.',
+    steps: [
+      {
+        title: 'QAS is the visual gate before Approved',
+        body: 'Every recipe gets a <strong>QAS — Visual Acceptance Specification</strong>: target shape, colour, size, surface texture, plus reference and defect photos. <strong>R&D signs it off, and that sign-off is a hard gate</strong> on the final approval. Without it (or an explicit R&D bypass with a written reason), a recipe cannot move from Production Trial to Approved.',
+        page: 'training'
+      },
+      {
+        title: 'Open QAS',
+        body: 'Sidebar → Quality & Production → <strong>🎯 QAS — Visual Spec</strong>. The landing list shows every recipe with a QAS status: Not started · Draft · Pending · Approved · Rejected · Bypassed. Sorted with unfilled ones first so the work-to-do is on top.',
+        page: 'qas',
+        selector: '.nav-item[data-page="qas"]'
+      },
+      {
+        title: 'Visual specs table',
+        body: 'Click any recipe row. The <strong>Visual Specs</strong> table is pre-seeded with Shape · Colour · Size / dimensions · Surface / texture. Each row has 4 editable cells: <strong>Attribute · Target · Acceptable · Reject</strong>. Add custom rows with + Add row. Removed with ✕.',
+        page: 'qas',
+        roleHints: {
+          npd: 'You author these. Be specific — "Surface: smooth, no cracks visible" beats "looks good".',
+          qa: 'You read these on the line as the visual reference for what passes and what gets rejected.',
+          factory: 'Operators check finished product against this spec.'
+        }
+      },
+      {
+        title: 'Reference and defect photos',
+        body: 'Two photo grids: <strong>Reference photos</strong> (correct product) and <strong>Defect photos</strong> (what to reject). Multi-upload supported, 5 MB cap each. Each photo gets a caption AND its own comments thread — useful for QA / R&D / Factory to discuss specific defects without scrolling.',
+        page: 'qas'
+      },
+      {
+        title: 'Sign-off and the hard gate',
+        body: 'Bottom of the QAS page: <strong>✓ Sign off — Approve QAS</strong>. R&D / Admin only. Once approved, the recipe can be moved to Approved. If a recipe is stuck and you must approve without QAS, hit Cancel on the gate prompt and it offers a <strong>Bypass</strong> with a mandatory reason — that bypass shows on the QAS header as ⚠ Bypassed and is auditable.',
+        page: 'qas',
+        roleHints: {
+          npd: 'You sign off. You can also bypass with a reason — try not to.',
+          qa: 'You can read every QAS but R&D owns the sign-off.',
+          factory: 'You can\'t edit QAS but you can drop comments on photos when you spot a defect drift.'
+        }
+      }
+    ]
+  },
+
+  'substitutions': {
+    title: 'Substitutions',
+    icon: '⇄',
+    minutes: 4,
+    blurb: 'Purchasing requests an ingredient swap; R&D, QA, and Factory each approve their step.',
+    steps: [
+      {
+        title: 'When ingredients change, this is the path',
+        body: 'Sometimes Purchasing needs to swap an ingredient — supplier change, cost negotiation, allergen rework. The <strong>Substitution Request</strong> workflow runs the change through R&D, QA and Factory in sequence so nothing slips into production unverified.',
+        page: 'training'
+      },
+      {
+        title: 'Open Substitutions',
+        body: 'Sidebar → Quality & Production → <strong>⇄ Substitutions</strong>. The badge shows how many requests are open. List sorts by stage — pending requests on top.',
+        page: 'substitutions',
+        selector: '.nav-item[data-page="substitutions"]'
+      },
+      {
+        title: 'Sequential approvals: R&D → QA → Factory',
+        body: 'Once Purchasing files a request, it moves through three approval stages in order. <strong>Each role can only act on its own stage.</strong> R&D first (recipe impact), then QA (spec/safety impact), then Factory (line readiness). Any role can reject with a reason.',
+        page: 'substitutions',
+        roleHints: {
+          purchasing: 'You start here — file the request with the new supplier/code/cost.',
+          npd: 'Stage 1: confirm the swap doesn\'t break the recipe formulation.',
+          qa: 'Stage 2: confirm allergen / micro / sensory implications.',
+          factory: 'Stage 3: confirm production can run with the new material.'
+        }
+      },
+      {
+        title: 'After approval — wire it up',
+        body: 'Once all three approve, R&D goes back to the affected recipes and updates the ingredient row. <strong>The substitution itself does not auto-rewire recipes</strong> — that step is manual on purpose so R&D can decide which recipes to migrate first.',
+        page: 'substitutions'
+      }
+    ]
+  },
+
+  'communications': {
+    title: 'Communications',
+    icon: '✉',
+    minutes: 3,
+    blurb: 'Send announcements to a group or individual, with templates and message logging.',
+    steps: [
+      {
+        title: 'Send updates without leaving RecipeHub',
+        body: 'The Communications page lets you email any role group (R&D, QA, Factory, OPS, Purchasing, Viewers, Everyone) or an individual user. Useful for "spec change incoming", "trial scheduled", or "QAS approved — go to production". Every message is logged.',
+        page: 'training'
+      },
+      {
+        title: 'Open Communications',
+        body: 'Sidebar → Resources → <strong>✉ Communications</strong>.',
+        page: 'comms',
+        selector: '.nav-item[data-page="comms"]'
+      },
+      {
+        title: 'Compose with formatting + preview',
+        body: 'Pick recipients, optionally link the message to a recipe, then write your message. <strong>B / I / Regular</strong> toolbar wraps the selection in <code>**bold**</code> / <code>*italic*</code> markers. <strong>Preview</strong> shows what the email will look like, live-updating as you type. Save Draft for later, or Send Email when ready.',
+        page: 'comms'
+      },
+      {
+        title: 'Message Log',
+        body: 'Right side panel keeps every sent message with subject, recipients, and timestamp. Click any entry to expand and re-read the body. Admin can delete log entries with the ✕ button — recipients still got the email, this just removes the record.',
+        page: 'comms'
+      }
+    ]
+  },
+
+  'kpi-goals': {
+    title: 'KPI & Goals',
+    icon: '◎',
+    minutes: 3,
+    blurb: 'FY savings target, projects logged against it, and the running total — for R&D and Subhanshu.',
+    steps: [
+      {
+        title: 'Track savings against the FY target',
+        body: 'KPI & Goals is where R&D, Subhanshu, and Admin track the financial outcomes of recipe and ingredient changes. Set the FY target, log each savings project, and watch the running total against goal.',
+        page: 'training'
+      },
+      {
+        title: 'Open KPI & Goals',
+        body: 'Sidebar → Analytics → <strong>◎ KPI & Goals</strong>. Visible only to Admin, R&D and Subhanshu — other roles don\'t see the link.',
+        page: 'cost-control',
+        selector: '.nav-item[data-page="cost-control"]',
+        fallback: {
+          body: 'KPI & Goals is locked to Admin / R&D / Subhanshu. Other roles don\'t see the page.',
+          page: 'training',
+          selector: null
+        }
+      },
+      {
+        title: 'FY target — editable',
+        body: 'Top right of the Savings Goal Tracker card. Click the <strong>FY Target</strong> input, type the new amount, tab away. The progress bar and per-category breakdown reflow live.',
+        page: 'cost-control',
+        roleHints: {
+          admin: 'You and Subhanshu set the FY target.',
+          npd: 'You can read but the FY target is locked to Admin / Subhanshu.'
+        }
+      },
+      {
+        title: 'Log a saving',
+        body: 'Click <strong>+ Log Saving</strong>. Fill project name, category (Recipe Change / Ingredient Swap / Process / Waste / Negotiation / Other), annual saving in SAR, date, optional notes. Each row has ✎ Edit and ✕ Delete.',
+        page: 'cost-control'
+      }
+    ]
+  },
+
+  'library': {
+    title: 'Library',
+    icon: '📚',
+    minutes: 2,
+    blurb: 'Where legacy SOPs, lab reports, supplier specs, and other reference docs live.',
+    steps: [
+      {
+        title: 'The doc dump that\'s organised',
+        body: 'Library is the single place to keep PDFs, spreadsheets, Word docs, and images that don\'t belong on a specific recipe — old SOPs, supplier specs, lab certificates, training material, compliance documents.',
+        page: 'training'
+      },
+      {
+        title: 'Open Library',
+        body: 'Sidebar → Resources → <strong>📚 Library</strong>.',
+        page: 'library',
+        selector: '.nav-item[data-page="library"]'
+      },
+      {
+        title: 'Upload + categorise',
+        body: '<strong>+ Upload Document</strong> top right. Title (required) · Category (Old Recipes · Lab Reports · Supplier Specs · Training · Compliance · Other) · File (required, PDF / DOC / XLS / CSV / TXT / image, 10 MB cap) · optional notes. Search and category filter at the top to find anything fast.',
+        page: 'library',
+        roleHints: {
+          npd: 'You can upload — useful for archiving the legacy DFC-MP SOPs you reference while rebuilding live.',
+          admin: 'You can delete anything. Other roles can only delete their own uploads.'
+        }
+      }
+    ]
+  },
+
+  'sidebar-walk': {
+    title: 'Quick Sidebar Walk-through',
+    icon: '🗺',
+    minutes: 2,
+    blurb: 'A 30-second tour of every nav item in the sidebar — what it is, who uses it.',
+    steps: [
+      {
+        title: 'A whirlwind tour',
+        body: 'This is the fastest way to learn the layout. We\'ll spotlight each section of the sidebar in turn and tell you in one line what it is. Skip any topic that sounds relevant — it has its own deeper tour.',
+        page: 'training'
+      },
+      {
+        title: 'NPD — Recipes & Builds',
+        body: '<strong>Recipes</strong> is the master list of every formulation. <strong>Product Builds</strong> are the assembled items (a sandwich = bun + sauce + filling). R&D lives here.',
+        page: 'recipes',
+        selector: '.nav-item[data-page="recipes"]'
+      },
+      {
+        title: 'Purchasing — Ingredients DB',
+        body: 'Every raw material with its Oracle code, supplier, current price, allergen profile. Purchasing manages prices; R&D references when costing recipes.',
+        page: 'ingredients',
+        selector: '.nav-item[data-page="ingredients"]'
+      },
+      {
+        title: 'SOPs — Factory & Branch',
+        body: '<strong>Factory SOP</strong> is the production-line manual per recipe (steps, HACCP icons, flowchart). <strong>Branch SOP</strong> is the store-level manual (assembly, portioning, plating).',
+        page: 'sop',
+        selector: '.nav-item[data-page="sop"]'
+      },
+      {
+        title: 'Quality & Production',
+        body: '<strong>QA Lab Results</strong> = micro and physical tests with Pass/Fail per parameter. <strong>QAS — Visual Spec</strong> = the visual acceptance gate. <strong>Production Plan</strong> = scheduled runs and yield. <strong>Substitutions</strong> = ingredient swap requests with sequential approval.',
+        page: 'qa',
+        selector: '.nav-item[data-page="qa"]'
+      },
+      {
+        title: 'Analytics',
+        body: '<strong>Recipe Analytics</strong> = pipeline state, status counts, time-to-approved. <strong>Build Analytics</strong> = portion / FC% per build. <strong>Brands</strong> = spreadsheet view of all recipes per brand. <strong>KPI & Goals</strong> = FY savings tracker.',
+        page: 'reports',
+        selector: '.nav-item[data-page="reports"]'
+      },
+      {
+        title: 'Resources',
+        body: '<strong>Communications</strong> = group emails. <strong>Workflow</strong> = visual lifecycle reference. <strong>Training</strong> = this page. <strong>Library</strong> = doc dump.',
+        page: 'comms',
+        selector: '.nav-item[data-page="comms"]'
+      },
+      {
+        title: 'Settings (admin only)',
+        body: '<strong>Users & Access</strong> = who can do what. <strong>Audit Log</strong> = every meaningful change recorded. Admin sees these; other roles don\'t.',
+        page: 'training',
+        roleHints: {
+          admin: 'These two pages are yours only. Use the Audit Log if anything ever looks off — it\'s the source of truth for who did what.'
         }
       }
     ]
