@@ -809,6 +809,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
     </div>
     <div style="display:flex;gap:6px">
       <button onclick="forceRefreshFromServer()" style="flex:1;padding:6px;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,0.1);background:none;color:rgba(255,255,255,0.4);font-family:var(--font-b);font-size:11px;cursor:pointer;transition:all 0.15s" onmouseover="this.style.background='rgba(255,255,255,0.08)';this.style.color='rgba(255,255,255,0.7)'" onmouseout="this.style.background='none';this.style.color='rgba(255,255,255,0.4)'">Refresh Data</button>
+      <button id="sidebar-backup-btn" onclick="exportBackup()" title="Download a JSON snapshot of all RecipeHub data" style="flex:1;padding:6px;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,0.1);background:none;color:rgba(255,255,255,0.4);font-family:var(--font-b);font-size:11px;cursor:pointer;transition:all 0.15s" onmouseover="this.style.background='rgba(255,255,255,0.08)';this.style.color='rgba(255,255,255,0.7)'" onmouseout="this.style.background='none';this.style.color='rgba(255,255,255,0.4)'">↓ Backup</button>
       <button onclick="signOut()" style="flex:1;padding:6px;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,0.1);background:none;color:rgba(255,255,255,0.4);font-family:var(--font-b);font-size:11px;cursor:pointer;transition:all 0.15s" onmouseover="this.style.background='rgba(255,255,255,0.08)';this.style.color='rgba(255,255,255,0.7)'" onmouseout="this.style.background='none';this.style.color='rgba(255,255,255,0.4)'">Sign Out</button>
     </div>
   </div>
@@ -6658,6 +6659,9 @@ function applySidebarPermissions() {
   // "View as" role switcher: always visible to real admins, even while previewing
   var previewSelect = document.getElementById('preview-role-select');
   if (previewSelect) previewSelect.parentElement.style.display = getRealUserRole() === 'admin' ? '' : 'none';
+  // Backup button: real admins only (the function itself also gates, but hide for clarity)
+  var backupBtn = document.getElementById('sidebar-backup-btn');
+  if (backupBtn) backupBtn.style.display = getRealUserRole() === 'admin' ? '' : 'none';
 }
 
 function nav(id) {
