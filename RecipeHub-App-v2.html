@@ -6838,7 +6838,16 @@ function openAccessPopover(email, anchor) {
   var rect = anchor.getBoundingClientRect();
   var pop = document.createElement('div');
   pop.id = 'access-popover';
-  pop.style.cssText = 'position:fixed;top:'+(rect.bottom+6)+'px;left:'+Math.max(8, rect.left - 80)+'px;background:white;border:1px solid var(--g2);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.12);z-index:1000;width:240px;overflow:hidden';
+  // Estimate popover height — header (~38px) plus rows (each ~38px). Cap at viewport.
+  var POP_W = 240;
+  var estH = 50 + ACCESS_KEYS.length * 38;
+  var spaceBelow = window.innerHeight - rect.bottom;
+  var spaceAbove = rect.top;
+  // Flip above if not enough room below AND there's more room above
+  var flipUp = spaceBelow < estH + 16 && spaceAbove > spaceBelow;
+  var top = flipUp ? Math.max(8, rect.top - estH - 6) : (rect.bottom + 6);
+  var left = Math.max(8, Math.min(rect.left - 80, window.innerWidth - POP_W - 8));
+  pop.style.cssText = 'position:fixed;top:'+top+'px;left:'+left+'px;background:white;border:1px solid var(--g2);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.12);z-index:1000;width:'+POP_W+'px;overflow:hidden;max-height:'+(window.innerHeight - 16)+'px;overflow-y:auto';
   pop.innerHTML =
     '<div style="padding:10px 12px;border-bottom:1px solid var(--g1);background:var(--g0);font-size:11px;font-weight:600;color:var(--navy);display:flex;justify-content:space-between;align-items:center">' +
       '<span>'+u.name+'</span>' +
@@ -14976,18 +14985,18 @@ function buildUsersTable() {
     tr.innerHTML = `
       <td>
         <div style="display:flex;align-items:center;gap:10px">
-          <div style="width:32px;height:32px;border-radius:50%;background:${rm.bg};border:1px solid ${rm.border};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;color:${rm.color};flex-shrink:0">${u.name.split(' ').map(n=>n[0]).join('')}</div>
+          <div style="width:32px;height:32px;border-radius:50%;background:${rm.bg};border:1px solid ${rm.border};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;color:${rm.color};flex-shrink:0">${(u.name || u.email || '?').split(/[\s.@]/).filter(Boolean).slice(0,2).map(n=>n[0].toUpperCase()).join('')}</div>
           <div>
-            <div style="font-weight:500;font-size:13px">${u.name}${isMe ? ' <span style="font-size:10px;color:var(--gold)">★ You</span>' : ''}</div>
-            <div style="font-size:11px;color:var(--g3)">${u.title}</div>
+            <div style="font-weight:500;font-size:13px">${u.name || u.email || '(no name)'}${isMe ? ' <span style="font-size:10px;color:var(--gold)">★ You</span>' : ''}</div>
+            <div style="font-size:11px;color:var(--g3)">${u.title || '—'}</div>
           </div>
         </div>
       </td>
-      <td style="font-size:12px;color:var(--g4)">${u.email}</td>
-      <td style="font-size:12px;font-family:var(--font-m);color:var(--g4)">${u.phone}</td>
-      <td style="font-size:12px;color:var(--g4)">${u.dept}</td>
+      <td style="font-size:12px;color:var(--g4)">${u.email || '—'}</td>
+      <td style="font-size:12px;font-family:var(--font-m);color:var(--g4)">${u.phone || '—'}</td>
+      <td style="font-size:12px;color:var(--g4)">${u.dept || '—'}</td>
       <td><span class="badge" style="background:${rm.bg};color:${rm.color};border:1px solid ${rm.border}">${rm.label}</span></td>
-      <td style="font-size:12px;color:var(--g4)">${u.brands}</td>
+      <td style="font-size:12px;color:var(--g4)">${u.brands || '—'}</td>
       <td>${(function(){
         // Access summary chip — opens the access popover on click.
         var locked  = isMe;
