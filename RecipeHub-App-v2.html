@@ -1127,15 +1127,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
       <div class="card-body" style="padding:0">
         <table class="data-table">
           <thead><tr><th>Parameter</th><th style="text-align:right">Spec Min</th><th style="text-align:right">Spec Max</th><th style="text-align:right">Result</th><th>Status</th></tr></thead>
-          <tbody>
-            <tr><td>pH</td><td style="text-align:right;font-family:var(--font-m)">—</td><td style="text-align:right;font-family:var(--font-m)">—</td><td><input class="form-input" value="" style="text-align:right;font-family:var(--font-m);padding:4px 8px;font-size:13px" placeholder="—" /></td><td><span class="badge badge-draft" id="ph-status">—</span></td></tr>
-            <tr><td>Water Activity (Aw)</td><td style="text-align:right;font-family:var(--font-m)">—</td><td style="text-align:right;font-family:var(--font-m)">—</td><td><input class="form-input" value="" style="text-align:right;font-family:var(--font-m);padding:4px 8px;font-size:13px" placeholder="—" /></td><td><span class="badge badge-draft" id="aw-status">—</span></td></tr>
-            <tr><td>Moisture (%)</td><td style="text-align:right;font-family:var(--font-m)">—</td><td style="text-align:right;font-family:var(--font-m)">—</td><td><input class="form-input" value="" style="text-align:right;font-family:var(--font-m);padding:4px 8px;font-size:13px" placeholder="—" /></td><td><span class="badge badge-draft">—</span></td></tr>
-            <tr><td>Titratable Acidity (%)</td><td style="text-align:right;font-family:var(--font-m)">—</td><td style="text-align:right;font-family:var(--font-m)">—</td><td><input class="form-input" value="" style="text-align:right;font-family:var(--font-m);padding:4px 8px;font-size:13px" placeholder="—" /></td><td><span class="badge badge-draft">—</span></td></tr>
-            <tr><td>Salt / NaCl (%)</td><td style="text-align:right;font-family:var(--font-m)">—</td><td style="text-align:right;font-family:var(--font-m)">—</td><td><input class="form-input" value="" style="text-align:right;font-family:var(--font-m);padding:4px 8px;font-size:13px" placeholder="—" /></td><td><span class="badge badge-draft">—</span></td></tr>
-            <tr><td>Brix (°Bx)</td><td style="text-align:right;font-family:var(--font-m)">—</td><td style="text-align:right;font-family:var(--font-m)">—</td><td><input class="form-input" value="" style="text-align:right;font-family:var(--font-m);padding:4px 8px;font-size:13px" placeholder="—" /></td><td><span class="badge badge-draft" id="brix-status">—</span></td></tr>
-            <tr><td>Viscosity (cP)</td><td style="text-align:right;font-family:var(--font-m)">—</td><td style="text-align:right;font-family:var(--font-m)">—</td><td><input class="form-input" value="" style="text-align:right;font-family:var(--font-m);padding:4px 8px;font-size:13px" placeholder="—" /></td><td><span class="badge badge-draft" id="visc-status">—</span></td></tr>
-          </tbody>
+          <tbody id="phychem-tbody"></tbody>
         </table>
       </div>
     </div>
@@ -1152,17 +1144,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
       <div class="card-body" style="padding:0">
         <table class="data-table">
           <thead><tr><th>Organism</th><th style="text-align:right">Spec Limit</th><th style="text-align:right">Result</th><th>Unit</th><th>Status</th></tr></thead>
-          <tbody>
-            <tr><td>Aerobic Plate Count (TPC)</td><td style="text-align:right;font-family:var(--font-m)">—</td><td><input class="form-input" value="" style="text-align:right;font-family:var(--font-m);padding:4px 8px;font-size:13px" placeholder="—" /></td><td style="color:var(--g3);font-size:12px">CFU/g</td><td><span class="badge badge-draft">—</span></td></tr>
-            <tr><td>E. coli</td><td style="text-align:right;font-family:var(--font-m)">—</td><td><input class="form-input" value="" style="text-align:right;font-family:var(--font-m);padding:4px 8px;font-size:13px" placeholder="—" /></td><td style="color:var(--g3);font-size:12px">CFU/g</td><td><span class="badge badge-draft">—</span></td></tr>
-            <tr><td>Coliform</td><td style="text-align:right;font-family:var(--font-m)">—</td><td><input class="form-input" value="" style="text-align:right;font-family:var(--font-m);padding:4px 8px;font-size:13px" placeholder="—" /></td><td style="color:var(--g3);font-size:12px">CFU/g</td><td><span class="badge badge-draft">—</span></td></tr>
-            <tr><td>Enterobacteriaceae</td><td style="text-align:right;font-family:var(--font-m)">—</td><td><input class="form-input" value="" style="text-align:right;font-family:var(--font-m);padding:4px 8px;font-size:13px" placeholder="—" /></td><td style="color:var(--g3);font-size:12px">CFU/g</td><td><span class="badge badge-draft">—</span></td></tr>
-            <tr><td>Staphylococcus aureus</td><td style="text-align:right;font-family:var(--font-m)">—</td><td><input class="form-input" value="" style="text-align:right;font-family:var(--font-m);padding:4px 8px;font-size:13px" placeholder="—" /></td><td style="color:var(--g3);font-size:12px">CFU/g</td><td><span class="badge badge-draft">—</span></td></tr>
-            <tr><td>Yeasts &amp; Moulds</td><td style="text-align:right;font-family:var(--font-m)">—</td><td><input class="form-input" value="" style="text-align:right;font-family:var(--font-m);padding:4px 8px;font-size:13px" placeholder="—" /></td><td style="color:var(--g3);font-size:12px">CFU/g</td><td><span class="badge badge-draft">—</span></td></tr>
-            <tr><td>Salmonella</td><td style="text-align:right;font-family:var(--font-m)">—</td><td><input class="form-input" value="" style="text-align:right;font-family:var(--font-m);padding:4px 8px;font-size:13px" placeholder="—" /></td><td style="color:var(--g3);font-size:12px">in 25g</td><td><span class="badge badge-draft">—</span></td></tr>
-            <tr><td>E. coli O157</td><td style="text-align:right;font-family:var(--font-m)">—</td><td><input class="form-input" value="" style="text-align:right;font-family:var(--font-m);padding:4px 8px;font-size:13px" placeholder="—" /></td><td style="color:var(--g3);font-size:12px">in 25g</td><td><span class="badge badge-draft">—</span></td></tr>
-            <tr><td>Listeria monocytogenes</td><td style="text-align:right;font-family:var(--font-m)">—</td><td><input class="form-input" value="" style="text-align:right;font-family:var(--font-m);padding:4px 8px;font-size:13px" placeholder="—" /></td><td style="color:var(--g3);font-size:12px">in 25g</td><td><span class="badge badge-draft">—</span></td></tr>
-          </tbody>
+          <tbody id="micro-tbody"></tbody>
         </table>
       </div>
     </div>
@@ -15517,6 +15499,7 @@ function qaPickPastRecipe(npd) {
 function updateQARecipe(npd) {
   _qaCurrentNPD = npd;
   renderQaMedia();
+  renderQALabTables();
   var batchEl = document.getElementById('qa-batch');
   var dateEl = document.getElementById('qa-date');
   var r = npd ? RECIPE_DB[npd] : null;
@@ -15560,6 +15543,118 @@ function updateQARecipe(npd) {
     if (dv) dv.textContent = '—';
   });
   if (npd) loadNutrition(npd);
+}
+
+// ──────────── QA Lab Tables (Physical/Chemical + Microbiology) — per recipe ────────────
+// Rows are static (defined here), values are stored on the recipe as r.qaLab.{key} = {min, max, result, verdict}
+var QA_PHYCHEM_ROWS = [
+  { key:'ph',        label:'pH' },
+  { key:'aw',        label:'Water Activity (Aw)' },
+  { key:'moisture',  label:'Moisture (%)' },
+  { key:'acidity',   label:'Titratable Acidity (%)' },
+  { key:'salt',      label:'Salt / NaCl (%)' },
+  { key:'brix',      label:'Brix (°Bx)' },
+  { key:'viscosity', label:'Viscosity (cP)' },
+];
+var QA_MICRO_ROWS = [
+  { key:'tpc',       label:'Aerobic Plate Count (TPC)', unit:'CFU/g' },
+  { key:'ecoli',     label:'E. coli',                    unit:'CFU/g' },
+  { key:'coliform',  label:'Coliform',                   unit:'CFU/g' },
+  { key:'entero',    label:'Enterobacteriaceae',         unit:'CFU/g' },
+  { key:'staph',     label:'Staphylococcus aureus',      unit:'CFU/g' },
+  { key:'ym',        label:'Yeasts & Moulds',            unit:'CFU/g' },
+  { key:'salmonella',label:'Salmonella',                 unit:'in 25g' },
+  { key:'ecoli157',  label:'E. coli O157',               unit:'in 25g' },
+  { key:'listeria',  label:'Listeria monocytogenes',     unit:'in 25g' },
+];
+
+function _qaLabCanEdit() {
+  var role = (typeof getCurrentUserRole === 'function') ? getCurrentUserRole() : '';
+  return role === 'admin' || role === 'qa';
+}
+function _qaLabBadgeClass(v) {
+  return v === 'pass' ? 'badge-approved' : v === 'fail' ? 'badge-trial' : v === 'review' ? 'badge-amber' : 'badge-draft';
+}
+function _qaLabRowValues(r, key) {
+  var v = (r && r.qaLab && r.qaLab[key]) || {};
+  return { min: v.min || '', max: v.max || '', limit: v.limit || '', result: v.result || '', verdict: v.verdict || '' };
+}
+
+function renderQALabTables() {
+  var pBody = document.getElementById('phychem-tbody');
+  var mBody = document.getElementById('micro-tbody');
+  if (!pBody || !mBody) return;
+  var npd = _qaCurrentNPD;
+  var r = npd ? RECIPE_DB[npd] : null;
+  var canEdit = _qaLabCanEdit() && !!r;
+  var dis = canEdit ? '' : 'disabled';
+
+  pBody.innerHTML = QA_PHYCHEM_ROWS.map(function(row) {
+    var v = _qaLabRowValues(r, row.key);
+    return '<tr>' +
+      '<td>' + row.label + '</td>' +
+      '<td><input class="form-input" ' + dis + ' value="' + v.min.replace(/"/g,'&quot;') + '" placeholder="min" style="text-align:right;font-family:var(--font-m);padding:4px 8px;font-size:13px" onchange="setQALabSpec(\'' + row.key + '\',\'min\',this.value)" /></td>' +
+      '<td><input class="form-input" ' + dis + ' value="' + v.max.replace(/"/g,'&quot;') + '" placeholder="max" style="text-align:right;font-family:var(--font-m);padding:4px 8px;font-size:13px" onchange="setQALabSpec(\'' + row.key + '\',\'max\',this.value)" /></td>' +
+      '<td><input class="form-input" ' + dis + ' value="' + v.result.replace(/"/g,'&quot;') + '" placeholder="—" style="text-align:right;font-family:var(--font-m);padding:4px 8px;font-size:13px" onchange="setQALabSpec(\'' + row.key + '\',\'result\',this.value)" /></td>' +
+      '<td><select class="form-select" ' + dis + ' style="width:90px;padding:4px 6px;font-size:11px" onchange="setQALabSpec(\'' + row.key + '\',\'verdict\',this.value)">' +
+        '<option value=""'        + (!v.verdict        ? ' selected' : '') + '>—</option>' +
+        '<option value="pass"'    + (v.verdict==='pass' ? ' selected' : '') + '>Pass</option>' +
+        '<option value="fail"'    + (v.verdict==='fail' ? ' selected' : '') + '>Fail</option>' +
+        '<option value="review"'  + (v.verdict==='review' ? ' selected' : '') + '>Review</option>' +
+      '</select></td>' +
+    '</tr>';
+  }).join('');
+
+  mBody.innerHTML = QA_MICRO_ROWS.map(function(row) {
+    var v = _qaLabRowValues(r, row.key);
+    return '<tr>' +
+      '<td>' + row.label + '</td>' +
+      '<td><input class="form-input" ' + dis + ' value="' + v.limit.replace(/"/g,'&quot;') + '" placeholder="limit" style="text-align:right;font-family:var(--font-m);padding:4px 8px;font-size:13px" onchange="setQALabSpec(\'' + row.key + '\',\'limit\',this.value)" /></td>' +
+      '<td><input class="form-input" ' + dis + ' value="' + v.result.replace(/"/g,'&quot;') + '" placeholder="—" style="text-align:right;font-family:var(--font-m);padding:4px 8px;font-size:13px" onchange="setQALabSpec(\'' + row.key + '\',\'result\',this.value)" /></td>' +
+      '<td style="color:var(--g3);font-size:12px">' + row.unit + '</td>' +
+      '<td><select class="form-select" ' + dis + ' style="width:90px;padding:4px 6px;font-size:11px" onchange="setQALabSpec(\'' + row.key + '\',\'verdict\',this.value)">' +
+        '<option value=""'        + (!v.verdict        ? ' selected' : '') + '>—</option>' +
+        '<option value="pass"'    + (v.verdict==='pass' ? ' selected' : '') + '>Pass</option>' +
+        '<option value="fail"'    + (v.verdict==='fail' ? ' selected' : '') + '>Fail</option>' +
+        '<option value="review"'  + (v.verdict==='review' ? ' selected' : '') + '>Review</option>' +
+      '</select></td>' +
+    '</tr>';
+  }).join('');
+
+  // Update count badges
+  var pCnt = document.getElementById('phychem-status');
+  if (pCnt) {
+    var pDone = QA_PHYCHEM_ROWS.filter(function(row){ return _qaLabRowValues(r, row.key).verdict; }).length;
+    pCnt.textContent = pDone + '/' + QA_PHYCHEM_ROWS.length;
+  }
+  var mCnt = document.getElementById('micro-status');
+  if (mCnt) {
+    var mDone = QA_MICRO_ROWS.filter(function(row){ return _qaLabRowValues(r, row.key).verdict; }).length;
+    mCnt.textContent = mDone + '/' + QA_MICRO_ROWS.length;
+  }
+}
+
+function setQALabSpec(key, field, value) {
+  if (!_qaLabCanEdit()) { showSaveToast('QA / Admin only', true); return; }
+  var npd = _qaCurrentNPD;
+  if (!npd) { showSaveToast('Pick a recipe first', true); return; }
+  var r = RECIPE_DB[npd]; if (!r) return;
+  if (!r.qaLab) r.qaLab = {};
+  if (!r.qaLab[key]) r.qaLab[key] = {};
+  r.qaLab[key][field] = value;
+  r.updatedAt = new Date().toISOString();
+  saveAllData();
+  // Refresh count badges (don't full-re-render — keeps cursor in input)
+  var pCnt = document.getElementById('phychem-status');
+  if (pCnt) {
+    var pDone = QA_PHYCHEM_ROWS.filter(function(row){ return _qaLabRowValues(r, row.key).verdict; }).length;
+    pCnt.textContent = pDone + '/' + QA_PHYCHEM_ROWS.length;
+  }
+  var mCnt = document.getElementById('micro-status');
+  if (mCnt) {
+    var mDone = QA_MICRO_ROWS.filter(function(row){ return _qaLabRowValues(r, row.key).verdict; }).length;
+    mCnt.textContent = mDone + '/' + QA_MICRO_ROWS.length;
+  }
 }
 
 // ──────────── QA media (photos, videos, files) — per recipe ────────────
