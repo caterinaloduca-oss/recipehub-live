@@ -2884,16 +2884,18 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
         </div>
         <div class="form-group" style="margin-bottom:16px">
           <label class="form-label">Message</label>
-          <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center">
-            <button type="button" class="btn btn-outline btn-sm" style="font-weight:700;font-size:12px;padding:4px 10px;min-width:32px" onclick="commsApplyFormat('bold')" title="Bold — wraps selection in **">B</button>
-            <button type="button" class="btn btn-outline btn-sm" style="font-style:italic;font-size:12px;padding:4px 10px;min-width:32px" onclick="commsApplyFormat('italic')" title="Italic — wraps selection in *">I</button>
-            <button type="button" class="btn btn-outline btn-sm" style="font-size:12px;padding:4px 10px" onclick="commsApplyFormat('plain')" title="Remove formatting from selection">Regular</button>
-            <span style="flex:1"></span>
-            <button type="button" id="comms-preview-btn" class="btn btn-outline btn-sm" style="font-size:12px;padding:4px 10px" onclick="commsTogglePreview()">Preview</button>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;align-items:center">
+            <button type="button" class="btn btn-outline btn-sm" style="font-weight:700" onclick="commsApplyFormat('bold')" title="Wrap selection in **bold**">B</button>
+            <button type="button" class="btn btn-outline btn-sm" style="font-style:italic" onclick="commsApplyFormat('italic')" title="Wrap selection in *italic*">I</button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="commsApplyFormat('plain')" title="Remove formatting from selection">Regular</button>
+            <span style="flex:1;min-width:8px"></span>
+            <button type="button" id="comms-preview-btn" class="btn btn-outline btn-sm" onclick="commsTogglePreview()">Show preview</button>
           </div>
-          <textarea class="form-textarea" id="comms-body" style="min-height:120px" placeholder="Type your message... Use the toolbar or **bold** / *italic* markers."></textarea>
-          <div id="comms-preview" style="display:none;min-height:120px;padding:12px 14px;background:#FDFCF8;border:1px solid var(--g2);border-radius:var(--r-sm);font-size:14px;line-height:1.6;color:#333"></div>
-          <div style="font-size:11px;color:var(--g4);margin-top:4px">Tip: wrap text in <code>**double stars**</code> for bold or <code>*single stars*</code> for italic.</div>
+          <textarea class="form-textarea" id="comms-body" style="min-height:120px;width:100%;box-sizing:border-box" placeholder="Type your message. Use **bold** / *italic* or the toolbar."></textarea>
+          <div id="comms-preview-wrap" style="display:none;margin-top:8px">
+            <div style="font-size:10px;font-weight:600;color:var(--g3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">Live preview</div>
+            <div id="comms-preview" style="padding:12px 14px;background:#FDFCF8;border:1px solid var(--g2);border-radius:var(--r-sm);font-size:14px;line-height:1.6;color:#333;word-wrap:break-word;overflow-wrap:break-word"></div>
+          </div>
         </div>
         <div style="display:flex;gap:10px;justify-content:flex-end">
           <button class="btn btn-outline" onclick="clearCommsForm()">Clear</button>
@@ -19274,13 +19276,11 @@ function clearCommsForm() {
   document.getElementById('comms-recipe').value = '';
   document.getElementById('comms-individual-wrap').style.display = 'none';
   document.getElementById('comms-recipients-preview').textContent = '';
-  // Snap preview pane back to edit mode
-  var pv = document.getElementById('comms-preview');
-  var ta = document.getElementById('comms-body');
+  // Collapse preview pane back to hidden
+  var wrap = document.getElementById('comms-preview-wrap');
   var pvBtn = document.getElementById('comms-preview-btn');
-  if (pv) pv.style.display = 'none';
-  if (ta) ta.style.display = '';
-  if (pvBtn) pvBtn.textContent = 'Preview';
+  if (wrap) wrap.style.display = 'none';
+  if (pvBtn) pvBtn.textContent = 'Show preview';
 }
 
 var COMMS_DRAFTS = JSON.parse(localStorage.getItem('_commsDrafts') || '[]');
@@ -19358,32 +19358,47 @@ function commsApplyFormat(kind) {
     ta.value = v.substring(0, s) + stripped + v.substring(e);
     ta.focus();
     ta.setSelectionRange(s, s + stripped.length);
+    commsUpdatePreviewLive();
     return;
   }
   var marker = (kind === 'bold') ? '**' : '*';
-  if (!sel) sel = (kind === 'bold') ? 'bold text' : 'italic text';
   var inserted = marker + sel + marker;
   ta.value = v.substring(0, s) + inserted + v.substring(e);
   ta.focus();
-  ta.setSelectionRange(s + marker.length, s + marker.length + sel.length);
+  // If selection was empty, park caret between markers; otherwise re-select wrapped text
+  if (!sel) ta.setSelectionRange(s + marker.length, s + marker.length);
+  else ta.setSelectionRange(s + marker.length, s + marker.length + sel.length);
+  // If preview is open, keep it in sync
+  commsUpdatePreviewLive();
 }
 
 function commsTogglePreview() {
   var ta = document.getElementById('comms-body');
+  var wrap = document.getElementById('comms-preview-wrap');
   var pv = document.getElementById('comms-preview');
   var btn = document.getElementById('comms-preview-btn');
-  if (!ta || !pv || !btn) return;
-  if (pv.style.display === 'none' || !pv.style.display) {
+  if (!ta || !wrap || !pv || !btn) return;
+  var hidden = wrap.style.display === 'none' || !wrap.style.display;
+  if (hidden) {
     var raw = ta.value.trim();
     pv.innerHTML = raw ? formatCommsBody(raw) : '<span style="color:var(--g3);font-style:italic">(empty message)</span>';
-    pv.style.display = 'block';
-    ta.style.display = 'none';
-    btn.textContent = 'Edit';
+    wrap.style.display = 'block';
+    btn.textContent = 'Hide preview';
+    // Live-update preview while user types
+    ta.addEventListener('input', commsUpdatePreviewLive);
   } else {
-    pv.style.display = 'none';
-    ta.style.display = '';
-    btn.textContent = 'Preview';
+    wrap.style.display = 'none';
+    btn.textContent = 'Show preview';
+    ta.removeEventListener('input', commsUpdatePreviewLive);
   }
+}
+
+function commsUpdatePreviewLive() {
+  var ta = document.getElementById('comms-body');
+  var pv = document.getElementById('comms-preview');
+  if (!ta || !pv) return;
+  var raw = ta.value.trim();
+  pv.innerHTML = raw ? formatCommsBody(raw) : '<span style="color:var(--g3);font-style:italic">(empty message)</span>';
 }
 
 function sendCommsMessage() {
