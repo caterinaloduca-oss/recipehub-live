@@ -21938,7 +21938,11 @@ function toggleSubRequestForm() {
   var f = document.getElementById('sub-request-form');
   if (!f) return;
   if (!_subCanCreate()) { showSaveToast('Only Purchasing or Admin can raise requests', true); return; }
-  if (f.style.display === 'none' || !f.style.display) {
+  // Form is "closed" only when display is explicitly 'none'. Empty string falls back
+  // to CSS default (block), which counts as open. Without this fix the ✕ button
+  // re-opens the form because !'' === true.
+  var isClosed = f.style.display === 'none';
+  if (isClosed) {
     _populateSubIngredientSelects();
     document.getElementById('sub-current').value = '';
     var pInp = document.getElementById('sub-proposed-input');
@@ -21949,7 +21953,7 @@ function toggleSubRequestForm() {
     document.getElementById('sub-reason').value = 'price';
     document.getElementById('sub-reason-detail').value = '';
     document.getElementById('sub-impact-preview').innerHTML = '<em style="color:var(--g3)">Pick the current ingredient and propose a replacement to see affected recipes and cost delta…</em>';
-    f.style.display = '';
+    f.style.display = 'block';
     f.scrollIntoView({behavior:'smooth', block:'start'});
   } else {
     f.style.display = 'none';
