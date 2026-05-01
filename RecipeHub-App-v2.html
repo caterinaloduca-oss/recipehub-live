@@ -10534,11 +10534,18 @@ async function signOffTrialQA(npd, stage) {
   showSaveToast('QA sign-off recorded' + (qa.conditional ? ' (with conditions)' : '') + ' for ' + (stage === 'trial' ? 'Factory Trial' : 'Production Trial'));
   saveAllData();
 
-  // Notify R&D that QA signed off
+  // Notify all four teams (R&D / QA / Factory / Purchasing) that QA signed off
   fetch(API_BASE + '/api/notify', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + API_KEY },
-    body: JSON.stringify({ event: 'qa-signoff', recipe: r.name + ' (' + npd + ')', user: qa.signedBy || getCurrentUserName() }),
+    body: JSON.stringify({
+      event: 'qa-signoff',
+      recipe: r.name + ' (' + npd + ')',
+      user: qa.signedBy || getCurrentUserName(),
+      stage: stage,                     // 'trial' or 'prod-trial'
+      conditional: !!qa.conditional,
+      conditions: qa.conditions || '',
+    }),
   }).catch(function() {});
 }
 
@@ -16243,6 +16250,18 @@ function confirmBypassQA() {
   saveAllData();
   auditEvent('qa.bypass', 'recipe', npd, r.name + ' · ' + stage.label + ' — ' + reason + (notes ? ' (' + notes + ')' : ''));
   logActivity('recipe', '⚡', stage.label + ' QA bypassed for ' + r.name, reason + (notes ? ' — ' + notes : ''));
+  // Email all four teams that a QA bypass just occurred
+  fetch(API_BASE + '/api/notify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + API_KEY },
+    body: JSON.stringify({
+      event: 'qa-bypass',
+      recipe: r.name + ' (' + npd + ')',
+      user: who,
+      stage: stage.key,
+      reason: reason + (notes ? ' — ' + notes : ''),
+    }),
+  }).catch(function(){});
   showSaveToast(stage.label + ' QA bypassed');
   if (_currentPage === 'qa') populateQARecipeDropdown();
   if (typeof updateDashboardStats === 'function') updateDashboardStats();

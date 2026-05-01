@@ -1273,14 +1273,41 @@ app.post('/api/notify', requireAuth, (req, res) => {
           <p style="margin-top:16px"><a href="https://recipehub.dailyfoodsa.com" style="background:#2D6A4F;color:white;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:600">View Recipe</a></p>`;
         break;
 
-      case 'qa-signoff':
-        recipients = getEmailsByRole(['npd']);
-        subject = `QA sign-off completed: ${recipe}`;
+      case 'qa-signoff': {
+        recipients = getEmailsByRole(['npd', 'qa', 'factory', 'purchasing']);
+        const stageLabel = (req.body.stage === 'prod-trial' || req.body.stage === 'prodQA')
+          ? 'Production Trial'
+          : (req.body.stage === 'trial' || req.body.stage === 'trialQA')
+            ? 'Factory Trial'
+            : 'this stage';
+        const conditional = !!req.body.conditional;
+        const conditions = req.body.conditions || '';
+        subject = `QA sign-off — ${recipe}${conditional ? ' (with conditions)' : ''}`;
         html = `<h2 style="color:#1B2A4A;margin:0 0 12px">${recipe}</h2>
-          <p><strong>${userName}</strong> completed QA sign-off for this recipe.</p>
-          <p>The recipe can now be moved to the next stage.</p>
+          <p><strong>${userName}</strong> completed <strong>${stageLabel}</strong> QA sign-off${conditional ? ' <span style="color:#8a4500">(approved with conditions)</span>' : ''}.</p>
+          ${conditional && conditions ? `<p style="background:#FEF3E2;padding:10px 14px;border-left:3px solid #d47000;border-radius:4px;font-size:13px"><strong>Conditions / corrective actions:</strong> ${String(conditions).replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}</p>` : ''}
+          <p>R&D can move the recipe to the next stage. QA, Factory, Purchasing — heads-up.</p>
           <p style="margin-top:16px"><a href="https://recipehub.dailyfoodsa.com" style="background:#B8820A;color:white;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:600">Open RecipeHub</a></p>`;
         break;
+      }
+
+      case 'qa-bypass': {
+        recipients = getEmailsByRole(['npd', 'qa', 'factory', 'purchasing']);
+        const stageLabel = (req.body.stage === 'prod-trial' || req.body.stage === 'prodQA')
+          ? 'Production Trial'
+          : (req.body.stage === 'trial' || req.body.stage === 'trialQA')
+            ? 'Factory Trial'
+            : 'this stage';
+        const reason = req.body.reason || '(no reason given)';
+        const escapedReason = String(reason).replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+        subject = `⚡ QA bypass — ${recipe} (${stageLabel})`;
+        html = `<h2 style="color:#8a4500;margin:0 0 12px">⚡ QA bypass on ${recipe}</h2>
+          <p><strong>${userName}</strong> bypassed the <strong>${stageLabel}</strong> QA sign-off without QA signature.</p>
+          <p style="background:#FEF3E2;padding:10px 14px;border-left:3px solid #d47000;border-radius:4px;font-size:13px"><strong>Reason on record:</strong> ${escapedReason}</p>
+          <p>This bypass is auditable. The recipe can move to the next stage; QA, Factory, Purchasing — review the reason and raise an objection now if the move shouldn't stand.</p>
+          <p style="margin-top:16px"><a href="https://recipehub.dailyfoodsa.com" style="background:#B8820A;color:white;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:600">Open RecipeHub</a></p>`;
+        break;
+      }
 
       case 'run-scheduled': {
         recipients = getEmailsByRole(['npd', 'qa', 'purchasing']);
