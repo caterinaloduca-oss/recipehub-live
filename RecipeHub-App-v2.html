@@ -8494,7 +8494,6 @@ function renderKitchen(r, batchKg) {
         <div><span class="ps-meta-label">Brand</span>${r.brand}</div>
         <div><span class="ps-meta-label">Type</span>${r.type}</div>
         <div><span class="ps-meta-label">Storage</span>${r.storage}</div>
-        <div><span class="ps-meta-label">Shelf Life</span>${r.shelfLife}</div>
         <div><span class="ps-meta-label">Printed</span>${new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div>
       </div>
     </div>
@@ -8585,7 +8584,6 @@ function renderKitchenComposite(r, batchKg) {
         <div><span class="ps-meta-label">Brand</span>${r.brand}</div>
         <div><span class="ps-meta-label">Type</span>${r.type}</div>
         <div><span class="ps-meta-label">Storage</span>${r.storage}</div>
-        <div><span class="ps-meta-label">Shelf Life</span>${r.shelfLife}</div>
         <div><span class="ps-meta-label">Printed</span>${new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div>
       </div>
     </div>
@@ -8650,8 +8648,6 @@ function renderFactory(r, batchKg, noImages) {
         <div><span class="ps-meta-label">Brand</span>${r.brand}</div>
         <div><span class="ps-meta-label">Batch</span><span id="factory-batch-label">${formatWeight(batchKg)}</span></div>
         <div><span class="ps-meta-label">Storage</span>${r.storage}</div>
-        <div><span class="ps-meta-label">Shelf Life</span>${r.shelfLife}</div>
-        <div><span class="ps-meta-label">Yield</span>${(r.yield * 100).toFixed(0)}%</div>
         <div><span class="ps-meta-label">Date</span>${new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div>
       </div>
     </div>
