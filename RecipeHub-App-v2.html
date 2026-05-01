@@ -6239,6 +6239,37 @@ function saveRecipeToServer(npd) {
   });
 }
 
+async function openRecipeFlagModal(npd) {
+  if (!_requireRole(['npd'], 'R&D')) return;
+  var r = RECIPE_DB[npd];
+  if (!r) return;
+  var current = (r.flag && r.flag.question) || '';
+  var q = await customPromptAsync('Flag this recipe with a quick note (visible to everyone, no email sent):', current);
+  if (q === null) return;
+  var trimmed = String(q || '').trim();
+  if (!trimmed) return;
+  r.flag = {
+    question: trimmed,
+    askedBy: getCurrentUserName(),
+    askedAt: new Date().toISOString(),
+  };
+  r.updatedAt = new Date().toISOString();
+  saveRecipeToServer(npd);
+  viewRecipe(npd);
+  showSaveToast('Recipe flagged');
+}
+
+function clearRecipeFlag(npd) {
+  if (!_requireRole(['npd'], 'R&D')) return;
+  var r = RECIPE_DB[npd];
+  if (!r) return;
+  r.flag = null;
+  r.updatedAt = new Date().toISOString();
+  saveRecipeToServer(npd);
+  viewRecipe(npd);
+  showSaveToast('Flag cleared');
+}
+
 function saveBuildToServer(id) {
   var b = BUILDS_DATA.find(function(x) { return x.id === id; });
   if (!b) return;
@@ -9613,6 +9644,10 @@ function viewRecipe(npd) {
             : '<button class="btn btn-sm" style="background:#6B2FA0;color:white;border:none" onclick="convertToComposite(\''+r.npd+'\')" title="Turn into a multi-stage recipe with linked sub-recipes">🧩 Composite</button>') : ''}
           ${_vrIsRD ? `<button class="btn btn-sm" style="background:var(--gold);color:white;border:none" onclick="editRecipe('${r.npd}')">✏️ Edit</button>` : ''}
           ${_vrIsRD ? `<button class="btn btn-sm" style="background:var(--sage);color:white;border:none" onclick="saveRecipeToServer('${r.npd}');showSaveToast('Recipe saved')">Save</button>` : ''}
+          ${_vrIsRD ? (r.flag && r.flag.question
+            ? `<button class="btn btn-sm" style="background:#D4700A;color:white;border:none" onclick="clearRecipeFlag('${r.npd}')" title="Note: &quot;${(r.flag.question||'').replace(/"/g,'&quot;')}&quot; — click to clear">🚩 Clear flag</button>`
+            : `<button class="btn btn-sm" style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.85);border:none" onclick="openRecipeFlagModal('${r.npd}')" title="Flag this recipe with a quick note">🚩 Flag</button>`
+          ) : ''}
           <div class="print-dd" id="dd-detail-${r.npd}">
             <button class="btn btn-sm" style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:none" onclick="event.stopPropagation();toggleDD('dd-detail-${r.npd}')">Print ▾</button>
             <div class="print-dd-menu">
@@ -9623,6 +9658,14 @@ function viewRecipe(npd) {
           </div>
         </div>
       </div>
+      ${(r.flag && r.flag.question) ? `<div style="background:#FFF6E5;border-top:1px solid #F0D8A8;padding:12px 24px;display:flex;justify-content:space-between;align-items:flex-start;gap:16px">
+        <div style="flex:1">
+          <div style="font-size:10px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:#A35400;margin-bottom:4px">🚩 Flagged</div>
+          <div style="font-size:13px;color:var(--navy);line-height:1.5;white-space:pre-wrap">${(r.flag.question||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+          <div style="font-size:11px;color:var(--g4);margin-top:4px">Flagged by ${r.flag.askedBy || 'R&D'}${r.flag.askedAt ? ' on ' + r.flag.askedAt.slice(0,10) : ''}</div>
+        </div>
+        ${_vrIsRD ? `<button class="btn btn-sm" style="background:#D4700A;color:white;border:none;flex-shrink:0" onclick="clearRecipeFlag('${r.npd}')">Clear flag</button>` : ''}
+      </div>` : ''}
       <div class="recipe-detail-meta" style="display:grid;grid-template-columns:repeat(${r.status === 'approved' ? 4 : 3},1fr);border-top:1px solid var(--g2)">
         <div style="padding:12px 18px;border-right:1px solid var(--g2)"><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3);margin-bottom:3px">Storage</div><div style="font-size:13px;font-weight:500">${r.storage}</div></div>
         ${r.status === 'approved' ? `<div style="padding:12px 18px;border-right:1px solid var(--g2)"><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3);margin-bottom:3px">Shelf Life</div><div style="font-size:13px;font-weight:500">${r.shelfLife}</div></div>` : ''}
