@@ -1797,6 +1797,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
           <option value="implemented">Implemented</option>
           <option value="rejected">Rejected</option>
         </select>
+        <button class="btn btn-gold btn-sm" id="sub-new-btn-inline" onclick="toggleSubRequestForm()">+ New Request</button>
       </div>
     </div>
     <div class="card-body" style="padding:0">
@@ -6673,7 +6674,7 @@ const PAGES = {
   qas:            { title:'QAS — Visual Acceptance Specification', actions:'' },
   'branch-sop':   { title:'Branch SOP',           actions:`` },
   production:     { title:'Production Plan',     actions:`<button class="btn btn-gold btn-sm" onclick="openProductionRun()">+ Schedule Run</button>` },
-  substitutions:  { title:'Substitution Requests', actions:`<button class="btn btn-gold btn-sm" id="sub-new-btn" onclick="toggleSubRequestForm()">+ New Request</button>` },
+  substitutions:  { title:'Substitution Requests', actions:'' },
   reports:        { title:'Recipe Analytics', actions:`<button class="btn btn-outline btn-sm" onclick="refreshReports()">↻ Refresh</button>` },
   'builds-costing': { title:'Build Analytics', actions:`<button class="btn btn-outline btn-sm" onclick="refreshReports()">↻ Refresh</button>` },
   'cost-control': { title:'KPI & Goals', actions:`<button class="btn btn-outline btn-sm" onclick="refreshReports()">↻ Refresh</button>` },
@@ -7173,7 +7174,7 @@ function nav(id) {
     else if (id === 'builds') { closeBuildDetail(); buildBuildsTable(); }
     else if (id === 'qas') { qasBackToLanding(); renderQasLanding(); }
     else if (id === 'production') { buildProductionTable(); }
-    else if (id === 'substitutions') { var d = document.getElementById('sub-request-detail'); if (d) d.style.display = 'none'; var f = document.getElementById('sub-request-form'); if (f) f.style.display = 'none'; buildSubRequestList(); updateSubBadge(); var btn = document.getElementById('sub-new-btn'); if (btn) btn.style.display = (typeof _subCanCreate==='function' && _subCanCreate()) ? '' : 'none'; }
+    else if (id === 'substitutions') { var d = document.getElementById('sub-request-detail'); if (d) d.style.display = 'none'; var f = document.getElementById('sub-request-form'); if (f) f.style.display = 'none'; buildSubRequestList(); updateSubBadge(); var btn = document.getElementById('sub-new-btn-inline'); if (btn) btn.style.display = (typeof _subCanCreate==='function' && _subCanCreate()) ? '' : 'none'; }
     else if (id === 'branch-sop') {
       // Reset filters on entry and make sure the list (not a stale detail) is showing.
       var _bsopBrand = document.getElementById('bsop-filter-brand'); if (_bsopBrand) _bsopBrand.value = 'All Brands';
