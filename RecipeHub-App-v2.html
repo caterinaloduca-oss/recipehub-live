@@ -1692,7 +1692,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
     </div>
     <div class="card-body" style="padding:0;overflow-x:auto">
       <table class="data-table" style="min-width:900px;table-layout:fixed">
-        <colgroup><col style="width:80px"><col style="width:32%"><col style="width:60px"><col style="width:100px"><col style="width:110px"><col style="width:90px"><col style="width:120px"><col style="width:100px"><col style="width:170px"></colgroup>
+        <colgroup><col style="width:70px"><col style="width:24%"><col style="width:60px"><col style="width:100px"><col style="width:100px"><col style="width:80px"><col style="width:100px"><col style="width:140px"><col style="width:200px"></colgroup>
         <thead><tr><th>Sent</th><th>Recipe</th><th>Waiting</th><th>Scheduled</th><th>Stage</th><th>Batch</th><th>Responsible</th><th>Status</th><th></th></tr></thead>
         <tbody id="prod-tbody"></tbody>
       </table>
@@ -18454,7 +18454,7 @@ function buildProductionTable() {
   if (!tbody) return;
   tbody.innerHTML = '';
   var statusMap = {pending:'badge-pending-prod',scheduled:'badge-review',completed:'badge-approved',archived:'badge-draft','on-hold':'badge-draft','blocked-materials':'badge-amber'};
-  var statusLabel = {pending:'Pending',scheduled:'Scheduled',completed:'Completed',archived:'Archived','on-hold':'On Hold','blocked-materials':'📦 Awaiting materials'};
+  var statusLabel = {pending:'Pending',scheduled:'Scheduled',completed:'Completed',archived:'Archived','on-hold':'On Hold','blocked-materials':'📦 Awaiting'};
   var activeRuns = PRODUCTION_RUNS.filter(function(r){return !r.archived});
   var archivedRuns = PRODUCTION_RUNS.filter(function(r){return r.archived});
   var visibleRuns = _showArchived ? PRODUCTION_RUNS : activeRuns;
@@ -18478,7 +18478,7 @@ function buildProductionTable() {
       var _canBlock = _isTrialRun && (_role === 'factory' || _role === 'admin');
       if (_canBlock && run.status !== 'completed') {
         if (run.status === 'blocked-materials') {
-          actions += '<button class="btn btn-sage btn-sm" style="' + _btnStyle + '" onclick="event.stopPropagation();unblockProductionRun(\''+run.id+'\')" title="Mark materials as arrived">📦 Materials</button>';
+          actions += '<button class="btn btn-sage btn-sm" style="' + _btnStyle + '" onclick="event.stopPropagation();unblockProductionRun(\''+run.id+'\')" title="Mark materials as arrived">📦 Materials in</button>';
         } else {
           actions += '<button class="btn btn-outline btn-sm" style="' + _btnStyle + ';color:#8A4500;border-color:#F5D5A0" onclick="event.stopPropagation();openBlockProductionRun(\''+run.id+'\')" title="Flag run as awaiting materials">📦 Awaiting</button>';
         }
@@ -18519,7 +18519,7 @@ function buildProductionTable() {
     tr.onclick = function(){ selectProdRun(run.id); };
     var _commCount = (run.comments && run.comments.length) ? run.comments.length : 0;
     var _missingCaption = (run.status === 'blocked-materials' && Array.isArray(run.missingIngredients) && run.missingIngredients.length)
-      ? ' · <span style="color:#8C1A1A;font-weight:500;cursor:help" title="' + run.missingIngredients.map(function(m){return m.name + (m.itemCode ? ' (' + m.itemCode + ')' : '');}).join(', ').replace(/"/g,'&quot;') + '">⚠ ' + run.missingIngredients.length + ' missing</span>'
+      ? ' · <span style="color:#8C1A1A;font-weight:500;cursor:help" title="' + run.missingIngredients.map(function(m){return m.name + (m.itemCode ? ' (' + m.itemCode + ')' : '');}).join(', ').replace(/"/g,'&quot;') + '">⚠ ' + run.missingIngredients.length + ' RM missing</span>'
       : '';
     tr.innerHTML =
       '<td style="font-size:11px;color:var(--g4)">' + _sentDate + '</td>' +
@@ -18529,7 +18529,7 @@ function buildProductionTable() {
       '<td style="white-space:nowrap;padding-right:14px"><span class="badge ' + (_runTypeBadge[run.runType] || 'badge-production') + '">' + _runTypeLabel + '</span></td>' +
       '<td style="font-family:var(--font-m);font-size:12px;white-space:nowrap">' + (run.batchSize ? run.batchSize : '<span style="color:var(--g3)">—</span>') + '</td>' +
       '<td style="font-size:12px;color:var(--g4)">' + (run.operator || '—') + '</td>' +
-      '<td><span class="badge ' + (statusMap[displayStatus] || 'badge-draft') + '">' + (statusLabel[displayStatus] || displayStatus) + '</span></td>' +
+      '<td style="white-space:nowrap"><span class="badge ' + (statusMap[displayStatus] || 'badge-draft') + '" style="white-space:nowrap">' + (statusLabel[displayStatus] || displayStatus) + '</span></td>' +
       '<td onclick="event.stopPropagation()"><div style="display:flex;gap:3px;white-space:nowrap;justify-content:flex-end">' + actions + '</div></td>';
     tbody.appendChild(tr);
   });
