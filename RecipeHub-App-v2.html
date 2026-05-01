@@ -11925,25 +11925,45 @@ function qasBypass(npd) {
   });
 }
 
+// Snapshot of r.sopFlowchart taken when the modal opens — used by cancelSOPFlowchart()
+// to revert in-memory edits if the user exits without saving.
+var _flowchartSnapshot = { npd: null, snapshot: null };
+
 function openSOPFlowchart(npd) {
   var r = RECIPE_DB[npd]; if (!r) return;
   // Seed sopFlowchart from auto if not set, so user edits persist
   if (!Array.isArray(r.sopFlowchart)) r.sopFlowchart = _autoFlowchartNodes(r);
+  // Deep-clone snapshot so cancel can restore exactly
+  _flowchartSnapshot = { npd: npd, snapshot: JSON.parse(JSON.stringify(r.sopFlowchart)) };
   var html = '<div style="padding:10px 4px 20px">' +
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:12px">' +
       '<h2 style="margin:0;font-family:var(--font-d);color:var(--navy);font-size:20px">Process Flowchart — '+r.name+'</h2>' +
       '<div style="display:flex;gap:6px">' +
         '<button class="btn btn-outline btn-sm" onclick="regenerateFlowchart(\''+npd+'\')">↻ Regenerate from steps</button>' +
         '<button class="btn btn-outline btn-sm" onclick="addFlowchartNode(\''+npd+'\')">+ Add step</button>' +
-        '<button class="btn btn-gold btn-sm" onclick="saveRecipeToServer(\''+npd+'\');showSaveToast(\'Flowchart saved\');closeModal()">💾 Save & Close</button>' +
+        '<button class="btn btn-outline btn-sm" style="color:#B81A1A;border-color:#F5B5B0" onclick="cancelSOPFlowchart()">✕ Exit without saving</button>' +
+        '<button class="btn btn-gold btn-sm" onclick="saveRecipeToServer(\''+npd+'\');showSaveToast(\'Flowchart saved\');_flowchartSnapshot={npd:null,snapshot:null};closeModal()">💾 Save & Close</button>' +
       '</div>' +
     '</div>' +
-    '<div style="font-size:12px;color:var(--g3);margin-bottom:14px">Edit titles, shapes, risk zones, sub-steps, side branches. Set <strong>Risk</strong> to colour by HACCP risk zone (green = low, blue = high), or leave it blank to fall back to the kind colour. Changes save on this recipe.</div>' +
+    '<div style="font-size:12px;color:var(--g3);margin-bottom:14px">Edit titles, shapes, risk zones, sub-steps, side branches. Set <strong>Risk</strong> to colour by HACCP risk zone (green = low, blue = high), or leave it blank to fall back to the kind colour. <strong>Save & Close</strong> commits — <strong>Exit without saving</strong> reverts every change since you opened this dialog.</div>' +
     '<div id="sop-flowchart-body">' +
       renderFlowchartView(r, true) +
     '</div>' +
   '</div>';
   openModal(html, '1140px');
+}
+
+function cancelSOPFlowchart() {
+  if (!_flowchartSnapshot.npd || !_flowchartSnapshot.snapshot) { closeModal(); return; }
+  var r = RECIPE_DB[_flowchartSnapshot.npd];
+  if (!r) { _flowchartSnapshot = { npd: null, snapshot: null }; closeModal(); return; }
+  // Compare to detect actual changes — skip the confirm if nothing changed
+  var dirty = JSON.stringify(r.sopFlowchart) !== JSON.stringify(_flowchartSnapshot.snapshot);
+  if (dirty && !confirm('Discard all changes to this flowchart? Edits since you opened the dialog will be lost.')) return;
+  r.sopFlowchart = _flowchartSnapshot.snapshot;
+  _flowchartSnapshot = { npd: null, snapshot: null };
+  closeModal();
+  if (dirty) showSaveToast('Flowchart changes discarded');
 }
 
 function refreshFlowchartModal(npd) {
