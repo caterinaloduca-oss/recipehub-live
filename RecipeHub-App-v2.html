@@ -19097,19 +19097,14 @@ function editProductionRun(id) {
       '</div>' +
       '<div class="form-group" style="margin-bottom:16px"><label class="form-label">Description / Notes</label><textarea class="form-textarea" id="ep-notes" style="min-height:60px">'+(run.notes||'')+'</textarea></div>' +
       (function(){
-        // Yield / Waste only exist AFTER the run has been completed. Before that the run
-        // hasn't actually happened, so there's nothing to record. Hide the fields entirely
-        // until status === 'completed', then label them based on run type:
-        //   Factory Trial → Indicative (becomes the planning yield on the recipe)
-        //   Production Trial → Validated (overrides the indicative — figure of record)
-        //   Other → plain Yield / Waste %
-        if (run.status !== 'completed') return '';
+        // Yield / Waste rules per run type:
+        //   Factory Trial → hidden in this edit modal (no yield expected yet — the trial
+        //                   captures it AFTER running, via the Complete Run flow)
+        //   Production Trial → ALWAYS shown ("Validated Yield" — the figure of record)
+        //   Other (regular Production) → ALWAYS shown (plain "Yield")
+        if (run.runType === 'Factory Trial') return '';
         var _yieldLabel, _wasteLabel, _yieldHint;
-        if (run.runType === 'Factory Trial') {
-          _yieldLabel = 'Indicative Yield';
-          _wasteLabel = 'Indicative Waste %';
-          _yieldHint = '<div style="font-size:10px;color:var(--g3);margin-top:4px;font-style:italic">Captured from this Factory Trial. Validated number comes at the Production Trial.</div>';
-        } else if (run.runType === 'Production Trial') {
+        if (run.runType === 'Production Trial') {
           _yieldLabel = 'Validated Yield';
           _wasteLabel = 'Validated Waste %';
           _yieldHint = '<div style="font-size:10px;color:var(--g3);margin-top:4px;font-style:italic">Figure of record — overrides the indicative yield from the Factory Trial.</div>';
