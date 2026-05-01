@@ -1376,9 +1376,9 @@ app.post('/api/notify', requireAuth, (req, res) => {
               <tbody>${missingRows}</tbody>
             </table>
           </div>` : '';
-        subject = `🚫 ${runType} blocked — missing materials: ${recipe}`;
-        html = `<h2 style="color:#8C1A1A;margin:0 0 12px">🚫 ${recipe} — ${runType} blocked</h2>
-          <p><strong>${userName}</strong> (Factory) flagged this run as blocked. The trial cannot proceed until the materials below are received.</p>
+        subject = `📦 ${runType} awaiting materials: ${recipe}`;
+        html = `<h2 style="color:#8A4500;margin:0 0 12px">📦 ${recipe} — ${runType} awaiting materials</h2>
+          <p><strong>${userName}</strong> (Factory) flagged this run as awaiting materials. The trial will proceed once the materials below are received.</p>
           <table style="border-collapse:collapse;margin:12px 0;font-size:13px">
             <tr><td style="padding:6px 12px;color:#666">Scheduled date</td><td style="padding:6px 12px;font-weight:600">${escape(dateStr)}${r3.time ? ' ' + escape(r3.time) : ''}</td></tr>
             <tr><td style="padding:6px 12px;color:#666">Run type</td><td style="padding:6px 12px">${escape(runType)}</td></tr>
@@ -1386,7 +1386,7 @@ app.post('/api/notify', requireAuth, (req, res) => {
           ${missingBlock}
           ${note ? `<p style="margin-top:14px;background:#FFF8E0;padding:10px 14px;border-left:3px solid #d47000;border-radius:4px;font-size:13px"><strong>Factory note:</strong> ${escape(note)}</p>` : ''}
           <p style="margin-top:16px"><strong>Purchasing</strong> — please escalate procurement. <strong>Factory</strong> will mark the run unblocked once materials are physically on the line.</p>
-          <p style="margin-top:16px"><a href="https://recipehub.dailyfoodsa.com" style="background:#8C1A1A;color:white;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:600">View Production Plan</a></p>`;
+          <p style="margin-top:16px"><a href="https://recipehub.dailyfoodsa.com" style="background:#8A4500;color:white;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:600">View Production Plan</a></p>`;
         break;
       }
 
@@ -1397,8 +1397,8 @@ app.post('/api/notify', requireAuth, (req, res) => {
         const dateStr = r4.date || '—';
         const note = req.body.note || '';
         const escape = (s) => String(s || '').replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
-        subject = `✓ ${runType} unblocked: ${recipe}`;
-        html = `<h2 style="color:#2D6A4F;margin:0 0 12px">✓ ${recipe} — ${runType} unblocked</h2>
+        subject = `✓ ${runType} materials in — ${recipe}`;
+        html = `<h2 style="color:#2D6A4F;margin:0 0 12px">✓ ${recipe} — materials in</h2>
           <p><strong>${userName}</strong> (Factory) confirmed materials are in. The run is back on schedule.</p>
           <table style="border-collapse:collapse;margin:12px 0;font-size:13px">
             <tr><td style="padding:6px 12px;color:#666">Scheduled date</td><td style="padding:6px 12px;font-weight:600">${escape(dateStr)}${r4.time ? ' ' + escape(r4.time) : ''}</td></tr>
