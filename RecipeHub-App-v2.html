@@ -8205,8 +8205,9 @@ function buildRecipesTable() {
     }).join(' ');
     tr.dataset.ingredients = _ingHaystack;
     var statusBadge = r.archived ? '<span class="badge badge-draft">Archived</span>' : `<span class="badge badge-${r.status==='approved'?'approved':r.status==='prod-trial'?'prod-trial':r.status==='trial'?'trial':r.status==='review'?'review':'draft'}">${r.status==='approved'?'Approved':r.status==='prod-trial'?'Production Trial':r.status==='trial'?'Factory Trial':r.status==='review'?'In Review':'Draft'}</span>`;
+    var _flagPin = (r.flag && r.flag.question) ? ' <span style="font-size:13px;margin-left:4px;cursor:help" title="Flagged: '+(r.flag.question||'').replace(/"/g,'&quot;').replace(/</g,'&lt;')+'">🚩</span>' : '';
     tr.innerHTML = `
-      <td><strong>${r.name}</strong>${r.discontinued ? ' <span style="font-size:10px;color:var(--red);font-weight:600;background:var(--red-lt);padding:1px 6px;border-radius:4px;margin-left:4px">DISCONTINUED</span>' : ''}${(r.tags&&r.tags.length)?'<div style="margin-top:3px">'+renderTagBadges(r.tags)+'</div>':''}</td>
+      <td><strong>${r.name}</strong>${_flagPin}${r.discontinued ? ' <span style="font-size:10px;color:var(--red);font-weight:600;background:var(--red-lt);padding:1px 6px;border-radius:4px;margin-left:4px">DISCONTINUED</span>' : ''}${(r.tags&&r.tags.length)?'<div style="margin-top:3px">'+renderTagBadges(r.tags)+'</div>':''}</td>
       <td style="font-family:var(--font-m);font-size:12px">
         <div style="color:var(--g3)">${r.npd}</div>
         ${r.recipeId ? '<div style="color:#2E7D32;font-weight:600;font-size:11px;margin-top:2px">'+r.recipeId+'</div>' : ''}
