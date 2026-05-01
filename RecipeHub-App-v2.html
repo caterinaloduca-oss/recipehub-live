@@ -10451,15 +10451,18 @@ function setRecipeStatus(npd, newStatus) {
   if (_eventMap[newStatus]) {
     // Resolve each ingredient name to an Oracle EBS code via resolveItemCode (Oracle pattern only).
     // itemCode is no longer persisted on recipe ingredients — derived purely from name.
-    var _ingForEmail = (newStatus === 'trial' || newStatus === 'prod-trial')
-      ? (r.ingredients || []).slice().sort(function(a,b){ return (b.pct||0) - (a.pct||0); }).slice(0, 20)
+    var _emailHasIngredients = (newStatus === 'trial' || newStatus === 'prod-trial' || newStatus === 'approved');
+    var _ingForEmail = _emailHasIngredients
+      ? (r.ingredients || []).slice().sort(function(a,b){ return (b.pct||0) - (a.pct||0); }).slice(0, 50)
           .map(function(i){
             return { name: i.name || '', pct: i.pct || 0, itemCode: resolveItemCode(i.name) || '' };
           })
       : null;
-    // Purchasing wants a single conservative estimate they can plan against. Real batch size is set
-    // when Factory schedules the run on the Production Plan — disclaimer is added in the email body.
-    var _batchKg = (newStatus === 'trial' || newStatus === 'prod-trial') ? '100 kg' : null;
+    // For trial transitions Purchasing wants a 100 kg planning estimate. For Approved we ship the
+    // recipe's stored batchSize so the final email reflects the locked-in formulation as it stands.
+    var _batchKg = (newStatus === 'trial' || newStatus === 'prod-trial')
+      ? '100 kg'
+      : (newStatus === 'approved' ? (r.batchSize || null) : null);
     fetch(API_BASE + '/api/notify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + API_KEY },

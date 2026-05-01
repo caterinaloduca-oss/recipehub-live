@@ -1214,14 +1214,27 @@ app.post('/api/notify', requireAuth, (req, res) => {
           ${kg !== null ? `<td style="padding:5px 8px;border-bottom:1px solid #eee;font-size:12px;text-align:right;font-family:monospace;color:#1A5FA5;font-weight:600">${kg} kg</td>` : ''}
         </tr>`;
       }).join('');
-      // At Factory Trial the formula can still change before Prod Trial; warn Purchasing not to lock in.
+      // Tailor the headline + note per stage:
+      //   factory-trial → "may still change" warning
+      //   prod-trial    → no warning (formula stable)
+      //   approved      → "final approved formulation" headline, no warning
+      const isApproved = event === 'recipe-approved';
       const formulaLockNote = event === 'recipe-factory-trial'
         ? `<div style="font-size:11px;color:#8a4500;margin-bottom:10px;padding:6px 10px;background:rgba(255,255,255,0.6);border-left:3px solid #d47000;border-radius:4px"><strong>⚠ Note:</strong> Ingredients are not definitive until Production Trial. The formula may change between Factory Trial and Prod Trial.</div>`
-        : '';
+        : (isApproved
+          ? `<div style="font-size:11px;color:#1F4811;margin-bottom:10px;padding:6px 10px;background:rgba(255,255,255,0.6);border-left:3px solid #2D6A4F;border-radius:4px"><strong>✅ Final formulation:</strong> this is the approved recipe locked in for production. Use this as the source of truth for procurement, costing, and quality records.</div>`
+          : '');
+      const blockBg = isApproved ? '#EBF5EE' : '#FEF3E2';
+      const blockBorder = isApproved ? '#C8E6C9' : '#F5D5A0';
+      const blockTitleColor = isApproved ? '#2D6A4F' : '#8a4500';
+      const blockTitle = isApproved ? '📋 Final approved formulation' : '📦 Purchasing — ingredients to procure';
+      const batchNote = isApproved
+        ? (batchKg ? `Reference batch size on the recipe: <strong>${batchKg} kg</strong>. Per-run weights scale from this %.` : 'Per-run quantities scale from the % column.')
+        : (batchKg ? `<strong>Estimate only:</strong> figures below assume a ${batchKg} kg batch. Confirm the real numbers once the run is on the Production Plan.` : 'Approximate quantities pending batch size — confirm once Production Plan is defined.');
       return `
-        <div style="margin-top:18px;padding:14px 16px;background:#FEF3E2;border:1px solid #F5D5A0;border-radius:8px">
-          <div style="font-size:13px;font-weight:600;color:#8a4500;margin-bottom:8px">📦 Purchasing — ingredients to procure</div>
-          <div style="font-size:11px;color:#8a4500;margin-bottom:10px">${batchKg ? `<strong>Estimate only:</strong> figures below assume a ${batchKg} kg batch. Confirm the real numbers once the run is on the Production Plan.` : 'Approximate quantities pending batch size — confirm once Production Plan is defined.'}</div>
+        <div style="margin-top:18px;padding:14px 16px;background:${blockBg};border:1px solid ${blockBorder};border-radius:8px">
+          <div style="font-size:13px;font-weight:600;color:${blockTitleColor};margin-bottom:8px">${blockTitle}</div>
+          <div style="font-size:11px;color:${blockTitleColor};margin-bottom:10px">${batchNote}</div>
           ${formulaLockNote}
           <table style="width:100%;border-collapse:collapse;background:white;border-radius:6px;overflow:hidden">
             <thead><tr>
@@ -1270,6 +1283,7 @@ app.post('/api/notify', requireAuth, (req, res) => {
         html = `<h2 style="color:#2D6A4F;margin:0 0 12px">${recipe} ✅</h2>
           <p><strong>${userName}</strong> approved this recipe for production.</p>
           <p style="background:#EBF5EE;padding:12px 16px;border-radius:6px;color:#2D6A4F;font-weight:500">This recipe is now cleared for full-scale production.</p>
+          ${ingredientsBlock}
           <p style="margin-top:16px"><a href="https://recipehub.dailyfoodsa.com" style="background:#2D6A4F;color:white;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:600">View Recipe</a></p>`;
         break;
 
