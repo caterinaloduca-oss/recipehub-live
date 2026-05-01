@@ -8249,7 +8249,27 @@ function iconImgHtml(key, size) {
   return '<img src="' + url + '" alt="' + (m.label || key) + '" title="' + (m.label || key) + '" style="height:32px;width:32px;object-fit:contain;vertical-align:middle;border-radius:4px;background:white;padding:2px;border:1px solid var(--g2)" />';
 }
 
+// When both an inline SOP_ICONS chip and a richer ICON_KEY_MAP image render the same
+// concept (e.g. 'weight' chip + 'weight_check' image), drop the inline chip — the
+// uploaded sign is more specific so it wins.
+var _ICON_DEDUPE_PAIRS = {
+  // inline SOP_ICONS key  →  ICON_KEY_MAP keys that supersede it
+  weight: ['weight_check'],
+  temp:   ['core_temp', 'cook_temp'],
+};
+function _dedupeIconKeys(iconKeys) {
+  if (!iconKeys || !iconKeys.length) return iconKeys || [];
+  var keys = iconKeys.slice();
+  Object.keys(_ICON_DEDUPE_PAIRS).forEach(function(inline) {
+    if (keys.indexOf(inline) === -1) return;
+    var hasRich = _ICON_DEDUPE_PAIRS[inline].some(function(rk){ return keys.indexOf(rk) > -1; });
+    if (hasRich) keys = keys.filter(function(k){ return k !== inline; });
+  });
+  return keys;
+}
+
 function renderIcons(iconKeys) {
+  iconKeys = _dedupeIconKeys(iconKeys);
   if (!iconKeys || !iconKeys.length) return '';
   return '<div style="margin-bottom:6px;display:flex;flex-wrap:wrap;gap:4px;align-items:center">' + iconKeys.map(function(k) {
     var ic = SOP_ICONS[k];
