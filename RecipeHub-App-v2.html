@@ -1901,7 +1901,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
       <div style="text-align:center;width:140px">
         <div style="width:64px;height:64px;border-radius:50%;background:#E6F1FB;border:2px solid #B3D4F0;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;font-size:24px">🏭</div>
         <div style="font-family:var(--font-d);font-size:14px;font-weight:600;color:var(--navy)">Factory Trial</div>
-        <div style="font-size:11px;color:var(--g3);margin-top:4px;line-height:1.4">First factory batch. Factory runs, QA tests micro & physical. <strong>Factory records indicative yield.</strong></div>
+        <div style="font-size:11px;color:var(--g3);margin-top:4px;line-height:1.4">First factory batch. Factory runs, QA tests micro &amp; physical. Yield is not captured at this stage — too early.</div>
         <div style="margin-top:6px"><span class="badge badge-trial">FACTORY TRIAL</span></div>
       </div>
 
@@ -1915,7 +1915,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
       <div style="text-align:center;width:140px">
         <div style="width:64px;height:64px;border-radius:50%;background:#F3E8FD;border:2px solid #D5C0EB;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;font-size:24px">🔬</div>
         <div style="font-family:var(--font-d);font-size:14px;font-weight:600;color:var(--navy)">Prod Trial</div>
-        <div style="font-size:11px;color:var(--g3);margin-top:4px;line-height:1.4">Full-scale factory batch. QA validates again, sensory panel evaluates. <strong>Factory records validated yield.</strong></div>
+        <div style="font-size:11px;color:var(--g3);margin-top:4px;line-height:1.4">Full-scale factory batch. QA validates again, sensory panel evaluates. <strong>Factory records indicative yield.</strong></div>
         <div style="margin-top:6px"><span class="badge badge-prod-trial">PROD TRIAL</span></div>
       </div>
 
@@ -2078,9 +2078,6 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
             <div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:6px;background:#E8F5E9;border:1px solid #C8E6C9;font-size:12px">
               <span>🏭</span><span style="color:#1B5E20"><strong>Factory assigns Recipe ID</strong> <span style="color:var(--g3)">(e.g. 211_BCS v1)</span></span>
             </div>
-            <div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:6px;background:white;border:1px dashed var(--g2);font-size:12px">
-              <span>📊</span><span><strong style="color:var(--navy)">Factory records Indicative yield</strong> <span style="color:var(--g3)">(soft step — not blocking)</span></span>
-            </div>
             <div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:6px;background:#E6F1FB;border:1px solid #B3D4F0;font-size:12px">
               <span>📅</span><span style="color:#0C6BA8"><strong>Auto-action:</strong> Prod Trial run is scheduled</span>
             </div>
@@ -2111,7 +2108,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
               <span>📊</span><span><strong style="color:var(--navy)">Nutrition data</strong> <span style="color:var(--g3)">filled in</span></span>
             </div>
             <div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:6px;background:white;border:1px dashed var(--g2);font-size:12px">
-              <span>📈</span><span><strong style="color:var(--navy)">Factory records Validated yield</strong> <span style="color:var(--g3)">(soft step — cost math falls back to indicative if missing)</span></span>
+              <span>📈</span><span><strong style="color:var(--navy)">Factory records Indicative yield</strong> <span style="color:var(--g3)">(soft step — Validated comes from regular production after Approval)</span></span>
             </div>
             <div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:6px;background:#F0F6FF;border:1px solid #C9DBF7;font-size:12px">
               <span>🎯</span><span style="color:#0E2C44"><strong>QAS signed off</strong> <span style="color:var(--g3)">— Visual spec approved by R&D (hard gate)</span></span>
@@ -3457,7 +3454,7 @@ var TOUR_TOPICS = {
       },
       {
         title: 'Indicative vs Validated yield',
-        body: 'During <strong>Factory Trial</strong>, R&D records the <em>indicative yield</em> — the expected ratio. After <strong>Prod Trial</strong>, Factory captures the <em>validated yield</em> from real runs. Both fields live on the recipe; both feed costing.',
+        body: 'At <strong>Production Trial</strong>, Factory records the <em>indicative yield</em> — the first real reading. Once the recipe is approved and goes into regular production, the <em>validated yield</em> from real runs replaces the indicative figure. Both feed costing; the validated number wins when present.',
         page: 'production'
       },
       {
@@ -3596,13 +3593,13 @@ var TOUR_TOPICS = {
         }
       },
       {
-        title: 'Indicative yield (Factory Trial)',
-        body: 'During Factory Trial, R&D enters the <strong>indicative yield</strong> — the expected output ratio (e.g. 100 kg input → 92 kg output = 92% yield). This is the planning number.',
+        title: 'Indicative yield (Production Trial)',
+        body: 'At <strong>Production Trial</strong>, Factory records the <strong>indicative yield</strong> — the first real reading from a controlled batch (e.g. 100 kg input → 92 kg output = 92% yield). Tentative — refined later from regular production.',
         page: 'training'
       },
       {
-        title: 'Validated yield (Production Trial)',
-        body: 'After Prod Trial, Factory captures the <strong>validated yield</strong> from actual runs. This replaces the indicative for costing purposes — once you have real data, you trust it. Both fields are visible on the recipe; the system uses the validated one if present.',
+        title: 'Validated yield (regular Production)',
+        body: 'Once the recipe is Approved and runs in regular production, Factory captures the <strong>validated yield</strong> from real runs. This replaces the indicative for costing — once you have real production data, you trust it. Both fields live on the recipe; the system uses the validated one if present.',
         page: 'training'
       },
       {
