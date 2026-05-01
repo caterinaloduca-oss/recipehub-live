@@ -19096,10 +19096,30 @@ function editProductionRun(id) {
         '<div class="form-group"><label class="form-label">Responsible</label><input class="form-input" id="ep-operator" value="'+(run.operator||'')+'" placeholder="Name" /></div>' +
       '</div>' +
       '<div class="form-group" style="margin-bottom:16px"><label class="form-label">Description / Notes</label><textarea class="form-textarea" id="ep-notes" style="min-height:60px">'+(run.notes||'')+'</textarea></div>' +
-      '<div class="form-grid form-grid-2" style="margin-bottom:16px">' +
-        '<div class="form-group"><label class="form-label">Yield</label><input class="form-input" id="ep-yield" value="'+(run.yield||'')+'" placeholder="e.g. 95%" /></div>' +
-        '<div class="form-group"><label class="form-label">Waste %</label><input class="form-input" id="ep-waste" value="'+(run.waste||'')+'" placeholder="e.g. 5%" /></div>' +
-      '</div>' +
+      (function(){
+        // Yield label depends on the run type:
+        // - Factory Trial → "Indicative Yield" (planning estimate, validated later)
+        // - Production Trial → "Validated Yield" (the real number that becomes the recipe's yield of record)
+        // - Other runs (Production) → just "Yield"
+        var _yieldLabel, _yieldHint, _wasteLabel;
+        if (run.runType === 'Factory Trial') {
+          _yieldLabel = 'Indicative Yield';
+          _wasteLabel = 'Indicative Waste %';
+          _yieldHint = '<div style="font-size:10px;color:var(--g3);margin-top:4px;font-style:italic">Tentative — actual yield is captured at the Production Trial.</div>';
+        } else if (run.runType === 'Production Trial') {
+          _yieldLabel = 'Validated Yield';
+          _wasteLabel = 'Validated Waste %';
+          _yieldHint = '<div style="font-size:10px;color:var(--g3);margin-top:4px;font-style:italic">This is the figure of record — it overrides the indicative yield from Factory Trial.</div>';
+        } else {
+          _yieldLabel = 'Yield';
+          _wasteLabel = 'Waste %';
+          _yieldHint = '';
+        }
+        return '<div class="form-grid form-grid-2" style="margin-bottom:6px">' +
+          '<div class="form-group"><label class="form-label">' + _yieldLabel + '</label><input class="form-input" id="ep-yield" value="'+(run.yield||'')+'" placeholder="e.g. 95%" /></div>' +
+          '<div class="form-group"><label class="form-label">' + _wasteLabel + '</label><input class="form-input" id="ep-waste" value="'+(run.waste||'')+'" placeholder="e.g. 5%" /></div>' +
+        '</div>' + _yieldHint + '<div style="margin-bottom:16px"></div>';
+      })() +
       '<div style="display:flex;gap:10px;justify-content:flex-end">' +
         '<button class="btn btn-outline" onclick="closeModal()">Cancel</button>' +
         '<button class="btn btn-gold" onclick="saveEditRun(\''+id+'\')">Save</button>' +
