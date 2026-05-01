@@ -12254,6 +12254,11 @@ function exportToSOP(npd) {
   updateSOPStatusBadge(r);
 }
 
+// CCP / Danger / Photo icons drive data directly (s.ccp, s.warning, s.media)
+// so their active state is derived, not stored in s.icons. Click prompts for
+// CCP value / warning text or opens the media picker — no duplicate buttons below.
+var _SOP_ICON_DATA_BACKED = { ccp:'ccp', danger:'warning', photo:'media' };
+
 function renderEditableSOPStep(s, idx, npd) {
   const iconKeys = Object.keys(SOP_ICONS);
   const _r = RECIPE_DB[npd];
@@ -12288,36 +12293,43 @@ function renderEditableSOPStep(s, idx, npd) {
         </div>
       </div>
 
+      <input type="file" id="sop-step-media-input-${idx}" accept="image/*,video/*" multiple style="display:none" onchange="handleSOPStepMedia('${npd}',${idx},this)" />
       <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:5px;align-items:center">
         <span style="font-size:9px;color:var(--g3);text-transform:uppercase;letter-spacing:0.1em;margin-right:2px">Icons</span>
         ${iconKeys.map(k => {
           const ic = SOP_ICONS[k];
-          const active = (s.icons||[]).includes(k);
-          return `<button class="sop-icon-toggle ${active ? 'active ' + ic.cls : ''}" data-tooltip="${ic.label}" onclick="toggleSOPIcon('${npd}',${idx},'${k}')">${ic.emoji}</button>`;
+          const dataField = _SOP_ICON_DATA_BACKED[k];
+          // For CCP/danger/photo, active state derives from the data (s.ccp / s.warning / s.media), not s.icons
+          let active;
+          if (dataField === 'media') active = !!(s.media && s.media.length);
+          else if (dataField) active = !!s[dataField];
+          else active = (s.icons||[]).includes(k);
+          const tooltip = dataField === 'ccp' ? (s.ccp ? 'Edit CCP — '+s.ccp : 'Add CCP value') :
+                          dataField === 'warning' ? (s.warning ? 'Edit warning' : 'Add warning text') :
+                          dataField === 'media' ? (active ? 'Add more media' : 'Upload photo / video') :
+                          ic.label;
+          let click;
+          if (dataField === 'ccp') click = `toggleSOPCCP('${npd}',${idx})`;
+          else if (dataField === 'warning') click = `toggleSOPWarning('${npd}',${idx})`;
+          else if (dataField === 'media') click = `document.getElementById('sop-step-media-input-${idx}').click()`;
+          else click = `toggleSOPIcon('${npd}',${idx},'${k}')`;
+          return `<button class="sop-icon-toggle ${active ? 'active ' + ic.cls : ''}" data-tooltip="${tooltip}" onclick="${click}">${ic.emoji}</button>`;
         }).join('')}
+        <span style="width:1px;height:18px;background:var(--g2);margin:0 4px"></span>
+        <button class="btn btn-ghost-sm" style="width:auto;margin:0;padding:3px 10px;font-size:10px" onclick="addSOPParam('${npd}',${idx})">+ Param</button>
       </div>
 
-      <div style="margin-top:10px" id="sop-params-${idx}">
+      ${(s.params && s.params.length) ? `<div style="margin-top:8px" id="sop-params-${idx}">
         <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">
-          ${(s.params||[]).map((p,pi) => `
+          ${s.params.map((p,pi) => `
             <div class="sop-param" style="display:flex;align-items:center;gap:4px">
               <input class="form-input" value="${p.l}" style="width:90px;padding:3px 6px;font-size:10px;text-transform:uppercase" placeholder="Label" onchange="updateSOPParam('${npd}',${idx},${pi},'l',this.value)" />
               <input class="form-input" value="${p.v}" style="width:100px;padding:3px 6px;font-size:12px;font-weight:500" placeholder="Value" onchange="updateSOPParam('${npd}',${idx},${pi},'v',this.value)" />
               <button style="background:none;border:none;cursor:pointer;color:var(--red);font-size:14px" onclick="removeSOPParam('${npd}',${idx},${pi})">✕</button>
             </div>
           `).join('')}
-          <button class="btn btn-ghost-sm" style="width:auto;margin:0;padding:3px 10px;font-size:10px" onclick="addSOPParam('${npd}',${idx})">+ Param</button>
         </div>
-      </div>
-
-      <div style="margin-top:10px;display:flex;gap:6px;align-items:center">
-        <button class="btn btn-sm ${s.ccp ? 'btn-danger-sm' : 'btn-outline'}" style="font-size:10px;padding:3px 10px" onclick="toggleSOPCCP('${npd}',${idx})">🛑 ${s.ccp ? 'Edit CCP' : '+ CCP'}</button>
-        <button class="btn btn-sm ${s.warning ? '' : 'btn-outline'}" style="font-size:10px;padding:3px 10px;${s.warning ? 'background:var(--amber-lt);color:var(--amber);border:1px solid #F5D5A0' : ''}" onclick="toggleSOPWarning('${npd}',${idx})">⚠️ ${s.warning ? 'Edit Warning' : '+ Warning'}</button>
-        <label style="font-size:10px;padding:3px 10px;border-radius:var(--r-sm);border:1px solid var(--g2);background:var(--g1);color:var(--g4);cursor:pointer;display:inline-flex;align-items:center;gap:4px">
-          📷 + Media
-          <input type="file" accept="image/*,video/*" multiple style="display:none" onchange="handleSOPStepMedia('${npd}',${idx},this)" />
-        </label>
-      </div>
+      </div>` : ''}
       ${s.ccp ? `<div class="sop-ccp" style="margin-top:10px">🛑 ${s.ccp}</div>` : ''}
       ${s.warning ? `<div class="sop-warning" style="margin-top:10px">⚠️ ${s.warning}</div>` : ''}
       <div class="media-grid" id="sop-step-media-${idx}" style="margin-top:${(s.media && s.media.length) ? '10px' : '0'}">
