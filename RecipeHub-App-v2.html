@@ -18453,8 +18453,8 @@ function buildProductionTable() {
   var tbody = document.getElementById('prod-tbody');
   if (!tbody) return;
   tbody.innerHTML = '';
-  var statusMap = {pending:'badge-pending-prod',scheduled:'badge-review',completed:'badge-approved',archived:'badge-draft','on-hold':'badge-draft'};
-  var statusLabel = {pending:'Pending',scheduled:'Scheduled',completed:'Completed',archived:'Archived','on-hold':'On Hold'};
+  var statusMap = {pending:'badge-pending-prod',scheduled:'badge-review',completed:'badge-approved',archived:'badge-draft','on-hold':'badge-draft','blocked-materials':'badge-trial'};
+  var statusLabel = {pending:'Pending',scheduled:'Scheduled',completed:'Completed',archived:'Archived','on-hold':'On Hold','blocked-materials':'🚫 Blocked'};
   var activeRuns = PRODUCTION_RUNS.filter(function(r){return !r.archived});
   var archivedRuns = PRODUCTION_RUNS.filter(function(r){return r.archived});
   var visibleRuns = _showArchived ? PRODUCTION_RUNS : activeRuns;
@@ -18470,6 +18470,17 @@ function buildProductionTable() {
       if (_canEdit && run.status !== 'completed') {
         actions += '<button class="btn btn-outline btn-sm" onclick="changeRunStatus(\''+run.id+'\')">Status ▾</button>';
         actions += '<button class="btn btn-outline btn-sm" onclick="editProductionRun(\''+run.id+'\')">Edit</button>';
+      }
+      // Block / Unblock — Trial runs only (Factory & Production Trial), Factory + Admin only.
+      // Once approved the recipe is out of NPD scope and goes to Factory's regular production environment.
+      var _isTrialRun = (run.runType === 'Factory Trial' || run.runType === 'Production Trial');
+      var _canBlock = _isTrialRun && (_role === 'factory' || _role === 'admin');
+      if (_canBlock && run.status !== 'completed') {
+        if (run.status === 'blocked-materials') {
+          actions += '<button class="btn btn-sage btn-sm" onclick="event.stopPropagation();unblockProductionRun(\''+run.id+'\')">✓ Unblock</button>';
+        } else {
+          actions += '<button class="btn btn-outline btn-sm" style="color:#8C1A1A;border-color:#F5B5B0" onclick="event.stopPropagation();openBlockProductionRun(\''+run.id+'\')">🚫 Block</button>';
+        }
       }
       if (run.status==='completed' && _canEdit) actions += '<button class="btn btn-outline btn-sm" style="color:var(--g3)" onclick="archiveProductionRun(\''+run.id+'\')">Archive</button>';
     } else {
@@ -18514,7 +18525,11 @@ function buildProductionTable() {
       '<td style="white-space:nowrap;padding-right:14px"><span class="badge ' + (_runTypeBadge[run.runType] || 'badge-production') + '">' + _runTypeLabel + '</span></td>' +
       '<td style="font-family:var(--font-m);font-size:12px;white-space:nowrap">' + (run.batchSize ? run.batchSize : '<span style="color:var(--g3)">—</span>') + '</td>' +
       '<td style="font-size:12px;color:var(--g4)">' + (run.operator || '—') + '</td>' +
-      '<td><span class="badge ' + (statusMap[displayStatus] || 'badge-draft') + '">' + (statusLabel[displayStatus] || displayStatus) + '</span></td>' +
+      '<td><span class="badge ' + (statusMap[displayStatus] || 'badge-draft') + '">' + (statusLabel[displayStatus] || displayStatus) + '</span>' +
+        (run.status === 'blocked-materials' && Array.isArray(run.missingIngredients) && run.missingIngredients.length
+          ? '<div style="font-size:10px;color:#8C1A1A;margin-top:3px;font-weight:500;cursor:help" title="' + run.missingIngredients.map(function(m){return m.name + (m.itemCode ? ' (' + m.itemCode + ')' : '');}).join(', ').replace(/"/g,'&quot;') + '">missing: ' + run.missingIngredients.length + ' material' + (run.missingIngredients.length > 1 ? 's' : '') + '</div>'
+          : '') +
+      '</td>' +
       '<td onclick="event.stopPropagation()"><div style="display:flex;gap:4px;white-space:nowrap">' + actions + '</div></td>';
     tbody.appendChild(tr);
   });
@@ -18544,6 +18559,129 @@ function buildProductionTable() {
   var archBtn = document.getElementById('prod-archive-toggle');
   if (archBtn && archivedRuns.length) archBtn.textContent = (_showArchived ? 'Hide Archived' : 'Show Archived') + ' (' + archivedRuns.length + ')';
   else if (archBtn) archBtn.textContent = _showArchived ? 'Hide Archived' : 'Show Archived';
+}
+
+// ──────────── Block / Unblock production trial runs (missing raw materials) ────────────
+// Factory uses this to flag a Trial run as blocked when raw materials aren't on the line.
+// Trial runs only (Factory Trial / Production Trial). Once approved, the recipe leaves NPD scope.
+
+function openBlockProductionRun(id) {
+  var run = PRODUCTION_RUNS.find(function(r){ return r.id === id; });
+  if (!run) return;
+  var _role = getCurrentUserRole();
+  if (_role !== 'factory' && _role !== 'admin') { showSaveToast('Factory / Admin only', true); return; }
+  if (run.runType !== 'Factory Trial' && run.runType !== 'Production Trial') {
+    showSaveToast('Block is for Factory Trial / Production Trial runs only', true);
+    return;
+  }
+  var r = RECIPE_DB[run.npd];
+  var ingredients = (r && Array.isArray(r.ingredients)) ? r.ingredients : [];
+  if (!ingredients.length) {
+    showSaveToast('No ingredients on the recipe — nothing to flag', true);
+    return;
+  }
+  var rows = ingredients.map(function(ing, i) {
+    var name = (ing.name || '').replace(/"/g,'&quot;');
+    return '<label style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid var(--g1);cursor:pointer;font-size:13px">' +
+      '<input type="checkbox" data-blk-ing="' + i + '" data-name="' + name + '" />' +
+      '<span style="flex:1">' + name + '</span>' +
+      '<span style="font-size:11px;color:var(--g3);font-family:var(--font-m)">' + ((ing.pct || 0).toFixed(1)) + '%</span>' +
+    '</label>';
+  }).join('');
+  openModal(
+    '<div class="card-head" style="background:#8C1A1A;border-radius:16px 16px 0 0">' +
+      '<span class="card-title" style="color:white">🚫 Block run — missing materials</span>' +
+      '<button class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:white;border:none" onclick="closeModal()">✕</button>' +
+    '</div>' +
+    '<div class="card-body" style="padding:18px 20px">' +
+      '<div style="font-size:12px;color:var(--g4);margin-bottom:6px"><strong>' + (run.recipe || '') + '</strong> · ' + (run.runType || 'Trial') + (run.date ? ' · ' + run.date : '') + '</div>' +
+      '<div style="font-size:13px;color:var(--g4);margin-bottom:14px">Tick the materials that are missing or below required quantity. Purchasing will be alerted along with R&D and QA.</div>' +
+      '<div style="border:1px solid var(--g2);border-radius:8px;max-height:280px;overflow-y:auto" id="blk-ing-list">' + rows + '</div>' +
+      '<div class="form-group" style="margin-top:14px"><label class="form-label">Note (optional)</label><textarea class="form-input" id="blk-note" placeholder="e.g. Sunflower oil 18L tin held at supplier — ETA Tue" style="min-height:60px;resize:vertical"></textarea></div>' +
+      '<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px">' +
+        '<button class="btn btn-outline" onclick="closeModal()">Cancel</button>' +
+        '<button class="btn btn-sm" style="background:#8C1A1A;color:white" onclick="confirmBlockProductionRun(\'' + id + '\')">🚫 Block run</button>' +
+      '</div>' +
+    '</div>',
+    '560px'
+  );
+}
+
+function confirmBlockProductionRun(id) {
+  var run = PRODUCTION_RUNS.find(function(r){ return r.id === id; });
+  if (!run) { closeModal(); return; }
+  var r = RECIPE_DB[run.npd];
+  var ingredients = (r && Array.isArray(r.ingredients)) ? r.ingredients : [];
+  var checks = document.querySelectorAll('#blk-ing-list input[data-blk-ing]:checked');
+  if (!checks.length) { showSaveToast('Select at least one missing material', true); return; }
+  var missing = Array.from(checks).map(function(cb) {
+    var idx = parseInt(cb.getAttribute('data-blk-ing'), 10);
+    var ing = ingredients[idx] || {};
+    var code = (typeof resolveItemCode === 'function') ? (resolveItemCode(ing.name) || '') : '';
+    return { name: ing.name || cb.getAttribute('data-name') || '', itemCode: code };
+  });
+  var note = (document.getElementById('blk-note').value || '').trim();
+  var who = getCurrentUserName();
+  var nowIso = new Date().toISOString();
+  run.previousStatus = run.status; // remember to restore on unblock
+  run.status = 'blocked-materials';
+  run.blockedAt = nowIso;
+  run.blockedBy = who;
+  run.missingIngredients = missing;
+  run.blockedNote = note;
+  closeModal();
+  saveAllData();
+  buildProductionTable();
+  if (typeof updateSidebarBadges === 'function') updateSidebarBadges();
+  logActivity('production', '🚫', (run.runType || 'Trial') + ' blocked: ' + run.recipe, missing.length + ' material' + (missing.length > 1 ? 's' : '') + ' missing' + (note ? ' — ' + note : ''));
+  if (typeof auditEvent === 'function') auditEvent('run.block', 'production-run', id, run.recipe, { missing: missing.map(function(m){return m.name}), note: note });
+  showSaveToast('Run blocked — Purchasing alerted');
+  // Email all four teams
+  fetch(API_BASE + '/api/notify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + API_KEY },
+    body: JSON.stringify({
+      event: 'run-blocked',
+      recipe: run.recipe,
+      user: who,
+      run: { date: run.date || '', time: run.time || '', batchSize: run.batchSize || '', runType: run.runType || 'Trial' },
+      missingIngredients: missing,
+      note: note,
+    }),
+  }).catch(function(){});
+}
+
+function unblockProductionRun(id) {
+  var run = PRODUCTION_RUNS.find(function(r){ return r.id === id; });
+  if (!run || run.status !== 'blocked-materials') return;
+  var _role = getCurrentUserRole();
+  if (_role !== 'factory' && _role !== 'admin') { showSaveToast('Only Factory / Admin can unblock a run', true); return; }
+  customPrompt('Optional note (e.g. "All materials in — run starts Monday"):', '', function(note) {
+    var who = getCurrentUserName();
+    var nowIso = new Date().toISOString();
+    run.status = run.previousStatus || (run.date ? 'scheduled' : 'pending');
+    run.unblockedAt = nowIso;
+    run.unblockedBy = who;
+    run.unblockedNote = (note || '').trim();
+    delete run.previousStatus;
+    saveAllData();
+    buildProductionTable();
+    if (typeof updateSidebarBadges === 'function') updateSidebarBadges();
+    logActivity('production', '✓', (run.runType || 'Trial') + ' unblocked: ' + run.recipe, run.unblockedNote || 'Materials in');
+    if (typeof auditEvent === 'function') auditEvent('run.unblock', 'production-run', id, run.recipe, { note: run.unblockedNote });
+    showSaveToast('Run unblocked');
+    fetch(API_BASE + '/api/notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + API_KEY },
+      body: JSON.stringify({
+        event: 'run-unblocked',
+        recipe: run.recipe,
+        user: who,
+        run: { date: run.date || '', time: run.time || '', batchSize: run.batchSize || '', runType: run.runType || 'Trial' },
+        note: run.unblockedNote,
+      }),
+    }).catch(function(){});
+  });
 }
 
 function filterProductionRuns() {

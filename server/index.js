@@ -1351,6 +1351,64 @@ app.post('/api/notify', requireAuth, (req, res) => {
           <p style="margin-top:16px"><a href="https://recipehub.dailyfoodsa.com" style="background:#2D6A4F;color:white;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:600">Open RecipeHub</a></p>`;
         break;
 
+      case 'run-blocked': {
+        // Factory flagged a Trial run as blocked because raw materials are missing.
+        // Reach all four teams so Purchasing acts and R&D / QA know the timeline slips.
+        recipients = getEmailsByRole(['npd', 'qa', 'factory', 'purchasing']);
+        const r3 = req.body.run || {};
+        const runType = r3.runType || 'Trial';
+        const dateStr = r3.date || '—';
+        const note = req.body.note || '';
+        const escape = (s) => String(s || '').replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
+        const missing = Array.isArray(req.body.missingIngredients) ? req.body.missingIngredients : [];
+        const missingRows = missing.map(m => `<tr>
+          <td style="padding:5px 8px;border-bottom:1px solid #eee;font-size:12px">${escape(m.name)}</td>
+          <td style="padding:5px 8px;border-bottom:1px solid #eee;font-size:11px;font-family:monospace;color:#666">${escape(m.itemCode || '—')}</td>
+        </tr>`).join('');
+        const missingBlock = missing.length ? `
+          <div style="margin-top:14px;padding:14px 16px;background:#FCE7E5;border:1px solid #F5B5B0;border-radius:8px">
+            <div style="font-size:13px;font-weight:600;color:#8C1A1A;margin-bottom:8px">📦 Missing materials</div>
+            <table style="width:100%;border-collapse:collapse;background:white;border-radius:6px;overflow:hidden">
+              <thead><tr>
+                <th style="padding:6px 8px;background:#fef2f2;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:#8C1A1A;text-align:left;border-bottom:1.5px solid #F5B5B0">Ingredient</th>
+                <th style="padding:6px 8px;background:#fef2f2;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:#8C1A1A;text-align:left;border-bottom:1.5px solid #F5B5B0">EBS Code</th>
+              </tr></thead>
+              <tbody>${missingRows}</tbody>
+            </table>
+          </div>` : '';
+        subject = `🚫 ${runType} blocked — missing materials: ${recipe}`;
+        html = `<h2 style="color:#8C1A1A;margin:0 0 12px">🚫 ${recipe} — ${runType} blocked</h2>
+          <p><strong>${userName}</strong> (Factory) flagged this run as blocked. The trial cannot proceed until the materials below are received.</p>
+          <table style="border-collapse:collapse;margin:12px 0;font-size:13px">
+            <tr><td style="padding:6px 12px;color:#666">Scheduled date</td><td style="padding:6px 12px;font-weight:600">${escape(dateStr)}${r3.time ? ' ' + escape(r3.time) : ''}</td></tr>
+            <tr><td style="padding:6px 12px;color:#666">Run type</td><td style="padding:6px 12px">${escape(runType)}</td></tr>
+          </table>
+          ${missingBlock}
+          ${note ? `<p style="margin-top:14px;background:#FFF8E0;padding:10px 14px;border-left:3px solid #d47000;border-radius:4px;font-size:13px"><strong>Factory note:</strong> ${escape(note)}</p>` : ''}
+          <p style="margin-top:16px"><strong>Purchasing</strong> — please escalate procurement. <strong>Factory</strong> will mark the run unblocked once materials are physically on the line.</p>
+          <p style="margin-top:16px"><a href="https://recipehub.dailyfoodsa.com" style="background:#8C1A1A;color:white;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:600">View Production Plan</a></p>`;
+        break;
+      }
+
+      case 'run-unblocked': {
+        recipients = getEmailsByRole(['npd', 'qa', 'factory', 'purchasing']);
+        const r4 = req.body.run || {};
+        const runType = r4.runType || 'Trial';
+        const dateStr = r4.date || '—';
+        const note = req.body.note || '';
+        const escape = (s) => String(s || '').replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
+        subject = `✓ ${runType} unblocked: ${recipe}`;
+        html = `<h2 style="color:#2D6A4F;margin:0 0 12px">✓ ${recipe} — ${runType} unblocked</h2>
+          <p><strong>${userName}</strong> (Factory) confirmed materials are in. The run is back on schedule.</p>
+          <table style="border-collapse:collapse;margin:12px 0;font-size:13px">
+            <tr><td style="padding:6px 12px;color:#666">Scheduled date</td><td style="padding:6px 12px;font-weight:600">${escape(dateStr)}${r4.time ? ' ' + escape(r4.time) : ''}</td></tr>
+            <tr><td style="padding:6px 12px;color:#666">Run type</td><td style="padding:6px 12px">${escape(runType)}</td></tr>
+          </table>
+          ${note ? `<p style="background:#EBF5EE;padding:10px 14px;border-left:3px solid #2D6A4F;border-radius:4px;font-size:13px">${escape(note)}</p>` : ''}
+          <p style="margin-top:16px"><a href="https://recipehub.dailyfoodsa.com" style="background:#2D6A4F;color:white;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:600">View Production Plan</a></p>`;
+        break;
+      }
+
       case 'sub-created': {
         recipients = getEmailsByRole(['npd', 'qa', 'factory']);
         const sub = req.body.sub || {};
