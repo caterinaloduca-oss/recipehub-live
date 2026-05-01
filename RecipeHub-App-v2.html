@@ -10213,15 +10213,15 @@ function viewRecipe(npd) {
 
   var _detailActions = '';
   if (_isRD) {
+    // Topbar carries workflow actions only — Edit / Save / Print live in the navy
+    // header next to the recipe title (closer context). Print is omitted from More ▾
+    // for the same reason.
     _detailActions = `
-      <button class="btn btn-gold btn-sm" onclick="editRecipe('${r.npd}')">✏️ Edit</button>
       ${r.sopSteps && r.sopSteps.length ? `<button class="btn btn-outline btn-sm" onclick="exportToSOP('${r.npd}')">🏭 View SOP</button>` : `<button class="btn btn-sage btn-sm" onclick="generateFactorySOP('${r.npd}')">🏭 Generate Factory SOP</button>`}
       ${_statusBtn}
       <div class="more-dd">
         <button class="btn btn-outline btn-sm" onclick="this.nextElementSibling.classList.toggle('show')">More ▾</button>
         <div class="more-dd-menu" onclick="this.classList.remove('show')">
-          <button class="more-dd-item" onclick="openPrint('${r.npd}','kitchen')">🍳 Print Kitchen Version</button>
-          <button class="more-dd-item" onclick="openPrint('${r.npd}','factory')">🏭 Print Factory Version</button>
           <button class="more-dd-item" onclick="downloadPDF('${r.npd}','kitchen')">📄 Save PDF</button>
           <div style="border-top:1px solid rgba(0,0,0,0.06);margin:4px 0"></div>
           <button class="more-dd-item" onclick="updateRecipeCost('${r.npd}');saveAllData();viewRecipe('${r.npd}');showSaveToast('Cost recalculated')">💰 Recalc Cost</button>
