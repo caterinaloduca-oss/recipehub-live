@@ -18928,9 +18928,12 @@ function deleteProdComment(idx) {
   if (!_selectedRunId) return;
   var run = PRODUCTION_RUNS.find(function(r){return r.id===_selectedRunId});
   if (!run || !run.comments) return;
+  if (!confirm('Delete this comment?')) return;
   run.comments.splice(idx, 1);
+  run.updatedAt = new Date().toISOString();
   saveAllData();
-  selectProdRun(_selectedRunId);
+  selectProdRun(_selectedRunId);   // re-render the comment panel
+  buildProductionTable();           // re-render the row count
 }
 
 function postProdComment() {
