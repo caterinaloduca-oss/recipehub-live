@@ -18477,7 +18477,7 @@ function buildProductionTable() {
       var _canBlock = _isTrialRun && (_role === 'factory' || _role === 'admin');
       if (_canBlock && run.status !== 'completed') {
         if (run.status === 'blocked-materials') {
-          actions += '<button class="btn btn-sage btn-sm" onclick="event.stopPropagation();unblockProductionRun(\''+run.id+'\')">✓ Unblock</button>';
+          actions += '<button class="btn btn-sage btn-sm" onclick="event.stopPropagation();unblockProductionRun(\''+run.id+'\')">📦 Materials in</button>';
         } else {
           actions += '<button class="btn btn-outline btn-sm" style="color:#8C1A1A;border-color:#F5B5B0" onclick="event.stopPropagation();openBlockProductionRun(\''+run.id+'\')">🚫 Block</button>';
         }
@@ -18651,25 +18651,85 @@ function confirmBlockProductionRun(id) {
   }).catch(function(){});
 }
 
+// Open the partial-arrival modal. Factory ticks the materials that arrived; the rest stay
+// on the missing list. Tick all → run unblocks fully. Tick some → run stays blocked with
+// shorter list. Tick none → no-op.
 function unblockProductionRun(id) {
   var run = PRODUCTION_RUNS.find(function(r){ return r.id === id; });
   if (!run || run.status !== 'blocked-materials') return;
   var _role = getCurrentUserRole();
-  if (_role !== 'factory' && _role !== 'admin') { showSaveToast('Only Factory / Admin can unblock a run', true); return; }
-  customPrompt('Optional note (e.g. "All materials in — run starts Monday"):', '', function(note) {
-    var who = getCurrentUserName();
-    var nowIso = new Date().toISOString();
-    run.status = run.previousStatus || (run.date ? 'scheduled' : 'pending');
-    run.unblockedAt = nowIso;
-    run.unblockedBy = who;
-    run.unblockedNote = (note || '').trim();
-    delete run.previousStatus;
-    saveAllData();
-    buildProductionTable();
-    if (typeof updateSidebarBadges === 'function') updateSidebarBadges();
-    logActivity('production', '✓', (run.runType || 'Trial') + ' unblocked: ' + run.recipe, run.unblockedNote || 'Materials in');
-    if (typeof auditEvent === 'function') auditEvent('run.unblock', 'production-run', id, run.recipe, { note: run.unblockedNote });
-    showSaveToast('Run unblocked');
+  if (_role !== 'factory' && _role !== 'admin') { showSaveToast('Only Factory / Admin can update materials', true); return; }
+  var missing = Array.isArray(run.missingIngredients) ? run.missingIngredients : [];
+  if (!missing.length) {
+    // Defensive — no missing list, just clear the block
+    _finalizeUnblock(run, 'All clear', false);
+    return;
+  }
+  var rows = missing.map(function(m, i) {
+    var name = (m.name || '').replace(/"/g,'&quot;');
+    var code = (m.itemCode || '').replace(/"/g,'&quot;');
+    return '<label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--g1);cursor:pointer;font-size:13px">' +
+      '<input type="checkbox" data-arr-idx="' + i + '" />' +
+      '<span style="flex:1">' + name + (code ? ' <span style="font-family:var(--font-m);color:var(--g3);font-size:11px">(' + code + ')</span>' : '') + '</span>' +
+      '<span style="font-size:11px;color:#8C1A1A;font-weight:500">missing</span>' +
+    '</label>';
+  }).join('');
+  openModal(
+    '<div class="card-head" style="background:#2D6A4F;border-radius:16px 16px 0 0">' +
+      '<span class="card-title" style="color:white">📦 Materials update</span>' +
+      '<button class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:white;border:none" onclick="closeModal()">✕</button>' +
+    '</div>' +
+    '<div class="card-body" style="padding:18px 20px">' +
+      '<div style="font-size:12px;color:var(--g4);margin-bottom:6px"><strong>' + (run.recipe || '') + '</strong> · ' + (run.runType || 'Trial') + (run.date ? ' · ' + run.date : '') + '</div>' +
+      '<div style="font-size:13px;color:var(--g4);margin-bottom:14px">Tick each material that arrived. The rest stay on the missing list. If everything is in, the run unblocks and goes back on schedule.</div>' +
+      '<div style="display:flex;gap:6px;margin-bottom:10px"><button class="btn btn-outline btn-sm" onclick="document.querySelectorAll(\'#unblk-list input[data-arr-idx]\').forEach(function(c){c.checked=true})">Mark all arrived</button><button class="btn btn-outline btn-sm" onclick="document.querySelectorAll(\'#unblk-list input[data-arr-idx]\').forEach(function(c){c.checked=false})">Clear</button></div>' +
+      '<div style="border:1px solid var(--g2);border-radius:8px;max-height:280px;overflow-y:auto" id="unblk-list">' + rows + '</div>' +
+      '<div class="form-group" style="margin-top:14px"><label class="form-label">Note (optional)</label><textarea class="form-input" id="unblk-note" placeholder="e.g. Sunflower oil arrived; chilled water short on supply" style="min-height:60px;resize:vertical"></textarea></div>' +
+      '<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px">' +
+        '<button class="btn btn-outline" onclick="closeModal()">Cancel</button>' +
+        '<button class="btn btn-sage btn-sm" onclick="confirmUnblockProductionRun(\'' + id + '\')">Save</button>' +
+      '</div>' +
+    '</div>',
+    '560px'
+  );
+}
+
+function confirmUnblockProductionRun(id) {
+  var run = PRODUCTION_RUNS.find(function(r){ return r.id === id; });
+  if (!run || run.status !== 'blocked-materials') { closeModal(); return; }
+  var arrivedIdx = Array.from(document.querySelectorAll('#unblk-list input[data-arr-idx]:checked'))
+    .map(function(cb){ return parseInt(cb.getAttribute('data-arr-idx'), 10); });
+  if (!arrivedIdx.length) { showSaveToast('Tick at least one material that arrived', true); return; }
+  var missing = Array.isArray(run.missingIngredients) ? run.missingIngredients : [];
+  var arrivedSet = new Set(arrivedIdx);
+  var arrivedItems = missing.filter(function(_, i){ return arrivedSet.has(i); });
+  var stillMissing = missing.filter(function(_, i){ return !arrivedSet.has(i); });
+  var note = (document.getElementById('unblk-note').value || '').trim();
+  closeModal();
+  if (stillMissing.length === 0) {
+    _finalizeUnblock(run, note, true, arrivedItems);
+  } else {
+    _finalizePartial(run, arrivedItems, stillMissing, note);
+  }
+}
+
+function _finalizeUnblock(run, note, sendEmail, arrivedItems) {
+  var who = getCurrentUserName();
+  var nowIso = new Date().toISOString();
+  run.status = run.previousStatus || (run.date ? 'scheduled' : 'pending');
+  run.unblockedAt = nowIso;
+  run.unblockedBy = who;
+  run.unblockedNote = note;
+  run.missingIngredients = [];
+  delete run.previousStatus;
+  run.updatedAt = nowIso;
+  saveAllData();
+  buildProductionTable();
+  if (typeof updateSidebarBadges === 'function') updateSidebarBadges();
+  logActivity('production', '✓', (run.runType || 'Trial') + ' unblocked: ' + run.recipe, note || 'All materials in');
+  if (typeof auditEvent === 'function') auditEvent('run.unblock', 'production-run', run.id, run.recipe, { note: note });
+  showSaveToast('Run unblocked');
+  if (sendEmail) {
     fetch(API_BASE + '/api/notify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + API_KEY },
@@ -18678,10 +18738,35 @@ function unblockProductionRun(id) {
         recipe: run.recipe,
         user: who,
         run: { date: run.date || '', time: run.time || '', batchSize: run.batchSize || '', runType: run.runType || 'Trial' },
-        note: run.unblockedNote,
+        note: note,
       }),
     }).catch(function(){});
+  }
+}
+
+function _finalizePartial(run, arrivedItems, stillMissing, note) {
+  var who = getCurrentUserName();
+  var nowIso = new Date().toISOString();
+  run.missingIngredients = stillMissing;
+  // Append a partial-arrival entry to a small log on the run for traceability
+  if (!Array.isArray(run.materialLog)) run.materialLog = [];
+  run.materialLog.push({
+    at: nowIso,
+    by: who,
+    arrived: arrivedItems.map(function(m){ return m.name; }),
+    stillMissing: stillMissing.map(function(m){ return m.name; }),
+    note: note,
   });
+  run.updatedAt = nowIso;
+  saveAllData();
+  buildProductionTable();
+  if (typeof updateSidebarBadges === 'function') updateSidebarBadges();
+  var arrivedNames = arrivedItems.map(function(m){return m.name}).join(', ');
+  var stillNames = stillMissing.map(function(m){return m.name}).join(', ');
+  logActivity('production', '📦', (run.runType || 'Trial') + ': ' + arrivedItems.length + ' material' + (arrivedItems.length>1?'s':'') + ' arrived for ' + run.recipe, 'In: ' + arrivedNames + ' · Still waiting: ' + stillNames + (note ? ' — ' + note : ''));
+  if (typeof auditEvent === 'function') auditEvent('run.partial_arrival', 'production-run', run.id, run.recipe, { arrived: arrivedItems.map(function(m){return m.name}), stillMissing: stillMissing.map(function(m){return m.name}), note: note });
+  showSaveToast(arrivedItems.length + ' arrived · ' + stillMissing.length + ' still missing');
+  // No email on partial — too noisy. Activity / audit log carries the trace.
 }
 
 function filterProductionRuns() {
