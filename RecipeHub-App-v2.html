@@ -9599,9 +9599,9 @@ function viewRecipe(npd) {
         <div style="display:flex;gap:8px;align-items:center">
           <span class="badge ${statusMap[r.status]}" style="font-size:11px">${statusLabel[r.status]}</span>
           ${_vrIsRD ? (isCompositeRecipe(r)
-            ? '<button class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:white;border:none" onclick="revertToFlat(\''+r.npd+'\')" title="Switch back to flat ingredient list">↩ Flat</button>'
-            : '<button class="btn btn-sm" style="background:rgba(184,130,10,0.85);color:white;border:none" onclick="convertToComposite(\''+r.npd+'\')" title="Turn into a multi-stage recipe with linked sub-recipes">🧩 Composite</button>') : ''}
-          ${_vrIsRD ? `<button class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:white;border:none" onclick="editRecipe('${r.npd}')">Edit</button>` : ''}
+            ? '<button class="btn btn-sm" style="background:#6B2FA0;color:white;border:none" onclick="revertToFlat(\''+r.npd+'\')" title="Switch back to flat ingredient list">↩ Flat</button>'
+            : '<button class="btn btn-sm" style="background:#6B2FA0;color:white;border:none" onclick="convertToComposite(\''+r.npd+'\')" title="Turn into a multi-stage recipe with linked sub-recipes">🧩 Composite</button>') : ''}
+          ${_vrIsRD ? `<button class="btn btn-sm" style="background:var(--gold);color:white;border:none" onclick="editRecipe('${r.npd}')">✏️ Edit</button>` : ''}
           ${_vrIsRD ? `<button class="btn btn-sm" style="background:var(--sage);color:white;border:none" onclick="saveRecipeToServer('${r.npd}');showSaveToast('Recipe saved')">Save</button>` : ''}
           <div class="print-dd" id="dd-detail-${r.npd}">
             <button class="btn btn-sm" style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:none" onclick="event.stopPropagation();toggleDD('dd-detail-${r.npd}')">Print ▾</button>
