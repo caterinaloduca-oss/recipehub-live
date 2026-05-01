@@ -19098,20 +19098,19 @@ function editProductionRun(id) {
       '<div class="form-group" style="margin-bottom:16px"><label class="form-label">Description / Notes</label><textarea class="form-textarea" id="ep-notes" style="min-height:60px">'+(run.notes||'')+'</textarea></div>' +
       (function(){
         // Yield / Waste rules per run type:
-        //   Factory Trial → hidden in this edit modal (no yield expected yet — the trial
-        //                   captures it AFTER running, via the Complete Run flow)
-        //   Production Trial → ALWAYS shown ("Validated Yield" — the figure of record)
-        //   Other (regular Production) → ALWAYS shown (plain "Yield")
+        //   Factory Trial    → hidden (too early — no info captured here)
+        //   Production Trial → "Indicative Yield" — first real reading, still tentative
+        //   Production       → "Validated Yield" — actual yield from regular production
         if (run.runType === 'Factory Trial') return '';
         var _yieldLabel, _wasteLabel, _yieldHint;
         if (run.runType === 'Production Trial') {
+          _yieldLabel = 'Indicative Yield';
+          _wasteLabel = 'Indicative Waste %';
+          _yieldHint = '<div style="font-size:10px;color:var(--g3);margin-top:4px;font-style:italic">First reading from this trial — still tentative. Validated number comes from regular production runs.</div>';
+        } else {
           _yieldLabel = 'Validated Yield';
           _wasteLabel = 'Validated Waste %';
-          _yieldHint = '<div style="font-size:10px;color:var(--g3);margin-top:4px;font-style:italic">Figure of record — overrides the indicative yield from the Factory Trial.</div>';
-        } else {
-          _yieldLabel = 'Yield';
-          _wasteLabel = 'Waste %';
-          _yieldHint = '';
+          _yieldHint = '<div style="font-size:10px;color:var(--g3);margin-top:4px;font-style:italic">Real yield from regular production — overrides the indicative figure from Production Trial.</div>';
         }
         return '<div class="form-grid form-grid-2" style="margin-bottom:6px">' +
           '<div class="form-group"><label class="form-label">' + _yieldLabel + '</label><input class="form-input" id="ep-yield" value="'+(run.yield||'')+'" placeholder="e.g. 95%" /></div>' +
