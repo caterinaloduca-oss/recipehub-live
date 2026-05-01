@@ -18454,7 +18454,7 @@ function buildProductionTable() {
   if (!tbody) return;
   tbody.innerHTML = '';
   var statusMap = {pending:'badge-pending-prod',scheduled:'badge-review',completed:'badge-approved',archived:'badge-draft','on-hold':'badge-draft','blocked-materials':'badge-amber'};
-  var statusLabel = {pending:'Pending',scheduled:'Scheduled',completed:'Completed',archived:'Archived','on-hold':'On Hold','blocked-materials':'📦 Awaiting'};
+  var statusLabel = {pending:'Pending',scheduled:'Scheduled',completed:'Completed',archived:'Archived','on-hold':'On Hold','blocked-materials':'📦 Needs RM'};
   var activeRuns = PRODUCTION_RUNS.filter(function(r){return !r.archived});
   var archivedRuns = PRODUCTION_RUNS.filter(function(r){return r.archived});
   var visibleRuns = _showArchived ? PRODUCTION_RUNS : activeRuns;
@@ -18480,7 +18480,7 @@ function buildProductionTable() {
         if (run.status === 'blocked-materials') {
           actions += '<button class="btn btn-sage btn-sm" style="' + _btnStyle + '" onclick="event.stopPropagation();unblockProductionRun(\''+run.id+'\')" title="Mark materials as arrived">📦 Materials in</button>';
         } else {
-          actions += '<button class="btn btn-outline btn-sm" style="' + _btnStyle + ';color:#8A4500;border-color:#F5D5A0" onclick="event.stopPropagation();openBlockProductionRun(\''+run.id+'\')" title="Flag run as awaiting materials">📦 Awaiting</button>';
+          actions += '<button class="btn btn-outline btn-sm" style="' + _btnStyle + ';color:#8A4500;border-color:#F5D5A0" onclick="event.stopPropagation();openBlockProductionRun(\''+run.id+'\')" title="Flag run as needing raw materials">📦 Flag RM</button>';
         }
       }
       if (run.status==='completed' && _canEdit) actions += '<button class="btn btn-outline btn-sm" style="' + _btnStyle + ';color:var(--g3)" onclick="archiveProductionRun(\''+run.id+'\')">Archive</button>';
@@ -18590,7 +18590,7 @@ function openBlockProductionRun(id) {
   }).join('');
   openModal(
     '<div class="card-head" style="background:#8A4500;border-radius:16px 16px 0 0">' +
-      '<span class="card-title" style="color:white">📦 Awaiting materials — flag missing items</span>' +
+      '<span class="card-title" style="color:white">📦 Flag missing raw materials</span>' +
       '<button class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:white;border:none" onclick="closeModal()">✕</button>' +
     '</div>' +
     '<div class="card-body" style="padding:18px 20px">' +
@@ -18600,7 +18600,7 @@ function openBlockProductionRun(id) {
       '<div class="form-group" style="margin-top:14px"><label class="form-label">Note (optional)</label><textarea class="form-input" id="blk-note" placeholder="e.g. Sunflower oil 18L tin held at supplier — ETA Tue" style="min-height:60px;resize:vertical"></textarea></div>' +
       '<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px">' +
         '<button class="btn btn-outline" onclick="closeModal()">Cancel</button>' +
-        '<button class="btn btn-sm" style="background:#8A4500;color:white" onclick="confirmBlockProductionRun(\'' + id + '\')">📦 Mark awaiting</button>' +
+        '<button class="btn btn-sm" style="background:#8A4500;color:white" onclick="confirmBlockProductionRun(\'' + id + '\')">📦 Flag run</button>' +
       '</div>' +
     '</div>',
     '560px'
@@ -18633,9 +18633,9 @@ function confirmBlockProductionRun(id) {
   saveAllData();
   buildProductionTable();
   if (typeof updateSidebarBadges === 'function') updateSidebarBadges();
-  logActivity('production', '📦', (run.runType || 'Trial') + ' awaiting materials: ' + run.recipe, missing.length + ' material' + (missing.length > 1 ? 's' : '') + ' missing' + (note ? ' — ' + note : ''));
-  if (typeof auditEvent === 'function') auditEvent('run.awaiting_materials', 'production-run', id, run.recipe, { missing: missing.map(function(m){return m.name}), note: note });
-  showSaveToast('Run flagged — awaiting materials, Purchasing alerted');
+  logActivity('production', '📦', (run.runType || 'Trial') + ' needs RM: ' + run.recipe, missing.length + ' material' + (missing.length > 1 ? 's' : '') + ' missing' + (note ? ' — ' + note : ''));
+  if (typeof auditEvent === 'function') auditEvent('run.needs_rm', 'production-run', id, run.recipe, { missing: missing.map(function(m){return m.name}), note: note });
+  showSaveToast('Run flagged — needs RM, Purchasing alerted');
   // Email all four teams
   fetch(API_BASE + '/api/notify', {
     method: 'POST',

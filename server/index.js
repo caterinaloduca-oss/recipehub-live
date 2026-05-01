@@ -1376,9 +1376,9 @@ app.post('/api/notify', requireAuth, (req, res) => {
               <tbody>${missingRows}</tbody>
             </table>
           </div>` : '';
-        subject = `📦 ${runType} awaiting materials: ${recipe}`;
-        html = `<h2 style="color:#8A4500;margin:0 0 12px">📦 ${recipe} — ${runType} awaiting materials</h2>
-          <p><strong>${userName}</strong> (Factory) flagged this run as awaiting materials. The trial will proceed once the materials below are received.</p>
+        subject = `📦 ${runType} needs RM: ${recipe}`;
+        html = `<h2 style="color:#8A4500;margin:0 0 12px">📦 ${recipe} — ${runType} needs RM</h2>
+          <p><strong>${userName}</strong> (Factory) flagged this run as needing raw materials. The trial will proceed once the materials below are received.</p>
           <table style="border-collapse:collapse;margin:12px 0;font-size:13px">
             <tr><td style="padding:6px 12px;color:#666">Scheduled date</td><td style="padding:6px 12px;font-weight:600">${escape(dateStr)}${r3.time ? ' ' + escape(r3.time) : ''}</td></tr>
             <tr><td style="padding:6px 12px;color:#666">Run type</td><td style="padding:6px 12px">${escape(runType)}</td></tr>
