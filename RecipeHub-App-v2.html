@@ -119,11 +119,10 @@ body { font-family:var(--font-b); background:var(--cream); color:var(--g5); font
 .more-dd-item { display:block; width:100%; text-align:left; padding:8px 12px; font-size:12px; font-family:var(--font-b); border:none; background:none; cursor:pointer; border-radius:6px; color:var(--navy); transition:background 0.15s; }
 .more-dd-item:hover { background:rgba(0,0,0,0.04); }
 
-.page-content { padding:28px; flex:1; display:flex; flex-direction:column; align-items:stretch; justify-content:flex-start; }
-/* Visible page sticks to the top of .page-content. margin-bottom:auto forces it even
-   when something further down the flex chain tries to push it (recurring "page stuck
-   at the bottom" bug). flex-grow:0 + flex-shrink:0 keeps it at content size. */
-.page-content > [id^="page-"]:not(.page-hidden) { width:100%; align-self:flex-start; flex:0 0 auto; margin-bottom:auto; }
+/* Block layout (not flex) — children flow naturally from the top. Flex column was
+   causing recurring "page content stuck at the bottom" bugs (most recently QAS). */
+.page-content { padding:28px; flex:1; display:block; }
+.page-content > [id^="page-"]:not(.page-hidden) { width:100%; }
 /* Defensive: style blocks living inside page-content must never take flex layout space */
 .page-content > style,
 .page-content > script { display: none !important; }
@@ -887,10 +886,10 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
       </select>
     </div>
     <div style="display:flex;gap:6px">
-      <button onclick="forceRefreshFromServer()" title="Re-pull data from the server (in-memory only)" style="flex:1;padding:6px;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,0.1);background:none;color:rgba(255,255,255,0.4);font-family:var(--font-b);font-size:11px;cursor:pointer;transition:all 0.15s" onmouseover="this.style.background='rgba(255,255,255,0.08)';this.style.color='rgba(255,255,255,0.7)'" onmouseout="this.style.background='none';this.style.color='rgba(255,255,255,0.4)'">Refresh Data</button>
-      <button onclick="reloadAppHard()" title="Force-fetch the latest HTML/CSS — use after a deploy if the page looks stale" style="flex:1;padding:6px;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,0.1);background:none;color:rgba(255,255,255,0.4);font-family:var(--font-b);font-size:11px;cursor:pointer;transition:all 0.15s" onmouseover="this.style.background='rgba(255,255,255,0.08)';this.style.color='rgba(255,255,255,0.7)'" onmouseout="this.style.background='none';this.style.color='rgba(255,255,255,0.4)'">↻ Reload App</button>
-      <button id="sidebar-backup-btn" onclick="exportBackup()" title="Download a JSON snapshot of all RecipeHub data" style="flex:1;padding:6px;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,0.1);background:none;color:rgba(255,255,255,0.4);font-family:var(--font-b);font-size:11px;cursor:pointer;transition:all 0.15s" onmouseover="this.style.background='rgba(255,255,255,0.08)';this.style.color='rgba(255,255,255,0.7)'" onmouseout="this.style.background='none';this.style.color='rgba(255,255,255,0.4)'">↓ Backup</button>
-      <button onclick="signOut()" style="flex:1;padding:6px;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,0.1);background:none;color:rgba(255,255,255,0.4);font-family:var(--font-b);font-size:11px;cursor:pointer;transition:all 0.15s" onmouseover="this.style.background='rgba(255,255,255,0.08)';this.style.color='rgba(255,255,255,0.7)'" onmouseout="this.style.background='none';this.style.color='rgba(255,255,255,0.4)'">Sign Out</button>
+      <button onclick="forceRefreshFromServer()" title="Refresh data — re-pull from server" style="flex:1;padding:8px 0;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,0.1);background:none;color:rgba(255,255,255,0.55);font-family:var(--font-b);font-size:14px;line-height:1;cursor:pointer;transition:all 0.15s" onmouseover="this.style.background='rgba(255,255,255,0.08)';this.style.color='rgba(255,255,255,0.85)'" onmouseout="this.style.background='none';this.style.color='rgba(255,255,255,0.55)'">↻</button>
+      <button onclick="reloadAppHard()" title="Reload app — force-fetch the latest HTML (use if a deploy looks stale)" style="flex:1;padding:8px 0;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,0.1);background:none;color:rgba(255,255,255,0.55);font-family:var(--font-b);font-size:14px;line-height:1;cursor:pointer;transition:all 0.15s" onmouseover="this.style.background='rgba(255,255,255,0.08)';this.style.color='rgba(255,255,255,0.85)'" onmouseout="this.style.background='none';this.style.color='rgba(255,255,255,0.55)'">⟳</button>
+      <button id="sidebar-backup-btn" onclick="exportBackup()" title="Backup — download a JSON snapshot of all RecipeHub data" style="flex:1;padding:8px 0;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,0.1);background:none;color:rgba(255,255,255,0.55);font-family:var(--font-b);font-size:14px;line-height:1;cursor:pointer;transition:all 0.15s" onmouseover="this.style.background='rgba(255,255,255,0.08)';this.style.color='rgba(255,255,255,0.85)'" onmouseout="this.style.background='none';this.style.color='rgba(255,255,255,0.55)'">↓</button>
+      <button onclick="signOut()" title="Sign out" style="flex:1;padding:8px 0;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,0.1);background:none;color:rgba(255,255,255,0.55);font-family:var(--font-b);font-size:14px;line-height:1;cursor:pointer;transition:all 0.15s" onmouseover="this.style.background='rgba(255,255,255,0.08)';this.style.color='rgba(255,255,255,0.85)'" onmouseout="this.style.background='none';this.style.color='rgba(255,255,255,0.55)'">⎋</button>
     </div>
   </div>
 </aside>
