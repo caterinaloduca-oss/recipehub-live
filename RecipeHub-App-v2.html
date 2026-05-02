@@ -917,7 +917,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
 <!-- ══════════════════════════════════════════
      PAGE: DASHBOARD
 ══════════════════════════════════════════ -->
-<div id="page-dashboard">
+<div id="page-dashboard" class="page-hidden">
   <div class="stats-row" id="dash-stats-row">
     <div class="stat-card">
       <div class="stat-label">Total Recipes</div>
@@ -5765,6 +5765,10 @@ function showApp() {
   document.getElementById('signin-overlay').classList.add('hidden');
   document.getElementById('app-sidebar').style.display = '';
   document.getElementById('app-main').style.display = '';
+  // Explicit initial page render — guarantees only one page is unhidden.
+  // Was previously implicit (dashboard visible by default), which combined with
+  // navigations could leave more than one page visible and push content down.
+  if (typeof showPage === 'function') showPage(_currentPage || 'dashboard');
 }
 
 function hideApp() {
