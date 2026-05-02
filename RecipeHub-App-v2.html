@@ -2964,12 +2964,15 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
         <option value="">All brands</option>
       </select>
     </div>
-    <div class="card">
-      <div class="card-head">
-        <span class="card-title">QAS — Visual Acceptance Specification</span>
+    <div class="card" id="qas-card">
+      <div class="card-head" style="cursor:pointer;user-select:none" onclick="toggleQasCollapsed()">
+        <span style="display:flex;align-items:center;gap:10px">
+          <span id="qas-toggle-arrow" style="font-size:18px;line-height:1;color:var(--navy);transition:transform 0.2s">▾</span>
+          <span class="card-title">QAS — Visual Acceptance Specification</span>
+        </span>
         <span style="font-size:11px;color:var(--g3)" id="qas-landing-count"></span>
       </div>
-      <div class="card-body" style="padding:0;overflow-x:auto">
+      <div class="card-body" id="qas-card-body" style="padding:0;overflow-x:auto">
         <table class="data-table" id="qas-landing-table">
           <thead>
             <tr>
@@ -10764,6 +10767,22 @@ function toggleFsopCollapsed() {
   }
 }
 
+function toggleQasCollapsed() {
+  var body = document.getElementById('qas-card-body');
+  var arrow = document.getElementById('qas-toggle-arrow');
+  if (!body || !arrow) return;
+  var collapsed = body.style.display === 'none';
+  if (collapsed) {
+    body.style.display = '';
+    arrow.textContent = '▾';
+    try { localStorage.removeItem('rh_qas_collapsed'); } catch(e) {}
+  } else {
+    body.style.display = 'none';
+    arrow.textContent = '▸';
+    try { localStorage.setItem('rh_qas_collapsed', '1'); } catch(e) {}
+  }
+}
+
 // Restore collapsed state on first load
 (function _restoreFsopCollapsed() {
   function apply() {
@@ -10773,6 +10792,12 @@ function toggleFsopCollapsed() {
         var arrow = document.getElementById('fsop-toggle-arrow');
         if (body) body.style.display = 'none';
         if (arrow) arrow.textContent = '▸';
+      }
+      if (localStorage.getItem('rh_qas_collapsed') === '1') {
+        var qbody = document.getElementById('qas-card-body');
+        var qarrow = document.getElementById('qas-toggle-arrow');
+        if (qbody) qbody.style.display = 'none';
+        if (qarrow) qarrow.textContent = '▸';
       }
     } catch(e) {}
   }
