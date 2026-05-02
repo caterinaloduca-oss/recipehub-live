@@ -119,9 +119,12 @@ body { font-family:var(--font-b); background:var(--cream); color:var(--g5); font
 .more-dd-item { display:block; width:100%; text-align:left; padding:8px 12px; font-size:12px; font-family:var(--font-b); border:none; background:none; cursor:pointer; border-radius:6px; color:var(--navy); transition:background 0.15s; }
 .more-dd-item:hover { background:rgba(0,0,0,0.04); }
 
-/* Block layout (not flex) — children flow naturally from the top. Flex column was
-   causing recurring "page content stuck at the bottom" bugs (most recently QAS). */
-.page-content { padding:28px; flex:1; display:block; }
+/* Block layout — children flow naturally from the top. flex:1 caused the content
+   container to grow to 100vh-minus-topbar even when content was short, which combined
+   with some flex sibling somewhere up the chain ended up pushing content to the bottom
+   (recurring "page stuck at bottom" bug, most recently QAS). flex:0 0 auto sizes to
+   content. */
+.page-content { padding:28px; flex:0 0 auto; display:block; align-self:stretch; min-width:0; }
 .page-content > [id^="page-"]:not(.page-hidden) { width:100%; }
 /* Defensive: style blocks living inside page-content must never take flex layout space */
 .page-content > style,
