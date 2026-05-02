@@ -1731,13 +1731,13 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
 <div id="page-builds" class="page-hidden">
   <div style="display:flex;gap:14px;align-items:stretch;padding:16px 20px;background:var(--navy);border-radius:var(--r-lg);margin-bottom:16px" id="builds-banner">
     <div style="flex:1;display:flex;align-items:center;gap:14px">
-      <div style="text-align:center"><div style="font-size:32px;font-weight:700;color:white;font-family:var(--font-d)" id="builds-active-count">0</div><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--sage)">Active</div></div>
-      <div style="width:1px;height:36px;background:rgba(255,255,255,0.15)"></div>
-      <div style="text-align:center"><div style="font-size:32px;font-weight:700;color:rgba(255,255,255,0.6);font-family:var(--font-d)" id="builds-inprogress-count">0</div><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--amber)">In Progress</div></div>
-      <div style="width:1px;height:36px;background:rgba(255,255,255,0.15)"></div>
-      <div style="text-align:center"><div style="font-size:32px;font-weight:700;color:rgba(255,255,255,0.4);font-family:var(--font-d)" id="builds-discontinued-count">0</div><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--red)">Inactive</div></div>
-      <div style="width:1px;height:36px;background:rgba(255,255,255,0.15)"></div>
-      <div style="text-align:center"><div style="font-size:32px;font-weight:700;color:rgba(255,255,255,0.6);font-family:var(--font-d)" id="builds-total-count">0</div><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.4)">Total</div></div>
+      <div style="text-align:center"><div style="font-size:32px;font-weight:700;color:#A6D588;font-family:var(--font-d)" id="builds-active-count">0</div><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:#A6D588;font-weight:600">Active</div></div>
+      <div style="width:1px;height:36px;background:rgba(255,255,255,0.2)"></div>
+      <div style="text-align:center"><div style="font-size:32px;font-weight:700;color:#F5C26B;font-family:var(--font-d)" id="builds-inprogress-count">0</div><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:#F5C26B;font-weight:600">In Progress</div></div>
+      <div style="width:1px;height:36px;background:rgba(255,255,255,0.2)"></div>
+      <div style="text-align:center"><div style="font-size:32px;font-weight:700;color:#E89A8E;font-family:var(--font-d)" id="builds-discontinued-count">0</div><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:#E89A8E;font-weight:600">Inactive</div></div>
+      <div style="width:1px;height:36px;background:rgba(255,255,255,0.2)"></div>
+      <div style="text-align:center"><div style="font-size:32px;font-weight:700;color:white;font-family:var(--font-d)" id="builds-total-count">0</div><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.85);font-weight:600">Total</div></div>
     </div>
     <div style="display:flex;gap:10px;align-items:center" id="builds-brand-stats"></div>
   </div>
@@ -15027,8 +15027,16 @@ function populateBrandUI() {
 function populateBuildsBrandStats() {
   var container = document.getElementById('builds-brand-stats');
   if (!container) return;
+  // Brand-stat tiles sit on the navy banner — use white numbers with a brand-colored dot
+  // underline so the brand identity is preserved without sacrificing contrast.
   container.innerHTML = BRANDS.map(function(b) {
-    return '<div style="text-align:center;padding:0 10px"><div style="font-size:20px;font-weight:700;color:' + b.text + ';font-family:var(--font-d);text-shadow:0 0 8px rgba(255,255,255,0.2)" id="builds-' + b.id + '">0</div><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.7);font-weight:500">' + b.name + '</div></div>';
+    return '<div style="text-align:center;padding:0 10px">' +
+      '<div style="font-size:20px;font-weight:700;color:white;font-family:var(--font-d)" id="builds-' + b.id + '">0</div>' +
+      '<div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.92);font-weight:600;display:flex;align-items:center;justify-content:center;gap:5px">' +
+        '<span style="width:6px;height:6px;border-radius:50%;background:' + b.bg + ';box-shadow:0 0 0 1px rgba(255,255,255,0.4)"></span>' +
+        b.name +
+      '</div>' +
+    '</div>';
   }).join('');
 }
 
