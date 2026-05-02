@@ -1729,8 +1729,8 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
 
 <!-- PIZZA BUILDS PAGE -->
 <div id="page-builds" class="page-hidden">
-  <div style="display:flex;gap:14px;align-items:stretch;padding:16px 20px;background:var(--navy);border-radius:var(--r-lg);margin-bottom:16px" id="builds-banner">
-    <div style="flex:1;display:flex;align-items:center;gap:14px">
+  <div style="display:flex;gap:14px;align-items:center;justify-content:space-between;flex-wrap:nowrap;padding:16px 20px;background:var(--navy);border-radius:var(--r-lg);margin-bottom:16px" id="builds-banner">
+    <div style="display:flex;align-items:center;gap:14px;flex-shrink:0">
       <div style="text-align:center"><div style="font-size:32px;font-weight:700;color:#A6D588;font-family:var(--font-d)" id="builds-active-count">0</div><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:#A6D588;font-weight:600">Active</div></div>
       <div style="width:1px;height:36px;background:rgba(255,255,255,0.2)"></div>
       <div style="text-align:center"><div style="font-size:32px;font-weight:700;color:#F5C26B;font-family:var(--font-d)" id="builds-inprogress-count">0</div><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:#F5C26B;font-weight:600">In Progress</div></div>
@@ -1739,7 +1739,8 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
       <div style="width:1px;height:36px;background:rgba(255,255,255,0.2)"></div>
       <div style="text-align:center"><div style="font-size:32px;font-weight:700;color:white;font-family:var(--font-d)" id="builds-total-count">0</div><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.85);font-weight:600">Total</div></div>
     </div>
-    <div style="display:flex;gap:10px;align-items:center" id="builds-brand-stats"></div>
+    <div style="width:1px;height:48px;background:rgba(255,255,255,0.25);flex-shrink:0"></div>
+    <div style="display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap;flex-shrink:1;margin-left:auto" id="builds-brand-stats"></div>
   </div>
 
   <div class="filter-bar">
