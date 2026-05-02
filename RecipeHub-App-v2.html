@@ -145,6 +145,9 @@ body { font-family:var(--font-b); background:var(--cream); color:var(--g5); font
 /* ──────────── CARDS ──────────── */
 .card { background:var(--white); border-radius:var(--r-lg); border:1px solid var(--g2); box-shadow:var(--sh-sm); }
 .card-head { padding:16px 20px; border-bottom:1px solid var(--g2); display:flex; align-items:center; justify-content:space-between; gap:12px; }
+/* Auto-round the top of a card-head when it's the first child of a .card so coloured headers
+   don't show square corners against the parent card's rounded corners. */
+.card > .card-head:first-child { border-top-left-radius: var(--r-lg); border-top-right-radius: var(--r-lg); }
 .card-title { font-family:var(--font-d); font-size:16px; font-weight:600; color:var(--navy); }
 .card-body { padding:20px; }
 
@@ -10067,8 +10070,8 @@ function viewRecipe(npd) {
       if (_isBypassed) _bodyText = '<strong>Bypassed by '+esc(_stageQA.bypassedBy||'')+'</strong>'+(_stageQA.bypassedAt ? ' on '+esc(_stageQA.bypassedAt) : '')+(_stageQA.bypassReason ? '<div style="margin-top:4px;color:var(--g4);font-size:12px">Reason: '+esc(_stageQA.bypassReason)+'</div>' : '');
       else if (_isSigned) _bodyText = '<strong>Signed off'+(_isCond?' (with conditions)':'')+' by '+esc(_stageQA.signedBy||'')+'</strong>'+(_stageQA.signedAt ? ' on '+esc(_stageQA.signedAt) : '')+(_isCond && _stageQA.conditions ? '<div style="margin-top:4px;color:#8a4500;font-size:12px"><strong>Conditions:</strong> '+esc(_stageQA.conditions)+'</div>' : '');
       else _bodyText = 'QA must record lab results and sign off before this recipe can '+(r.status==='trial'?'proceed to Production Trial':'be approved for production')+'.';
-      return '<div class="card" style="margin-top:20px;border:2px solid '+_trialColor+'">' +
-        '<div class="card-head" style="background:'+_trialColor+'">' +
+      return '<div class="card" style="margin-top:20px;border:2px solid '+_trialColor+';overflow:hidden">' +
+        '<div class="card-head" style="background:'+_trialColor+';border-radius:14px 14px 0 0">' +
           '<span class="card-title" style="color:white">'+_trialLabel+' — QA Status</span>' +
           _badge +
         '</div>' +
