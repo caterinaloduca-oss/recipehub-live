@@ -120,7 +120,10 @@ body { font-family:var(--font-b); background:var(--cream); color:var(--g5); font
 .more-dd-item:hover { background:rgba(0,0,0,0.04); }
 
 .page-content { padding:28px; flex:1; display:flex; flex-direction:column; align-items:stretch; justify-content:flex-start; }
-.page-content > [id^="page-"]:not(.page-hidden) { width:100%; align-self:flex-start; flex-shrink:0; }
+/* Visible page sticks to the top of .page-content. margin-bottom:auto forces it even
+   when something further down the flex chain tries to push it (recurring "page stuck
+   at the bottom" bug). flex-grow:0 + flex-shrink:0 keeps it at content size. */
+.page-content > [id^="page-"]:not(.page-hidden) { width:100%; align-self:flex-start; flex:0 0 auto; margin-bottom:auto; }
 /* Defensive: style blocks living inside page-content must never take flex layout space */
 .page-content > style,
 .page-content > script { display: none !important; }
