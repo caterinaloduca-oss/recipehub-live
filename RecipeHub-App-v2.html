@@ -2955,6 +2955,25 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
 ══════════════════════════════════════════ -->
 <div id="page-qas" class="page-hidden">
   <div id="qas-landing">
+    <div style="display:flex;gap:14px;align-items:center;flex-wrap:nowrap;padding:14px 20px;background:var(--navy);border-radius:var(--r-lg);margin-bottom:16px" id="qas-banner">
+      <div style="display:flex;align-items:center;gap:14px;flex-shrink:0">
+        <div style="text-align:center"><div style="font-size:32px;font-weight:700;color:#A6D588;font-family:var(--font-d);line-height:1.1" id="qas-stat-approved">0</div><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:#A6D588;font-weight:600">Approved</div></div>
+        <div style="width:1px;height:36px;background:rgba(255,255,255,0.2)"></div>
+        <div style="text-align:center"><div style="font-size:32px;font-weight:700;color:#F5C26B;font-family:var(--font-d);line-height:1.1" id="qas-stat-pending">0</div><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:#F5C26B;font-weight:600">Pending</div></div>
+        <div style="width:1px;height:36px;background:rgba(255,255,255,0.2)"></div>
+        <div style="text-align:center"><div style="font-size:32px;font-weight:700;color:rgba(255,255,255,0.85);font-family:var(--font-d);line-height:1.1" id="qas-stat-draft">0</div><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.85);font-weight:600">Draft</div></div>
+        <div style="width:1px;height:36px;background:rgba(255,255,255,0.2)"></div>
+        <div style="text-align:center"><div style="font-size:32px;font-weight:700;color:#E89A8E;font-family:var(--font-d);line-height:1.1" id="qas-stat-missing">0</div><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:#E89A8E;font-weight:600">Not started</div></div>
+        <div style="width:1px;height:36px;background:rgba(255,255,255,0.2)"></div>
+        <div style="text-align:center"><div style="font-size:32px;font-weight:700;color:#B084E8;font-family:var(--font-d);line-height:1.1" id="qas-stat-bypassed">0</div><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:#B084E8;font-weight:600">Bypassed</div></div>
+        <div style="width:1px;height:36px;background:rgba(255,255,255,0.2)"></div>
+        <div style="text-align:center"><div style="font-size:32px;font-weight:700;color:white;font-family:var(--font-d);line-height:1.1" id="qas-stat-total">0</div><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.85);font-weight:600">Total</div></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:14px;flex-shrink:1;margin-left:auto;min-width:0">
+        <div style="width:1px;height:42px;background:rgba(255,255,255,0.25);flex-shrink:0"></div>
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end" id="qas-brand-stats"></div>
+      </div>
+    </div>
     <div class="filter-bar" style="margin-bottom:14px">
       <input class="form-input" id="qas-search" placeholder="Search recipes..." style="flex:1;max-width:300px" oninput="renderQasLanding()" />
       <select class="form-select" id="qas-status-filter" style="width:180px" onchange="renderQasLanding()">
@@ -11663,9 +11682,50 @@ function qasBackToLanding() {
   window.scrollTo(0, 0);
 }
 
+function _populateQasBrandStats() {
+  var container = document.getElementById('qas-brand-stats');
+  if (!container) return;
+  // Per-brand: count of recipes whose QAS is NOT cleared (missing/draft/pending/rejected)
+  var counts = {};
+  Object.values(RECIPE_DB).forEach(function(r){
+    if (r.archived || !r.brand) return;
+    if (qasIsCleared(r)) return;
+    counts[r.brand] = (counts[r.brand] || 0) + 1;
+  });
+  container.innerHTML = (typeof BRANDS !== 'undefined' ? BRANDS : []).map(function(b){
+    var dot = (typeof _brandDotColor === 'function') ? _brandDotColor(b) : '#888';
+    var n = counts[b.name] || 0;
+    return '<div style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:40px;font-size:11px;color:rgba(255,255,255,0.92);font-weight:600;letter-spacing:0.04em;line-height:1" title="' + b.name + ' — recipes still needing QAS">' +
+      '<span style="width:8px;height:8px;border-radius:50%;background:' + dot + ';flex-shrink:0"></span>' +
+      '<span style="text-transform:uppercase;font-size:10px">' + b.name + '</span>' +
+      '<span style="color:white;font-family:var(--font-d);font-weight:700;font-size:13px;margin-left:2px">' + n + '</span>' +
+    '</div>';
+  }).join('');
+}
+
+function _populateQasStats() {
+  var stats = { approved:0, pending:0, draft:0, missing:0, bypassed:0, rejected:0, total:0 };
+  Object.values(RECIPE_DB).forEach(function(r){
+    if (r.archived) return;
+    stats.total++;
+    var s = qasGetEffectiveStatus(r);
+    if (s in stats) stats[s]++;
+    else stats.missing++;
+  });
+  var set = function(id, v){ var el = document.getElementById(id); if (el) el.textContent = v; };
+  set('qas-stat-approved', stats.approved);
+  set('qas-stat-pending',  stats.pending);
+  set('qas-stat-draft',    stats.draft + stats.rejected);
+  set('qas-stat-missing',  stats.missing);
+  set('qas-stat-bypassed', stats.bypassed);
+  set('qas-stat-total',    stats.total);
+  _populateQasBrandStats();
+}
+
 function renderQasLanding() {
   var body = document.getElementById('qas-landing-body');
   if (!body) return;
+  _populateQasStats();
   // Brand filter options (lazy)
   var brandFilter = document.getElementById('qas-brand-filter');
   if (brandFilter && brandFilter.options.length <= 1) {
