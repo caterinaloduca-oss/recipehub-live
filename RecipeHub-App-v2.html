@@ -8478,8 +8478,8 @@ function openPrint(npd, mode) {
   const r = RECIPE_DB[npd];
   if (!r) return;
   const sheet = document.getElementById('print-sheet');
-  const defaultBatch = 0.5;
-  const factoryBatch = 400;
+  const defaultBatch = 1;
+  const factoryBatch = 100;
   // Orientation per mode — most are portrait, batch/SOP-with-2-col-grid are landscape
   var landscapeModes = ['batch','factory','factory-text','sop-only','kitchen'];
   var landscape = landscapeModes.indexOf(mode) > -1;
