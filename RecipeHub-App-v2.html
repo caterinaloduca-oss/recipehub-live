@@ -1178,7 +1178,6 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
       <div class="card-head" style="background:var(--sage-lt)">
         <span class="card-title" style="color:var(--sage)">Nutrition — per 100g</span>
         <div style="display:flex;gap:6px;align-items:center">
-          <button class="btn btn-outline btn-sm" style="font-size:10px;color:var(--sage);border-color:var(--sage)" onclick="calcRecipeNutritionUSDA()">USDA Auto</button>
           <button class="btn btn-outline btn-sm" onclick="toggleQAEdit(this)">Edit</button>
           <button class="btn btn-outline btn-sm" onclick="saveNutrition()">Save</button>
         </div>
@@ -9908,8 +9907,7 @@ function viewRecipe(npd) {
       <div class="card-head">
         <span class="card-title">🥗 Nutrition (per 100g)</span>
         <div style="display:flex;gap:6px">
-          ${_vrIsRDorQA ? `<button class="btn btn-outline btn-sm" style="font-size:10px;color:var(--sage);border-color:var(--sage)" onclick="calcRecipeNutritionUSDA('${r.npd}')">USDA Auto</button>
-          <button class="btn btn-outline btn-sm" onclick="toggleNutritionEdit('${r.npd}')">Edit</button>` : ''}
+          ${_vrIsRDorQA ? `<button class="btn btn-outline btn-sm" onclick="toggleNutritionEdit('${r.npd}')">Edit</button>` : ''}
         </div>
       </div>
       <div class="card-body" style="padding:0">
@@ -16620,108 +16618,6 @@ function saveNutrition() {
   saveAllData();
 }
 
-// Calculate nutrition from USDA for a recipe (QA page or recipe detail)
-function calcRecipeNutritionUSDA(npd) {
-  if (!_requireRole(['npd','qa'], 'R&D or QA')) return;
-  if (!npd) npd = _qaCurrentNPD;
-  var r = RECIPE_DB[npd];
-  if (!r) { showSaveToast('Select a recipe first', true); return; }
-  if (!r.ingredients || !r.ingredients.length) { showSaveToast('No ingredients to calculate', true); return; }
-  showSaveToast('Calculating nutrition from USDA...');
-  fetch(API_BASE + '/api/nutrition/recipe?npd=' + encodeURIComponent(npd), {
-    headers: { 'Authorization': 'Bearer ' + API_KEY }
-  }).then(function(resp) { return resp.json(); }).then(function(data) {
-    if (data.error) { showSaveToast('USDA error: ' + data.error, true); return; }
-    if (!data.nutritionPer100g) { showSaveToast('No nutrition data found', true); return; }
-    var n = data.nutritionPer100g;
-    r.nutrition = {
-      energy: n.energy ? String(Math.round(n.energy)) : '',
-      protein: n.protein ? String(n.protein.toFixed(1)) : '',
-      fat: n.fat ? String(n.fat.toFixed(1)) : '',
-      satfat: n.satfat ? String(n.satfat.toFixed(1)) : '',
-      carbs: n.carbs ? String(n.carbs.toFixed(1)) : '',
-      sugars: n.sugars ? String(n.sugars.toFixed(1)) : '',
-      fibre: n.fibre ? String(n.fibre.toFixed(1)) : '',
-      sodium: n.sodium ? String(Math.round(n.sodium)) : '',
-    };
-    // Update QA page fields if visible
-    var fields = ['energy','fat','satfat','carbs','sugars','fibre','protein','sodium'];
-    fields.forEach(function(f) {
-      var el = document.getElementById('qa-nut-' + f);
-      if (el && r.nutrition[f]) el.value = r.nutrition[f];
-    });
-    calcNutDV();
-    saveAllData();
-    showSaveToast('Nutrition calculated from USDA (' + data.matched + ' ingredients matched)');
-    logActivity('qa', '🥗', 'USDA nutrition calculated for ' + r.name, data.matched + ' matched');
-    // Re-render recipe detail if on that page
-    if (document.getElementById('ing-table-' + npd)) {
-      var _sy = window.scrollY; viewRecipe(npd); window.scrollTo(0, _sy);
-    }
-  }).catch(function(err) {
-    showSaveToast('USDA calculation failed: ' + err.message, true);
-  });
-}
-
-// Calculate nutrition from USDA for a build (uses linked recipe components)
-function calcBuildNutritionUSDA(buildId) {
-  var b = BUILDS_DATA.find(function(x) { return x.id === buildId; });
-  if (!b) return;
-  if (!b.components || !b.components.length) { showSaveToast('No components to calculate', true); return; }
-  showSaveToast('Calculating nutrition from USDA...');
-  // Search USDA for each component
-  var totals = { energy:0, protein:0, fat:0, satfat:0, carbs:0, sugars:0, fibre:0, sodium:0 };
-  var totalWeight = 0;
-  var fetched = 0;
-  var components = b.components.filter(function(c) { return c.weight; });
-  if (!components.length) { showSaveToast('Components need weights for nutrition calc', true); return; }
-  components.forEach(function(c) {
-    var grams = parseFloat(c.weight) || 0;
-    if (grams <= 0) { fetched++; return; }
-    totalWeight += grams;
-    fetch(API_BASE + '/api/nutrition/search?q=' + encodeURIComponent(c.item), {
-      headers: { 'Authorization': 'Bearer ' + API_KEY }
-    }).then(function(resp) { return resp.json(); }).then(function(data) {
-      if (data.results && data.results[0] && data.results[0].nutrition) {
-        var n = data.results[0].nutrition;
-        var scale = grams / 100;
-        Object.keys(totals).forEach(function(k) { if (n[k]) totals[k] += n[k] * scale; });
-      }
-      fetched++;
-      if (fetched >= components.length) _finishBuildNutrition(buildId, totals, totalWeight);
-    }).catch(function() {
-      fetched++;
-      if (fetched >= components.length) _finishBuildNutrition(buildId, totals, totalWeight);
-    });
-  });
-}
-
-function _finishBuildNutrition(buildId, totals, totalWeight) {
-  var b = BUILDS_DATA.find(function(x) { return x.id === buildId; });
-  if (!b || totalWeight <= 0) return;
-  // Convert to per 100g of total build
-  var scale = 100 / totalWeight;
-  b.nutrition = {
-    energy: String(Math.round(totals.energy * scale)),
-    protein: String((totals.protein * scale).toFixed(1)),
-    fat: String((totals.fat * scale).toFixed(1)),
-    satfat: String((totals.satfat * scale).toFixed(1)),
-    carbs: String((totals.carbs * scale).toFixed(1)),
-    sugars: String((totals.sugars * scale).toFixed(1)),
-    fibre: String((totals.fibre * scale).toFixed(1)),
-    sodium: String(Math.round(totals.sodium * scale)),
-  };
-  // Update build nutrition inputs
-  var fields = ['energy','protein','fat','satfat','carbs','sugars','fibre','sodium'];
-  fields.forEach(function(f) {
-    var el = document.getElementById('bld-nut-' + f + '-' + buildId);
-    if (el && b.nutrition[f]) el.value = b.nutrition[f];
-  });
-  saveAllData();
-  showSaveToast('Build nutrition calculated from USDA');
-  logActivity('recipe', '🥗', 'USDA nutrition calculated for build ' + b.name);
-}
-
 function loadNutrition(npd) {
   var r = RECIPE_DB[npd];
   if (!r) return;
@@ -17802,7 +17698,6 @@ function viewBuild(id) {
         <div class="card-head">
           <span class="card-title">🥗 Nutrition (per 100g)</span>
           <div style="display:flex;gap:6px">
-            <button class="btn btn-outline btn-sm" style="font-size:10px;color:var(--sage);border-color:var(--sage)" onclick="calcBuildNutritionUSDA('${b.id}')">USDA Auto</button>
             <button class="btn btn-outline btn-sm" onclick="toggleBuildNutritionEdit('${b.id}')">Edit</button>
           </div>
         </div>
