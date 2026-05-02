@@ -887,7 +887,8 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
       </select>
     </div>
     <div style="display:flex;gap:6px">
-      <button onclick="forceRefreshFromServer()" style="flex:1;padding:6px;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,0.1);background:none;color:rgba(255,255,255,0.4);font-family:var(--font-b);font-size:11px;cursor:pointer;transition:all 0.15s" onmouseover="this.style.background='rgba(255,255,255,0.08)';this.style.color='rgba(255,255,255,0.7)'" onmouseout="this.style.background='none';this.style.color='rgba(255,255,255,0.4)'">Refresh Data</button>
+      <button onclick="forceRefreshFromServer()" title="Re-pull data from the server (in-memory only)" style="flex:1;padding:6px;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,0.1);background:none;color:rgba(255,255,255,0.4);font-family:var(--font-b);font-size:11px;cursor:pointer;transition:all 0.15s" onmouseover="this.style.background='rgba(255,255,255,0.08)';this.style.color='rgba(255,255,255,0.7)'" onmouseout="this.style.background='none';this.style.color='rgba(255,255,255,0.4)'">Refresh Data</button>
+      <button onclick="reloadAppHard()" title="Force-fetch the latest HTML/CSS — use after a deploy if the page looks stale" style="flex:1;padding:6px;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,0.1);background:none;color:rgba(255,255,255,0.4);font-family:var(--font-b);font-size:11px;cursor:pointer;transition:all 0.15s" onmouseover="this.style.background='rgba(255,255,255,0.08)';this.style.color='rgba(255,255,255,0.7)'" onmouseout="this.style.background='none';this.style.color='rgba(255,255,255,0.4)'">↻ Reload App</button>
       <button id="sidebar-backup-btn" onclick="exportBackup()" title="Download a JSON snapshot of all RecipeHub data" style="flex:1;padding:6px;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,0.1);background:none;color:rgba(255,255,255,0.4);font-family:var(--font-b);font-size:11px;cursor:pointer;transition:all 0.15s" onmouseover="this.style.background='rgba(255,255,255,0.08)';this.style.color='rgba(255,255,255,0.7)'" onmouseout="this.style.background='none';this.style.color='rgba(255,255,255,0.4)'">↓ Backup</button>
       <button onclick="signOut()" style="flex:1;padding:6px;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,0.1);background:none;color:rgba(255,255,255,0.4);font-family:var(--font-b);font-size:11px;cursor:pointer;transition:all 0.15s" onmouseover="this.style.background='rgba(255,255,255,0.08)';this.style.color='rgba(255,255,255,0.7)'" onmouseout="this.style.background='none';this.style.color='rgba(255,255,255,0.4)'">Sign Out</button>
     </div>
@@ -6473,6 +6474,19 @@ function showSaveToast(msg, isError) {
   if (isError) { toast.style.background = '#C0392B'; } else { toast.style.background = '#1B2A4A'; }
   toast.classList.add('show');
   setTimeout(() => toast.classList.remove('show'), 2500);
+}
+
+// Hard-reload the page bypassing the browser cache. Adds a unique query string so
+// any intermediate proxy or aggressive cache also serves a fresh response.
+function reloadAppHard() {
+  try {
+    var url = new URL(window.location.href);
+    url.searchParams.set('_v', Date.now().toString());
+    window.location.replace(url.toString());
+  } catch (e) {
+    // Fallback for any URL/edge cases
+    window.location.reload();
+  }
 }
 
 function forceRefreshFromServer() {
