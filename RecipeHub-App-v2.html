@@ -9968,150 +9968,37 @@ function viewRecipe(npd) {
     </div>
     ` : ''}
 
-    <!-- QA Trial Sign-off -->
-    ${(r.status === 'trial' || r.status === 'prod-trial') ? `
-    <div class="card" style="margin-top:20px;border:2px solid ${r.status === 'trial' ? '#0C6BA8' : '#6B2FA0'}">
-      <div class="card-head" style="background:${r.status === 'trial' ? '#0C6BA8' : '#6B2FA0'}">
-        <span class="card-title" style="color:white">${r.status === 'trial' ? 'Factory Trial' : 'Production Trial'} — QA Results${_vrIsQA ? '' : ' <span style=\"font-size:10px;color:rgba(255,255,255,0.55);font-weight:400;margin-left:6px\">view-only — QA owns the lab call</span>'}</span>
-        ${(r[r.status+'QA'] && r[r.status+'QA'].signed)
-          ? `<span class="badge" style="background:#A6D588;color:#1F4811;font-size:10px;font-weight:600;padding:3px 10px;border-radius:40px;border:1px solid #5C9C42">${r[r.status+'QA'].conditional ? '⚠ Signed (conditional)' : '✓ Signed Off'}</span>`
-          : `<span class="badge" style="background:#FEF3E2;color:#8A4500;font-size:10px;font-weight:600;padding:3px 10px;border-radius:40px;border:1px solid #F5D5A0">⏳ Pending QA</span>`
-        }
-      </div>
-      <div class="card-body" ${_vrIsQA ? '' : 'style="opacity:0.65;pointer-events:none"'}>
-        <div style="font-size:11px;color:var(--g4);margin-bottom:14px;font-style:italic">
-          QA must upload micro results and sign off before this recipe can ${r.status === 'trial' ? 'proceed to Production Trial' : 'be approved for production'}.
-        </div>
-
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
-          <div>
-            <div style="font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3);margin-bottom:8px">Microbiology</div>
-            <div style="display:flex;flex-direction:column;gap:8px">
-              <div style="display:flex;align-items:center;gap:8px">
-                <span class="qa-row-label" style="font-size:12px;color:var(--g4);width:120px">TPC (cfu/g)</span>
-                <input class="form-input" style="flex:1;padding:6px 10px;font-size:12px;font-family:var(--font-m)" id="qa-${r.status}-tpc-${r.npd}" placeholder="e.g. <10,000" value="${(r[r.status+'QA'] && r[r.status+'QA'].tpc) || ''}" onchange="updateTrialQA('${r.npd}','${r.status}','tpc',this.value)" />
-                <select class="form-select" style="width:70px;padding:4px 6px;font-size:11px" id="qa-${r.status}-tpc-v-${r.npd}" onchange="updateTrialQA('${r.npd}','${r.status}','tpcVerdict',this.value)">
-                  <option value="">—</option>
-                  <option value="pass" ${(r[r.status+'QA'] && r[r.status+'QA'].tpcVerdict==='pass')?'selected':''}>Pass</option>
-                  <option value="fail" ${(r[r.status+'QA'] && r[r.status+'QA'].tpcVerdict==='fail')?'selected':''}>Fail</option>
-                </select>
-              </div>
-              <div style="display:flex;align-items:center;gap:8px">
-                <span class="qa-row-label" style="font-size:12px;color:var(--g4);width:120px">Yeast & Mould</span>
-                <input class="form-input" style="flex:1;padding:6px 10px;font-size:12px;font-family:var(--font-m)" id="qa-${r.status}-ym-${r.npd}" placeholder="e.g. <100" value="${(r[r.status+'QA'] && r[r.status+'QA'].ym) || ''}" onchange="updateTrialQA('${r.npd}','${r.status}','ym',this.value)" />
-                <select class="form-select" style="width:70px;padding:4px 6px;font-size:11px" id="qa-${r.status}-ym-v-${r.npd}" onchange="updateTrialQA('${r.npd}','${r.status}','ymVerdict',this.value)">
-                  <option value="">—</option>
-                  <option value="pass" ${(r[r.status+'QA'] && r[r.status+'QA'].ymVerdict==='pass')?'selected':''}>Pass</option>
-                  <option value="fail" ${(r[r.status+'QA'] && r[r.status+'QA'].ymVerdict==='fail')?'selected':''}>Fail</option>
-                </select>
-              </div>
-              <div style="display:flex;align-items:center;gap:8px">
-                <span class="qa-row-label" style="font-size:12px;color:var(--g4);width:120px">Coliforms</span>
-                <input class="form-input" style="flex:1;padding:6px 10px;font-size:12px;font-family:var(--font-m)" id="qa-${r.status}-col-${r.npd}" placeholder="e.g. <10" value="${(r[r.status+'QA'] && r[r.status+'QA'].col) || ''}" onchange="updateTrialQA('${r.npd}','${r.status}','col',this.value)" />
-                <select class="form-select" style="width:70px;padding:4px 6px;font-size:11px" id="qa-${r.status}-col-v-${r.npd}" onchange="updateTrialQA('${r.npd}','${r.status}','colVerdict',this.value)">
-                  <option value="">—</option>
-                  <option value="pass" ${(r[r.status+'QA'] && r[r.status+'QA'].colVerdict==='pass')?'selected':''}>Pass</option>
-                  <option value="fail" ${(r[r.status+'QA'] && r[r.status+'QA'].colVerdict==='fail')?'selected':''}>Fail</option>
-                </select>
-              </div>
-              <div style="display:flex;align-items:center;gap:8px">
-                <span class="qa-row-label" style="font-size:12px;color:var(--g4);width:120px">E. coli</span>
-                <input class="form-input" style="flex:1;padding:6px 10px;font-size:12px;font-family:var(--font-m)" id="qa-${r.status}-ecoli-${r.npd}" placeholder="e.g. Not detected" value="${(r[r.status+'QA'] && r[r.status+'QA'].ecoli) || ''}" onchange="updateTrialQA('${r.npd}','${r.status}','ecoli',this.value)" />
-                <select class="form-select" style="width:70px;padding:4px 6px;font-size:11px" id="qa-${r.status}-ecoli-v-${r.npd}" onchange="updateTrialQA('${r.npd}','${r.status}','ecoliVerdict',this.value)">
-                  <option value="">—</option>
-                  <option value="pass" ${(r[r.status+'QA'] && r[r.status+'QA'].ecoliVerdict==='pass')?'selected':''}>Pass</option>
-                  <option value="fail" ${(r[r.status+'QA'] && r[r.status+'QA'].ecoliVerdict==='fail')?'selected':''}>Fail</option>
-                </select>
-              </div>
-              <div style="display:flex;align-items:center;gap:8px">
-                <span class="qa-row-label" style="font-size:12px;color:var(--g4);width:120px">Salmonella</span>
-                <input class="form-input" style="flex:1;padding:6px 10px;font-size:12px;font-family:var(--font-m)" id="qa-${r.status}-sal-${r.npd}" placeholder="e.g. Not detected/25g" value="${(r[r.status+'QA'] && r[r.status+'QA'].sal) || ''}" onchange="updateTrialQA('${r.npd}','${r.status}','sal',this.value)" />
-                <select class="form-select" style="width:70px;padding:4px 6px;font-size:11px" id="qa-${r.status}-sal-v-${r.npd}" onchange="updateTrialQA('${r.npd}','${r.status}','salVerdict',this.value)">
-                  <option value="">—</option>
-                  <option value="pass" ${(r[r.status+'QA'] && r[r.status+'QA'].salVerdict==='pass')?'selected':''}>Pass</option>
-                  <option value="fail" ${(r[r.status+'QA'] && r[r.status+'QA'].salVerdict==='fail')?'selected':''}>Fail</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <div style="font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3);margin-bottom:8px">Physical / Chemical</div>
-            <div style="display:flex;flex-direction:column;gap:8px">
-              <div style="display:flex;align-items:center;gap:8px">
-                <span class="qa-row-label" style="font-size:12px;color:var(--g4);width:120px">pH</span>
-                <input class="form-input" style="flex:1;padding:6px 10px;font-size:12px;font-family:var(--font-m)" id="qa-${r.status}-ph-${r.npd}" placeholder="e.g. 4.1" value="${(r[r.status+'QA'] && r[r.status+'QA'].ph) || ''}" onchange="updateTrialQA('${r.npd}','${r.status}','ph',this.value)" />
-                <select class="form-select" style="width:70px;padding:4px 6px;font-size:11px" onchange="updateTrialQA('${r.npd}','${r.status}','phVerdict',this.value)">
-                  <option value="">—</option>
-                  <option value="pass" ${(r[r.status+'QA'] && r[r.status+'QA'].phVerdict==='pass')?'selected':''}>Pass</option>
-                  <option value="fail" ${(r[r.status+'QA'] && r[r.status+'QA'].phVerdict==='fail')?'selected':''}>Fail</option>
-                </select>
-              </div>
-              <div style="display:flex;align-items:center;gap:8px">
-                <span class="qa-row-label" style="font-size:12px;color:var(--g4);width:120px">Water Activity</span>
-                <input class="form-input" style="flex:1;padding:6px 10px;font-size:12px;font-family:var(--font-m)" id="qa-${r.status}-aw-${r.npd}" placeholder="e.g. 0.88" value="${(r[r.status+'QA'] && r[r.status+'QA'].aw) || ''}" onchange="updateTrialQA('${r.npd}','${r.status}','aw',this.value)" />
-                <select class="form-select" style="width:70px;padding:4px 6px;font-size:11px" onchange="updateTrialQA('${r.npd}','${r.status}','awVerdict',this.value)">
-                  <option value="">—</option>
-                  <option value="pass" ${(r[r.status+'QA'] && r[r.status+'QA'].awVerdict==='pass')?'selected':''}>Pass</option>
-                  <option value="fail" ${(r[r.status+'QA'] && r[r.status+'QA'].awVerdict==='fail')?'selected':''}>Fail</option>
-                </select>
-              </div>
-              <div style="display:flex;align-items:center;gap:8px">
-                <span class="qa-row-label" style="font-size:12px;color:var(--g4);width:120px">Brix</span>
-                <input class="form-input" style="flex:1;padding:6px 10px;font-size:12px;font-family:var(--font-m)" id="qa-${r.status}-brix-${r.npd}" placeholder="e.g. 20.5" value="${(r[r.status+'QA'] && r[r.status+'QA'].brix) || ''}" onchange="updateTrialQA('${r.npd}','${r.status}','brix',this.value)" />
-                <select class="form-select" style="width:70px;padding:4px 6px;font-size:11px" onchange="updateTrialQA('${r.npd}','${r.status}','brixVerdict',this.value)">
-                  <option value="">—</option>
-                  <option value="pass" ${(r[r.status+'QA'] && r[r.status+'QA'].brixVerdict==='pass')?'selected':''}>Pass</option>
-                  <option value="fail" ${(r[r.status+'QA'] && r[r.status+'QA'].brixVerdict==='fail')?'selected':''}>Fail</option>
-                </select>
-              </div>
-              <div style="display:flex;align-items:center;gap:8px">
-                <span class="qa-row-label" style="font-size:12px;color:var(--g4);width:120px">Viscosity (cP)</span>
-                <input class="form-input" style="flex:1;padding:6px 10px;font-size:12px;font-family:var(--font-m)" id="qa-${r.status}-visc-${r.npd}" placeholder="e.g. 1050" value="${(r[r.status+'QA'] && r[r.status+'QA'].visc) || ''}" onchange="updateTrialQA('${r.npd}','${r.status}','visc',this.value)" />
-                <select class="form-select" style="width:70px;padding:4px 6px;font-size:11px" onchange="updateTrialQA('${r.npd}','${r.status}','viscVerdict',this.value)">
-                  <option value="">—</option>
-                  <option value="pass" ${(r[r.status+'QA'] && r[r.status+'QA'].viscVerdict==='pass')?'selected':''}>Pass</option>
-                  <option value="fail" ${(r[r.status+'QA'] && r[r.status+'QA'].viscVerdict==='fail')?'selected':''}>Fail</option>
-                </select>
-              </div>
-            </div>
-
-          </div>
-        </div>
-
-        <div style="border-top:1px solid var(--g2);padding-top:14px;margin-top:8px">
-          <div style="display:flex;gap:16px;align-items:flex-end">
-            <div class="form-group" style="flex:1;margin:0">
-              <label class="form-label">Lab Report / Certificate Upload</label>
-              <label class="media-zone" style="padding:14px;margin-top:4px">
-                <div class="media-zone-icon">📄</div>
-                <div class="media-zone-text">Drop files or <strong>click to upload</strong> micro reports, COAs, lab certificates</div>
-                <input type="file" accept="image/*,application/pdf,.doc,.docx" multiple style="display:none" onchange="handleTrialQAMedia('${r.npd}','${r.status}',this)" />
-              </label>
-            </div>
-            <div class="form-group" style="width:200px;margin:0">
-              <label class="form-label">QA Sign-off</label>
-              <input class="form-input" placeholder="QA name" id="qa-${r.status}-signoff-${r.npd}" value="${(r[r.status+'QA'] && r[r.status+'QA'].signedBy) || ''}" onchange="updateTrialQA('${r.npd}','${r.status}','signedBy',this.value)" />
-            </div>
-            <div class="form-group" style="width:150px;margin:0">
-              <label class="form-label">Shelf Life</label>
-              <input class="form-input" placeholder="e.g. 6 Months" id="qa-shelf-${r.npd}" value="${r.shelfLife || ''}" onchange="updateRecipeShelfLife('${r.npd}',this.value)" />
-            </div>
-            <button class="btn btn-sage" style="margin-bottom:0;white-space:nowrap" onclick="signOffTrialQA('${r.npd}','${r.status}')">✓ Sign Off QA</button>
-          </div>
-          <div class="media-grid" id="trial-qa-media-${r.status}-${r.npd}" style="margin-top:10px">
-            ${(r[r.status+'QA'] && r[r.status+'QA'].files || []).map((m,mi) => `
-              <div class="media-thumb">
-                <img src="${m.url}" alt="${m.name}" />
-                <button class="media-thumb-del" onclick="removeTrialQAMedia('${r.npd}','${r.status}',${mi})">✕</button>
-                <div class="media-thumb-label">${m.name}</div>
-              </div>
-            `).join('')}
-          </div>
-        </div>
-      </div>
-    </div>
-    ` : ''}
+    <!-- QA Trial Status (entry happens on the QA page — this is a status-only summary) -->
+    ${(r.status === 'trial' || r.status === 'prod-trial') ? (function(){
+      var _stageKey = r.status + 'QA';
+      var _stageQA = r[_stageKey] || null;
+      var _isSigned = _stageQA && _stageQA.signed;
+      var _isCond = _isSigned && _stageQA.conditional;
+      var _isBypassed = _stageQA && _stageQA.bypassed;
+      var _trialColor = r.status === 'trial' ? '#0C6BA8' : '#6B2FA0';
+      var _trialLabel = r.status === 'trial' ? 'Factory Trial' : 'Production Trial';
+      var _badge;
+      if (_isBypassed) _badge = '<span class="badge" style="background:#FEF3E2;color:#8A4500;font-size:10px;font-weight:600;padding:3px 10px;border-radius:40px;border:1px solid #F5D5A0">⚡ Bypassed</span>';
+      else if (_isCond) _badge = '<span class="badge" style="background:#FEF3E2;color:#8A4500;font-size:10px;font-weight:600;padding:3px 10px;border-radius:40px;border:1px solid #F5D5A0">⚠ Signed (conditional)</span>';
+      else if (_isSigned) _badge = '<span class="badge" style="background:#A6D588;color:#1F4811;font-size:10px;font-weight:600;padding:3px 10px;border-radius:40px;border:1px solid #5C9C42">✓ Signed Off</span>';
+      else _badge = '<span class="badge" style="background:#FEF3E2;color:#8A4500;font-size:10px;font-weight:600;padding:3px 10px;border-radius:40px;border:1px solid #F5D5A0">⏳ Pending QA</span>';
+      var _bodyText;
+      if (_isBypassed) _bodyText = '<strong>Bypassed by '+esc(_stageQA.bypassedBy||'')+'</strong>'+(_stageQA.bypassedAt ? ' on '+esc(_stageQA.bypassedAt) : '')+(_stageQA.bypassReason ? '<div style="margin-top:4px;color:var(--g4);font-size:12px">Reason: '+esc(_stageQA.bypassReason)+'</div>' : '');
+      else if (_isSigned) _bodyText = '<strong>Signed off'+(_isCond?' (with conditions)':'')+' by '+esc(_stageQA.signedBy||'')+'</strong>'+(_stageQA.signedAt ? ' on '+esc(_stageQA.signedAt) : '')+(_isCond && _stageQA.conditions ? '<div style="margin-top:4px;color:#8a4500;font-size:12px"><strong>Conditions:</strong> '+esc(_stageQA.conditions)+'</div>' : '');
+      else _bodyText = 'QA must record lab results and sign off before this recipe can '+(r.status==='trial'?'proceed to Production Trial':'be approved for production')+'.';
+      return '<div class="card" style="margin-top:20px;border:2px solid '+_trialColor+'">' +
+        '<div class="card-head" style="background:'+_trialColor+'">' +
+          '<span class="card-title" style="color:white">'+_trialLabel+' — QA Status</span>' +
+          _badge +
+        '</div>' +
+        '<div class="card-body">' +
+          '<div style="display:flex;align-items:center;gap:14px;padding:4px 0">' +
+            '<div style="flex:1;font-size:13px;color:var(--navy);line-height:1.5">'+_bodyText+'</div>' +
+            '<button class="btn btn-outline btn-sm" style="white-space:nowrap;flex-shrink:0" onclick="openQAForRecipe(\''+r.npd+'\')">Open in QA page →</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    })() : ''}
 
     ${(r.status !== 'trial' && r.status !== 'prod-trial' && r.trialQA && r.trialQA.signed) ? `
     <div class="card" style="margin-top:20px;opacity:0.7">
@@ -15889,6 +15776,16 @@ function qaPickPastRecipe(npd) {
       : '<span style="color:var(--amber);background:#FEF3E2;padding:2px 8px;border-radius:4px;font-weight:500">Past recipe — not awaiting QA</span> <strong>'+r.name+'</strong> <span style="font-family:var(--font-m);color:var(--g3)">· '+r.npd+' · '+r.status+'</span>';
     label.style.display = 'block';
   }
+}
+
+function openQAForRecipe(npd) {
+  showPage('page-qa');
+  var sel = document.getElementById('qa-recipe-select');
+  if (sel) {
+    var hasOpt = Array.prototype.some.call(sel.options, function(o){ return o.value === npd; });
+    if (hasOpt) sel.value = npd;
+  }
+  updateQARecipe(npd);
 }
 
 function updateQARecipe(npd) {
