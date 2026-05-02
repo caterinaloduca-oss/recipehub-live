@@ -15779,13 +15779,16 @@ function qaPickPastRecipe(npd) {
 }
 
 function openQAForRecipe(npd) {
-  showPage('page-qa');
+  showPage('qa');
+  // Recipe may not be in the awaiting-QA dropdown (e.g. already signed off).
+  // Use qaPickPastRecipe — it loads the recipe regardless and shows a "past recipe" hint
+  // when the recipe isn't in the active queue.
+  qaPickPastRecipe(npd);
   var sel = document.getElementById('qa-recipe-select');
   if (sel) {
     var hasOpt = Array.prototype.some.call(sel.options, function(o){ return o.value === npd; });
     if (hasOpt) sel.value = npd;
   }
-  updateQARecipe(npd);
 }
 
 function updateQARecipe(npd) {
