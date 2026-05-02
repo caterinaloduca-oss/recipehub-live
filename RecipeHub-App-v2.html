@@ -8476,8 +8476,10 @@ function openPrint(npd, mode) {
   const r = RECIPE_DB[npd];
   if (!r) return;
   const sheet = document.getElementById('print-sheet');
-  const defaultBatch = 0.5;
-  const factoryBatch = 400;
+  // No default batch — operator must type the kg before weights populate.
+  // Avoids silent wrong-batch printing of the previous default (0.5 / 400).
+  const defaultBatch = null;
+  const factoryBatch = null;
   // Orientation per mode — most are portrait, batch/SOP-with-2-col-grid are landscape
   var landscapeModes = ['batch','factory','factory-text','sop-only','kitchen'];
   var landscape = landscapeModes.indexOf(mode) > -1;
@@ -8523,13 +8525,16 @@ function scaleIngredients(ingredients, batchKg) {
 
 function renderKitchen(r, batchKg) {
   if (isCompositeRecipe(r)) return renderKitchenComposite(r, batchKg);
-  const scaled = scaleIngredients(r.ingredients, batchKg);
-  const totalKg = scaled.reduce((s, i) => s + i.kg, 0);
+  var _hasBatch = batchKg != null && !isNaN(parseFloat(batchKg)) && parseFloat(batchKg) > 0;
+  var _bk = _hasBatch ? parseFloat(batchKg) : 0;
+  const scaled = scaleIngredients(r.ingredients, _bk);
+  const totalKg = _hasBatch ? scaled.reduce((s, i) => s + i.kg, 0) : 0;
   return `
-    <div class="ps-batch-size-bar">
+    <div class="ps-batch-size-bar"${_hasBatch ? '' : ' style="background:#FFF6E5;border-color:#F0D8A8"'}>
       <label>Batch Size</label>
-      <input type="number" min="0.1" step="0.5" value="${batchKg}" onchange="rescaleKitchen('${r.npd}', this.value)" id="kitchen-batch" />
+      <input type="number" min="0.1" step="0.5" value="${_hasBatch ? _bk : ''}" placeholder="Enter kg…" onchange="rescaleKitchen('${r.npd}', this.value)" id="kitchen-batch" />
       <span class="unit">kg</span>
+      ${_hasBatch ? '' : '<span style="margin-left:12px;color:#A35400;font-size:9pt;font-weight:500">⚠ Enter batch size to populate weights</span>'}
     </div>
     <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1a1a1a;padding-bottom:8px;margin-bottom:10px">
       <div>
@@ -8549,8 +8554,8 @@ function renderKitchen(r, batchKg) {
         <table class="ps-table">
           <thead><tr><th>Ingredient</th><th style="text-align:right">%</th><th style="text-align:right">Weight</th></tr></thead>
           <tbody id="kitchen-ing-body">
-            ${scaled.map(i => `<tr><td>${i.name}</td><td class="num">${i.pct.toFixed(1)}%</td><td class="num">${formatWeight(i.kg)}</td></tr>`).join('')}
-            <tr class="total-row"><td>Total</td><td class="num">100%</td><td class="num">${formatWeight(totalKg)}</td></tr>
+            ${scaled.map(i => `<tr><td>${i.name}</td><td class="num">${i.pct.toFixed(1)}%</td><td class="num">${_hasBatch ? formatWeight(i.kg) : '—'}</td></tr>`).join('')}
+            <tr class="total-row"><td>Total</td><td class="num">100%</td><td class="num">${_hasBatch ? formatWeight(totalKg) : '—'}</td></tr>
           </tbody>
         </table>
       </div>
@@ -8604,8 +8609,10 @@ function _compositeKitchenRows(r, batchKg) {
 }
 
 function renderKitchenComposite(r, batchKg) {
-  const { rows, comps, portions } = _compositeKitchenRows(r, batchKg);
-  const totalKg = rows.reduce((s, i) => s + i.kg, 0);
+  var _hasBatch = batchKg != null && !isNaN(parseFloat(batchKg)) && parseFloat(batchKg) > 0;
+  var _bk = _hasBatch ? parseFloat(batchKg) : 0;
+  const { rows, comps, portions } = _compositeKitchenRows(r, _bk);
+  const totalKg = _hasBatch ? rows.reduce((s, i) => s + i.kg, 0) : 0;
   const methodSteps = (r.method && r.method.length) ? r.method : comps.map(function(c, i){
     const sub = RECIPE_DB[c.subNpd];
     const title = c.stage || (sub && sub.name) || ('Step ' + (i+1));
@@ -8615,11 +8622,13 @@ function renderKitchenComposite(r, batchKg) {
     return { title: title, text: bits.join(' ') };
   });
   return `
-    <div class="ps-batch-size-bar">
+    <div class="ps-batch-size-bar"${_hasBatch ? '' : ' style="background:#FFF6E5;border-color:#F0D8A8"'}>
       <label>Batch Size</label>
-      <input type="number" min="0.1" step="0.5" value="${batchKg}" onchange="rescaleKitchen('${r.npd}', this.value)" id="kitchen-batch" />
+      <input type="number" min="0.1" step="0.5" value="${_hasBatch ? _bk : ''}" placeholder="Enter kg…" onchange="rescaleKitchen('${r.npd}', this.value)" id="kitchen-batch" />
       <span class="unit">kg</span>
-      <span style="margin-left:12px;font-size:10pt;color:var(--g3)">≈ ${portions.toFixed(1)} portions</span>
+      ${_hasBatch
+        ? '<span style="margin-left:12px;font-size:10pt;color:var(--g3)">≈ ' + portions.toFixed(1) + ' portions</span>'
+        : '<span style="margin-left:12px;color:#A35400;font-size:9pt;font-weight:500">⚠ Enter batch size to populate weights</span>'}
     </div>
     <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1a1a1a;padding-bottom:8px;margin-bottom:10px">
       <div>
@@ -8639,8 +8648,8 @@ function renderKitchenComposite(r, batchKg) {
         <table class="ps-table">
           <thead><tr><th>Component</th><th style="text-align:right">%</th><th style="text-align:right">Weight</th></tr></thead>
           <tbody id="kitchen-ing-body">
-            ${rows.map(i => `<tr><td>${i.name}</td><td class="num">${i.pct.toFixed(1)}%</td><td class="num">${formatWeight(i.kg)}</td></tr>`).join('')}
-            <tr class="total-row"><td>Total</td><td class="num">100%</td><td class="num">${formatWeight(totalKg)}</td></tr>
+            ${rows.map(i => `<tr><td>${i.name}</td><td class="num">${i.pct.toFixed(1)}%</td><td class="num">${_hasBatch ? formatWeight(i.kg) : '—'}</td></tr>`).join('')}
+            <tr class="total-row"><td>Total</td><td class="num">100%</td><td class="num">${_hasBatch ? formatWeight(totalKg) : '—'}</td></tr>
           </tbody>
         </table>
       </div>
@@ -8676,14 +8685,17 @@ function rescaleKitchenComposite(npd, batchKg) {
 }
 
 function renderFactory(r, batchKg, noImages) {
-  const scaled = scaleIngredients(r.ingredients, batchKg);
-  const totalKg = scaled.reduce((s, i) => s + i.kg, 0);
+  var _hasBatch = batchKg != null && !isNaN(parseFloat(batchKg)) && parseFloat(batchKg) > 0;
+  var _bk = _hasBatch ? parseFloat(batchKg) : 0;
+  const scaled = scaleIngredients(r.ingredients, _bk);
+  const totalKg = _hasBatch ? scaled.reduce((s, i) => s + i.kg, 0) : 0;
   const steps = (r.sopSteps && r.sopSteps.length) ? r.sopSteps : r.method.map(m => ({title:m.title, text:m.text, params:[]}));
   return `
-    <div class="ps-batch-size-bar">
+    <div class="ps-batch-size-bar"${_hasBatch ? '' : ' style="background:#FFF6E5;border-color:#F0D8A8"'}>
       <label>Batch Size</label>
-      <input type="number" min="1" step="10" value="${batchKg}" onchange="rescaleFactory('${r.npd}', this.value)" id="factory-batch" />
+      <input type="number" min="1" step="10" value="${_hasBatch ? _bk : ''}" placeholder="Enter kg…" onchange="rescaleFactory('${r.npd}', this.value)" id="factory-batch" />
       <span class="unit">kg</span>
+      ${_hasBatch ? '' : '<span style="margin-left:12px;color:#A35400;font-size:9pt;font-weight:500">⚠ Enter batch size to populate weights</span>'}
     </div>
     <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1a1a1a;padding-bottom:8px;margin-bottom:10px">
       <div>
@@ -8692,7 +8704,7 @@ function renderFactory(r, batchKg, noImages) {
       </div>
       <div style="display:flex;gap:16px;flex-wrap:wrap;text-align:right;font-size:8pt">
         <div><span class="ps-meta-label">Brand</span>${r.brand}</div>
-        <div><span class="ps-meta-label">Batch</span><span id="factory-batch-label">${formatWeight(batchKg)}</span></div>
+        <div><span class="ps-meta-label">Batch</span><span id="factory-batch-label">${_hasBatch ? formatWeight(_bk) : '—'}</span></div>
         <div><span class="ps-meta-label">Storage</span>${r.storage}</div>
         <div><span class="ps-meta-label">Date</span>${new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div>
       </div>
@@ -8707,14 +8719,14 @@ function renderFactory(r, batchKg, noImages) {
             ${scaled.map(i => `<tr>
               <td>${i.name}</td>
               <td class="num">${i.pct.toFixed(1)}%</td>
-              <td class="num">${i.kg.toFixed(3)}</td>
+              <td class="num">${_hasBatch ? i.kg.toFixed(3) : '—'}</td>
               <td style="text-align:center"><span class="ps-batch-check"></span></td>
               <td style="border-bottom:1px dotted #ccc"></td>
             </tr>`).join('')}
             <tr class="total-row">
               <td>Total</td>
               <td class="num">100%</td>
-              <td class="num">${totalKg.toFixed(3)}</td>
+              <td class="num">${_hasBatch ? totalKg.toFixed(3) : '—'}</td>
               <td></td><td></td>
             </tr>
           </tbody>
@@ -8958,15 +8970,17 @@ function _printRecipeStepsHTML(r, noImages) {
 }
 
 function _printBatchTicketHTML(r, batchKg) {
-  var scaled = scaleIngredients(r.ingredients, batchKg);
-  var totalKg = scaled.reduce(function(s,i){return s + i.kg}, 0);
+  var _hasBatch = batchKg != null && !isNaN(parseFloat(batchKg)) && parseFloat(batchKg) > 0;
+  var _bk = _hasBatch ? parseFloat(batchKg) : 0;
+  var scaled = scaleIngredients(r.ingredients, _bk);
+  var totalKg = _hasBatch ? scaled.reduce(function(s,i){return s + i.kg}, 0) : 0;
   return '<div class="ps-section">' +
-    '<div class="ps-section-title">Batch Ticket — '+formatWeight(batchKg)+' target</div>' +
+    '<div class="ps-section-title">Batch Ticket — '+(_hasBatch ? formatWeight(_bk)+' target' : '<span style="color:#A35400">Enter batch size in the bar above to populate</span>')+'</div>' +
     '<table class="ps-table">' +
       '<thead><tr><th>Ingredient</th><th style="text-align:right">%</th><th style="text-align:right">kg</th><th style="text-align:center;width:40px">✓</th><th style="text-align:right;width:70px">Actual</th></tr></thead>' +
       '<tbody>' +
-        scaled.map(function(i){return '<tr><td>'+i.name+'</td><td class="num">'+i.pct.toFixed(1)+'%</td><td class="num">'+i.kg.toFixed(3)+'</td><td style="text-align:center"><span class="ps-batch-check"></span></td><td style="border-bottom:1px dotted #ccc"></td></tr>'}).join('') +
-        '<tr class="total-row"><td>Total</td><td class="num">100%</td><td class="num">'+totalKg.toFixed(3)+'</td><td></td><td></td></tr>' +
+        scaled.map(function(i){return '<tr><td>'+i.name+'</td><td class="num">'+i.pct.toFixed(1)+'%</td><td class="num">'+(_hasBatch ? i.kg.toFixed(3) : '—')+'</td><td style="text-align:center"><span class="ps-batch-check"></span></td><td style="border-bottom:1px dotted #ccc"></td></tr>'}).join('') +
+        '<tr class="total-row"><td>Total</td><td class="num">100%</td><td class="num">'+(_hasBatch ? totalKg.toFixed(3) : '—')+'</td><td></td><td></td></tr>' +
       '</tbody>' +
     '</table>' +
   '</div>';
@@ -9001,7 +9015,16 @@ function _printSignoffHTML() {
 
 // ── Full document (all in) ──
 function renderFactoryFull(r, batchKg, noImages) {
-  return _printHeader(r, 'Factory SOP — Full Document', ['Brand','Storage','Shelf Life','Yield','Date']) +
+  var _hasBatch = batchKg != null && !isNaN(parseFloat(batchKg)) && parseFloat(batchKg) > 0;
+  var _bk = _hasBatch ? parseFloat(batchKg) : 0;
+  var _bar = '<div class="ps-batch-size-bar"' + (_hasBatch ? '' : ' style="background:#FFF6E5;border-color:#F0D8A8"') + '>' +
+      '<label>Batch Size</label>' +
+      '<input type="number" min="1" step="10" value="'+(_hasBatch ? _bk : '')+'" placeholder="Enter kg…" onchange="rescaleFactoryFull(\''+r.npd+'\', this.value, '+(noImages?'true':'false')+')" />' +
+      '<span class="unit">kg</span>' +
+      (_hasBatch ? '' : '<span style="margin-left:12px;color:#A35400;font-size:9pt;font-weight:500">⚠ Enter batch size to populate weights</span>') +
+    '</div>';
+  return _bar +
+    _printHeader(r, 'Factory SOP — Full Document', ['Brand','Storage','Shelf Life','Yield','Date']) +
     '<div class="ps-section"><div class="ps-section-title">1. Product Description</div><div style="font-size:9pt;line-height:1.55">'+(r.description || r.name + ' — see recipe master for full description.')+'</div></div>' +
     '<div class="ps-section" style="margin-top:10px"><div class="ps-section-title">2. Process Flowchart</div>' +
       '<div style="display:flex;flex-direction:column;align-items:center;padding:4px 0">'+_printFlowchartHTML(r, true)+'</div>' +
@@ -9025,8 +9048,10 @@ function renderFlowchartOnly(r) {
 
 // ── Batch ticket only (landscape) ──
 function renderBatchTicketOnly(r, batchKg) {
-  var scaled = scaleIngredients(r.ingredients, batchKg);
-  var totalKg = scaled.reduce(function(s,i){return s + i.kg}, 0);
+  var _hasBatch = batchKg != null && !isNaN(parseFloat(batchKg)) && parseFloat(batchKg) > 0;
+  var _bk = _hasBatch ? parseFloat(batchKg) : 0;
+  var scaled = scaleIngredients(r.ingredients, _bk);
+  var totalKg = _hasBatch ? scaled.reduce(function(s,i){return s + i.kg}, 0) : 0;
   var rows = scaled.map(function(i, idx){
     var code = _lookupIngredientCode(i.name);
     return '<tr>' +
@@ -9034,7 +9059,7 @@ function renderBatchTicketOnly(r, batchKg) {
       '<td class="num" style="text-align:left;font-family:\'DM Mono\',monospace;color:#555">'+(code || '—')+'</td>' +
       '<td>'+i.name+'</td>' +
       '<td class="num">'+i.pct.toFixed(2)+'%</td>' +
-      '<td class="num">'+i.kg.toFixed(3)+'</td>' +
+      '<td class="num">'+(_hasBatch ? i.kg.toFixed(3) : '—')+'</td>' +
       '<td style="text-align:center"><span class="ps-batch-check"></span></td>' +
       '<td style="border-bottom:1px dotted #ccc;min-width:70px"></td>' +
       '<td style="border-bottom:1px dotted #ccc;min-width:70px"></td>' +
@@ -9042,13 +9067,14 @@ function renderBatchTicketOnly(r, batchKg) {
       '<td style="border-bottom:1px dotted #ccc;min-width:90px"></td>' +
     '</tr>';
   }).join('');
-  return '<div class="ps-batch-size-bar">' +
+  return '<div class="ps-batch-size-bar"' + (_hasBatch ? '' : ' style="background:#FFF6E5;border-color:#F0D8A8"') + '>' +
       '<label>Batch Size</label>' +
-      '<input type="number" min="1" step="10" value="'+batchKg+'" onchange="rescaleBatchTicket(\''+r.npd+'\', this.value)" id="factory-batch" />' +
+      '<input type="number" min="1" step="10" value="'+(_hasBatch ? _bk : '')+'" placeholder="Enter kg…" onchange="rescaleBatchTicket(\''+r.npd+'\', this.value)" id="factory-batch" />' +
       '<span class="unit">kg</span>' +
+      (_hasBatch ? '' : '<span style="margin-left:12px;color:#A35400;font-size:9pt;font-weight:500">⚠ Enter batch size to populate weights</span>') +
     '</div>' +
-    _printHeader(r, 'Batch Ticket', ['Brand','Batch='+formatWeight(batchKg),'Storage','Shelf Life','Date']) +
-    '<div id="factory-batch-label" style="display:none">'+formatWeight(batchKg)+'</div>' +
+    _printHeader(r, 'Batch Ticket', ['Brand','Batch='+(_hasBatch ? formatWeight(_bk) : '—'),'Storage','Shelf Life','Date']) +
+    '<div id="factory-batch-label" style="display:none">'+(_hasBatch ? formatWeight(_bk) : '—')+'</div>' +
     '<div class="ps-section">' +
       '<div class="ps-section-title">Ingredients — weigh sheet</div>' +
       '<table class="ps-table" style="font-size:9pt">' +
@@ -9066,7 +9092,7 @@ function renderBatchTicketOnly(r, batchKg) {
         '</tr></thead>' +
         '<tbody id="factory-ing-body">' +
           rows +
-          '<tr class="total-row"><td></td><td></td><td>Total</td><td class="num">100%</td><td class="num">'+totalKg.toFixed(3)+'</td><td></td><td></td><td></td><td></td><td></td></tr>' +
+          '<tr class="total-row"><td></td><td></td><td>Total</td><td class="num">100%</td><td class="num">'+(_hasBatch ? totalKg.toFixed(3) : '—')+'</td><td></td><td></td><td></td><td></td><td></td></tr>' +
         '</tbody>' +
       '</table>' +
     '</div>' +
@@ -9084,6 +9110,14 @@ function rescaleBatchTicket(npd, val) {
   var r = RECIPE_DB[npd];
   var sheet = document.getElementById('print-sheet');
   if (sheet) sheet.innerHTML = renderBatchTicketOnly(r, batchKg);
+}
+
+function rescaleFactoryFull(npd, val, noImages) {
+  var batchKg = parseFloat(val);
+  if (!batchKg || batchKg <= 0) return;
+  var r = RECIPE_DB[npd];
+  var sheet = document.getElementById('print-sheet');
+  if (sheet) sheet.innerHTML = renderFactoryFull(r, batchKg, noImages);
 }
 
 // ── Cover & sign-off (document control) ──
