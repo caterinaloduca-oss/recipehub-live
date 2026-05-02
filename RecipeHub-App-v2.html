@@ -9486,6 +9486,84 @@ function renderUsedInPill(r) {
   return '<div style="margin-top:6px;font-size:11px;color:rgba(255,255,255,0.6)">Used in: '+parents.map(function(p){ return '<a href="javascript:viewRecipe(\''+p.npd+'\')" style="color:rgba(255,255,255,0.85);text-decoration:underline">'+p.name+'</a>'; }).join(', ')+'</div>';
 }
 
+// ────── Trial Timeline ──────
+// Aggregates production runs (filtered by npd + runType), QA sign-off, and approval
+// into a single read-only card so the recipe sheet shows the whole trial journey.
+function _trialRunsFor(npd, runType) {
+  return PRODUCTION_RUNS
+    .filter(function(pr){ return pr.npd === npd && pr.runType === runType; })
+    .sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
+}
+function _fmtTrialDate(d) {
+  if (!d) return '';
+  try { return new Date(d).toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'}); }
+  catch(e) { return d; }
+}
+function _trialStageRow(emoji, label, runs, qa, color, approvedAt) {
+  var pill;
+  if (approvedAt) pill = '<span class="badge" style="background:#A6D588;color:#1F4811;font-size:10px;font-weight:600;padding:3px 10px;border-radius:40px">✓ Approved · '+_fmtTrialDate(approvedAt)+'</span>';
+  else if (qa && qa.bypassed) pill = '<span class="badge" style="background:#FEF3E2;color:#8A4500;font-size:10px;font-weight:600;padding:3px 10px;border-radius:40px">⚡ Bypassed</span>';
+  else if (qa && qa.signed && qa.conditional) pill = '<span class="badge" style="background:#FEF3E2;color:#8A4500;font-size:10px;font-weight:600;padding:3px 10px;border-radius:40px">⚠ Signed (conditional)</span>';
+  else if (qa && qa.signed) pill = '<span class="badge" style="background:#A6D588;color:#1F4811;font-size:10px;font-weight:600;padding:3px 10px;border-radius:40px">✓ Signed off</span>';
+  else if (runs && runs.length) pill = '<span class="badge" style="background:#FEF3E2;color:#8A4500;font-size:10px;font-weight:600;padding:3px 10px;border-radius:40px">⏳ In progress</span>';
+  else pill = '<span class="badge" style="background:var(--g1);color:var(--g3);font-size:10px;font-weight:600;padding:3px 10px;border-radius:40px">— Not started</span>';
+  var rows = [];
+  if (runs && runs.length) {
+    var latest = runs[0];
+    var bits = [];
+    if (latest.date) bits.push(_fmtTrialDate(latest.date));
+    if (latest.batchSize) bits.push(latest.batchSize);
+    if (latest.yield) bits.push(latest.yield + ' yield');
+    if (latest.waste) bits.push(latest.waste + ' waste');
+    if (latest.status && latest.status !== 'completed') bits.push(latest.status);
+    rows.push('<div style="font-size:12px;color:var(--g4)">'+(runs.length>1?'Latest run: ':'Run: ')+bits.join(' · ')+'</div>');
+    if (runs.length > 1) {
+      var older = runs.slice(1).map(function(rr){
+        var b = [];
+        if (rr.date) b.push(_fmtTrialDate(rr.date));
+        if (rr.batchSize) b.push(rr.batchSize);
+        if (rr.yield) b.push(rr.yield);
+        if (rr.status && rr.status !== 'completed') b.push(rr.status);
+        return b.join(' · ');
+      }).join('; ');
+      rows.push('<div style="font-size:11px;color:var(--g3);margin-top:2px">+ '+(runs.length-1)+' earlier — '+older+'</div>');
+    }
+  }
+  if (qa && qa.signed) {
+    rows.push('<div style="font-size:12px;color:var(--g4);margin-top:2px">QA sign-off: '+esc(qa.signedBy||'—')+(qa.signedAt?' on '+esc(qa.signedAt):'')+(qa.conditional?' <span style="color:#A35400">(conditional — '+esc(qa.conditions||'')+')</span>':'')+'</div>');
+  } else if (qa && qa.bypassed) {
+    rows.push('<div style="font-size:12px;color:var(--g4);margin-top:2px">QA bypass: '+esc(qa.bypassedBy||'—')+(qa.bypassedAt?' on '+esc(qa.bypassedAt):'')+(qa.bypassReason?' — '+esc(qa.bypassReason):'')+'</div>');
+  }
+  return '<div style="display:flex;align-items:flex-start;gap:14px;padding:12px 0;border-bottom:1px solid var(--g1)">' +
+    '<div style="font-size:18px;width:24px;flex-shrink:0;line-height:1.2">'+emoji+'</div>' +
+    '<div style="flex:1;min-width:0">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:4px">' +
+        '<strong style="color:'+color+';font-size:13px">'+label+'</strong>' +
+        pill +
+      '</div>' +
+      (rows.length ? rows.join('') : '<div style="font-size:11px;color:var(--g3);font-style:italic">No data yet</div>') +
+    '</div>' +
+  '</div>';
+}
+function renderTrialTimelineCard(r) {
+  var ftRuns = _trialRunsFor(r.npd, 'Factory Trial');
+  var ptRuns = _trialRunsFor(r.npd, 'Production Trial');
+  var prodRuns = _trialRunsFor(r.npd, 'Production');
+  // Don't show on draft recipes — nothing to show. Show on review onwards.
+  if (r.status === 'draft' && !ftRuns.length && !ptRuns.length && !prodRuns.length && !r.trialQA && !r['prod-trialQA']) return '';
+  return '<div class="card" style="margin-top:20px">' +
+    '<div class="card-head">' +
+      '<span class="card-title">📅 Trial Timeline</span>' +
+      '<span style="font-size:11px;color:var(--g3)">All trial &amp; production runs for this recipe</span>' +
+    '</div>' +
+    '<div class="card-body" style="padding:8px 18px 4px">' +
+      _trialStageRow('🔬', 'Factory Trial', ftRuns, r.trialQA, '#0C6BA8', null) +
+      _trialStageRow('🧪', 'Production Trial', ptRuns, r['prod-trialQA'], '#6B2FA0', null) +
+      _trialStageRow('✅', 'Approved &amp; Production', prodRuns, null, '#1F4811', r.approvedAt) +
+    '</div>' +
+  '</div>';
+}
+
 function convertToComposite(npd) {
   var role = (typeof getCurrentUserRole === 'function') ? getCurrentUserRole() : 'viewer';
   if (role !== 'admin' && role !== 'npd') { showSaveToast('Only R&D can convert recipes', true); return; }
@@ -9968,6 +10046,8 @@ function viewRecipe(npd) {
     </div>
     ` : ''}
 
+    ${renderTrialTimelineCard(r)}
+
     <!-- QA Trial Status (entry happens on the QA page — this is a status-only summary) -->
     ${(r.status === 'trial' || r.status === 'prod-trial') ? (function(){
       var _stageKey = r.status + 'QA';
@@ -9999,19 +10079,6 @@ function viewRecipe(npd) {
         '</div>' +
       '</div>';
     })() : ''}
-
-    ${(r.status !== 'trial' && r.status !== 'prod-trial' && r.trialQA && r.trialQA.signed) ? `
-    <div class="card" style="margin-top:20px;opacity:0.7">
-      <div class="card-head" style="background:${r.trialQA.conditional ? '#D47000' : '#0C6BA8'}"><span class="card-title" style="color:white">Factory Trial — QA Results${r.trialQA.conditional ? ' <span style=\"font-size:11px;font-weight:500;margin-left:6px\">⚠ Approved with conditions</span>' : ''}</span><span class="badge" style="background:rgba(255,255,255,0.15);color:white;font-size:10px">Signed Off by ${esc(r.trialQA.signedBy||'')} · ${r.trialQA.signedAt}</span></div>
-      ${r.trialQA.conditional && r.trialQA.conditions ? `<div class="card-body" style="padding:10px 16px;background:#FEF3E2;border-top:1px solid #F5D5A0;font-size:12px;color:#8a4500"><strong>Conditions:</strong> ${esc(r.trialQA.conditions)}</div>` : ''}
-    </div>
-    ` : ''}
-    ${(r.status !== 'trial' && r.status !== 'prod-trial' && r['prod-trialQA'] && r['prod-trialQA'].signed) ? `
-    <div class="card" style="margin-top:8px;opacity:0.7">
-      <div class="card-head" style="background:${r['prod-trialQA'].conditional ? '#D47000' : '#6B2FA0'}"><span class="card-title" style="color:white">Production Trial — QA Results${r['prod-trialQA'].conditional ? ' <span style=\"font-size:11px;font-weight:500;margin-left:6px\">⚠ Approved with conditions</span>' : ''}</span><span class="badge" style="background:rgba(255,255,255,0.15);color:white;font-size:10px">Signed Off by ${esc(r['prod-trialQA'].signedBy||'')} · ${r['prod-trialQA'].signedAt}</span></div>
-      ${r['prod-trialQA'].conditional && r['prod-trialQA'].conditions ? `<div class="card-body" style="padding:10px 16px;background:#FEF3E2;border-top:1px solid #F5D5A0;font-size:12px;color:#8a4500"><strong>Conditions:</strong> ${esc(r['prod-trialQA'].conditions)}</div>` : ''}
-    </div>
-    ` : ''}
 
     ${r.status === 'approved' ? `
     <!-- Batch Log — approved only -->
