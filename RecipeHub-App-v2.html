@@ -1729,18 +1729,20 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
 
 <!-- PIZZA BUILDS PAGE -->
 <div id="page-builds" class="page-hidden">
-  <div style="display:flex;gap:14px;align-items:center;justify-content:space-between;flex-wrap:nowrap;padding:16px 20px;background:var(--navy);border-radius:var(--r-lg);margin-bottom:16px" id="builds-banner">
+  <div style="display:flex;gap:14px;align-items:center;flex-wrap:nowrap;padding:14px 20px;background:var(--navy);border-radius:var(--r-lg);margin-bottom:16px" id="builds-banner">
     <div style="display:flex;align-items:center;gap:14px;flex-shrink:0">
-      <div style="text-align:center"><div style="font-size:32px;font-weight:700;color:#A6D588;font-family:var(--font-d)" id="builds-active-count">0</div><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:#A6D588;font-weight:600">Active</div></div>
+      <div style="text-align:center"><div style="font-size:32px;font-weight:700;color:#A6D588;font-family:var(--font-d);line-height:1.1" id="builds-active-count">0</div><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:#A6D588;font-weight:600">Active</div></div>
       <div style="width:1px;height:36px;background:rgba(255,255,255,0.2)"></div>
-      <div style="text-align:center"><div style="font-size:32px;font-weight:700;color:#F5C26B;font-family:var(--font-d)" id="builds-inprogress-count">0</div><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:#F5C26B;font-weight:600">In Progress</div></div>
+      <div style="text-align:center"><div style="font-size:32px;font-weight:700;color:#F5C26B;font-family:var(--font-d);line-height:1.1" id="builds-inprogress-count">0</div><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:#F5C26B;font-weight:600">In Progress</div></div>
       <div style="width:1px;height:36px;background:rgba(255,255,255,0.2)"></div>
-      <div style="text-align:center"><div style="font-size:32px;font-weight:700;color:#E89A8E;font-family:var(--font-d)" id="builds-discontinued-count">0</div><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:#E89A8E;font-weight:600">Inactive</div></div>
+      <div style="text-align:center"><div style="font-size:32px;font-weight:700;color:#E89A8E;font-family:var(--font-d);line-height:1.1" id="builds-discontinued-count">0</div><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:#E89A8E;font-weight:600">Inactive</div></div>
       <div style="width:1px;height:36px;background:rgba(255,255,255,0.2)"></div>
-      <div style="text-align:center"><div style="font-size:32px;font-weight:700;color:white;font-family:var(--font-d)" id="builds-total-count">0</div><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.85);font-weight:600">Total</div></div>
+      <div style="text-align:center"><div style="font-size:32px;font-weight:700;color:white;font-family:var(--font-d);line-height:1.1" id="builds-total-count">0</div><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.85);font-weight:600">Total</div></div>
     </div>
-    <div style="width:1px;height:48px;background:rgba(255,255,255,0.25);flex-shrink:0"></div>
-    <div style="display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap;flex-shrink:1;margin-left:auto" id="builds-brand-stats"></div>
+    <div style="display:flex;align-items:center;gap:14px;flex-shrink:0;margin-left:auto">
+      <div style="width:1px;height:42px;background:rgba(255,255,255,0.25)"></div>
+      <div style="display:flex;align-items:center;gap:12px" id="builds-brand-stats"></div>
+    </div>
   </div>
 
   <div class="filter-bar">
@@ -15025,16 +15027,30 @@ function populateBrandUI() {
   populateBuildsBrandStats();
 }
 
+// Bright brand-dot colors that pop on the dark navy banner.
+// Brand `bg` is a light pastel for cream cards — too subtle on navy.
+var BRAND_DOT_COLORS = {
+  maestro:  '#7AA8FF',  // bright periwinkle
+  mad:      '#FF6B6B',  // coral red
+  pinzatta: '#F5C26B',  // bright amber
+  tivo:     '#7DD49C',  // bright sage green
+  telliano: '#B084E8',  // bright violet
+};
+function _brandDotColor(b) {
+  return BRAND_DOT_COLORS[b.id] || b.text || '#FFFFFF';
+}
+
 function populateBuildsBrandStats() {
   var container = document.getElementById('builds-brand-stats');
   if (!container) return;
-  // Brand-stat tiles sit on the navy banner — use white numbers with a brand-colored dot
-  // underline so the brand identity is preserved without sacrificing contrast.
+  // Brand-stat tiles sit on the navy banner — white number with a bright brand-colored
+  // dot beside the label so the brand identity stays readable on dark.
   container.innerHTML = BRANDS.map(function(b) {
-    return '<div style="text-align:center;padding:0 10px">' +
-      '<div style="font-size:20px;font-weight:700;color:white;font-family:var(--font-d)" id="builds-' + b.id + '">0</div>' +
+    var dot = _brandDotColor(b);
+    return '<div style="text-align:center;padding:0 8px;line-height:1.1">' +
+      '<div style="font-size:20px;font-weight:700;color:white;font-family:var(--font-d);margin-bottom:4px" id="builds-' + b.id + '">0</div>' +
       '<div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.92);font-weight:600;display:flex;align-items:center;justify-content:center;gap:5px">' +
-        '<span style="width:6px;height:6px;border-radius:50%;background:' + b.bg + ';box-shadow:0 0 0 1px rgba(255,255,255,0.4)"></span>' +
+        '<span style="width:8px;height:8px;border-radius:50%;background:' + dot + '"></span>' +
         b.name +
       '</div>' +
     '</div>';
