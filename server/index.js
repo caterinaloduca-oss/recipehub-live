@@ -200,12 +200,19 @@ app.post('/api/data', requireAuth, (req, res) => {
     if (existing && existing.data) {
       const old = existing.data;
 
-      // SAFETY NET: refuse to wipe critical arrays. If a stale client posts an
-      // array shorter than 50% of what the server has, treat it as a stale-tab
-      // overwrite and keep the server's copy. Better to drop a real edit than
-      // to lose the whole array. Diagnosed 2026-04-26 after a wipe of users /
-      // ingredients / builds / branchSOPs while recipes survived because they
-      // had per-key merge but the others didn't.
+      // ── STALE-TAB DETECTION ──
+      // If client's dataVersion is behind the server's, treat the post as STALE
+      // and force a merge-by-id on every key array. Only fully-trusted (current
+      // version) clients can shrink arrays; stale tabs can only ADD or UPDATE.
+      // Genuine deletes must travel through the explicit deletedXIds lists,
+      // which we already honor for recipes / SOPs / builds / commsLog / users.
+      const serverVersion = (existing.dataVersion || 0);
+      const clientVersion = (body.dataVersion || 0);
+      const isStaleTab = clientVersion > 0 && clientVersion < serverVersion;
+      if (isStaleTab) {
+        console.warn('[stale-tab] client dataVersion=' + clientVersion + ' < server=' + serverVersion + ' — forcing per-id merge on all arrays');
+      }
+
       const guardArray = (key, idField, deletedSet) => {
         const oldArr = old[key];
         const newArr = body[key];
@@ -216,9 +223,14 @@ app.post('/api/data', requireAuth, (req, res) => {
           console.warn('[guardArray] ' + key + ' omitted by client; restored ' + oldArr.length + ' from server');
           return;
         }
-        // If new is suspiciously shorter than old (>50% drop), keep server's
-        if (newArr.length < oldArr.length * 0.5) {
-          // Merge by id (keep client's edits but re-add missing entries — except deletes)
+        // Trigger merge if: (a) client lost > 50% of items, OR (b) the post is
+        // from a stale tab (client dataVersion < server's). Stale tabs can only
+        // ADD/UPDATE; they can't shrink arrays unless the missing item is in
+        // the explicit deletedSet.
+        const lostHalf = newArr.length < oldArr.length * 0.5;
+        const shrinking = newArr.length < oldArr.length;
+        const shouldMerge = lostHalf || (isStaleTab && shrinking);
+        if (shouldMerge) {
           if (idField) {
             const seen = new Set(newArr.map(x => x && x[idField]).filter(Boolean));
             const merged = newArr.slice();
@@ -228,10 +240,11 @@ app.post('/api/data', requireAuth, (req, res) => {
               merged.push(x);
             });
             body[key] = merged;
-            console.warn('[guardArray] ' + key + ' dropped from ' + oldArr.length + ' to ' + newArr.length + '; merged back to ' + merged.length);
+            const why = isStaleTab && !lostHalf ? 'stale-tab' : 'drop>50%';
+            console.warn('[guardArray] ' + key + ' (' + why + ') ' + oldArr.length + ' → ' + newArr.length + '; merged back to ' + merged.length);
           } else {
             body[key] = oldArr.slice();
-            console.warn('[guardArray] ' + key + ' dropped from ' + oldArr.length + ' to ' + newArr.length + '; restored');
+            console.warn('[guardArray] ' + key + ' dropped from ' + oldArr.length + ' to ' + newArr.length + '; restored (no idField)');
           }
         }
       };
