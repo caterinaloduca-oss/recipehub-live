@@ -1045,7 +1045,6 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
     <button class="btn btn-outline btn-sm" id="recipe-archive-toggle" onclick="toggleArchivedRecipes()" style="white-space:nowrap">Show Archived</button>
     <select class="filter-select" id="recipe-filter-type" onchange="filterRecipes()"><option>All Types</option><option>Marinade</option><option>Dip</option><option>Sauce</option><option>Blend</option><option>Seasoning</option><option>Spread</option><option>Dessert</option><option>Meat</option><option>Dough</option><option>Coating</option><option>Brine</option><option>Garnish</option><option>Semi-Finished</option></select>
     <select class="filter-select" id="recipe-filter-tag" onchange="filterRecipes()"><option>All Tags</option><option>Imported</option><option>LTO</option><option>Vegetarian</option><option>Gluten Free</option><option>Discontinued</option><option>Best Seller</option></select>
-    <button class="btn btn-outline btn-sm" onclick="exportApprovedRecipesCSV()" title="Download a CSV of all approved recipes — one row per ingredient (name, Oracle code, %, g per 1 kg)" style="white-space:nowrap;margin-left:auto">📊 Export Approved (CSV)</button>
   </div>
 
   <div class="card">
@@ -6011,38 +6010,36 @@ function signOut() {
   });
 })();
 
-// Export all Approved recipes as a CSV — one row per ingredient.
-// Columns: Recipe NPD · Recipe Name · Brand · Recipe ID · Ingredient · Oracle Code · % · g per 1 kg
-// Excel opens .csv directly. UTF-8 BOM prefix keeps non-ASCII (°, é, etc.) readable in Excel.
-function exportApprovedRecipesCSV() {
-  var rows = [['Recipe NPD','Recipe Name','Brand','Recipe ID','Ingredient','Oracle Code','%','g per 1 kg']];
-  var approved = Object.values(RECIPE_DB).filter(function(r){
-    return r && r.status === 'approved' && !r.archived;
-  }).sort(function(a,b){
-    return (a.brand||'').localeCompare(b.brand||'') || (a.name||'').localeCompare(b.name||'');
+// Export a single recipe's ingredient list as a CSV — Excel-ready.
+// Columns: Ingredient · Oracle Code · % · g per 1 kg
+// UTF-8 BOM prefix keeps non-ASCII (°, é, etc.) readable in Excel.
+function exportRecipeCSV(npd) {
+  var r = RECIPE_DB[npd];
+  if (!r) { showSaveToast('Recipe not found', true); return; }
+  var ings = Array.isArray(r.ingredients) ? r.ingredients : [];
+  if (!ings.length) { showSaveToast('No ingredients to export', true); return; }
+  var totalPct = ings.reduce(function(s,i){ return s + (parseFloat(i.pct)||0); }, 0) || 100;
+  // Header section: a few metadata lines, then a blank row, then the ingredient table.
+  var meta = [
+    ['Recipe', r.name || ''],
+    ['NPD', r.npd || ''],
+    ['Recipe ID', r.recipeId || ''],
+    ['Brand', r.brand || ''],
+    ['Type', r.type || ''],
+    ['Status', r.status || ''],
+    ['Version', r.version || ''],
+    ['Exported', new Date().toLocaleString('en-GB')],
+    [],
+  ];
+  var rows = meta.concat([['Ingredient','Oracle Code','%','g per 1 kg']]);
+  ings.forEach(function(i){
+    var pct = parseFloat(i.pct) || 0;
+    var gPerKg = (pct / totalPct) * 1000;
+    var code = (typeof resolveItemCode === 'function') ? (resolveItemCode(i.name) || '') : '';
+    rows.push([i.name || '', code, pct.toFixed(2), gPerKg.toFixed(1)]);
   });
-  if (!approved.length) { showSaveToast('No approved recipes to export', true); return; }
-  var ingredientLineCount = 0;
-  approved.forEach(function(r){
-    var ings = Array.isArray(r.ingredients) ? r.ingredients : [];
-    var totalPct = ings.reduce(function(s,i){ return s + (parseFloat(i.pct)||0); }, 0) || 100;
-    ings.forEach(function(i){
-      var pct = parseFloat(i.pct) || 0;
-      var gPerKg = (pct / totalPct) * 1000;
-      var code = (typeof resolveItemCode === 'function') ? (resolveItemCode(i.name) || '') : '';
-      rows.push([
-        r.npd || '',
-        r.name || '',
-        r.brand || '',
-        r.recipeId || '',
-        i.name || '',
-        code,
-        pct.toFixed(2),
-        gPerKg.toFixed(1),
-      ]);
-      ingredientLineCount++;
-    });
-  });
+  // Totals row
+  rows.push(['Total', '', totalPct.toFixed(2), '1000.0']);
   // CSV-escape: wrap in quotes if value contains comma / quote / newline; double-up quotes.
   var csv = rows.map(function(row){
     return row.map(function(v){
@@ -6056,11 +6053,13 @@ function exportApprovedRecipesCSV() {
   var url = URL.createObjectURL(blob);
   var a = document.createElement('a');
   a.href = url;
-  a.download = 'RecipeHub_Approved_Recipes_' + new Date().toISOString().split('T')[0] + '.csv';
+  // Safe filename: keep alphanumeric, dash, underscore.
+  var safeName = (r.name || r.npd || 'recipe').replace(/[^a-zA-Z0-9_\-]+/g, '_').replace(/^_|_$/g, '');
+  a.download = safeName + '_' + (r.npd || '') + '.csv';
   document.body.appendChild(a); a.click();
   document.body.removeChild(a); URL.revokeObjectURL(url);
-  showSaveToast('Exported ' + approved.length + ' recipes (' + ingredientLineCount + ' ingredient lines)');
-  if (typeof auditEvent === 'function') auditEvent('recipe.export_csv', 'recipes', '', 'Approved recipes export', { recipes: approved.length, lines: ingredientLineCount });
+  showSaveToast('Exported ' + ings.length + ' ingredients');
+  if (typeof auditEvent === 'function') auditEvent('recipe.export_csv', 'recipe', npd, r.name || '', { ingredients: ings.length });
 }
 
 function exportBackup() {
@@ -9866,6 +9865,7 @@ function viewRecipe(npd) {
           <div style="display:flex;align-items:center;gap:8px">
             <span style="font-size:11px;color:var(--g3)">Per 1 kg</span>
             ${(r.type === 'Dough' || r.ingredients.some(function(i){ return /flour|dough/i.test(i.name); })) ? '<button class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 10px" onclick="toggleBakerPct(\''+r.npd+'\')" id="baker-btn-'+r.npd+'">Baker\'s %</button>' : ''}
+            <button class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 10px" onclick="exportRecipeCSV('${r.npd}')" title="Download this recipe's ingredients as CSV (Excel-ready)">📊 Export CSV</button>
             ${_vrIsRD ? `<button class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 10px" onclick="editRecipe('${r.npd}')">Edit</button>` : ''}
           </div>
         </div>
