@@ -289,7 +289,24 @@ app.post('/api/data', requireAuth, (req, res) => {
         body.users = newUsers;
       }
       // Ingredients are flat arrays [id, name, supplier, code, ...] — code at idx 3.
-      guardArray('ingredients', 3);
+      // deletedIngredientCodes lets us persist "this code was really deleted, do
+      // NOT re-add it from server" — same pattern as deletedRecipeIds etc.
+      // The list lives server-side; clients that don't post it inherit it from
+      // the previous saved state so stale tabs can't accidentally clear it.
+      const _ingDeletedArr = Array.from(new Set([
+        ...(Array.isArray(body.deletedIngredientCodes) ? body.deletedIngredientCodes : []),
+        ...(Array.isArray(old.deletedIngredientCodes) ? old.deletedIngredientCodes : []),
+      ]));
+      const _ingDeleted = new Set(_ingDeletedArr);
+      body.deletedIngredientCodes = _ingDeletedArr; // persist the merged list back
+      if (_ingDeleted.size && Array.isArray(body.ingredients)) {
+        const before = body.ingredients.length;
+        body.ingredients = body.ingredients.filter(r => !(Array.isArray(r) && r.length > 3 && _ingDeleted.has(r[3])));
+        if (body.ingredients.length !== before) {
+          console.warn('[ingredients] filtered ' + (before - body.ingredients.length) + ' codes via deletedIngredientCodes');
+        }
+      }
+      guardArray('ingredients', 3, _ingDeleted);
       guardArray('builds', 'id');
       guardArray('branchSOPs', 'id');
       guardArray('brands', 'id');
