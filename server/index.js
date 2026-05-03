@@ -240,7 +240,29 @@ app.post('/api/data', requireAuth, (req, res) => {
         ...(body.deletedCommsLogDates || []),
         ...((existing && existing.data && existing.data.deletedCommsLogDates) || []),
       ]);
-      guardArray('users', 'email');
+      // Users: ALWAYS merge by email regardless of length drop. Stale tabs with
+      // an older user list were silently deleting newly-added users (going from
+      // 13 → 12 doesn't trigger the 50% drop guard). Now any server user that
+      // isn't in the posted list AND isn't in deletedUserEmails is re-added.
+      // Diagnosed 2026-05-03 after Alvin Vega kept disappearing.
+      {
+        const oldUsers = Array.isArray(old.users) ? old.users : [];
+        const newUsers = Array.isArray(body.users) ? body.users.slice() : oldUsers.slice();
+        const deletedSet = new Set([
+          ...(body.deletedUserEmails || []),
+          ...(old.deletedUserEmails || []),
+        ].map(e => String(e || '').toLowerCase()));
+        const seen = new Set(newUsers.map(u => String((u && u.email) || '').toLowerCase()).filter(Boolean));
+        let reAdded = 0;
+        oldUsers.forEach(u => {
+          const em = String((u && u.email) || '').toLowerCase();
+          if (!em || seen.has(em) || deletedSet.has(em)) return;
+          newUsers.push(u);
+          reAdded++;
+        });
+        if (reAdded) console.warn('[mergeUsers] re-added ' + reAdded + ' server-only user(s) absent from client post');
+        body.users = newUsers;
+      }
       guardArray('ingredients', 'item_code');
       guardArray('builds', 'id');
       guardArray('branchSOPs', 'id');
