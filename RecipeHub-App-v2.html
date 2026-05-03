@@ -264,7 +264,7 @@ body { font-family:var(--font-b); background:var(--cream); color:var(--g5); font
 .ebs-spinner { display:inline-block; width:12px; height:12px; border:2px solid rgba(10,22,40,0.2); border-top-color:var(--navy); border-radius:50%; animation:ebs-spin 0.6s linear infinite; vertical-align:middle; margin-right:4px; }
 @keyframes ebs-spin { to { transform:rotate(360deg); } }
 
-.ebs-ac-dropdown { position:absolute; top:100%; left:0; right:0; z-index:9999; background:#1b2a4a; border:1px solid rgba(196,164,105,0.3); border-radius:10px; max-height:260px; overflow-y:auto; display:none; box-shadow:0 12px 32px rgba(0,0,0,0.5); margin-top:4px; }
+.ebs-ac-dropdown { position:absolute; top:100%; left:0; right:0; z-index:9999; background:#0F2D52; border:1px solid var(--gold); border-radius:10px; max-height:240px; overflow-y:auto; display:none; box-shadow:0 12px 36px rgba(0,0,0,0.6); margin-top:4px; opacity:1; }
 .ebs-ac-item { display:flex; justify-content:space-between; align-items:center; padding:10px 14px; cursor:pointer; transition:background 0.15s; border-bottom:1px solid rgba(255,255,255,0.06); }
 .ebs-ac-item:hover { background:rgba(196,164,105,0.15); }
 .ebs-ac-item:last-child { border-bottom:none; }
@@ -5266,7 +5266,10 @@ function ebsAutocomplete(input, onSelect) {
   });
 
   input.addEventListener('blur', function() {
-    setTimeout(() => { dropdown.style.display = 'none'; }, 200);
+    setTimeout(() => {
+      dropdown.style.display = 'none';
+      if (_ebsACOpen === dropdown) _ebsACOpen = null;
+    }, 200);
   });
   input.addEventListener('focus', function() {
     if (this.value.trim().length >= 2) this.dispatchEvent(new Event('input'));
@@ -5750,7 +5753,19 @@ function openPriceHistory(itemNumber, itemName) {
   });
 }
 
+// Track the currently open EBS autocomplete so we never have two visible at once.
+var _ebsACOpen = null;
+function _hideEbsAC() {
+  if (_ebsACOpen && _ebsACOpen.style) _ebsACOpen.style.display = 'none';
+  _ebsACOpen = null;
+}
+
 function _renderACDropdown(dropdown, input, results, onSelect) {
+  // Close any other dropdown before opening this one
+  if (_ebsACOpen && _ebsACOpen !== dropdown) {
+    _ebsACOpen.style.display = 'none';
+  }
+  _ebsACOpen = dropdown;
   if (results.length === 0) {
     dropdown.innerHTML = '<div class="ebs-ac-empty">No matches found</div>';
     dropdown.style.display = 'block';
