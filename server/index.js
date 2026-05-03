@@ -206,37 +206,49 @@ app.post('/api/data', requireAuth, (req, res) => {
       // version) clients can shrink arrays; stale tabs can only ADD or UPDATE.
       // Genuine deletes must travel through the explicit deletedXIds lists,
       // which we already honor for recipes / SOPs / builds / commsLog / users.
+      //
+      // The client currently sends a hardcoded DATA_VERSION constant (6). The
+      // server auto-increments its own version on every POST below, so within
+      // a few saves clientVersion < serverVersion is permanently true and the
+      // merge logic acts as a global safety net. Adds & updates flow through;
+      // deletes need explicit deletedXIds tracking.
       const serverVersion = (existing.dataVersion || 0);
       const clientVersion = (body.dataVersion || 0);
-      const isStaleTab = clientVersion > 0 && clientVersion < serverVersion;
+      const isStaleTab = serverVersion > 0 && clientVersion < serverVersion;
       if (isStaleTab) {
         console.warn('[stale-tab] client dataVersion=' + clientVersion + ' < server=' + serverVersion + ' — forcing per-id merge on all arrays');
       }
+      // Auto-increment server's dataVersion so the next post is also flagged.
+      body.dataVersion = serverVersion + 1;
 
+      // Helper: read the id from an entry. Supports objects keyed by string
+      // field name, AND arrays-of-arrays where idField is a number index
+      // (ingredients are stored as flat arrays: [id, name, supplier, code, ...]).
+      const idOf = (x, idField) => {
+        if (!x || idField == null) return null;
+        const v = (typeof idField === 'number') ? x[idField] : x[idField];
+        return v;
+      };
       const guardArray = (key, idField, deletedSet) => {
         const oldArr = old[key];
         const newArr = body[key];
         if (!Array.isArray(oldArr) || oldArr.length < 4) return;
-        // If the field was omitted entirely or is non-array, keep server's
         if (!Array.isArray(newArr)) {
           body[key] = oldArr.slice();
           console.warn('[guardArray] ' + key + ' omitted by client; restored ' + oldArr.length + ' from server');
           return;
         }
-        // Trigger merge if: (a) client lost > 50% of items, OR (b) the post is
-        // from a stale tab (client dataVersion < server's). Stale tabs can only
-        // ADD/UPDATE; they can't shrink arrays unless the missing item is in
-        // the explicit deletedSet.
         const lostHalf = newArr.length < oldArr.length * 0.5;
         const shrinking = newArr.length < oldArr.length;
         const shouldMerge = lostHalf || (isStaleTab && shrinking);
         if (shouldMerge) {
-          if (idField) {
-            const seen = new Set(newArr.map(x => x && x[idField]).filter(Boolean));
+          if (idField != null) {
+            const seen = new Set(newArr.map(x => idOf(x, idField)).filter(v => v != null && v !== ''));
             const merged = newArr.slice();
             oldArr.forEach(x => {
-              if (!x || !x[idField] || seen.has(x[idField])) return;
-              if (deletedSet && deletedSet.has(x[idField])) return; // intentional delete — skip re-add
+              const id = idOf(x, idField);
+              if (id == null || id === '' || seen.has(id)) return;
+              if (deletedSet && deletedSet.has(id)) return;
               merged.push(x);
             });
             body[key] = merged;
@@ -276,7 +288,8 @@ app.post('/api/data', requireAuth, (req, res) => {
         if (reAdded) console.warn('[mergeUsers] re-added ' + reAdded + ' server-only user(s) absent from client post');
         body.users = newUsers;
       }
-      guardArray('ingredients', 'item_code');
+      // Ingredients are flat arrays [id, name, supplier, code, ...] — code at idx 3.
+      guardArray('ingredients', 3);
       guardArray('builds', 'id');
       guardArray('branchSOPs', 'id');
       guardArray('brands', 'id');
