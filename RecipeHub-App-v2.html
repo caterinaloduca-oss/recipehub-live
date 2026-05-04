@@ -12885,7 +12885,10 @@ function renderSOPApprovalStages(r) {
       body = '<div style="font-size:13px;font-weight:600;color:var(--navy)">'+rec.by+'</div>' +
              '<div style="font-size:11px;color:var(--g4);margin-top:2px"><span style="color:var(--sage);font-weight:600">✓</span> Signed '+_fmtDate(rec.at)+'</div>';
     } else if (current) {
-      body = '<div style="font-size:13px;font-weight:600;color:var(--navy)">Awaiting '+label.toLowerCase()+'</div>' +
+      var awaitingLabel = stage === 'prepared' ? 'preparation' :
+                          stage === 'reviewed' ? 'review' :
+                          stage === 'approved' ? 'approval' : label.toLowerCase();
+      body = '<div style="font-size:13px;font-weight:600;color:var(--navy)">Awaiting '+awaitingLabel+'</div>' +
              '<div style="font-size:11px;color:var(--g4);margin-top:2px">Notified: '+role+'</div>';
     } else {
       body = '<div style="font-size:13px;font-weight:600;color:var(--g3)">Locked until previous stage complete</div>';
