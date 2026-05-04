@@ -10927,8 +10927,20 @@ function buildFactorySOPTable() {
   tbody.innerHTML = '';
   const recipes = Object.values(RECIPE_DB);
   const sopRecipes = recipes.filter(r => r.sopSteps && r.sopSteps.length);
-  const statusMap = {approved:'badge-approved',pending:'badge-review',draft:'badge-draft'};
-  const statusLabel = {approved:'Approved',pending:'Pending Approval',draft:'Draft'};
+  const statusMap = {
+    approved:'badge-approved',
+    'pending-approval':'badge-review',
+    'pending-review':'badge-review',
+    pending:'badge-review',
+    draft:'badge-draft',
+  };
+  const statusLabel = {
+    approved:'Approved',
+    'pending-approval':'Pending Approval',
+    'pending-review':'Pending Review',
+    pending:'Pending',
+    draft:'Draft',
+  };
   // Recipe lifecycle badges — separate from SOP status
   const recipeStageMap = {
     draft:'badge-draft', review:'badge-review',
@@ -10966,7 +10978,17 @@ function buildFactorySOPTable() {
       if (!qasCleared) return { label: 'R&D (QAS sign-off)', color: '#1B4F8F' };
       return { label: 'R&D (approve)', color: '#1B4F8F' };
     }
-    if (s === 'approved')     return { label: '—', color: 'var(--g3)' };
+    if (s === 'approved') {
+      // Approved recipes: ownership now driven by where the SOP is in its review chain
+      const ss = r.sopStatus || (r.sopSteps && r.sopSteps.length ? 'draft' : '');
+      if (!ss)                           return { label: 'R&D (start SOP)', color: '#1B4F8F' };
+      if (ss === 'draft')                return { label: 'R&D (push for review)', color: '#1B4F8F' };
+      if (ss === 'pending-review')       return { label: 'Factory / QA Mgr (review)', color: '#A35400' };
+      if (ss === 'pending-approval')     return { label: 'Head QA / Prod Mgr (approve)', color: '#A35400' };
+      if (ss === 'pending')              return { label: 'Factory / QA Mgr (review)', color: '#A35400' };
+      if (ss === 'approved')             return { label: '—', color: 'var(--g3)' };
+      return { label: '—', color: 'var(--g3)' };
+    }
     if (s === 'discontinued') return { label: '—', color: 'var(--g3)' };
     return { label: '—', color: 'var(--g3)' };
   };
