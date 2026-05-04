@@ -1268,6 +1268,9 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
       </div>
       <select class="filter-select" id="fsop-filter-brand" onchange="filterFactorySOPs()"><option>All Brands</option></select>
       <select class="filter-select" id="fsop-filter-status" onchange="filterFactorySOPs()"><option>All Statuses</option><option>Draft</option><option>Pending</option><option>Approved</option></select>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--g4);cursor:pointer;margin-left:auto">
+        <input type="checkbox" id="fsop-show-archived" onchange="buildFactorySOPTable()" /> Show Archived
+      </label>
     </div>
     <div class="card" id="fsop-card">
       <div class="card-head" style="cursor:pointer;user-select:none" onclick="toggleFsopCollapsed()">
@@ -10927,6 +10930,10 @@ function buildFactorySOPTable() {
   tbody.innerHTML = '';
   const recipes = Object.values(RECIPE_DB);
   const sopRecipes = recipes.filter(r => r.sopSteps && r.sopSteps.length);
+  const showArchived = !!(document.getElementById('fsop-show-archived') && document.getElementById('fsop-show-archived').checked);
+  // Most-recent first: sort by updatedAt desc, fall back to approvedAt, then npd
+  const _ts = (r) => r.updatedAt || r.approvedAt || r.created || '';
+  recipes.sort((a, b) => String(_ts(b)).localeCompare(String(_ts(a))));
   const statusMap = {
     approved:'badge-approved',
     'pending-approval':'badge-review',
@@ -10953,8 +10960,9 @@ function buildFactorySOPTable() {
     approved:'Approved', discontinued:'Discontinued', archived:'Archived',
   };
 
-  // Also include recipes without SOPs yet (so user can generate them)
-  const allRecipes = recipes;
+  // Also include recipes without SOPs yet (so user can generate them).
+  // Filter out archived unless the user toggles them on.
+  const allRecipes = showArchived ? recipes : recipes.filter(r => !r.archived);
   const _fsopRole = getCurrentUserRole();
   const _fsopIsRD = (_fsopRole === 'admin' || _fsopRole === 'npd');
   // SOP flow: R&D drafts → Factory reviews → QA approves
