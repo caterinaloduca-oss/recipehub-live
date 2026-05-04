@@ -1279,7 +1279,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
       </div>
       <div class="card-body" id="fsop-card-body" style="padding:0">
         <table class="data-table">
-          <thead><tr><th>Recipe</th><th>SOP Code</th><th>Brand</th><th>Version</th><th>Steps</th><th>Recipe stage</th><th>SOP status</th><th></th></tr></thead>
+          <thead><tr><th>Recipe</th><th>SOP Code</th><th>Brand</th><th>Version</th><th>Steps</th><th>Recipe stage</th><th>Owner</th><th>SOP status</th><th></th></tr></thead>
           <tbody id="fsop-tbody"></tbody>
         </table>
       </div>
@@ -10945,10 +10945,36 @@ function buildFactorySOPTable() {
   const allRecipes = recipes;
   const _fsopRole = getCurrentUserRole();
   const _fsopIsRD = (_fsopRole === 'admin' || _fsopRole === 'npd');
+  // Helper: who's currently responsible for the next action on this recipe
+  const ownerFor = (r) => {
+    if (r.archived) return { label: '—', color: 'var(--g3)' };
+    const s = r.status || 'draft';
+    if (s === 'draft')   return { label: 'R&D', color: '#1B4F8F' };
+    if (s === 'review')  return { label: 'R&D', color: '#1B4F8F' };
+    if (s === 'trial') {
+      const qa = r.trialQA;
+      const qaCleared = qa && (qa.signed || qa.bypassed);
+      if (!qaCleared) return { label: 'QA (lab pending)', color: '#A35400' };
+      return { label: 'R&D (advance)', color: '#1B4F8F' };
+    }
+    if (s === 'prod-trial') {
+      const qa = r['prod-trialQA'];
+      const qaCleared = qa && (qa.signed || qa.bypassed);
+      if (!qaCleared) return { label: 'QA (lab pending)', color: '#A35400' };
+      // Then QAS gate before approval
+      const qasCleared = r.qasStatus === 'approved' || (r.qasBypass && r.qasBypass.by);
+      if (!qasCleared) return { label: 'R&D (QAS sign-off)', color: '#1B4F8F' };
+      return { label: 'R&D (approve)', color: '#1B4F8F' };
+    }
+    if (s === 'approved')     return { label: 'Factory (production)', color: '#A35400' };
+    if (s === 'discontinued') return { label: '—', color: 'var(--g3)' };
+    return { label: '—', color: 'var(--g3)' };
+  };
   allRecipes.forEach(r => {
     const hasSOP = r.sopSteps && r.sopSteps.length;
     const sopStatus = r.sopStatus || 'draft';
     const recipeStage = r.archived ? 'archived' : (r.status || 'draft');
+    const owner = ownerFor(r);
     const tr = document.createElement('tr');
     tr.style.cursor = 'pointer';
     tr.onclick = function(){ viewFactorySOP(r.npd); };
@@ -10962,6 +10988,7 @@ function buildFactorySOPTable() {
       <td style="font-size:12px;color:var(--g4)">${r.version}</td>
       <td style="font-size:12px;color:var(--g4)">${hasSOP ? r.sopSteps.length + ' steps' : '<span style="color:var(--g3)">Not generated</span>'}</td>
       <td><span class="badge ${recipeStageMap[recipeStage]||'badge-draft'}" style="font-size:10px">${recipeStageLabel[recipeStage]||recipeStage}</span></td>
+      <td style="font-size:11px;font-weight:600;color:${owner.color}">${owner.label}</td>
       <td><span class="badge ${hasSOP ? (statusMap[sopStatus]||'badge-draft') : 'badge-draft'}" style="font-size:10px">${hasSOP ? (statusLabel[sopStatus]||'Draft') : 'No SOP'}</span></td>
       <td onclick="event.stopPropagation()">
         <div style="display:flex;gap:4px">
@@ -10980,7 +11007,7 @@ function buildFactorySOPTable() {
     tbody.appendChild(tr);
   });
   if (!allRecipes.length) {
-    tbody.innerHTML = '<tr><td colspan="8" style="padding:40px;text-align:center;color:var(--g3);font-size:13px">No recipes yet. Create recipes first, then generate SOPs.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" style="padding:40px;text-align:center;color:var(--g3);font-size:13px">No recipes yet. Create recipes first, then generate SOPs.</td></tr>';
   }
   const countEl = document.getElementById('fsop-count-label');
   if (countEl) countEl.textContent = sopRecipes.length + ' SOPs generated / ' + allRecipes.length + ' recipes';
