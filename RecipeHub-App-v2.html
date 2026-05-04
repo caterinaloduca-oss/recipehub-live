@@ -8350,7 +8350,7 @@ function buildRecipesTable() {
               <button class="print-dd-item" onclick="event.stopPropagation();openPrint('${r.npd}','factory')"><span class="dd-icon">🏭</span> Factory Version</button>
             </div>
           </div>
-          ${((r.status === 'approved' && userRole !== 'admin') || (r.status !== 'approved' && userRole !== 'admin' && userRole !== 'npd')) ? '' : `<button class="btn btn-danger-sm" onclick="event.stopPropagation();deleteRecipe('${r.npd}')">✕</button>`}
+          ${/* Inline ✕ delete removed — too easy to misclick. Delete now lives in the recipe detail page → More ▾ menu (admin-only). */ ''}
         </div>
       </td>
     `;
@@ -10359,6 +10359,10 @@ function viewRecipe(npd) {
           <button class="more-dd-item" onclick="duplicateRecipe('${r.npd}')">📋 Duplicate</button>
           <button class="more-dd-item" onclick="viewVersionHistory('${r.npd}')">🕐 Version History</button>
           <button class="more-dd-item" onclick="generateFactorySOP('${r.npd}')">🏭 Regenerate Factory SOP</button>
+          ${_curRole === 'admin' ? `
+          <div style="border-top:1px solid rgba(0,0,0,0.06);margin:4px 0"></div>
+          <button class="more-dd-item" style="color:var(--red)" onclick="deleteRecipe('${r.npd}')">🗑 Delete recipe (admin)</button>
+          ` : ''}
         </div>
       </div>
     `;
