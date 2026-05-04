@@ -376,6 +376,7 @@ body { font-family:var(--font-b); background:var(--cream); color:var(--g5); font
 .vsop-step-img { width:100%; height:180px; border-radius:var(--r-sm); overflow:hidden; background:var(--g1); border:1px dashed var(--g2); display:flex; align-items:center; justify-content:center; margin-bottom:8px; position:relative; cursor:pointer; }
 .vsop-step-img img { width:100%; height:100%; object-fit:cover; }
 .vsop-step-img:hover { border-color:var(--navy); }
+.vsop-drop-zone.vsop-drop-active { border-color:var(--gold) !important; background:#FEF3E2 !important; border-style:solid !important; box-shadow:inset 0 0 0 2px var(--gold); }
 .vsop-step-img .vsop-upload-hint { display:none; position:absolute; inset:0; background:rgba(0,0,0,0.4); color:white; font-size:10px; font-weight:500; align-items:center; justify-content:center; }
 .vsop-step-img:hover .vsop-upload-hint { display:flex; }
 .vsop-temp { display:inline-block; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:600; margin-top:4px; }
@@ -11231,10 +11232,15 @@ function _stripBlobUrls() {
   });
 }
 
-function uploadVisualSOPImg(npd, stepIdx, input) {
+function _uploadVisualSOPFile(npd, stepIdx, file) {
+  if (!file) return;
+  if (!file.type || !file.type.startsWith('image/')) {
+    showSaveToast('Drop an image file (jpg, png, webp)', true);
+    return;
+  }
   var r = RECIPE_DB[npd];
-  if (!r || !r.sopSteps || !input.files[0]) return;
-  uploadImageToServer(input.files[0], 'sop-'+npd+'-step'+stepIdx, function(url) {
+  if (!r || !r.sopSteps || !r.sopSteps[stepIdx]) return;
+  uploadImageToServer(file, 'sop-'+npd+'-step'+stepIdx, function(url) {
     r.sopSteps[stepIdx].visualImg = url;
     r.updatedAt = new Date().toISOString();
     var editBody = document.getElementById('sop-steps-body');
@@ -11243,6 +11249,34 @@ function uploadVisualSOPImg(npd, stepIdx, input) {
     saveAllData();
     showSaveToast('Step photo saved');
   });
+}
+
+function uploadVisualSOPImg(npd, stepIdx, input) {
+  if (input && input.files && input.files[0]) {
+    _uploadVisualSOPFile(npd, stepIdx, input.files[0]);
+  }
+}
+
+// Drag-and-drop entry point used on the upload label. Wired via inline handlers
+// in the SOP step renderer.
+function dropVisualSOPImg(ev, npd, stepIdx) {
+  ev.preventDefault();
+  ev.stopPropagation();
+  ev.currentTarget.classList.remove('vsop-drop-active');
+  var file = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0];
+  if (!file) return;
+  _uploadVisualSOPFile(npd, stepIdx, file);
+}
+function dragOverVisualSOP(ev) {
+  ev.preventDefault();
+  ev.stopPropagation();
+  if (ev.dataTransfer) ev.dataTransfer.dropEffect = 'copy';
+  ev.currentTarget.classList.add('vsop-drop-active');
+}
+function dragLeaveVisualSOP(ev) {
+  ev.preventDefault();
+  ev.stopPropagation();
+  ev.currentTarget.classList.remove('vsop-drop-active');
 }
 
 function deleteVisualSOPImg(npd, stepIdx) {
@@ -12479,9 +12513,10 @@ function renderEditableSOPStep(s, idx, npd) {
       </div>
       <div style="display:flex;gap:14px;margin-bottom:6px">
         <div style="position:relative;width:180px;flex-shrink:0">
-          <label style="display:block;width:180px;min-height:120px;border-radius:var(--r-md);overflow:hidden;background:var(--g1);border:1px dashed var(--g2);cursor:pointer;position:relative">
-            ${s.visualImg ? '<img src="'+s.visualImg+'" style="width:100%;height:100%;object-fit:cover" />' : '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;min-height:120px;color:var(--g3)"><span style="font-size:22px">📷</span><span style="font-size:10px;margin-top:4px">Add photo</span></div>'}
-            <div style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.4);color:white;font-size:11px;font-weight:500;align-items:center;justify-content:center" class="vsop-upload-hint">${s.visualImg ? 'Change' : 'Upload'}</div>
+          <label class="vsop-drop-zone" style="display:block;width:180px;min-height:120px;border-radius:var(--r-md);overflow:hidden;background:var(--g1);border:1px dashed var(--g2);cursor:pointer;position:relative;transition:border-color 0.15s,background 0.15s"
+                 ondragover="dragOverVisualSOP(event)" ondragleave="dragLeaveVisualSOP(event)" ondrop="dropVisualSOPImg(event,'${npd}',${idx})">
+            ${s.visualImg ? '<img src="'+s.visualImg+'" style="width:100%;height:100%;object-fit:cover;pointer-events:none" />' : '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;min-height:120px;color:var(--g3);pointer-events:none"><span style="font-size:22px">📷</span><span style="font-size:10px;margin-top:4px">Add photo</span><span style="font-size:9px;color:var(--g4);margin-top:2px">or drag &amp; drop</span></div>'}
+            <div style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.4);color:white;font-size:11px;font-weight:500;align-items:center;justify-content:center;pointer-events:none" class="vsop-upload-hint">${s.visualImg ? 'Change' : 'Upload'}</div>
             <input type="file" accept="image/*" style="display:none" onchange="uploadVisualSOPImg('${npd}',${idx},this)" />
           </label>
           ${s.visualImg ? `<button title="Delete photo" type="button" onclick="deleteVisualSOPImg('${npd}',${idx});return false;" style="position:absolute;top:6px;right:6px;background:rgba(192,57,43,0.95);color:white;border:none;border-radius:50%;width:24px;height:24px;font-size:13px;cursor:pointer;line-height:1;padding:0;z-index:10;box-shadow:0 1px 3px rgba(0,0,0,0.3)">✕</button>` : ''}
