@@ -10991,6 +10991,10 @@ function buildFactorySOPTable() {
     const _actionBtn = hasSOP
       ? `<button class="btn btn-outline btn-sm" onclick="event.stopPropagation();exportToSOP('${r.npd}')">View</button>`
       : (_fsopIsRD ? `<button class="btn btn-outline btn-sm" onclick="event.stopPropagation();exportToSOP('${r.npd}')">Generate</button>` : '');
+    const _isAdmin = (_fsopRole === 'admin');
+    const _deleteBtn = (_isAdmin && hasSOP)
+      ? `<button class="btn btn-danger-sm" title="Delete this SOP (admin only)" onclick="event.stopPropagation();deleteSOPCompletely('${r.npd}')">✕ SOP</button>`
+      : '';
     tr.innerHTML = `
       <td><strong>${r.name}</strong></td>
       <td style="font-family:var(--font-m);font-size:12px;color:var(--g3)">SOP-${r.npd}</td>
@@ -11003,6 +11007,7 @@ function buildFactorySOPTable() {
       <td onclick="event.stopPropagation()">
         <div style="display:flex;gap:4px">
           ${_actionBtn}
+          ${_deleteBtn}
           <div class="print-dd" id="dd-fsop-${r.npd}" onclick="event.stopPropagation()">
             <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();toggleDD('dd-fsop-${r.npd}')">Print ▾</button>
             <div class="print-dd-menu">
@@ -11036,6 +11041,34 @@ function filterFactorySOPs() {
 
 function viewFactorySOP(npd) {
   exportToSOP(npd);
+}
+
+// Admin-only: wipe an SOP entirely from a recipe (steps + status + signoffs +
+// standard-block toggles). The recipe itself is untouched.
+function deleteSOPCompletely(npd) {
+  if (getCurrentUserRole() !== 'admin') {
+    showSaveToast('Admin only — only admins can delete SOPs', true);
+    return;
+  }
+  var r = RECIPE_DB[npd];
+  if (!r) return;
+  var stepCount = (r.sopSteps || []).length;
+  var msg = 'Delete the entire SOP for "' + r.name + '"?\n\n' +
+            'This wipes:\n' +
+            '  • ' + stepCount + ' production step' + (stepCount === 1 ? '' : 's') + '\n' +
+            '  • Approval signoffs (Prepared / Reviewed / Approved)\n' +
+            '  • Standard-block toggles\n\n' +
+            'The recipe itself stays intact. This cannot be undone.';
+  if (!confirm(msg)) return;
+  r.sopSteps = [];
+  r.sopStatus = null;
+  r.sopApproval = { prepared: null, reviewed: null, approved: null };
+  r.sopStandardBlocks = [];
+  r.updatedAt = new Date().toISOString();
+  saveAllData();
+  buildFactorySOPTable();
+  if (typeof auditEvent === 'function') auditEvent('sop.delete', 'recipe', npd, r.name + ' (SOP deleted)');
+  showSaveToast('SOP deleted from "' + r.name + '"');
 }
 
 function generateFactorySOP(npd) {
