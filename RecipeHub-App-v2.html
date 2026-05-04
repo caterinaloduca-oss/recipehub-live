@@ -20703,22 +20703,30 @@ var BRANCH_SOPS = [
 // Branch SOP brand colors
 
 // Portioning tools reference — auto-fills weight in builds & SOPs
+// Source of truth: Portion Chart M-PC-V-15 (01/09/2025) — uploaded to Library.
 var PORTIONING_TOOLS = [
+  // Ladles
   {name:'2 oz Ladle', category:'Ladle', baseWeight:0.040, notes:'Tomato sauce. M=40g, L=60g'},
-  {name:'3 oz Ladle', category:'Ladle', baseWeight:0.060, notes:'Ranch/Alfredo. M=60g, L=90g'},
+  {name:'3 oz Ladle', category:'Ladle', baseWeight:0.060, notes:'Alfredo sauce. M=60g, L=90g'},
+  {name:'4 oz Ladle', category:'Ladle', baseWeight:0.120, notes:'Ranch sauce. S=⅓ (40g), M=⅔ (80g), L=1 ladle (120g)'},
   {name:'1.5 Ladle', category:'Ladle', baseWeight:0.090, notes:'Pinzatta only'},
   {name:'2/3 Ladle', category:'Ladle', baseWeight:0.045, notes:'Mad only'},
+  // Scoops
   {name:'Cheese Scoop', category:'Scoop', baseWeight:0.045, notes:'45g/scoop. M=2 scoops(90g), L=3(135g)'},
   {name:'1/4 Scoop', category:'Scoop', baseWeight:0.060, notes:'Protein. M=60g, L=100g'},
   {name:'3 Scoop', category:'Scoop', baseWeight:0.135, notes:'Pinzatta 3x cheese'},
   {name:'4 Scoop', category:'Scoop', baseWeight:0.180, notes:'Pinzatta La Margarita 4x cheese'},
-  {name:'Swirl', category:'Drizzle', baseWeight:0.020, notes:'BBQ/Dynamite/Ranch drizzle. 18-26g'},
-  {name:'Line', category:'Drizzle', baseWeight:0.015, notes:'Line application for quesadillas'},
-  {name:'Drops', category:'Drizzle', baseWeight:0.003, notes:'Pesto/Tabasco small qty'},
-  {name:'Spoon', category:'Spoon', baseWeight:0.010, notes:'Garlic butter/ranch/tomato'},
-  {name:'Pcs', category:'Count', baseWeight:0, notes:'Count-based (olives, peppers, etc.)'},
+  // Drizzle / sauce-bottle patterns
+  {name:'Swirl', category:'Drizzle', baseWeight:0.020, notes:'BBQ/Dynamite/Ranch sauce-bottle drizzle. 18-26g per swirl'},
+  {name:'Line', category:'Drizzle', baseWeight:0.015, notes:'Sauce-bottle zig-zag line. Piano=13, MAD=24, Pinzatta sandwich=8'},
+  {name:'Drops', category:'Drizzle', baseWeight:0.003, notes:'Pesto/Dijon mustard/Tabasco small qty. Sandwich=8 drops'},
+  // Other
+  {name:'Spoon', category:'Spoon', baseWeight:0.010, notes:'Tomato bruschetta 10g, garlic butter 25g (2 spoons)'},
+  {name:'Pkt', category:'Pkt', baseWeight:0, notes:'Packet — 1 Pkt sauce per 1 Pkt chicken topping (chipotle, pesto)'},
+  {name:'Solo cup', category:'Cup', baseWeight:0.015, notes:'Parmesan cheese 15g served in solo cup'},
+  {name:'Pcs', category:'Count', baseWeight:0, notes:'Count-based (pepperoni, olives, peppers, jalapeños, mushrooms, etc.)'},
   {name:'Hand', category:'Hand', baseWeight:0, notes:'Manual portioning'},
-  {name:'Squeeze bottle', category:'Bottle', baseWeight:0.010, notes:'Drizzle from bottle'},
+  {name:'Squeeze bottle', category:'Bottle', baseWeight:0.010, notes:'Drizzle from bottle (EVOO, etc.) — distinct from chart "Sauce bottle" patterns'},
 ];
 
 function toolSelectHTML(selected) {
