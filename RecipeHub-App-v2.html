@@ -10996,8 +10996,13 @@ function buildFactorySOPTable() {
       ? `<button class="btn btn-outline btn-sm" onclick="event.stopPropagation();exportToSOP('${r.npd}')">View</button>`
       : (_fsopIsRD ? `<button class="btn btn-outline btn-sm" onclick="event.stopPropagation();exportToSOP('${r.npd}')">Generate</button>` : '');
     const _isAdmin = (_fsopRole === 'admin');
-    const _deleteBtn = (_isAdmin && hasSOP)
-      ? `<button class="btn btn-danger-sm" title="Delete this SOP (admin only)" onclick="event.stopPropagation();deleteSOPCompletely('${r.npd}')">✕ SOP</button>`
+    const _moreMenu = (_isAdmin && hasSOP)
+      ? `<div class="more-dd" id="more-fsop-${r.npd}" onclick="event.stopPropagation()">
+          <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();this.nextElementSibling.classList.toggle('show')">More ▾</button>
+          <div class="more-dd-menu" onclick="this.classList.remove('show')">
+            <button class="more-dd-item" style="color:var(--red)" onclick="deleteSOPCompletely('${r.npd}')">🗑 Delete SOP (admin)</button>
+          </div>
+         </div>`
       : '';
     tr.innerHTML = `
       <td><strong>${r.name}</strong></td>
@@ -11011,7 +11016,6 @@ function buildFactorySOPTable() {
       <td onclick="event.stopPropagation()">
         <div style="display:flex;gap:4px">
           ${_actionBtn}
-          ${_deleteBtn}
           <div class="print-dd" id="dd-fsop-${r.npd}" onclick="event.stopPropagation()">
             <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();toggleDD('dd-fsop-${r.npd}')">Print ▾</button>
             <div class="print-dd-menu">
@@ -11020,6 +11024,7 @@ function buildFactorySOPTable() {
               <button class="print-dd-item" onclick="event.stopPropagation();openPrint('${r.npd}','factory-text')"><span class="dd-icon">📄</span> Text Only (no pictures)</button>
             </div>
           </div>
+          ${_moreMenu}
         </div>
       </td>
     `;
