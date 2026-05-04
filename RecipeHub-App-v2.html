@@ -377,6 +377,7 @@ body { font-family:var(--font-b); background:var(--cream); color:var(--g5); font
 .vsop-step-img img { width:100%; height:100%; object-fit:cover; }
 .vsop-step-img:hover { border-color:var(--navy); }
 .vsop-drop-zone.vsop-drop-active { border-color:var(--gold) !important; background:#FEF3E2 !important; border-style:solid !important; box-shadow:inset 0 0 0 2px var(--gold); }
+.drop-zone-active { outline:2px dashed var(--gold) !important; outline-offset:-4px; background:#FEF3E2 !important; transition:outline 0.1s, background 0.1s; }
 .vsop-step-img .vsop-upload-hint { display:none; position:absolute; inset:0; background:rgba(0,0,0,0.4); color:white; font-size:10px; font-weight:500; align-items:center; justify-content:center; }
 .vsop-step-img:hover .vsop-upload-hint { display:flex; }
 .vsop-temp { display:inline-block; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:600; margin-top:4px; }
@@ -1237,7 +1238,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
   </div>
 
   <!-- 📷 Photos, Videos & Files (QA evidence per recipe) -->
-  <div class="card" id="qa-media-card" style="margin-top:20px">
+  <div class="card" id="qa-media-card" style="margin-top:20px" ondragover="_dropZoneOver(event)" ondragleave="_dropZoneLeave(event)" ondrop="_dropZoneDrop(event,'uploadQaMedia','photo')">
     <div class="card-head">
       <span class="card-title">📷 Photos, Videos & Files</span>
       <div style="display:flex;gap:6px;align-items:center" id="qa-media-actions">
@@ -9989,9 +9990,9 @@ function viewRecipe(npd) {
     <div class="card" style="margin-bottom:20px">
       <div class="card-head"><span class="card-title">📷 Photos, Videos & PDFs</span><span style="font-size:11px;color:var(--g3)">${(r.media||[]).length} files</span></div>
       <div class="card-body">
-        ${_vrIsRDorQA ? `<div class="media-zone" onclick="document.getElementById('media-input-${r.npd}').click()">
+        ${_vrIsRDorQA ? `<div class="media-zone" onclick="document.getElementById('media-input-${r.npd}').click()" ondragover="_dropZoneOver(event)" ondragleave="_dropZoneLeave(event)" ondrop="_dropZoneDrop(event,'handleMediaUpload','${r.npd}')">
           <div class="media-zone-icon">📁</div>
-          <div class="media-zone-text"><strong>Click to upload</strong> photos, videos, or PDFs<br>JPG, PNG, MP4, MOV, WebM, PDF — max 50MB each</div>
+          <div class="media-zone-text"><strong>Click to upload</strong> or drag &amp; drop · photos, videos, or PDFs<br>JPG, PNG, MP4, MOV, WebM, PDF — max 50MB each</div>
           <input type="file" id="media-input-${r.npd}" multiple accept="image/*,video/*,application/pdf" style="display:none" onchange="handleMediaUpload('${r.npd}',this)" />
         </div>` : ''}
         <div class="media-grid" id="media-grid-${r.npd}"></div>
@@ -11090,9 +11091,9 @@ function viewVisualSOP(npd) {
       '<div class="vsop-step-num '+color+'">'+(i+1)+'</div>' +
       '<div class="vsop-step-title">'+s.title+'</div>' +
       '<div style="position:relative">' +
-        '<label class="vsop-step-img">' +
-          (s.visualImg ? '<img src="'+s.visualImg+'" />' : '<span style="color:var(--g3);font-size:20px">📷</span>') +
-          '<div class="vsop-upload-hint">' + (s.visualImg ? 'Click to change' : 'Click to upload') + '</div>' +
+        '<label class="vsop-step-img" ondragover="_dropZoneOver(event)" ondragleave="_dropZoneLeave(event)" ondrop="_dropZoneDrop(event,\'uploadVisualSOPImg\',\''+npd+'\','+i+')">' +
+          (s.visualImg ? '<img src="'+s.visualImg+'" style="pointer-events:none" />' : '<span style="color:var(--g3);font-size:20px;pointer-events:none">📷</span>') +
+          '<div class="vsop-upload-hint" style="pointer-events:none">' + (s.visualImg ? 'Click or drop to change' : 'Click or drop to upload') + '</div>' +
           '<input type="file" accept="image/*" style="display:none" onchange="uploadVisualSOPImg(\''+npd+'\','+i+',this)" />' +
         '</label>' +
         // Delete button must live OUTSIDE the <label> — otherwise clicking it still triggers the file
@@ -11255,6 +11256,32 @@ function uploadVisualSOPImg(npd, stepIdx, input) {
   if (input && input.files && input.files[0]) {
     _uploadVisualSOPFile(npd, stepIdx, input.files[0]);
   }
+}
+
+// ── GENERIC DRAG-AND-DROP HELPERS ──
+// Use on any element that wraps a file <input>. Drops get fed to the existing
+// uploadFn(arg1, arg2, ..., inputLikeObject) so each upload handler stays
+// untouched — the {files: dataTransfer.files} shim keeps the same shape.
+function _dropZoneOver(ev) {
+  ev.preventDefault();
+  if (ev.dataTransfer) ev.dataTransfer.dropEffect = 'copy';
+  ev.currentTarget.classList.add('drop-zone-active');
+}
+function _dropZoneLeave(ev) {
+  ev.currentTarget.classList.remove('drop-zone-active');
+}
+function _dropZoneDrop(ev, uploadFnName) {
+  ev.preventDefault();
+  ev.stopPropagation();
+  ev.currentTarget.classList.remove('drop-zone-active');
+  var files = ev.dataTransfer && ev.dataTransfer.files;
+  if (!files || !files.length) return;
+  var fn = (typeof window !== 'undefined') ? window[uploadFnName] : null;
+  if (typeof fn !== 'function') { console.warn('[dropZone] no upload fn:', uploadFnName); return; }
+  // Collect any extra args after the function name from the inline call
+  var args = Array.prototype.slice.call(arguments, 2);
+  args.push({ files: files });
+  fn.apply(null, args);
 }
 
 // Drag-and-drop entry point used on the upload label. Wired via inline handlers
@@ -11959,8 +11986,8 @@ function _renderQasDetail(r) {
 
     // Reference + defect photos
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">' +
-      '<div class="card"><div class="card-head"><span class="card-title">Reference photos · correct product</span>' + (canEdit ? '<button class="btn btn-outline btn-sm" onclick="document.getElementById(\'qas-photo-ref-' + r.npd + '\').click()">+ Upload</button><input type="file" id="qas-photo-ref-' + r.npd + '" accept="image/*" multiple style="display:none" onchange="uploadQasPhotos(\'' + r.npd + '\',\'reference\',this)" />' : '') + '</div><div class="card-body">' + refPhotos + '</div></div>' +
-      '<div class="card"><div class="card-head"><span class="card-title">Defect photos · what to reject</span>' + (canEdit ? '<button class="btn btn-outline btn-sm" onclick="document.getElementById(\'qas-photo-def-' + r.npd + '\').click()">+ Upload</button><input type="file" id="qas-photo-def-' + r.npd + '" accept="image/*" multiple style="display:none" onchange="uploadQasPhotos(\'' + r.npd + '\',\'defect\',this)" />' : '') + '</div><div class="card-body">' + defPhotos + '</div></div>' +
+      '<div class="card"' + (canEdit ? ' ondragover="_dropZoneOver(event)" ondragleave="_dropZoneLeave(event)" ondrop="_dropZoneDrop(event,\'uploadQasPhotos\',\'' + r.npd + '\',\'reference\')"' : '') + '><div class="card-head"><span class="card-title">Reference photos · correct product</span>' + (canEdit ? '<button class="btn btn-outline btn-sm" onclick="document.getElementById(\'qas-photo-ref-' + r.npd + '\').click()">+ Upload</button><input type="file" id="qas-photo-ref-' + r.npd + '" accept="image/*" multiple style="display:none" onchange="uploadQasPhotos(\'' + r.npd + '\',\'reference\',this)" />' : '') + '</div><div class="card-body">' + refPhotos + (canEdit ? '<div style="font-size:11px;color:var(--g3);margin-top:8px;text-align:center;font-style:italic">or drag &amp; drop images here</div>' : '') + '</div></div>' +
+      '<div class="card"' + (canEdit ? ' ondragover="_dropZoneOver(event)" ondragleave="_dropZoneLeave(event)" ondrop="_dropZoneDrop(event,\'uploadQasPhotos\',\'' + r.npd + '\',\'defect\')"' : '') + '><div class="card-head"><span class="card-title">Defect photos · what to reject</span>' + (canEdit ? '<button class="btn btn-outline btn-sm" onclick="document.getElementById(\'qas-photo-def-' + r.npd + '\').click()">+ Upload</button><input type="file" id="qas-photo-def-' + r.npd + '" accept="image/*" multiple style="display:none" onchange="uploadQasPhotos(\'' + r.npd + '\',\'defect\',this)" />' : '') + '</div><div class="card-body">' + defPhotos + (canEdit ? '<div style="font-size:11px;color:var(--g3);margin-top:8px;text-align:center;font-style:italic">or drag &amp; drop images here</div>' : '') + '</div></div>' +
     '</div>' +
 
     // Sign-off
@@ -17885,8 +17912,8 @@ function viewBuild(id) {
       <div class="card">
         <div class="card-head"><span class="card-title">Product Photo</span></div>
         <div class="card-body" style="display:flex;gap:16px;align-items:flex-start">
-          <div style="width:200px;height:200px;border-radius:var(--r-md);overflow:hidden;background:var(--g1);border:1px solid var(--g2);flex-shrink:0;display:flex;align-items:center;justify-content:center">
-            ${b.photo ? `<img src="${b.photo}" style="width:100%;height:100%;object-fit:cover;cursor:zoom-in" onclick="zoomImage('${b.photo}')" />` : `<span style="color:var(--g3);font-size:40px">📷</span>`}
+          <div style="width:200px;height:200px;border-radius:var(--r-md);overflow:hidden;background:var(--g1);border:1px solid var(--g2);flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer" ondragover="_dropZoneOver(event)" ondragleave="_dropZoneLeave(event)" ondrop="_dropZoneDrop(event,'uploadBuildPhoto','${b.id}')" title="Drag &amp; drop a photo here, or use the button below">
+            ${b.photo ? `<img src="${b.photo}" style="width:100%;height:100%;object-fit:cover;cursor:zoom-in;pointer-events:none" onclick="zoomImage('${b.photo}')" />` : `<div style="display:flex;flex-direction:column;align-items:center;color:var(--g3);pointer-events:none"><span style="font-size:40px">📷</span><span style="font-size:10px;margin-top:6px">drag &amp; drop</span></div>`}
           </div>
           <div>
             <label class="btn btn-outline btn-sm" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px">
@@ -20887,8 +20914,8 @@ function viewBranchSOP(id) {
       <div class="bsop-grid" style="border:2px solid ${brandColor}">
         ${sop.steps.map((step, i) => `
           <div class="bsop-step" style="border-color:${brandColor}">
-            <div class="bsop-step-img" style="position:relative">
-              ${step.img && step.img !== '[server]' && step.img !== 'null' ? `<img src="${step.img}" alt="Step ${i+1}" onclick="zoomImage('${step.img}')" style="cursor:zoom-in" />` : `<div class="bsop-placeholder">📷</div>`}
+            <div class="bsop-step-img" style="position:relative" ondragover="_dropZoneOver(event)" ondragleave="_dropZoneLeave(event)" ondrop="_dropZoneDrop(event,'uploadBranchSOPPhoto','${sop.id}',${i})">
+              ${step.img && step.img !== '[server]' && step.img !== 'null' ? `<img src="${step.img}" alt="Step ${i+1}" onclick="zoomImage('${step.img}')" style="cursor:zoom-in;pointer-events:none" />` : `<div class="bsop-placeholder" style="pointer-events:none">📷<div style="font-size:9px;color:var(--g4);margin-top:4px">drag &amp; drop</div></div>`}
               <label class="bsop-upload-btn">
                 <span>${step.img ? 'Change Photo' : 'Upload Photo'}</span>
                 <input type="file" accept="image/*" style="display:none" onchange="uploadBranchSOPPhoto('${sop.id}',${i},this)" />
