@@ -9548,6 +9548,33 @@ function compositePortionTotalG(r) {
   return g;
 }
 
+// Target portion size used as the % denominator. Falls back to the current sum, then 250 g.
+function compositePortionSizeG(r) {
+  if (typeof r.portionSizeG === 'number' && r.portionSizeG > 0) return r.portionSizeG;
+  var sum = compositePortionTotalG(r) || 0;
+  return sum > 0 ? sum : 250;
+}
+
+function updatePortionSize(npd, val) {
+  var r = RECIPE_DB[npd]; if (!r) return;
+  var n = parseFloat(val) || 0;
+  if (n <= 0) { showSaveToast('Portion size must be > 0', true); return; }
+  r.portionSizeG = n;
+  r.updatedAt = new Date().toISOString();
+  saveRecipeToServer(npd);
+  viewRecipe(npd);
+}
+
+function updateComponentApplyPct(npd, i, pctVal) {
+  var r = RECIPE_DB[npd]; if (!r || !r.components || !r.components[i]) return;
+  var portion = compositePortionSizeG(r);
+  var pct = parseFloat(pctVal) || 0;
+  r.components[i].applyG = Math.round((portion * pct) / 100 * 10) / 10; // 0.1g precision
+  r.updatedAt = new Date().toISOString();
+  saveRecipeToServer(npd);
+  viewRecipe(npd);
+}
+
 function recipesUsingSubRecipe(subNpd) {
   var out = [];
   Object.values(RECIPE_DB).forEach(function(r){
@@ -9561,6 +9588,7 @@ function renderCompositeComponentsCard(r) {
   var comps = (r.components || []).slice().sort(function(a,b){ return (a.order||0) - (b.order||0); });
   var totalCost = compositeCostPerPortion(r) || 0;
   var totalG = compositePortionTotalG(r) || 0;
+  var portionTarget = compositePortionSizeG(r);
   var rows = comps.map(function(c, i){
     var sub = RECIPE_DB[c.subNpd];
     var stage = c.stage || (sub && sub.name) || 'Untitled';
@@ -9569,6 +9597,7 @@ function renderCompositeComponentsCard(r) {
     var ingSummary = sub && sub.ingredients && sub.ingredients.length
       ? sub.ingredients.slice(0, 4).map(function(x){ return x.name + ' ' + x.pct.toFixed(1) + '%'; }).join(' · ') + (sub.ingredients.length > 4 ? ' · +' + (sub.ingredients.length - 4) + ' more' : '')
       : '<span style="color:var(--g3)">Sub-recipe not found in DB</span>';
+    var pct = portionTarget > 0 ? (c.applyG || 0) / portionTarget * 100 : 0;
     return '<div style="display:flex;gap:12px;align-items:center;padding:12px 14px;border:1px solid var(--g2);border-radius:var(--r-sm);margin-bottom:8px;background:white">' +
       '<div style="width:28px;height:28px;border-radius:50%;background:var(--gold);color:white;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:12px;flex-shrink:0">'+(i+1)+'</div>' +
       '<div style="flex:1;min-width:0">' +
@@ -9584,6 +9613,8 @@ function renderCompositeComponentsCard(r) {
         '<div style="display:flex;align-items:center;gap:4px">' +
           '<input type="number" min="0" step="0.1" value="'+(c.applyG||0)+'" style="width:70px;padding:4px 6px;font-size:12px;font-family:var(--font-m);text-align:right;border:1px solid var(--g2);border-radius:4px" onchange="updateComponentApplyG(\''+r.npd+'\','+i+',this.value)" />' +
           '<span style="font-size:11px;color:var(--g3)">g</span>' +
+          '<input type="number" min="0" step="0.1" value="'+pct.toFixed(1)+'" style="width:60px;padding:4px 6px;font-size:12px;font-family:var(--font-m);text-align:right;border:1px solid var(--g2);border-radius:4px;margin-left:6px" onchange="updateComponentApplyPct(\''+r.npd+'\','+i+',this.value)" title="% of portion target ('+portionTarget+' g)" />' +
+          '<span style="font-size:11px;color:var(--g3)">%</span>' +
         '</div>' +
         (contrib !== null ? '<span style="font-size:11px;color:var(--sage);background:#E7F0E8;padding:3px 8px;border-radius:var(--r-sm);font-family:var(--font-m);font-weight:600">SAR '+contrib.toFixed(3)+'</span>' : '<span style="font-size:10px;color:var(--g3)">no cost</span>') +
       '</div>' +
@@ -9614,10 +9645,11 @@ function renderCompositeComponentsCard(r) {
         (mmCost ? '<span style="font-size:11px;color:var(--sage);background:#E7F0E8;padding:3px 8px;border-radius:var(--r-sm);font-family:var(--font-m);font-weight:600">SAR '+mmCost.toFixed(3)+'</span>' : '') +
       '</div>' +
       rows +
-      '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px;padding-top:14px;border-top:1px solid var(--g2)">' +
+      '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:14px;padding-top:14px;border-top:1px solid var(--g2)">' +
         '<div style="padding:10px 12px;background:var(--g1);border-radius:var(--r-sm)"><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.08em;color:var(--g3);font-weight:600;margin-bottom:4px">Main material</div><div style="font-family:var(--font-m);font-size:14px;font-weight:600;color:var(--navy)">'+(mm.g||0)+' g</div></div>' +
         '<div style="padding:10px 12px;background:var(--g1);border-radius:var(--r-sm)"><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.08em;color:var(--g3);font-weight:600;margin-bottom:4px">Applied coat</div><div style="font-family:var(--font-m);font-size:14px;font-weight:600;color:var(--navy)">'+((r.components||[]).reduce(function(s,c){return s+(c.applyG||0)},0))+' g</div></div>' +
         '<div style="padding:10px 12px;background:var(--g1);border-radius:var(--r-sm)"><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.08em;color:var(--g3);font-weight:600;margin-bottom:4px">Portion total</div><div style="font-family:var(--font-m);font-size:14px;font-weight:600;color:var(--navy)">'+totalG+' g</div></div>' +
+        '<div style="padding:10px 12px;background:#FFF6E5;border-radius:var(--r-sm);border:1px solid #E8D89A"><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.08em;color:#A35400;font-weight:600;margin-bottom:4px" title="Used as the % denominator for component sizing">Portion target</div><div style="display:flex;align-items:center;gap:4px"><input type="number" min="1" step="1" value="'+portionTarget+'" style="width:64px;padding:2px 6px;font-family:var(--font-m);font-size:14px;font-weight:600;color:var(--navy);text-align:right;border:1px solid #E8D89A;border-radius:4px;background:white" onchange="updatePortionSize(\''+r.npd+'\',this.value)" /><span style="font-size:11px;color:#A35400">g</span></div></div>' +
         '<div style="padding:10px 12px;background:var(--navy);border-radius:var(--r-sm)"><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.08em;color:rgba(255,255,255,0.6);font-weight:600;margin-bottom:4px">Cost / portion</div><div style="font-family:var(--font-m);font-size:14px;font-weight:600;color:var(--gold-mid,var(--gold))">SAR '+totalCost.toFixed(3)+'</div></div>' +
       '</div>' +
     '</div>' +
@@ -9790,10 +9822,12 @@ function openAddComponentModal(npd) {
       '</div>' +
       // Scrollable result list — re-rendered on each search/sort change
       '<div id="comp-list" style="max-height:280px;overflow-y:auto;border:1px solid var(--g2);border-radius:var(--r-sm);background:white"></div>' +
-      // Stage + apply grams below
-      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px">' +
+      // Stage + apply (g | %) below — synced via portion target
+      '<div style="display:grid;grid-template-columns:1.6fr 1fr 1fr 1fr;gap:10px;margin-top:14px;align-items:end">' +
         '<div><label class="form-label">Stage label (optional)</label><input class="form-input" id="comp-stage" placeholder="Auto from recipe name" style="margin-top:4px" /></div>' +
-        '<div><label class="form-label">Apply grams / portion</label><input class="form-input" type="number" id="comp-applyg" min="0" step="0.1" value="15" style="margin-top:4px" /></div>' +
+        '<div><label class="form-label" title="The portion size used as % denominator. Editable on the recipe — change here to update the recipe.">Portion target (g)</label><input class="form-input" type="number" id="comp-portion" min="1" step="1" value="'+compositePortionSizeG(r)+'" oninput="syncCompPickerPctFromG()" style="margin-top:4px" /></div>' +
+        '<div><label class="form-label">Apply grams</label><input class="form-input" type="number" id="comp-applyg" min="0" step="0.1" value="15" oninput="syncCompPickerPctFromG()" style="margin-top:4px" /></div>' +
+        '<div><label class="form-label">Apply %</label><input class="form-input" type="number" id="comp-applypct" min="0" step="0.1" value="" placeholder="of portion" oninput="syncCompPickerGFromPct()" style="margin-top:4px" /></div>' +
       '</div>' +
       '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px">' +
         '<button class="btn btn-outline" onclick="closeModal()">Cancel</button>' +
@@ -9879,14 +9913,32 @@ function selectCompPickerRow(subNpd) {
   renderCompPickerList();
 }
 
+// Sync the % field when the user types grams (or changes the portion target).
+function syncCompPickerPctFromG() {
+  var portion = parseFloat(document.getElementById('comp-portion')?.value) || 0;
+  var g = parseFloat(document.getElementById('comp-applyg')?.value) || 0;
+  var pctEl = document.getElementById('comp-applypct');
+  if (pctEl && portion > 0) pctEl.value = (g / portion * 100).toFixed(1);
+}
+// Sync grams when the user types %.
+function syncCompPickerGFromPct() {
+  var portion = parseFloat(document.getElementById('comp-portion')?.value) || 0;
+  var pct = parseFloat(document.getElementById('comp-applypct')?.value) || 0;
+  var gEl = document.getElementById('comp-applyg');
+  if (gEl && portion > 0) gEl.value = (portion * pct / 100).toFixed(1);
+}
+
 function addComponentFromModal(npd) {
   var r = RECIPE_DB[npd]; if (!r) return;
   var subNpd = _compPickerState.selectedNpd;
   var stage = (document.getElementById('comp-stage').value || '').trim();
   var applyG = parseFloat(document.getElementById('comp-applyg').value) || 0;
+  var portionTarget = parseFloat(document.getElementById('comp-portion').value) || 0;
   if (!subNpd) { alert('Pick a sub-recipe from the list.'); return; }
   var sub = RECIPE_DB[subNpd];
   if (!r.components) r.components = [];
+  // Persist the portion target if the user changed it
+  if (portionTarget > 0 && portionTarget !== compositePortionSizeG(r)) r.portionSizeG = portionTarget;
   r.components.push({ subNpd:subNpd, stage: stage || (sub && sub.name) || '', applyG:applyG, order: r.components.length + 1 });
   saveRecipeToServer(npd);
   closeModal();
