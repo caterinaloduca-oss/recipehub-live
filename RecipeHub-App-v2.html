@@ -18311,6 +18311,7 @@ function setBuildLaunch(id, value) {
   b.launchStatus = value;
   b.active = value !== 'inactive';
   b.updated = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+  b.updatedAt = new Date().toISOString(); // ISO timestamp the server's mergeBuild uses — without this, the change is treated as stale and reverted on next sync.
   logActivity('builds', value === 'active' ? '✓' : (value === 'inactive' ? '✕' : '⏳'), b.name + ' → ' + getBuildLaunchLabel(value));
   buildBuildsTable();
   viewBuild(id);
