@@ -10966,7 +10966,7 @@ function buildFactorySOPTable() {
       if (!qasCleared) return { label: 'R&D (QAS sign-off)', color: '#1B4F8F' };
       return { label: 'R&D (approve)', color: '#1B4F8F' };
     }
-    if (s === 'approved')     return { label: 'Factory (production)', color: '#A35400' };
+    if (s === 'approved')     return { label: '—', color: 'var(--g3)' };
     if (s === 'discontinued') return { label: '—', color: 'var(--g3)' };
     return { label: '—', color: 'var(--g3)' };
   };
