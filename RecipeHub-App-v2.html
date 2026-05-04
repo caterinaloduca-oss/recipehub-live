@@ -1282,7 +1282,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
       </div>
       <div class="card-body" id="fsop-card-body" style="padding:0">
         <table class="data-table">
-          <thead><tr><th>Recipe</th><th>SOP Code</th><th>Brand</th><th>Version</th><th>Steps</th><th>Recipe stage</th><th>Owner</th><th>SOP status</th><th></th></tr></thead>
+          <thead><tr><th>Recipe</th><th>SOP Code</th><th>Brand</th><th>Version</th><th>Steps</th><th title="Manufacturing Process PDF archived against this recipe">Archive</th><th>Recipe stage</th><th>Owner</th><th>SOP status</th><th></th></tr></thead>
           <tbody id="fsop-tbody"></tbody>
         </table>
       </div>
@@ -6348,6 +6348,19 @@ function saveRecipeToServer(npd) {
   });
 }
 
+function deleteFactorySopArchive(npd, idx) {
+  if (getCurrentUserRole() !== 'admin') { showSaveToast('Admins only', true); return; }
+  var r = RECIPE_DB[npd];
+  if (!r || !Array.isArray(r.factorySopArchive)) return;
+  var entry = r.factorySopArchive[idx];
+  if (!entry) return;
+  if (!confirm('Remove the SOP PDF "' + (entry.dfcCode || entry.filename || 'unknown') + '" from this recipe?\n\n(File stays on the server; only the recipe link is removed.)')) return;
+  r.factorySopArchive.splice(idx, 1);
+  r.updatedAt = new Date().toISOString();
+  saveRecipeToServer(npd);
+  viewRecipe(npd);
+}
+
 async function openRecipeFlagModal(npd) {
   if (!_requireRole(['npd'], 'R&D')) return;
   var r = RECIPE_DB[npd];
@@ -10115,6 +10128,38 @@ function viewRecipe(npd) {
 
     <!-- SOP Production Steps removed — use Factory SOP page instead -->
 
+    <!-- Factory SOP — Archive (manufacturing process PDFs) -->
+    ${(Array.isArray(r.factorySopArchive) && r.factorySopArchive.length) ? `
+    <div class="card" style="margin-top:20px">
+      <div class="card-head">
+        <span class="card-title">📄 Factory SOP — Archive</span>
+        <span style="font-size:11px;color:var(--g3)">${r.factorySopArchive.length} document${r.factorySopArchive.length===1?'':'s'}</span>
+      </div>
+      <div class="card-body">
+        <div style="display:flex;flex-direction:column;gap:8px">
+          ${r.factorySopArchive.map(function(entry, idx) {
+            var dateStr = entry.uploadedAt ? new Date(entry.uploadedAt).toISOString().slice(0,10) : '';
+            var sizeStr = entry.sizeBytes ? (entry.sizeBytes/1024).toFixed(0) + ' KB' : '';
+            var meta = [dateStr, entry.uploadedBy, sizeStr].filter(Boolean).join(' · ');
+            return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border:1px solid var(--g2);border-radius:8px;background:#fafafa;gap:12px">' +
+              '<div style="flex:1;min-width:0">' +
+                '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">' +
+                  '<span style="font-size:14px">📄</span>' +
+                  '<span style="font-weight:600;font-size:13px;color:var(--navy)">' + (entry.dfcCode || 'SOP') + '</span>' +
+                  '<span style="font-size:11px;color:var(--g3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (entry.filename || '') + '</span>' +
+                '</div>' +
+                (meta ? '<div style="font-size:10px;color:var(--g4);margin-top:3px">' + meta + '</div>' : '') +
+              '</div>' +
+              '<div style="display:flex;gap:6px;align-items:center;flex-shrink:0">' +
+                '<a href="' + entry.url + '" target="_blank" rel="noopener" class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 10px">Open ↗</a>' +
+                (_vrRole === 'admin' ? '<button class="btn btn-sm" style="background:transparent;border:1px solid #d99;color:#a44;padding:3px 8px;font-size:11px" onclick="deleteFactorySopArchive(\'' + r.npd + '\',' + idx + ')" title="Remove this PDF from the recipe">🗑</button>' : '') +
+              '</div>' +
+            '</div>';
+          }).join('')}
+        </div>
+      </div>
+    </div>` : ''}
+
     <!-- ═══ SENSORY STAGE GATES (NPD) ═══ -->
     ${(r.status === 'review' || r.status === 'trial' || r.status === 'prod-trial' || r.status === 'approved') ? `
     <div class="card" style="margin-top:20px;border:2px solid var(--gold)">
@@ -11004,12 +11049,18 @@ function buildFactorySOPTable() {
           </div>
          </div>`
       : '';
+    const _arch = Array.isArray(r.factorySopArchive) ? r.factorySopArchive : [];
+    const _archLatest = _arch.length ? _arch[_arch.length - 1] : null;
+    const _archCell = _archLatest
+      ? `<a href="${_archLatest.url}" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="${_arch.length} archived PDF${_arch.length===1?'':'s'} — opens latest (${_archLatest.dfcCode||''})" style="display:inline-flex;align-items:center;gap:4px;text-decoration:none;color:var(--navy);font-size:12px;font-weight:600">📄${_arch.length>1?' '+_arch.length:''}</a>`
+      : '<span style="color:var(--g2);font-size:14px" title="No archived PDF">—</span>';
     tr.innerHTML = `
       <td><strong>${r.name}</strong></td>
       <td style="font-family:var(--font-m);font-size:12px;color:var(--g3)">SOP-${r.npd}</td>
       <td>${r.brand}</td>
       <td style="font-size:12px;color:var(--g4)">${r.version}</td>
       <td style="font-size:12px;color:var(--g4)">${hasSOP ? r.sopSteps.length + ' steps' : '<span style="color:var(--g3)">Not generated</span>'}</td>
+      <td style="text-align:center">${_archCell}</td>
       <td><span class="badge ${recipeStageMap[recipeStage]||'badge-draft'}" style="font-size:10px">${recipeStageLabel[recipeStage]||recipeStage}</span></td>
       <td style="font-size:11px;font-weight:600;color:${owner.color}">${owner.label}</td>
       <td><span class="badge ${hasSOP ? (statusMap[sopStatus]||'badge-draft') : 'badge-draft'}" style="font-size:10px">${hasSOP ? (statusLabel[sopStatus]||'Draft') : 'No SOP'}</span></td>
@@ -11031,7 +11082,7 @@ function buildFactorySOPTable() {
     tbody.appendChild(tr);
   });
   if (!allRecipes.length) {
-    tbody.innerHTML = '<tr><td colspan="9" style="padding:40px;text-align:center;color:var(--g3);font-size:13px">No recipes yet. Create recipes first, then generate SOPs.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" style="padding:40px;text-align:center;color:var(--g3);font-size:13px">No recipes yet. Create recipes first, then generate SOPs.</td></tr>';
   }
   const countEl = document.getElementById('fsop-count-label');
   if (countEl) countEl.textContent = sopRecipes.length + ' SOPs generated / ' + allRecipes.length + ' recipes';
