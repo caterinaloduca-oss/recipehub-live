@@ -9766,40 +9766,131 @@ function removeComponent(npd, i) {
   viewRecipe(npd);
 }
 
+// State for the component picker (kept on window so renderCompPickerList can read it).
+var _compPickerState = { parentNpd: null, selectedNpd: '', sortBy: 'name' };
+
 function openAddComponentModal(npd) {
   var r = RECIPE_DB[npd]; if (!r) return;
-  var existingIds = (r.components || []).map(function(c){ return c.subNpd; });
-  var candidates = Object.values(RECIPE_DB)
-    .filter(function(x){ return isSemiFinishedRecipe(x) && existingIds.indexOf(x.npd) === -1 && x.npd !== npd; })
-    .sort(function(a,b){ return (a.name||'').localeCompare(b.name||''); });
-  var options = candidates.length
-    ? candidates.map(function(x){ return '<option value="'+x.npd+'">'+x.name+' ('+x.npd+')</option>'; }).join('')
-    : '';
-  var html = '<div class="card-head" style="background:var(--navy);border-radius:16px 16px 0 0"><span class="card-title" style="color:white">Add Component — '+r.name+'</span><button class="btn btn-sm" style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:none" onclick="closeModal()">✕</button></div>' +
+  _compPickerState = { parentNpd: npd, selectedNpd: '', sortBy: 'name' };
+  var html =
+    '<div class="card-head" style="background:var(--navy);border-radius:16px 16px 0 0">' +
+      '<span class="card-title" style="color:white">Add Component — '+r.name+'</span>' +
+      '<button class="btn btn-sm" style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:none" onclick="closeModal()">✕</button>' +
+    '</div>' +
     '<div style="padding:18px 22px">' +
-      '<div style="font-size:12px;color:var(--g3);margin-bottom:14px">Link an existing Semi-Finished recipe as a component, or create a new one.</div>' +
-      (candidates.length ? (
-        '<div style="margin-bottom:16px">' +
-          '<label class="form-label">Existing Semi-Finished recipe</label>' +
-          '<select class="form-input" id="comp-sub" style="margin-top:4px"><option value="">— Select —</option>'+options+'</select>' +
+      '<div style="font-size:12px;color:var(--g3);margin-bottom:12px">Pick any recipe as a component. Same sub-recipe can be added multiple times (different stages).</div>' +
+      // Search + sort row
+      '<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">' +
+        '<input class="form-input" id="comp-search" placeholder="Search by name or code…" oninput="renderCompPickerList()" style="flex:1" autocomplete="off" />' +
+        '<div style="display:flex;gap:4px;font-size:11px;color:var(--g4);align-items:center">' +
+          '<span>Sort:</span>' +
+          '<button type="button" id="comp-sort-name" class="btn btn-sm" style="padding:4px 10px;font-size:11px;background:var(--navy);color:white;border:none" onclick="setCompPickerSort(\'name\')">Name</button>' +
+          '<button type="button" id="comp-sort-code" class="btn btn-sm btn-outline" style="padding:4px 10px;font-size:11px" onclick="setCompPickerSort(\'code\')">Code</button>' +
         '</div>' +
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' +
-          '<div><label class="form-label">Stage label (optional)</label><input class="form-input" id="comp-stage" placeholder="Auto from recipe name" style="margin-top:4px" /></div>' +
-          '<div><label class="form-label">Apply grams / portion</label><input class="form-input" type="number" id="comp-applyg" min="0" step="0.1" value="15" style="margin-top:4px" /></div>' +
-        '</div>' +
-        '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px">' +
-          '<button class="btn btn-outline" onclick="closeModal()">Cancel</button>' +
-          '<button class="btn btn-gold" onclick="addComponentFromModal(\''+npd+'\')">+ Add Component</button>' +
-        '</div>'
-      ) : (
-        '<div style="padding:18px;background:var(--g1);border-radius:var(--r-sm);font-size:12.5px;color:var(--g4);text-align:center">No Semi-Finished recipes exist yet. Create one first (via + New Recipe → Type = Semi-Finished) and it will show up here.</div>' +
-        '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px">' +
-          '<button class="btn btn-outline" onclick="closeModal()">Cancel</button>' +
-          '<button class="btn btn-gold" onclick="closeModal();openRecipeForm()">+ New Recipe</button>' +
-        '</div>'
-      )) +
+      '</div>' +
+      // Scrollable result list — re-rendered on each search/sort change
+      '<div id="comp-list" style="max-height:280px;overflow-y:auto;border:1px solid var(--g2);border-radius:var(--r-sm);background:white"></div>' +
+      // Stage + apply grams below
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px">' +
+        '<div><label class="form-label">Stage label (optional)</label><input class="form-input" id="comp-stage" placeholder="Auto from recipe name" style="margin-top:4px" /></div>' +
+        '<div><label class="form-label">Apply grams / portion</label><input class="form-input" type="number" id="comp-applyg" min="0" step="0.1" value="15" style="margin-top:4px" /></div>' +
+      '</div>' +
+      '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px">' +
+        '<button class="btn btn-outline" onclick="closeModal()">Cancel</button>' +
+        '<button class="btn btn-gold" id="comp-add-btn" onclick="addComponentFromModal(\''+npd+'\')" disabled>+ Add Component</button>' +
+      '</div>' +
     '</div>';
   openModal(html);
+  renderCompPickerList();
+  setTimeout(function(){ var s = document.getElementById('comp-search'); if (s) s.focus(); }, 50);
+}
+
+function setCompPickerSort(by) {
+  _compPickerState.sortBy = by;
+  var btnN = document.getElementById('comp-sort-name');
+  var btnC = document.getElementById('comp-sort-code');
+  if (btnN && btnC) {
+    btnN.className = 'btn btn-sm' + (by === 'name' ? '' : ' btn-outline');
+    btnN.style.background = by === 'name' ? 'var(--navy)' : '';
+    btnN.style.color      = by === 'name' ? 'white'       : '';
+    btnN.style.border     = by === 'name' ? 'none'        : '';
+    btnC.className = 'btn btn-sm' + (by === 'code' ? '' : ' btn-outline');
+    btnC.style.background = by === 'code' ? 'var(--navy)' : '';
+    btnC.style.color      = by === 'code' ? 'white'       : '';
+    btnC.style.border     = by === 'code' ? 'none'        : '';
+  }
+  renderCompPickerList();
+}
+
+function renderCompPickerList() {
+  var list = document.getElementById('comp-list');
+  if (!list) return;
+  var st = _compPickerState;
+  var q = (document.getElementById('comp-search')?.value || '').toLowerCase().trim();
+  var all = Object.values(RECIPE_DB)
+    .filter(function(x){ return x && x.npd && x.npd !== st.parentNpd && !x.archived; });
+  if (q) {
+    all = all.filter(function(x){
+      var n = (x.name || '').toLowerCase();
+      var c = (x.npd || '').toLowerCase();
+      var rid = (x.recipeId || '').toLowerCase();
+      return n.indexOf(q) > -1 || c.indexOf(q) > -1 || rid.indexOf(q) > -1;
+    });
+  }
+  all.sort(function(a,b){
+    if (st.sortBy === 'code') return (a.npd || '').localeCompare(b.npd || '');
+    return (a.name || '').localeCompare(b.name || '');
+  });
+  if (!all.length) {
+    list.innerHTML = '<div style="padding:24px;text-align:center;color:var(--g4);font-size:12px">No recipes match.</div>';
+    return;
+  }
+  var statusMap = { approved:'sage', 'prod-trial':'amber', trial:'amber', review:'navy', draft:'g4' };
+  list.innerHTML = all.slice(0, 200).map(function(x){
+    var sel = (x.npd === st.selectedNpd);
+    var statusColor = 'var(--' + (statusMap[x.status] || 'g4') + ')';
+    var typeChip = isCompositeRecipe(x) ? ' 🧩' : (isSemiFinishedRecipe(x) ? ' SF' : '');
+    return (
+      '<div onclick="selectCompPickerRow(\''+x.npd.replace(/'/g,"\\'")+'\')" ' +
+      'style="padding:9px 12px;border-bottom:1px solid var(--g1);cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;'+
+      (sel ? 'background:#FFF6E5;border-left:3px solid var(--gold)' : '')+'" ' +
+      'onmouseover="if(!this.dataset.sel)this.style.background=\'#F7F5F0\'" ' +
+      'onmouseout="if(!this.dataset.sel)this.style.background=\''+(sel?'#FFF6E5':'')+'\'"' +
+      (sel ? ' data-sel="1"' : '') + '>' +
+        '<div style="flex:1;min-width:0">' +
+          '<div style="font-size:13px;font-weight:600;color:var(--navy);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+ (x.name || '(no name)') + typeChip +'</div>' +
+          '<div style="font-size:10px;color:var(--g3);font-family:var(--font-m);margin-top:2px">'+ x.npd + (x.brand ? ' · ' + x.brand : '') +'</div>' +
+        '</div>' +
+        '<span style="font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:'+statusColor+'">'+ (x.status || 'draft') +'</span>' +
+      '</div>'
+    );
+  }).join('') + (all.length > 200 ? '<div style="padding:8px;text-align:center;font-size:10px;color:var(--g4)">Showing first 200 of '+all.length+'. Refine search.</div>' : '');
+}
+
+function selectCompPickerRow(subNpd) {
+  _compPickerState.selectedNpd = subNpd;
+  // Auto-fill stage label from sub recipe's name (only if user hasn't typed one)
+  var sub = RECIPE_DB[subNpd];
+  var stageEl = document.getElementById('comp-stage');
+  if (stageEl && !stageEl.value && sub) stageEl.placeholder = sub.name || '';
+  // Toggle Add button enabled
+  var btn = document.getElementById('comp-add-btn');
+  if (btn) btn.disabled = !subNpd;
+  renderCompPickerList();
+}
+
+function addComponentFromModal(npd) {
+  var r = RECIPE_DB[npd]; if (!r) return;
+  var subNpd = _compPickerState.selectedNpd;
+  var stage = (document.getElementById('comp-stage').value || '').trim();
+  var applyG = parseFloat(document.getElementById('comp-applyg').value) || 0;
+  if (!subNpd) { alert('Pick a sub-recipe from the list.'); return; }
+  var sub = RECIPE_DB[subNpd];
+  if (!r.components) r.components = [];
+  r.components.push({ subNpd:subNpd, stage: stage || (sub && sub.name) || '', applyG:applyG, order: r.components.length + 1 });
+  saveRecipeToServer(npd);
+  closeModal();
+  viewRecipe(npd);
 }
 
 function addComponentFromModal(npd) {
