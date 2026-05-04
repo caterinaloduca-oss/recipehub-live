@@ -1279,7 +1279,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
       </div>
       <div class="card-body" id="fsop-card-body" style="padding:0">
         <table class="data-table">
-          <thead><tr><th>Recipe</th><th>SOP Code</th><th>Brand</th><th>Version</th><th>Steps</th><th>Status</th><th></th></tr></thead>
+          <thead><tr><th>Recipe</th><th>SOP Code</th><th>Brand</th><th>Version</th><th>Steps</th><th>Recipe stage</th><th>SOP status</th><th></th></tr></thead>
           <tbody id="fsop-tbody"></tbody>
         </table>
       </div>
@@ -10929,6 +10929,17 @@ function buildFactorySOPTable() {
   const sopRecipes = recipes.filter(r => r.sopSteps && r.sopSteps.length);
   const statusMap = {approved:'badge-approved',pending:'badge-review',draft:'badge-draft'};
   const statusLabel = {approved:'Approved',pending:'Pending Approval',draft:'Draft'};
+  // Recipe lifecycle badges — separate from SOP status
+  const recipeStageMap = {
+    draft:'badge-draft', review:'badge-review',
+    trial:'badge-factory-trial', 'prod-trial':'badge-prod-trial',
+    approved:'badge-approved', discontinued:'badge-draft', archived:'badge-draft',
+  };
+  const recipeStageLabel = {
+    draft:'Draft', review:'In Review',
+    trial:'Factory Trial', 'prod-trial':'Production Trial',
+    approved:'Approved', discontinued:'Discontinued', archived:'Archived',
+  };
 
   // Also include recipes without SOPs yet (so user can generate them)
   const allRecipes = recipes;
@@ -10937,6 +10948,7 @@ function buildFactorySOPTable() {
   allRecipes.forEach(r => {
     const hasSOP = r.sopSteps && r.sopSteps.length;
     const sopStatus = r.sopStatus || 'draft';
+    const recipeStage = r.archived ? 'archived' : (r.status || 'draft');
     const tr = document.createElement('tr');
     tr.style.cursor = 'pointer';
     tr.onclick = function(){ viewFactorySOP(r.npd); };
@@ -10949,7 +10961,8 @@ function buildFactorySOPTable() {
       <td>${r.brand}</td>
       <td style="font-size:12px;color:var(--g4)">${r.version}</td>
       <td style="font-size:12px;color:var(--g4)">${hasSOP ? r.sopSteps.length + ' steps' : '<span style="color:var(--g3)">Not generated</span>'}</td>
-      <td><span class="badge ${hasSOP ? (statusMap[sopStatus]||'badge-draft') : 'badge-draft'}">${hasSOP ? (statusLabel[sopStatus]||'Draft') : 'No SOP'}</span></td>
+      <td><span class="badge ${recipeStageMap[recipeStage]||'badge-draft'}" style="font-size:10px">${recipeStageLabel[recipeStage]||recipeStage}</span></td>
+      <td><span class="badge ${hasSOP ? (statusMap[sopStatus]||'badge-draft') : 'badge-draft'}" style="font-size:10px">${hasSOP ? (statusLabel[sopStatus]||'Draft') : 'No SOP'}</span></td>
       <td onclick="event.stopPropagation()">
         <div style="display:flex;gap:4px">
           ${_actionBtn}
@@ -10967,7 +10980,7 @@ function buildFactorySOPTable() {
     tbody.appendChild(tr);
   });
   if (!allRecipes.length) {
-    tbody.innerHTML = '<tr><td colspan="7" style="padding:40px;text-align:center;color:var(--g3);font-size:13px">No recipes yet. Create recipes first, then generate SOPs.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" style="padding:40px;text-align:center;color:var(--g3);font-size:13px">No recipes yet. Create recipes first, then generate SOPs.</td></tr>';
   }
   const countEl = document.getElementById('fsop-count-label');
   if (countEl) countEl.textContent = sopRecipes.length + ' SOPs generated / ' + allRecipes.length + ' recipes';
