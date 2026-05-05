@@ -18246,19 +18246,30 @@ function viewBuild(id) {
         <div class="card-head"><span class="card-title">Components</span><span style="font-size:11px;color:var(--g3)">Assembly BOM</span></div>
         <div class="card-body" style="padding:0">
           <table class="data-table">
-            <thead><tr><th>Type</th><th>Item</th><th>Source</th><th>Tool</th><th>Qty / Pieces</th><th style="text-align:right">Weight</th><th style="text-align:right">Cost</th></tr></thead>
+            <thead><tr><th>Type</th><th>Item</th><th>Code</th><th>Tool</th><th>Qty / Pieces</th><th style="text-align:right">Weight</th><th style="text-align:right">Cost</th></tr></thead>
             <tbody>
-              ${b.components.map(c => `
+              ${b.components.map(c => {
+                // Code chip — recipe NPD (clickable, navigates to recipe) or EBS code (static).
+                let codeCell;
+                if (c.ref) {
+                  codeCell = `<span title="Linked recipe — click to open" onclick="event.stopPropagation();viewRecipe('${(c.ref+'').replace(/'/g,"\\'")}')" style="cursor:pointer;display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:40px;background:#FBF3E0;color:var(--gold);font-family:var(--font-m);font-size:10px;font-weight:600">🥣 ${c.ref}</span>`;
+                } else if (c.erpCode) {
+                  codeCell = `<span title="EBS item code" style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:40px;background:#E7F0E8;color:var(--sage);font-family:var(--font-m);font-size:10px;font-weight:600">🌿 ${c.erpCode}</span>`;
+                } else {
+                  codeCell = '<span style="color:var(--g3);font-size:11px">—</span>';
+                }
+                return `
                 <tr>
                   <td><span style="display:inline-block;padding:2px 8px;border-radius:40px;font-size:10px;font-weight:500;background:${typeColors[c.type] || 'var(--g1)'};color:white">${c.type}</span></td>
-                  <td style="font-size:12px;font-weight:500">${c.item}${c.ref ? ` <span style="font-size:10px;color:var(--g3);cursor:pointer" onclick="viewRecipe('${c.ref}')">${c.ref}</span>` : ''}</td>
-                  <td><span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;background:${sourceBg[c.source] || 'var(--g1)'};color:${sourceColor[c.source] || 'var(--g4)'}">${sourceLabels[c.source] || c.source}</span></td>
+                  <td style="font-size:12px;font-weight:500">${c.item}</td>
+                  <td>${codeCell}</td>
                   <td style="font-size:11px;color:var(--g4)">${c.tool || '—'}</td>
                   <td style="font-size:11px;font-weight:500;color:var(--navy)">${c.toolQty || '—'}</td>
                   <td style="text-align:right;font-family:var(--font-m);font-size:12px">${c.weight || '—'}</td>
                   <td style="text-align:right;font-family:var(--font-m);font-size:12px;color:var(--sage)">SAR ${(c.cost||0).toFixed(2)}</td>
                 </tr>
-              `).join('')}
+              `;
+              }).join('')}
               <tr style="background:var(--navy)">
                 <td colspan="5" style="color:white;font-weight:500">Total Build Cost</td>
                 <td style="text-align:right;color:rgba(255,255,255,0.5);font-size:12px;font-family:var(--font-m)">${totalWeight ? totalWeight.toFixed(0)+'g' : '—'}</td>
