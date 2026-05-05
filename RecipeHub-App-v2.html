@@ -11237,6 +11237,8 @@ function buildFactorySOPTable() {
   }
   const countEl = document.getElementById('fsop-count-label');
   if (countEl) countEl.textContent = sopRecipes.length + ' SOPs generated / ' + allRecipes.length + ' recipes';
+  // Re-apply active filters so rebuilds (archive, delete, sync) don't reset the view.
+  filterFactorySOPs();
 }
 
 function filterFactorySOPs() {
