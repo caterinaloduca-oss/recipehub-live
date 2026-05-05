@@ -1268,7 +1268,8 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
         <input class="search-input" placeholder="Search factory SOPs…" id="fsop-search" oninput="filterFactorySOPs()" />
       </div>
       <select class="filter-select" id="fsop-filter-brand" onchange="filterFactorySOPs()"><option>All Brands</option></select>
-      <select class="filter-select" id="fsop-filter-status" onchange="filterFactorySOPs()"><option>All Statuses</option><option>Draft</option><option>Pending</option><option>Approved</option><option disabled>──────────</option><option>Has Legacy SOP</option><option>No SOP</option></select>
+      <select class="filter-select" id="fsop-filter-status" onchange="filterFactorySOPs()"><option>All Statuses</option><option>Draft</option><option>Pending</option><option>Approved</option></select>
+      <select class="filter-select" id="fsop-filter-source" onchange="filterFactorySOPs()" title="Filter by what kind of SOP the recipe has"><option>All SOPs</option><option>Has Legacy SOP</option><option>Has Live SOP</option><option>No SOP</option></select>
       <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--g4);cursor:pointer;margin-left:auto">
         <input type="checkbox" id="fsop-show-archived" onchange="buildFactorySOPTable()" /> Show Archived
       </label>
@@ -11239,17 +11240,21 @@ function filterFactorySOPs() {
   const q = (document.getElementById('fsop-search').value || '').toLowerCase();
   const brand = document.getElementById('fsop-filter-brand').value;
   const status = document.getElementById('fsop-filter-status').value;
+  const sourceEl = document.getElementById('fsop-filter-source');
+  const source = sourceEl ? sourceEl.value : 'All SOPs';
   const rows = document.getElementById('fsop-tbody').querySelectorAll('tr');
   rows.forEach(row => {
     const text = row.textContent.toLowerCase();
     const hasLegacy = row.dataset.hasLegacy === '1';
     const hasLive   = row.dataset.hasLiveSop === '1';
-    let statusOK;
-    if (status === 'All Statuses')          statusOK = true;
-    else if (status === 'Has Legacy SOP')   statusOK = hasLegacy;
-    else if (status === 'No SOP')           statusOK = !hasLegacy && !hasLive;
-    else                                    statusOK = text.includes(status.toLowerCase()); // Draft / Pending / Approved
-    row.style.display = (!q || text.includes(q)) && (brand === 'All Brands' || text.includes(brand.toLowerCase())) && statusOK ? '' : 'none';
+    const statusOK = (status === 'All Statuses') || text.includes(status.toLowerCase());
+    let sourceOK;
+    if      (source === 'All SOPs')        sourceOK = true;
+    else if (source === 'Has Legacy SOP')  sourceOK = hasLegacy;
+    else if (source === 'Has Live SOP')    sourceOK = hasLive;
+    else if (source === 'No SOP')          sourceOK = !hasLegacy && !hasLive;
+    else                                   sourceOK = true;
+    row.style.display = (!q || text.includes(q)) && (brand === 'All Brands' || text.includes(brand.toLowerCase())) && statusOK && sourceOK ? '' : 'none';
   });
 }
 
