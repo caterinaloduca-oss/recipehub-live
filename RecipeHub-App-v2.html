@@ -1268,7 +1268,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
         <input class="search-input" placeholder="Search factory SOPs…" id="fsop-search" oninput="filterFactorySOPs()" />
       </div>
       <select class="filter-select" id="fsop-filter-brand" onchange="filterFactorySOPs()"><option>All Brands</option></select>
-      <select class="filter-select" id="fsop-filter-status" onchange="filterFactorySOPs()"><option>All Statuses</option><option>Draft</option><option>Pending</option><option>Approved</option></select>
+      <select class="filter-select" id="fsop-filter-status" onchange="filterFactorySOPs()"><option>All Statuses</option><option>Draft</option><option>Pending</option><option>Approved</option><option disabled>──────────</option><option>Has Legacy SOP</option><option>No SOP</option></select>
       <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--g4);cursor:pointer;margin-left:auto">
         <input type="checkbox" id="fsop-show-archived" onchange="buildFactorySOPTable()" /> Show Archived
       </label>
@@ -11176,6 +11176,9 @@ function buildFactorySOPTable() {
     const tr = document.createElement('tr');
     tr.style.cursor = 'pointer';
     tr.onclick = function(){ viewFactorySOP(r.npd); };
+    // Data flags read by filterFactorySOPs() for "Has Legacy SOP" / "No SOP"
+    tr.dataset.hasLegacy = (Array.isArray(r.factorySopArchive) && r.factorySopArchive.length) ? '1' : '0';
+    tr.dataset.hasLiveSop = (r.sopSteps && r.sopSteps.length) ? '1' : '0';
     const _actionBtn = hasSOP
       ? `<button class="btn btn-outline btn-sm" onclick="event.stopPropagation();exportToSOP('${r.npd}')">View</button>`
       : (_fsopIsRD ? `<button class="btn btn-outline btn-sm" onclick="event.stopPropagation();exportToSOP('${r.npd}')">Generate</button>` : '');
@@ -11234,7 +11237,14 @@ function filterFactorySOPs() {
   const rows = document.getElementById('fsop-tbody').querySelectorAll('tr');
   rows.forEach(row => {
     const text = row.textContent.toLowerCase();
-    row.style.display = (!q || text.includes(q)) && (brand === 'All Brands' || text.includes(brand.toLowerCase())) && (status === 'All Statuses' || text.includes(status.toLowerCase())) ? '' : 'none';
+    const hasLegacy = row.dataset.hasLegacy === '1';
+    const hasLive   = row.dataset.hasLiveSop === '1';
+    let statusOK;
+    if (status === 'All Statuses')          statusOK = true;
+    else if (status === 'Has Legacy SOP')   statusOK = hasLegacy;
+    else if (status === 'No SOP')           statusOK = !hasLegacy && !hasLive;
+    else                                    statusOK = text.includes(status.toLowerCase()); // Draft / Pending / Approved
+    row.style.display = (!q || text.includes(q)) && (brand === 'All Brands' || text.includes(brand.toLowerCase())) && statusOK ? '' : 'none';
   });
 }
 
