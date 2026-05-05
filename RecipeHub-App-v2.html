@@ -6143,6 +6143,7 @@ function importBackup(input) {
       if (Array.isArray(data.rejectedEmails)) REJECTED_EMAILS = data.rejectedEmails;
     if (Array.isArray(data.commsLog)) { COMMS_LOG.length = 0; data.commsLog.forEach(function(m){ COMMS_LOG.push(m); }); }
     if (Array.isArray(data.libraryDocs)) { LIBRARY_DOCS.length = 0; data.libraryDocs.forEach(function(doc){ LIBRARY_DOCS.push(doc); }); }
+    if (data.ingredientStatusOverrides && typeof data.ingredientStatusOverrides === 'object') { INGREDIENT_STATUS_OVERRIDES = data.ingredientStatusOverrides; }
     if (Array.isArray(data.substitutionRequests)) { SUB_REQUESTS.length = 0; data.substitutionRequests.forEach(function(r){ SUB_REQUESTS.push(r); }); }
       // Rebuild all tables
       populateBrandUI();
@@ -6242,6 +6243,7 @@ function _buildDataBlob() {
     substitutionRequests: SUB_REQUESTS,
     ppeLibrary: PPE_LIBRARY,
     sopStandardBlocks: SOP_STANDARD_BLOCKS,
+    ingredientStatusOverrides: INGREDIENT_STATUS_OVERRIDES,
     savedAt: new Date().toISOString(),
     dataVersion: DATA_VERSION,
   };
@@ -6502,6 +6504,7 @@ function loadAllData() {
     if (Array.isArray(data.rejectedEmails)) REJECTED_EMAILS = data.rejectedEmails;
     if (Array.isArray(data.commsLog)) { COMMS_LOG.length = 0; data.commsLog.forEach(function(m){ COMMS_LOG.push(m); }); }
     if (Array.isArray(data.libraryDocs)) { LIBRARY_DOCS.length = 0; data.libraryDocs.forEach(function(doc){ LIBRARY_DOCS.push(doc); }); }
+    if (data.ingredientStatusOverrides && typeof data.ingredientStatusOverrides === 'object') { INGREDIENT_STATUS_OVERRIDES = data.ingredientStatusOverrides; }
     if (Array.isArray(data.substitutionRequests)) { SUB_REQUESTS.length = 0; data.substitutionRequests.forEach(function(r){ SUB_REQUESTS.push(r); }); }
     if (data.shelfLifeData) { SHELF_LIFE_DATA.points = data.shelfLifeData.points || []; SHELF_LIFE_DATA.notes = data.shelfLifeData.notes || ''; }
     if (Array.isArray(data.accessPermissions)) {
@@ -7802,6 +7805,28 @@ function populateIngCategoryFilter() {
 // food + drinks + packaging only.
 var ING_EXCLUDED_CATEGORIES = new Set(['Operating Supply','Tool','Uniform','Equipment','Cleaning']);
 
+// Manual Active/Inactive overrides keyed by ERP item code. Persists via /api/data
+// (data.ingredientStatusOverrides). Wins over the Oracle items_master status when set.
+var INGREDIENT_STATUS_OVERRIDES = {};
+
+// Admin-callable: flip a single item's Active/Inactive status. Updates the override
+// map, re-renders the row, and saves.
+function toggleIngredientStatus(code) {
+  if (!code) return;
+  var role = (typeof getCurrentUserRole === 'function') ? getCurrentUserRole() : '';
+  if (role !== 'admin' && role !== 'npd') {
+    if (typeof showSaveToast === 'function') showSaveToast('Only Admin / R&D can change status', true);
+    return;
+  }
+  var current = INGREDIENT_STATUS_OVERRIDES[code] || (_itemStatusMap && _itemStatusMap[code]) || 'Active';
+  var next = (current === 'Active') ? 'Inactive' : 'Active';
+  INGREDIENT_STATUS_OVERRIDES[code] = next;
+  if (typeof saveAllData === 'function') saveAllData();
+  if (typeof buildIngTable === 'function') buildIngTable();
+  if (typeof filterIngredients === 'function') filterIngredients();
+  if (typeof showSaveToast === 'function') showSaveToast(code + ' → ' + next);
+}
+
 // In-memory map { itemCode: 'Active' | 'Inactive' | 'Unknown' } from Oracle items_master.
 // Lazy-loaded once, used to drive the Active/Inactive filter on the Ingredients DB table.
 var _itemStatusMap = null;
@@ -7870,11 +7895,13 @@ function buildIngTable() {
     var _hasAnyPrice = _ppk || _ppkFromEbs || (displayCost && displayCost !== '—' && displayCost !== 'SAR 0.00');
     var _priceTag = (!_hasAnyPrice) ? 'none' : ((_ppk || _ppkFromEbs || displayUOM === 'kg') ? 'kg' : 'unit');
     tr.dataset.priceTag = _priceTag;
-    // Active / Inactive flag from items_master — defaults to '' (Unknown) when the item
-    // isn't in the Oracle master (e.g. manually-added entries). The filter treats
-    // Unknown as Active so old data keeps showing up by default.
-    var _ingStatus = (_itemStatusMap && _itemStatusMap[code]) || '';
+    // Active / Inactive flag — manual override (data.ingredientStatusOverrides) wins
+    // over items_master status. Unknown defaults to Active for filter purposes.
+    var _override = (typeof INGREDIENT_STATUS_OVERRIDES !== 'undefined' && INGREDIENT_STATUS_OVERRIDES[code]) || null;
+    var _oracleStatus = (_itemStatusMap && _itemStatusMap[code]) || '';
+    var _ingStatus = _override || _oracleStatus;
     tr.dataset.status = _ingStatus;
+    tr.dataset.statusSource = _override ? 'manual' : (_oracleStatus ? 'oracle' : '');
     tr.innerHTML = `
       <td style="color:var(--g3);font-size:12px;text-align:center">${num}</td>
       <td><strong>${name}</strong></td>
@@ -7884,7 +7911,7 @@ function buildIngTable() {
       <td style="font-family:var(--font-m);font-size:12px">${currentUserHasAccess('prices') ? _renderStockroomCost(row[14], row[13], row[16]) : '<span style="color:var(--g3)">—</span>'}</td>
       <td style="font-family:var(--font-m);font-weight:500;color:${costColor}" id="ing-cost-${idx}">${currentUserHasAccess('prices') ? _renderRecipeCost(displayCost, displayUOM) : '<span style="color:var(--g3)">—</span>'}</td>
       <td style="font-family:var(--font-m);font-weight:600;color:${costKgColor};${currentUserHasAccess('prices')?'cursor:pointer':''}" ${currentUserHasAccess('prices')?'onclick="editIngCostPerKg('+idx+')" title="Click to set cost/kg"':''}>${currentUserHasAccess('prices') ? costKgDisplay : '<span style="color:var(--g3)">—</span>'}</td>
-      <td style="white-space:nowrap"><button class="btn btn-outline btn-sm" style="color:var(--blue);font-weight:700;border-color:var(--blue)" onclick="showIngUsedIn('${name.replace(/'/g,"\\'")}')">Used in</button>${_codeIsERP(code) ? ` <button class="btn btn-outline btn-sm" title="Oracle EBS price history" onclick="openPriceHistory('${code}','${name.replace(/'/g,"\\'")}')">📈 History</button>` : (supplier === 'POS (unmapped)' ? ` <button class="btn btn-sm" style="background:#FFE8A3;color:#8a4500;border:1px solid #d47000" title="Map this POS item to an Oracle EBS item so it gets priced" onclick="openMapModal('${code}','${name.replace(/'/g,"\\'")}')">🔗 Map to EBS</button>` : '')} <button class="btn btn-outline btn-sm" onclick="editIngredient(this)">Edit</button>${supplier !== 'Oracle EBS' ? ' <button class="btn btn-sm" style="background:var(--red-lt);color:var(--red);border:1px solid var(--red);margin-left:4px" onclick="deleteIngredient(this)">✕</button>' : ''}</td>
+      <td style="white-space:nowrap"><button class="btn btn-outline btn-sm" style="color:var(--blue);font-weight:700;border-color:var(--blue)" onclick="showIngUsedIn('${name.replace(/'/g,"\\'")}')">Used in</button>${_codeIsERP(code) ? ` <button class="btn btn-outline btn-sm" title="Oracle EBS price history" onclick="openPriceHistory('${code}','${name.replace(/'/g,"\\'")}')">📈 History</button>` : (supplier === 'POS (unmapped)' ? ` <button class="btn btn-sm" style="background:#FFE8A3;color:#8a4500;border:1px solid #d47000" title="Map this POS item to an Oracle EBS item so it gets priced" onclick="openMapModal('${code}','${name.replace(/'/g,"\\'")}')">🔗 Map to EBS</button>` : '')} <button class="btn btn-sm" title="${_ingStatus === 'Inactive' ? 'Marked inactive — click to re-activate' : 'Active — click to mark inactive'}${_override ? ' (manual override)' : ''}" onclick="toggleIngredientStatus('${code.replace(/'/g,"\\'")}')" style="${_ingStatus === 'Inactive' ? 'background:#F0F2F4;color:#7C8A97;border:1px solid #D5D9DE' : 'background:var(--sage-lt);color:var(--sage);border:1px solid var(--sage-mid)'};font-size:10px;padding:3px 8px">${_ingStatus === 'Inactive' ? '⚪ Inactive' : '🟢 Active'}</button> <button class="btn btn-outline btn-sm" onclick="editIngredient(this)">Edit</button>${supplier !== 'Oracle EBS' ? ' <button class="btn btn-sm" style="background:var(--red-lt);color:var(--red);border:1px solid var(--red);margin-left:4px" onclick="deleteIngredient(this)">✕</button>' : ''}</td>
     `;
     tbody.appendChild(tr);
   });
