@@ -11149,8 +11149,8 @@ function buildFactorySOPTable() {
   };
 
   // Also include recipes without SOPs yet (so user can generate them).
-  // Filter out archived unless the user toggles them on.
-  const allRecipes = showArchived ? recipes : recipes.filter(r => !r.archived);
+  // Filter out archived (whole recipe) AND factorySopArchived (just the SOP) unless toggled.
+  const allRecipes = showArchived ? recipes : recipes.filter(r => !r.archived && !r.factorySopArchived);
   const _fsopRole = getCurrentUserRole();
   const _fsopIsRD = (_fsopRole === 'admin' || _fsopRole === 'npd');
   // SOP flow: R&D drafts → Factory reviews → QA approves
@@ -11176,6 +11176,7 @@ function buildFactorySOPTable() {
     const tr = document.createElement('tr');
     tr.style.cursor = 'pointer';
     tr.onclick = function(){ viewFactorySOP(r.npd); };
+    if (r.factorySopArchived) tr.style.opacity = '0.55';
     // Data flags read by filterFactorySOPs() for "Has Legacy SOP" / "No SOP"
     tr.dataset.hasLegacy = (Array.isArray(r.factorySopArchive) && r.factorySopArchive.length) ? '1' : '0';
     tr.dataset.hasLiveSop = (r.sopSteps && r.sopSteps.length) ? '1' : '0';
@@ -11183,10 +11184,14 @@ function buildFactorySOPTable() {
       ? `<button class="btn btn-outline btn-sm" onclick="event.stopPropagation();exportToSOP('${r.npd}')">View</button>`
       : (_fsopIsRD ? `<button class="btn btn-outline btn-sm" onclick="event.stopPropagation();exportToSOP('${r.npd}')">Generate</button>` : '');
     const _isAdmin = (_fsopRole === 'admin');
-    const _moreMenu = (_isAdmin && hasSOP)
+    const _hasAnySOP = hasSOP || (Array.isArray(r.factorySopArchive) && r.factorySopArchive.length);
+    const _archiveLabel = r.factorySopArchived ? '📤 Unarchive SOP' : '📥 Archive SOP';
+    const _moreMenu = (_isAdmin && _hasAnySOP)
       ? `<div class="more-dd" id="more-fsop-${r.npd}" onclick="event.stopPropagation()">
           <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();this.nextElementSibling.classList.toggle('show')">More ▾</button>
           <div class="more-dd-menu" onclick="this.classList.remove('show')">
+            <button class="more-dd-item" onclick="archiveFactorySOP('${r.npd}')">${_archiveLabel}</button>
+            <div style="border-top:1px solid var(--g2);margin:4px 0"></div>
             <button class="more-dd-item" style="color:var(--red)" onclick="deleteSOPCompletely('${r.npd}')">🗑 Delete SOP (admin)</button>
           </div>
          </div>`
@@ -11197,7 +11202,7 @@ function buildFactorySOPTable() {
       ? `<a href="${_archLatest.url}" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="${_arch.length} Legacy SOP${_arch.length===1?'':'s'} — opens latest (${_archLatest.dfcCode||''})" style="display:inline-flex;align-items:center;gap:4px;text-decoration:none;color:var(--navy);font-size:12px;font-weight:600">📄${_arch.length>1?' '+_arch.length:''}</a>`
       : '<span style="color:var(--g2);font-size:14px" title="No Legacy SOP">—</span>';
     tr.innerHTML = `
-      <td><strong>${r.name}</strong></td>
+      <td><strong>${r.name}</strong>${r.factorySopArchived ? ' <span style="display:inline-block;padding:1px 6px;border-radius:40px;font-size:9px;font-weight:600;background:#F0F2F4;color:#7C8A97;margin-left:4px">SOP ARCHIVED</span>' : ''}</td>
       <td style="font-family:var(--font-m);font-size:12px;color:var(--g3)">SOP-${r.npd}</td>
       <td>${r.brand}</td>
       <td style="font-size:12px;color:var(--g4)">${r.version}</td>
@@ -11254,6 +11259,28 @@ function viewFactorySOP(npd) {
 
 // Admin-only: wipe an SOP entirely from a recipe (steps + status + signoffs +
 // standard-block toggles). The recipe itself is untouched.
+// Toggle the "SOP archived" flag on a recipe — independent of the recipe-level
+// `archived` flag. Hides the row from the Factory SOP list (unless Show Archived
+// is on) without touching sopSteps / factorySopArchive / approval chain.
+function archiveFactorySOP(npd) {
+  if (getCurrentUserRole() !== 'admin') {
+    showSaveToast('Admin only — only admins can archive SOPs', true);
+    return;
+  }
+  var r = RECIPE_DB[npd];
+  if (!r) return;
+  var nowArchived = !r.factorySopArchived;
+  if (nowArchived) {
+    if (!confirm('Archive the Factory SOP for "' + r.name + '"?\n\nThe SOP stays intact (steps, blocks, approval chain, Legacy PDFs all preserved). It just stops showing on the Factory SOP list until you toggle Show Archived. The recipe itself is NOT archived.')) return;
+  }
+  r.factorySopArchived = nowArchived;
+  r.updatedAt = new Date().toISOString();
+  saveRecipeToServer(npd);
+  buildFactorySOPTable();
+  showSaveToast(r.name + (nowArchived ? ' — SOP archived' : ' — SOP unarchived'));
+  if (typeof auditEvent === 'function') auditEvent(nowArchived ? 'sop.archive' : 'sop.unarchive', 'recipe', npd, r.name);
+}
+
 function deleteSOPCompletely(npd) {
   if (getCurrentUserRole() !== 'admin') {
     showSaveToast('Admin only — only admins can delete SOPs', true);
