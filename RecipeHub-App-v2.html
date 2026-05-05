@@ -22359,8 +22359,20 @@ function duplicateRecipe(npd) {
   copy['prod-trialQA'] = null;
   copy.sopSteps = [];
   copy.sopStatus = null;
+  copy.sopApproval = { prepared:null, reviewed:null, approved:null }; // don't inherit Legacy signoffs
+  copy.sopApprovalHistory = [];
+  copy.sopVersion = null;
   copy.comments = [];
   copy.changeLog = [];
+  // Factory-assigned identifiers / artifacts — must be fresh on the duplicate.
+  // Factory will assign a new recipeId at the Trial-Passed gate.
+  delete copy.recipeId;
+  delete copy.recipeIdAssignedBy;
+  delete copy.recipeIdAssignedAt;
+  copy.factorySopArchive = [];     // Legacy PDFs are tied to the original recipe
+  copy.factorySopArchived = false;
+  copy.flowchart_archive = [];     // captured-flowchart pages also belong to the original
+  delete copy.approvedAt;
   copy.createdBy = getCurrentUserName();
   copy.createdAt = new Date().toISOString();
 
