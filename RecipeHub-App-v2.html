@@ -18600,7 +18600,10 @@ function editBuild(id) {
     return '<div style="display:flex;gap:4px;align-items:center;margin-bottom:6px;flex-wrap:wrap" class="eb-comp-row"'+refAttr+ecAttr+'>' +
       '<select class="form-select" style="width:80px;padding:4px 6px;font-size:10px" data-field="type"><option '+(c.type==='Dough'?'selected':'')+'>Dough</option><option '+(c.type==='Sauce'?'selected':'')+'>Sauce</option><option '+(c.type==='Cheese'?'selected':'')+'>Cheese</option><option '+(c.type==='Protein'?'selected':'')+'>Protein</option><option '+(c.type==='Topping'?'selected':'')+'>Topping</option><option '+(c.type==='Finish'?'selected':'')+'>Finish</option><option '+(c.type==='Packaging'?'selected':'')+'>Packaging</option><option '+(c.type==='Bread'?'selected':'')+'>Bread</option><option '+(c.type==='Seasoning'?'selected':'')+'>Seasoning</option></select>' +
       '<input class="form-input" value="'+c.item+'" style="flex:2;padding:4px 6px;font-size:11px;min-width:120px" placeholder="Item name" data-field="item" />' +
-      '<select class="form-select" style="width:65px;padding:4px 6px;font-size:10px" data-field="source"><option '+(c.source==='sfg'?'selected':'')+' value="sfg">SFG</option><option '+(c.source==='recipe'?'selected':'')+' value="recipe">Recipe</option><option '+(c.source==='ingredient'?'selected':'')+' value="ingredient">Raw</option></select>' +
+      // Code chip (shows recipe NPD or EBS code) — replaces the old Source dropdown.
+      // Source is still saved via the hidden input below; autocomplete sets both.
+      _renderBuildCodeChip(c) +
+      '<input type="hidden" data-field="source" value="'+(c.source||'')+'" />' +
       '<select class="form-select" style="width:110px;padding:4px 6px;font-size:10px" data-field="tool" onchange="onToolSelect(this)">' + toolSelectHTML(c.tool) + '</select>' +
       '<input class="form-input" value="'+(c.toolQty||'')+'" style="width:80px;padding:4px 6px;font-size:10px" placeholder="Qty/Pcs" data-field="toolQty" oninput="onToolQtyChange(this)" />' +
       '<input class="form-input" value="'+(c.weight||'')+'" style="width:60px;padding:4px 6px;font-size:11px;text-align:right" placeholder="Weight" data-field="weight" />' +
@@ -18634,7 +18637,7 @@ function editBuild(id) {
         '<div style="display:flex;gap:4px;align-items:center;font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--g3);padding:0 4px 4px 4px;border-bottom:1px solid var(--g2);margin-bottom:4px">' +
           '<div style="width:80px">Type</div>' +
           '<div style="flex:2;min-width:120px">Item</div>' +
-          '<div style="width:65px">Source</div>' +
+          '<div style="width:90px">Code</div>' +
           '<div style="width:110px">Tool</div>' +
           '<div style="width:80px">Tool qty</div>' +
           '<div style="width:60px;text-align:right">Weight</div>' +
@@ -18661,6 +18664,24 @@ function editBuild(id) {
   }, 0);
 }
 
+// Renders the small code chip that sits where the old Source dropdown used to be.
+// Shows the recipe NPD (with 🥣) or the EBS code (with 🌿), or a placeholder dash
+// when nothing is linked yet. Width matches the old dropdown so the row layout
+// stays consistent.
+function _renderBuildCodeChip(c) {
+  var ref = c && c.ref;
+  var erp = c && c.erpCode;
+  var inner;
+  if (ref) {
+    inner = '<span title="Linked recipe — '+ref+'" style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:40px;background:#FBF3E0;color:var(--gold);font-family:var(--font-m);font-size:10px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">🥣 '+ref+'</span>';
+  } else if (erp) {
+    inner = '<span title="EBS item — '+erp+'" style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:40px;background:#E7F0E8;color:var(--sage);font-family:var(--font-m);font-size:10px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">🌿 '+erp+'</span>';
+  } else {
+    inner = '<span title="Pick an item from the search to link it" style="color:var(--g3);font-size:11px">—</span>';
+  }
+  return '<div class="eb-comp-code" style="width:90px;display:flex;align-items:center;justify-content:flex-start;overflow:hidden">'+inner+'</div>';
+}
+
 // Typeahead for build component Item input — searches RECIPE_DB (so sauces /
 // doughs / sub-recipes show up) AND ING_DATA (raw ingredients). On pick:
 // - fills the input with the canonical name
@@ -18684,6 +18705,13 @@ function attachBuildItemAutocomplete(input, row) {
     if (src) src.value = (p.kind === 'recipe') ? 'recipe' : 'ingredient';
     if (p.kind === 'recipe') { row.dataset.ref = p.code; delete row.dataset.erpCode; }
     else                      { row.dataset.erpCode = p.code; delete row.dataset.ref; }
+    // Refresh the code chip in place so the row reflects the new link.
+    var chip = row.querySelector('.eb-comp-code');
+    if (chip) {
+      var fresh = _renderBuildCodeChip({ ref: row.dataset.ref, erpCode: row.dataset.erpCode });
+      var tmp = document.createElement('div'); tmp.innerHTML = fresh;
+      chip.replaceWith(tmp.firstChild);
+    }
     dd.style.display = 'none';
   }
 
@@ -18749,8 +18777,9 @@ function addBuildComponent() {
   row.style.cssText = 'display:flex;gap:4px;align-items:center;margin-bottom:6px;flex-wrap:wrap';
   row.innerHTML =
     '<select class="form-select" style="width:80px;padding:4px 6px;font-size:10px" data-field="type"><option>Dough</option><option>Sauce</option><option>Cheese</option><option>Protein</option><option>Topping</option><option>Finish</option><option>Packaging</option><option>Bread</option><option>Seasoning</option></select>' +
-    '<input class="form-input" style="flex:2;padding:4px 6px;font-size:11px;min-width:120px" placeholder="Item name" data-field="item" />' +
-    '<select class="form-select" style="width:65px;padding:4px 6px;font-size:10px" data-field="source"><option value="sfg">SFG</option><option value="recipe">Recipe</option><option value="ingredient">Raw</option></select>' +
+    '<input class="form-input" style="flex:2;padding:4px 6px;font-size:11px;min-width:120px" placeholder="Item name (search recipes & ingredients)" data-field="item" />' +
+    _renderBuildCodeChip({}) +
+    '<input type="hidden" data-field="source" value="" />' +
     '<select class="form-select" style="width:110px;padding:4px 6px;font-size:10px" data-field="tool" onchange="onToolSelect(this)">' + toolSelectHTML('') + '</select>' +
     '<input class="form-input" style="width:80px;padding:4px 6px;font-size:10px" placeholder="Qty/Pcs" data-field="toolQty" oninput="onToolQtyChange(this)" />' +
     '<input class="form-input" style="width:60px;padding:4px 6px;font-size:11px;text-align:right" placeholder="Weight" data-field="weight" />' +
