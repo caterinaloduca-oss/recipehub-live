@@ -18628,6 +18628,17 @@ function editBuild(id) {
       '</div>' +
       '<div class="form-group" style="margin-bottom:16px">' +
         '<label class="form-label">Components</label>' +
+        // Column headers to label each field — the row is dense, easy to lose track
+        '<div style="display:flex;gap:4px;align-items:center;font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--g3);padding:0 4px 4px 4px;border-bottom:1px solid var(--g2);margin-bottom:4px">' +
+          '<div style="width:80px">Type</div>' +
+          '<div style="flex:2;min-width:120px">Item</div>' +
+          '<div style="width:65px">Source</div>' +
+          '<div style="width:110px">Tool</div>' +
+          '<div style="width:80px">Tool qty</div>' +
+          '<div style="width:60px;text-align:right">Weight</div>' +
+          '<div style="width:60px;text-align:right">Cost (SAR)</div>' +
+          '<div style="width:14px"></div>' +
+        '</div>' +
         '<div id="eb-comp-list">'+compRows+'</div>' +
         '<button class="btn btn-outline btn-sm" style="margin-top:6px" onclick="addBuildComponent()">+ Add Component</button>' +
       '</div>' +
@@ -18638,7 +18649,7 @@ function editBuild(id) {
         '<button class="btn btn-gold" onclick="saveEditBuild(\''+id+'\')">Save Changes</button>' +
       '</div>' +
     '</div>'
-  );
+  , '960px');
 }
 
 function addBuildComponent() {
