@@ -13134,9 +13134,18 @@ function _markSOPChanged(npd) {
   });
   var parts = String(r.sopVersion).split('.');
   r.sopVersion = (parseInt(parts[0],10) + 1) + '.0';
-  r.sopApproval = { prepared:null, reviewed:null, approved:null };
-  r.sopStatus = 'draft';
-  showSaveToast('🔒 Approved SOP edited — bumped to v' + r.sopVersion + ', approval chain reset', true);
+  // Hardening: if the recipe has a Legacy SOP (factorySopArchive), the Legacy PDF is
+  // the canonical document. Editing the Live SOP still bumps the version + archives
+  // the approval to history, but sopStatus stays 'approved' and the Legacy signoffs
+  // stay intact. Confirmed with Caterina 2026-05-05.
+  var _hasLegacy = Array.isArray(r.factorySopArchive) && r.factorySopArchive.length;
+  if (_hasLegacy) {
+    showSaveToast('🔒 SOP edited — bumped to v' + r.sopVersion + ' (Legacy SOP keeps it approved)');
+  } else {
+    r.sopApproval = { prepared:null, reviewed:null, approved:null };
+    r.sopStatus = 'draft';
+    showSaveToast('🔒 Approved SOP edited — bumped to v' + r.sopVersion + ', approval chain reset', true);
+  }
   var body = document.getElementById('sop-approval-body');
   if (body) body.innerHTML = renderSOPApprovalStages(r);
   updateSOPStatusBadge(r);
