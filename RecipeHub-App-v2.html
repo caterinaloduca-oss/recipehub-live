@@ -1074,6 +1074,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
       <input class="search-input" placeholder="Search ingredients, suppliers, codes…" id="ing-search" oninput="filterIngredients()" />
     </div>
     <select class="filter-select" id="ing-filter-cat" onchange="filterIngredients()"><option>All Categories</option></select>
+    <select class="filter-select" id="ing-filter-price" onchange="filterIngredients()" title="Filter by whether the ingredient has a price"><option>All Prices</option><option>Price / kg</option><option>Price / unit</option><option>No price</option></select>
   </div>
 
   <div class="card">
@@ -7840,6 +7841,12 @@ function buildIngTable() {
       costKgColor = 'var(--blue)';
     }
     const tr = document.createElement('tr');
+    // Flag for the price filter: kg = has a per-kg price; unit = has a price but in non-kg UOM (PCK/BAG/BOT…); none = nothing.
+    var _ppk = costPerKg && parseFloat(costPerKg) > 0;
+    var _ppkFromEbs = ebsP && ebsP.price > 0 && (ebsP.unit === 'kg' || displayUOM === 'kg');
+    var _hasAnyPrice = _ppk || _ppkFromEbs || (displayCost && displayCost !== '—' && displayCost !== 'SAR 0.00');
+    var _priceTag = (!_hasAnyPrice) ? 'none' : ((_ppk || _ppkFromEbs || displayUOM === 'kg') ? 'kg' : 'unit');
+    tr.dataset.priceTag = _priceTag;
     tr.innerHTML = `
       <td style="color:var(--g3);font-size:12px;text-align:center">${num}</td>
       <td><strong>${name}</strong></td>
@@ -13303,15 +13310,24 @@ function filterIngredients() {
   const cat = document.getElementById('ing-filter-cat').value;
   const supplierEl = document.getElementById('ing-filter-supplier');
   const supplier = supplierEl ? supplierEl.value : 'All Sources';
+  const priceEl = document.getElementById('ing-filter-price');
+  const price = priceEl ? priceEl.value : 'All Prices';
   const rows = document.getElementById('ing-db-tbody').querySelectorAll('tr');
   rows.forEach(row => {
     const text = row.textContent.toLowerCase();
     const catTag = row.querySelector('.cat-tag');
     const rowCat = catTag ? catTag.textContent.trim() : '';
+    const tag = row.dataset.priceTag || '';
     const matchQ = !q || text.includes(q);
     const matchCat = cat === 'All Categories' || rowCat === cat;
     const matchSup = supplier === 'All Sources' || text.includes(supplier.toLowerCase());
-    row.style.display = (matchQ && matchCat && matchSup) ? '' : 'none';
+    let matchPrice;
+    if      (price === 'All Prices')   matchPrice = true;
+    else if (price === 'Price / kg')   matchPrice = tag === 'kg';
+    else if (price === 'Price / unit') matchPrice = tag === 'unit';
+    else if (price === 'No price')     matchPrice = tag === 'none';
+    else                                matchPrice = true;
+    row.style.display = (matchQ && matchCat && matchSup && matchPrice) ? '' : 'none';
   });
 }
 
