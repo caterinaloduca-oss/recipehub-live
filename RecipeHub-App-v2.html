@@ -1075,6 +1075,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
     </div>
     <select class="filter-select" id="ing-filter-cat" onchange="filterIngredients()"><option>All Categories</option></select>
     <select class="filter-select" id="ing-filter-price" onchange="filterIngredients()" title="Filter by whether the ingredient has a price"><option>All Prices</option><option>Price / kg</option><option>Price / unit</option><option>No price</option></select>
+    <select class="filter-select" id="ing-filter-status" onchange="filterIngredients()" title="Active / Inactive flag from Oracle items_master"><option>All Statuses</option><option>Active</option><option>Inactive</option></select>
   </div>
 
   <div class="card">
@@ -7801,10 +7802,32 @@ function populateIngCategoryFilter() {
 // food + drinks + packaging only.
 var ING_EXCLUDED_CATEGORIES = new Set(['Operating Supply','Tool','Uniform','Equipment','Cleaning']);
 
+// In-memory map { itemCode: 'Active' | 'Inactive' | 'Unknown' } from Oracle items_master.
+// Lazy-loaded once, used to drive the Active/Inactive filter on the Ingredients DB table.
+var _itemStatusMap = null;
+function _ensureItemStatus(callback) {
+  if (_itemStatusMap) { if (callback) callback(_itemStatusMap); return; }
+  fetch(API_BASE + '/api/items/status', { headers: { 'Authorization': 'Bearer ' + API_KEY } })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      _itemStatusMap = (d && d.map) ? d.map : {};
+      // Re-render the Ingredients table now that statuses are known
+      try {
+        var tb = document.getElementById('ing-db-tbody');
+        if (tb && tb.children.length) buildIngTable();
+      } catch (e) {}
+      if (callback) callback(_itemStatusMap);
+    })
+    .catch(function(){ _itemStatusMap = {}; if (callback) callback({}); });
+}
+
 function buildIngTable() {
   const tbody = document.getElementById('ing-db-tbody');
   if (!tbody) return;
   populateIngCategoryFilter();
+  // Kick off the Active/Inactive status fetch on first render — the callback
+  // re-renders this table once the map lands so rows get their data-status flag.
+  if (_itemStatusMap === null) _ensureItemStatus();
   tbody.innerHTML = '';
   ING_DATA.forEach((row, idx) => {
     const [num,name,supplier,code,cat,cost,storage,shelf,updated] = row;
@@ -7847,6 +7870,11 @@ function buildIngTable() {
     var _hasAnyPrice = _ppk || _ppkFromEbs || (displayCost && displayCost !== '—' && displayCost !== 'SAR 0.00');
     var _priceTag = (!_hasAnyPrice) ? 'none' : ((_ppk || _ppkFromEbs || displayUOM === 'kg') ? 'kg' : 'unit');
     tr.dataset.priceTag = _priceTag;
+    // Active / Inactive flag from items_master — defaults to '' (Unknown) when the item
+    // isn't in the Oracle master (e.g. manually-added entries). The filter treats
+    // Unknown as Active so old data keeps showing up by default.
+    var _ingStatus = (_itemStatusMap && _itemStatusMap[code]) || '';
+    tr.dataset.status = _ingStatus;
     tr.innerHTML = `
       <td style="color:var(--g3);font-size:12px;text-align:center">${num}</td>
       <td><strong>${name}</strong></td>
@@ -13312,12 +13340,15 @@ function filterIngredients() {
   const supplier = supplierEl ? supplierEl.value : 'All Sources';
   const priceEl = document.getElementById('ing-filter-price');
   const price = priceEl ? priceEl.value : 'All Prices';
+  const statusEl = document.getElementById('ing-filter-status');
+  const status = statusEl ? statusEl.value : 'All Statuses';
   const rows = document.getElementById('ing-db-tbody').querySelectorAll('tr');
   rows.forEach(row => {
     const text = row.textContent.toLowerCase();
     const catTag = row.querySelector('.cat-tag');
     const rowCat = catTag ? catTag.textContent.trim() : '';
     const tag = row.dataset.priceTag || '';
+    const rowStatus = row.dataset.status || '';
     const matchQ = !q || text.includes(q);
     const matchCat = cat === 'All Categories' || rowCat === cat;
     const matchSup = supplier === 'All Sources' || text.includes(supplier.toLowerCase());
@@ -13327,7 +13358,12 @@ function filterIngredients() {
     else if (price === 'Price / unit') matchPrice = tag === 'unit';
     else if (price === 'No price')     matchPrice = tag === 'none';
     else                                matchPrice = true;
-    row.style.display = (matchQ && matchCat && matchSup && matchPrice) ? '' : 'none';
+    let matchStatus;
+    if      (status === 'All Statuses') matchStatus = true;
+    else if (status === 'Active')       matchStatus = rowStatus === 'Active' || rowStatus === ''; // Unknown treated as Active
+    else if (status === 'Inactive')     matchStatus = rowStatus === 'Inactive';
+    else                                 matchStatus = true;
+    row.style.display = (matchQ && matchCat && matchSup && matchPrice && matchStatus) ? '' : 'none';
   });
 }
 
