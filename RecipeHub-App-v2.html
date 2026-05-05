@@ -1080,7 +1080,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
     <div class="card-body" style="padding:0">
       <table class="data-table">
         <thead><tr>
-          <th>#</th><th>Ingredient Name</th><th>Source</th><th>Item Code</th><th>Category</th><th title="Raw EBS price per stockroom unit (e.g. BAG, XO4)">Stockroom Price</th><th title="How the item is purchased — e.g. 1 BAG = 2 kg">Stockroom → Recipe</th><th title="Cost normalised to the unit the recipe uses">Recipe Price</th><th>Cost/kg</th><th></th>
+          <th>#</th><th>Ingredient Name</th><th>Source</th><th>Item Code</th><th>Category</th><th title="Raw EBS price per stockroom unit (e.g. BAG, XO4)">Stockroom Price</th><th title="Cost normalised to the unit the recipe uses">Recipe Price</th><th>Cost/kg</th><th></th>
         </tr></thead>
         <tbody id="ing-db-tbody">
           <!-- populated by JS -->
@@ -7847,7 +7847,6 @@ function buildIngTable() {
       <td style="font-family:var(--font-m);font-size:12px;color:var(--g3)">${_renderItemCodes(code, row[12])}</td>
       <td><span class="cat-tag ${catClass}">${cat}</span></td>
       <td style="font-family:var(--font-m);font-size:12px">${currentUserHasAccess('prices') ? _renderStockroomCost(row[14], row[13], row[16]) : '<span style="color:var(--g3)">—</span>'}</td>
-      <td style="font-family:var(--font-m);font-size:11px;color:var(--g4)">${_renderConversion(row[13], displayUOM, row[15])}</td>
       <td style="font-family:var(--font-m);font-weight:500;color:${costColor}" id="ing-cost-${idx}">${currentUserHasAccess('prices') ? _renderRecipeCost(displayCost, displayUOM) : '<span style="color:var(--g3)">—</span>'}</td>
       <td style="font-family:var(--font-m);font-weight:600;color:${costKgColor};${currentUserHasAccess('prices')?'cursor:pointer':''}" ${currentUserHasAccess('prices')?'onclick="editIngCostPerKg('+idx+')" title="Click to set cost/kg"':''}>${currentUserHasAccess('prices') ? costKgDisplay : '<span style="color:var(--g3)">—</span>'}</td>
       <td style="white-space:nowrap"><button class="btn btn-outline btn-sm" style="color:var(--blue);font-weight:700;border-color:var(--blue)" onclick="showIngUsedIn('${name.replace(/'/g,"\\'")}')">Used in</button>${_codeIsERP(code) ? ` <button class="btn btn-outline btn-sm" title="Oracle EBS price history" onclick="openPriceHistory('${code}','${name.replace(/'/g,"\\'")}')">📈 History</button>` : (supplier === 'POS (unmapped)' ? ` <button class="btn btn-sm" style="background:#FFE8A3;color:#8a4500;border:1px solid #d47000" title="Map this POS item to an Oracle EBS item so it gets priced" onclick="openMapModal('${code}','${name.replace(/'/g,"\\'")}')">🔗 Map to EBS</button>` : '')} <button class="btn btn-outline btn-sm" onclick="editIngredient(this)">Edit</button>${supplier !== 'Oracle EBS' ? ' <button class="btn btn-sm" style="background:var(--red-lt);color:var(--red);border:1px solid var(--red);margin-left:4px" onclick="deleteIngredient(this)">✕</button>' : ''}</td>
