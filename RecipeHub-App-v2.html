@@ -18595,7 +18595,9 @@ function editBuild(id) {
   var b = BUILDS_DATA.find(x => x.id === id);
   if (!b) return;
   var compRows = b.components.map(function(c, i) {
-    return '<div style="display:flex;gap:4px;align-items:center;margin-bottom:6px;flex-wrap:wrap" class="eb-comp-row">' +
+    var refAttr = c.ref ? ' data-ref="'+c.ref+'"' : '';
+    var ecAttr  = c.erpCode ? ' data-erp-code="'+c.erpCode+'"' : '';
+    return '<div style="display:flex;gap:4px;align-items:center;margin-bottom:6px;flex-wrap:wrap" class="eb-comp-row"'+refAttr+ecAttr+'>' +
       '<select class="form-select" style="width:80px;padding:4px 6px;font-size:10px" data-field="type"><option '+(c.type==='Dough'?'selected':'')+'>Dough</option><option '+(c.type==='Sauce'?'selected':'')+'>Sauce</option><option '+(c.type==='Cheese'?'selected':'')+'>Cheese</option><option '+(c.type==='Protein'?'selected':'')+'>Protein</option><option '+(c.type==='Topping'?'selected':'')+'>Topping</option><option '+(c.type==='Finish'?'selected':'')+'>Finish</option><option '+(c.type==='Packaging'?'selected':'')+'>Packaging</option><option '+(c.type==='Bread'?'selected':'')+'>Bread</option><option '+(c.type==='Seasoning'?'selected':'')+'>Seasoning</option></select>' +
       '<input class="form-input" value="'+c.item+'" style="flex:2;padding:4px 6px;font-size:11px;min-width:120px" placeholder="Item name" data-field="item" />' +
       '<select class="form-select" style="width:65px;padding:4px 6px;font-size:10px" data-field="source"><option '+(c.source==='sfg'?'selected':'')+' value="sfg">SFG</option><option '+(c.source==='recipe'?'selected':'')+' value="recipe">Recipe</option><option '+(c.source==='ingredient'?'selected':'')+' value="ingredient">Raw</option></select>' +
@@ -18650,6 +18652,94 @@ function editBuild(id) {
       '</div>' +
     '</div>'
   , '960px');
+  // Wire the Item autocomplete on every existing row after the modal mounts
+  setTimeout(function() {
+    document.querySelectorAll('#eb-comp-list .eb-comp-row').forEach(function(row) {
+      var input = row.querySelector('[data-field="item"]');
+      if (input) attachBuildItemAutocomplete(input, row);
+    });
+  }, 0);
+}
+
+// Typeahead for build component Item input — searches RECIPE_DB (so sauces /
+// doughs / sub-recipes show up) AND ING_DATA (raw ingredients). On pick:
+// - fills the input with the canonical name
+// - sets the row's Source dropdown to 'recipe' or 'ingredient'
+// - stashes the recipe NPD as row.dataset.ref OR the EBS code as row.dataset.erpCode
+//   so saveEditBuild can persist the link.
+var _buildItemACTimer = null;
+function attachBuildItemAutocomplete(input, row) {
+  if (input._buildAC) return; // already attached
+  var dd = document.createElement('div');
+  dd.className = 'ebs-ac-dropdown';
+  dd.style.cssText = 'position:absolute;top:100%;left:0;right:0;background:white;border:1px solid var(--g2);border-top:none;border-radius:0 0 6px 6px;max-height:240px;overflow-y:auto;z-index:1000;display:none;box-shadow:0 4px 12px rgba(0,0,0,0.08)';
+  // Need a positioned wrapper for absolute dropdown
+  if (input.parentNode.style.position !== 'relative') input.parentNode.style.position = 'relative';
+  input.parentNode.appendChild(dd);
+  input._buildAC = dd;
+
+  function pick(p) {
+    input.value = p.name;
+    var src = row.querySelector('[data-field="source"]');
+    if (src) src.value = (p.kind === 'recipe') ? 'recipe' : 'ingredient';
+    if (p.kind === 'recipe') { row.dataset.ref = p.code; delete row.dataset.erpCode; }
+    else                      { row.dataset.erpCode = p.code; delete row.dataset.ref; }
+    dd.style.display = 'none';
+  }
+
+  input.addEventListener('input', function() {
+    clearTimeout(_buildItemACTimer);
+    var q = this.value.trim().toLowerCase();
+    if (q.length < 2) { dd.style.display = 'none'; return; }
+    _buildItemACTimer = setTimeout(function() {
+      var results = [];
+      // Recipes (active first, then archived)
+      var recipes = (typeof RECIPE_DB !== 'undefined') ? Object.values(RECIPE_DB) : [];
+      recipes.sort(function(a,b){ return (a.archived?1:0) - (b.archived?1:0); });
+      for (var i = 0; i < recipes.length && results.length < 8; i++) {
+        var r = recipes[i];
+        if (!r) continue;
+        var n = (r.name || '').toLowerCase();
+        var npd = (r.npd || '').toLowerCase();
+        var rid = (r.recipeId || '').toLowerCase();
+        if (n.indexOf(q) > -1 || npd.indexOf(q) > -1 || rid.indexOf(q) > -1) {
+          results.push({ kind:'recipe', name:r.name, code:r.npd, archived:!!r.archived });
+        }
+      }
+      // Ingredients — array shape: [idx, name, source, code, type, displayPrice, ...]
+      if (typeof ING_DATA !== 'undefined' && Array.isArray(ING_DATA)) {
+        for (var j = 0; j < ING_DATA.length && results.length < 18; j++) {
+          var ing = ING_DATA[j];
+          if (!ing) continue;
+          var iname = (ing[1] || '').toLowerCase();
+          var icode = (ing[3] || '').toLowerCase();
+          if (iname.indexOf(q) > -1 || icode.indexOf(q) > -1) {
+            results.push({ kind:'ingredient', name:ing[1], code:ing[3] });
+          }
+        }
+      }
+      if (!results.length) { dd.style.display = 'none'; return; }
+      dd.innerHTML = results.map(function(p, ix) {
+        var tag = p.kind === 'recipe'
+          ? '<span style="font-size:9px;font-weight:600;color:var(--gold);background:#FBF3E0;padding:1px 6px;border-radius:40px">🥣 RECIPE'+(p.archived?' · archived':'')+'</span>'
+          : '<span style="font-size:9px;font-weight:600;color:var(--sage);background:#E7F0E8;padding:1px 6px;border-radius:40px">🌿 INGREDIENT</span>';
+        return '<div data-ix="'+ix+'" style="padding:6px 10px;cursor:pointer;border-bottom:1px solid var(--g1)" onmouseover="this.style.background=\'#F7F5F0\'" onmouseout="this.style.background=\'\'">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">' +
+            '<span style="font-size:12px;font-weight:600;color:var(--navy)">' + (p.name||'') + '</span>' + tag +
+          '</div>' +
+          '<div style="font-size:10px;color:var(--g3);font-family:var(--font-m)">' + (p.code||'') + '</div>' +
+        '</div>';
+      }).join('');
+      dd.style.display = 'block';
+      dd.querySelectorAll('[data-ix]').forEach(function(el) {
+        el.addEventListener('mousedown', function(e) { e.preventDefault(); pick(results[parseInt(el.dataset.ix,10)]); });
+      });
+    }, 150);
+  });
+  input.addEventListener('blur', function() { setTimeout(function(){ dd.style.display = 'none'; }, 180); });
+  input.addEventListener('focus', function() {
+    if (this.value.trim().length >= 2) this.dispatchEvent(new Event('input'));
+  });
 }
 
 function addBuildComponent() {
@@ -18667,6 +18757,9 @@ function addBuildComponent() {
     '<input class="form-input" type="number" step="0.01" style="width:60px;padding:4px 6px;font-size:11px;text-align:right" placeholder="Cost" data-field="cost" />' +
     '<button style="background:none;border:none;cursor:pointer;color:var(--red);font-size:14px" onclick="this.closest(\'.eb-comp-row\').remove()">✕</button>';
   list.appendChild(row);
+  // Wire the same Item autocomplete on the new row
+  var nameInput = row.querySelector('[data-field="item"]');
+  if (nameInput) attachBuildItemAutocomplete(nameInput, row);
 }
 
 function saveEditBuild(id) {
@@ -18693,7 +18786,14 @@ function saveEditBuild(id) {
     var toolQty = row.querySelector('[data-field="toolQty"]') ? row.querySelector('[data-field="toolQty"]').value : '';
     var weight = row.querySelector('[data-field="weight"]').value;
     var cost = parseFloat(row.querySelector('[data-field="cost"]').value) || 0;
-    if (item) b.components.push({type,item,source,tool,toolQty,weight,cost});
+    var ref     = row.dataset.ref     || undefined;
+    var erpCode = row.dataset.erpCode || undefined;
+    if (item) {
+      var comp = {type,item,source,tool,toolQty,weight,cost};
+      if (ref)     comp.ref = ref;
+      if (erpCode) comp.erpCode = erpCode;
+      b.components.push(comp);
+    }
   });
   closeModal();
   buildBuildsTable();
