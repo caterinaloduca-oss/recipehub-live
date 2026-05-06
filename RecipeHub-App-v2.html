@@ -18986,10 +18986,14 @@ function printBuild(id) {
   var typeColors = {Dough:'#B8820A',Sauce:'#C0392B',Cheese:'#C7A354',Protein:'#1B2A4A',Topping:'#2D6A4F',Finish:'#6B2FA0',Packaging:'#7F8C8D',Bread:'#B8820A',Seasoning:'#D4A84A'};
 
   var compRows = b.components.map(function(c) {
+    var codeCell;
+    if (c.ref)          codeCell = '<span style="display:inline-block;padding:1px 6px;border-radius:20px;font-size:7.5pt;font-weight:600;background:#FBF3E0;color:#B8820A;font-family:monospace">🥣 '+c.ref+'</span>';
+    else if (c.erpCode) codeCell = '<span style="display:inline-block;padding:1px 6px;border-radius:20px;font-size:7.5pt;font-weight:600;background:#E7F0E8;color:#2D6A4F;font-family:monospace">🌿 '+c.erpCode+'</span>';
+    else                codeCell = '<span style="color:#999;font-size:8pt">—</span>';
     return '<tr>' +
       '<td style="padding:3px 6px"><span style="display:inline-block;padding:1px 6px;border-radius:20px;font-size:8pt;font-weight:500;background:'+(typeColors[c.type]||'#999')+';color:white">'+c.type+'</span></td>' +
       '<td style="padding:3px 6px;font-size:8.5pt;font-weight:500">'+c.item+'</td>' +
-      '<td style="padding:3px 6px;font-size:8pt;color:#666">'+(c.source==='sfg'?'SFG':c.source==='recipe'?'Recipe':'Raw')+'</td>' +
+      '<td style="padding:3px 6px">'+codeCell+'</td>' +
       '<td style="padding:3px 6px;font-size:8pt;color:#666">'+(c.tool||'—')+'</td>' +
       '<td style="padding:3px 6px;font-size:8pt;font-weight:500">'+(c.toolQty||'—')+'</td>' +
       '<td style="padding:3px 6px;text-align:right;font-family:monospace;font-size:8.5pt">'+(c.weight||'—')+'</td>' +
@@ -19014,7 +19018,7 @@ function printBuild(id) {
   w.document.write('<div style="display:grid;grid-template-columns:1.2fr 1fr;gap:20px">');
   // Components table
   w.document.write('<div><div style="font-size:10pt;font-weight:700;border-bottom:1px solid #ccc;padding-bottom:3px;margin-bottom:6px">Components</div>');
-  w.document.write('<table><thead><tr><th>Type</th><th>Item</th><th>Source</th><th>Tool</th><th>Qty/Pcs</th><th style="text-align:right">Weight</th><th style="text-align:right">Cost</th></tr></thead><tbody>');
+  w.document.write('<table><thead><tr><th>Type</th><th>Item</th><th>Code</th><th>Tool</th><th>Qty/Pcs</th><th style="text-align:right">Weight</th><th style="text-align:right">Cost</th></tr></thead><tbody>');
   w.document.write(compRows);
   w.document.write('<tr style="border-top:2px solid #1a1a1a"><td colspan="5" style="font-weight:600;padding:4px 6px">Total</td><td style="text-align:right;font-family:monospace;padding:4px 6px">'+(totalWeight?totalWeight.toFixed(0)+'g':'—')+'</td><td style="text-align:right;font-family:monospace;font-weight:600;padding:4px 6px;color:#2D6A4F">SAR '+totalCost.toFixed(2)+'</td></tr>');
   w.document.write('</tbody></table></div>');
@@ -19044,10 +19048,14 @@ function downloadBuildPDF(id) {
   var n = b.nutrition || {};
 
   var compRows = b.components.map(function(c) {
+    var codeCell;
+    if (c.ref)          codeCell = '<span style="display:inline-block;padding:1px 6px;border-radius:20px;font-size:7.5pt;font-weight:600;background:#FBF3E0;color:#B8820A;font-family:monospace">🥣 '+c.ref+'</span>';
+    else if (c.erpCode) codeCell = '<span style="display:inline-block;padding:1px 6px;border-radius:20px;font-size:7.5pt;font-weight:600;background:#E7F0E8;color:#2D6A4F;font-family:monospace">🌿 '+c.erpCode+'</span>';
+    else                codeCell = '<span style="color:#999;font-size:8pt">—</span>';
     return '<tr>' +
       '<td><span style="display:inline-block;padding:2px 8px;border-radius:20px;font-size:8pt;font-weight:500;background:'+(typeColors[c.type]||'#999')+';color:white">'+c.type+'</span></td>' +
-      '<td style="font-weight:500">'+c.item+(c.ref?' <span style="color:#999;font-size:7.5pt">'+c.ref+'</span>':'')+'</td>' +
-      '<td style="color:#666">'+(c.source==='sfg'?'SFG':c.source==='recipe'?'Recipe':'Raw')+'</td>' +
+      '<td style="font-weight:500">'+c.item+'</td>' +
+      '<td>'+codeCell+'</td>' +
       '<td style="color:#666">'+(c.tool||'—')+'</td>' +
       '<td style="font-weight:500">'+(c.toolQty||'—')+'</td>' +
       '<td style="text-align:right;font-family:monospace">'+(c.weight||'—')+'</td>' +
@@ -19093,7 +19101,7 @@ function downloadBuildPDF(id) {
 
   // Components
   w.document.write('<div class="section"><div class="section-title">Components</div>');
-  w.document.write('<table><thead><tr><th>Type</th><th>Item</th><th>Source</th><th>Tool</th><th>Qty/Pcs</th><th style="text-align:right">Weight</th><th style="text-align:right">Cost</th></tr></thead><tbody>');
+  w.document.write('<table><thead><tr><th>Type</th><th>Item</th><th>Code</th><th>Tool</th><th>Qty/Pcs</th><th style="text-align:right">Weight</th><th style="text-align:right">Cost</th></tr></thead><tbody>');
   w.document.write(compRows);
   w.document.write('<tr style="border-top:2px solid #1a1a1a;font-weight:600"><td colspan="5">Total</td><td style="text-align:right;font-family:monospace">'+(totalWeight?totalWeight.toFixed(0)+'g':'—')+'</td><td style="text-align:right;font-family:monospace;color:#2D6A4F">SAR '+totalCost.toFixed(2)+'</td></tr>');
   w.document.write('</tbody></table></div>');
