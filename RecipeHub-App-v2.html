@@ -7072,6 +7072,54 @@ function showPage(id) {
   _currentPage = id;
   window.scrollTo(0,0);
   applyWatermark();
+  _syncHashWithPage(id);
+}
+
+// ──── Hash routing for top-level pages ────
+// Sub-pages (recipe-detail, modals, build edit, etc.) deliberately do NOT get
+// URLs — they're transient state. Top-level pages get bookmarkable URLs.
+var _HASH_ROUTABLE = new Set([
+  'dashboard','recipes','ingredients','qa','qas','sop','branch-sop',
+  'production','substitutions','builds','brands','builds-costing',
+  'cost-control','reports','comms','library','training','audit-log',
+  'users','workflow'
+]);
+
+function _syncHashWithPage(id) {
+  if (!_HASH_ROUTABLE.has(id)) return;
+  // Dashboard is the bare-URL default — strip the hash when landing there
+  if (id === 'dashboard') {
+    if (window.location.hash) {
+      try { history.replaceState(null, '', window.location.pathname + window.location.search); } catch(e) {}
+    }
+    return;
+  }
+  var target = '#' + id;
+  if (window.location.hash !== target) {
+    // replaceState instead of pushState so in-app nav doesn't pile up history
+    // entries — browser back still leaves the app, which matches sidebar UX
+    try { history.replaceState(null, '', window.location.pathname + window.location.search + target); } catch(e) {}
+  }
+}
+
+window.addEventListener('hashchange', function() {
+  var id = (window.location.hash || '').replace(/^#/, '');
+  if (!id || !_HASH_ROUTABLE.has(id) || id === _currentPage) return;
+  if (typeof canAccessPage === 'function' && !canAccessPage(id)) {
+    // Role can't see the requested page — bounce hash back to where we are
+    _syncHashWithPage(_currentPage);
+    return;
+  }
+  nav(id);
+});
+
+function _initHashFromURL() {
+  var id = (window.location.hash || '').replace(/^#/, '');
+  if (!id || !_HASH_ROUTABLE.has(id) || id === _currentPage) return;
+  if (typeof canAccessPage === 'function' && !canAccessPage(id)) {
+    _syncHashWithPage('dashboard'); return;
+  }
+  nav(id);
 }
 
 function applyRoleRestrictions() {
@@ -21363,6 +21411,9 @@ try { renderSavingsTracker(); } catch(e) { console.error('renderSavingsTracker i
 updateDashboardStats();
 updateSidebarBadges();
 applySidebarPermissions();
+
+// If the URL carries a #page hash, navigate there before syncing
+try { _initHashFromURL(); } catch(e) { console.error('hash init error:', e); }
 
 // Sync from server after init (async — UI is already loaded from localStorage)
 syncFromServer();
