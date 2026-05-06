@@ -5407,12 +5407,24 @@ function _renderConversion(stockroomUnit, recipeUnit, equivalence) {
   return '1 ' + (stockroomUnit||'?') + ' = ' + Number(equivalence) + ' ' + (recipeUnit||'?');
 }
 
-// Cost cell: "SAR 39.10 / kg" — show the actual recipe UOM as-is (PCK / BAG /
-// BOT / CTN / PCE / EA …). The unit identifies what the price is per, which
-// the floor team needs to see. The Cost / kg column converts to kg separately.
+// KG / Piece cell: only render when the unit represents a single, normalised
+// quantity — kg/g/lb (mass), L/ml (fluid), or PCE/EA/PC/PCS (truly one piece).
+// For pack UOMs (Rol, BAG, CTN, BOT, CAS, BOX, X06, X12, P1H, BX5, U07, X5H …)
+// the displayed price is the *pack* price — not per-piece — so we show "—"
+// here. The pack price is still visible in the EBS Price column. To make these
+// resolve, Purchasing needs to add a per-piece conversion in Oracle UOM Conv.
+var _RU_MASS_FLUID = ['kg','kgs','g','gram','grams','gramm','mg','lb','lbs','oz',
+                     'l','ltr','lit','litre','liter','litres','liters','ml','gal','gallon'];
+var _RU_TRUE_PIECE = ['pce','ea','pc','pcs','each','piece'];
 function _renderRecipeCost(costStr, recipeUnit) {
   if (!costStr || costStr === '—') return '<span style="color:var(--g3)">—</span>';
-  return costStr + (recipeUnit && recipeUnit !== '—' ? ' <span style="color:var(--g4);font-size:10px;font-weight:400">/ ' + recipeUnit + '</span>' : '');
+  if (!recipeUnit || recipeUnit === '—') return costStr;
+  var u = String(recipeUnit).toLowerCase().trim();
+  if (_RU_MASS_FLUID.indexOf(u) !== -1 || _RU_TRUE_PIECE.indexOf(u) !== -1) {
+    return costStr + ' <span style="color:var(--g4);font-size:10px;font-weight:400">/ ' + recipeUnit + '</span>';
+  }
+  // Pack UOM — pack price isn't a per-piece price; show — (Purchasing needs to add a conversion).
+  return '<span style="color:var(--g3)" title="Pack price (' + costStr + ' / ' + recipeUnit + ') — Purchasing hasn\'t set a per-piece conversion in Oracle yet. EBS Price column shows the pack value.">—</span>';
 }
 
 // Render the Oracle EBS Item Code only. POS / numeric codes are intentionally not displayed —
