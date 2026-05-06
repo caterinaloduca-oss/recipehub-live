@@ -3175,9 +3175,27 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
         <div id="comms-recipients-preview" style="font-size:11px;color:var(--g3);margin-bottom:14px"></div>
         <div class="form-group" style="margin-bottom:14px">
           <label class="form-label">Regarding recipe (optional)</label>
-          <select class="form-select" id="comms-recipe">
-            <option value="">— None —</option>
-          </select>
+          <div id="comms-recipe-picker" style="position:relative">
+            <input type="hidden" id="comms-recipe" value="" />
+            <div id="comms-recipe-display" class="form-input" tabindex="0"
+                 style="display:flex;align-items:center;gap:8px;cursor:text;min-height:38px"
+                 onclick="commsRecipeOpen()"
+                 onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();commsRecipeOpen();}">
+              <span id="comms-recipe-name" style="flex:1;color:var(--g4);font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Search or pick a recipe…</span>
+              <button type="button" id="comms-recipe-clear"
+                      style="display:none;background:transparent;border:none;color:var(--g3);cursor:pointer;font-size:14px;padding:0 4px;line-height:1"
+                      onclick="event.stopPropagation();commsRecipeClear()" title="Clear">✕</button>
+              <span style="color:var(--g3);font-size:10px">▾</span>
+            </div>
+            <div id="comms-recipe-panel" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:60;background:white;border:1px solid var(--g2);border-radius:var(--r-sm);box-shadow:0 6px 16px rgba(0,0,0,0.12);margin-top:4px">
+              <input type="text" id="comms-recipe-search"
+                     placeholder="Type to search by name, code, or brand…"
+                     oninput="commsRecipeRender()"
+                     onkeydown="commsRecipeKey(event)"
+                     style="width:100%;box-sizing:border-box;border:none;border-bottom:1px solid var(--g1);padding:10px 14px;font-size:14px;outline:none;font-family:inherit" autocomplete="off" />
+              <div id="comms-recipe-results" style="max-height:280px;overflow-y:auto"></div>
+            </div>
+          </div>
         </div>
         <div class="form-group" style="margin-bottom:14px">
           <label class="form-label">Subject</label>
@@ -22154,16 +22172,107 @@ function initCommsPage() {
         return '<option value="' + u.email + '">' + u.name + ' (' + u.role + ')</option>';
       }).join('');
   }
-  // Populate recipe dropdown
-  var recSel = document.getElementById('comms-recipe');
-  if (recSel) {
-    recSel.innerHTML = '<option value="">— None —</option>' +
-      Object.values(RECIPE_DB).map(function(r) {
-        return '<option value="' + r.npd + '">' + r.name + ' (' + r.npd + ')</option>';
-      }).join('');
-  }
+  // Recipe picker is initialised lazily on open — no list to populate up-front.
+  // Re-sync display with whatever the hidden input already holds, so a user's
+  // selection is preserved across navigations.
+  var _existing = document.getElementById('comms-recipe')?.value || '';
+  commsRecipeSet(_existing);
   renderCommsLog();
   renderCommsDrafts();
+}
+
+// ──── Comms recipe picker (typeahead replacement for the native <select>) ────
+// The hidden <input id="comms-recipe"> keeps the .value contract, so save/send
+// /draft handlers don't change. commsRecipeSet(npd) updates both hidden + display.
+function commsRecipeOpen() {
+  var panel = document.getElementById('comms-recipe-panel');
+  if (!panel) return;
+  panel.style.display = 'block';
+  commsRecipeRender();
+  setTimeout(function(){
+    var s = document.getElementById('comms-recipe-search');
+    if (s) { s.value = ''; s.focus(); }
+  }, 30);
+  setTimeout(function(){ document.addEventListener('click', _commsRecipeOutsideClick); }, 0);
+}
+
+function _commsRecipeOutsideClick(e) {
+  var picker = document.getElementById('comms-recipe-picker');
+  if (picker && !picker.contains(e.target)) commsRecipeClose();
+}
+
+function commsRecipeClose() {
+  var panel = document.getElementById('comms-recipe-panel');
+  if (panel) panel.style.display = 'none';
+  document.removeEventListener('click', _commsRecipeOutsideClick);
+}
+
+function commsRecipeKey(e) {
+  if (e.key === 'Escape') { commsRecipeClose(); document.getElementById('comms-recipe-display')?.focus(); }
+}
+
+function commsRecipeClear() { commsRecipeSet(''); commsRecipeClose(); }
+
+function commsRecipeSet(npd) {
+  var hidden = document.getElementById('comms-recipe');
+  var nameEl = document.getElementById('comms-recipe-name');
+  var clearBtn = document.getElementById('comms-recipe-clear');
+  if (hidden) hidden.value = npd || '';
+  if (!npd) {
+    if (nameEl) { nameEl.textContent = 'Search or pick a recipe…'; nameEl.style.color = 'var(--g4)'; }
+    if (clearBtn) clearBtn.style.display = 'none';
+    return;
+  }
+  var r = RECIPE_DB[npd];
+  if (nameEl) {
+    if (r) {
+      nameEl.textContent = r.name + ' (' + r.npd + ')';
+      nameEl.style.color = 'var(--navy)';
+    } else {
+      nameEl.textContent = npd + ' — unknown (recipe may be deleted)';
+      nameEl.style.color = 'var(--g4)';
+    }
+  }
+  if (clearBtn) clearBtn.style.display = 'inline-block';
+}
+
+function commsRecipeSelect(npd) { commsRecipeSet(npd); commsRecipeClose(); }
+
+function commsRecipeRender() {
+  var list = document.getElementById('comms-recipe-results');
+  if (!list) return;
+  var q = (document.getElementById('comms-recipe-search')?.value || '').toLowerCase().trim();
+  var all = Object.values(RECIPE_DB).filter(function(x){ return x && x.npd && !x.archived; });
+  if (q) {
+    all = all.filter(function(x){
+      var n = (x.name || '').toLowerCase();
+      var c = (x.npd || '').toLowerCase();
+      var rid = (x.recipeId || '').toLowerCase();
+      var br = (x.brand || '').toLowerCase();
+      return n.indexOf(q) > -1 || c.indexOf(q) > -1 || rid.indexOf(q) > -1 || br.indexOf(q) > -1;
+    });
+  }
+  all.sort(function(a,b){ return (a.name || '').localeCompare(b.name || ''); });
+  if (!all.length) {
+    list.innerHTML = '<div style="padding:24px;text-align:center;color:var(--g4);font-size:12px">No recipes match.</div>';
+    return;
+  }
+  var statusMap = { approved:'sage', 'prod-trial':'amber', trial:'amber', review:'navy', draft:'g4' };
+  list.innerHTML = all.slice(0, 200).map(function(x){
+    var statusColor = 'var(--' + (statusMap[x.status] || 'g4') + ')';
+    var safeNpd = x.npd.replace(/'/g,"\\'");
+    return (
+      '<div onclick="commsRecipeSelect(\''+safeNpd+'\')" ' +
+      'style="padding:9px 14px;border-bottom:1px solid var(--g1);cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px" ' +
+      'onmouseover="this.style.background=\'#F7F5F0\'" onmouseout="this.style.background=\'\'">' +
+        '<div style="flex:1;min-width:0">' +
+          '<div style="font-size:13px;font-weight:600;color:var(--navy);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (x.name || '(no name)') + '</div>' +
+          '<div style="font-size:10px;color:var(--g3);font-family:var(--font-m);margin-top:2px">' + x.npd + (x.brand ? ' · ' + x.brand : '') + '</div>' +
+        '</div>' +
+        '<span style="font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:'+statusColor+';white-space:nowrap">' + (x.status || 'draft') + '</span>' +
+      '</div>'
+    );
+  }).join('') + (all.length > 200 ? '<div style="padding:8px;text-align:center;font-size:10px;color:var(--g4)">Showing first 200 of '+all.length+'. Refine search.</div>' : '');
 }
 
 function updateCommsRecipients() {
@@ -22190,7 +22299,7 @@ function clearCommsForm() {
   document.getElementById('comms-to').value = '';
   document.getElementById('comms-subject').value = '';
   document.getElementById('comms-body').value = '';
-  document.getElementById('comms-recipe').value = '';
+  commsRecipeSet('');
   document.getElementById('comms-individual-wrap').style.display = 'none';
   document.getElementById('comms-recipients-preview').textContent = '';
   // Collapse preview pane back to hidden
@@ -22235,7 +22344,7 @@ function loadCommsDraft(idx) {
   document.getElementById('comms-to').value = d.to || '';
   document.getElementById('comms-subject').value = d.subject || '';
   document.getElementById('comms-body').value = d.body || '';
-  document.getElementById('comms-recipe').value = d.recipe || '';
+  commsRecipeSet(d.recipe || '');
   updateCommsRecipients();
   COMMS_DRAFTS.splice(idx, 1);
   localStorage.setItem('_commsDrafts', JSON.stringify(COMMS_DRAFTS));
