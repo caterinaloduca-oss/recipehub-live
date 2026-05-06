@@ -7940,6 +7940,9 @@ function buildIngTable() {
   });
   // Fetch EBS prices for ingredients missing costs
   _syncIngEBSPrices();
+  // Re-apply the active filter dropdown values so the default Active-only view
+  // sticks across rebuilds (status-map fetch, edits, etc.)
+  if (typeof filterIngredients === 'function') filterIngredients();
 }
 
 // Async: fetch EBS prices for ingredients without a cost and update the table
