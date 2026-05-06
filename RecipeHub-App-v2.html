@@ -7909,6 +7909,11 @@ function buildIngTable() {
     var _hasAnyPrice = _ppk || _ppkFromEbs || (displayCost && displayCost !== '—' && displayCost !== 'SAR 0.00');
     var _priceTag = (!_hasAnyPrice) ? 'none' : ((_ppk || _ppkFromEbs || displayUOM === 'kg') ? 'kg' : 'unit');
     tr.dataset.priceTag = _priceTag;
+    // Backfill missing displayUOM when the price clearly resolved to /kg via EBS cache
+    // or manual override — so the KG/UOM cell shows "/ kg" consistently with Cost/kg.
+    if ((!displayUOM || displayUOM === '—') && (_ppk || _ppkFromEbs)) {
+      displayUOM = 'kg';
+    }
     // Active / Inactive flag — manual override (data.ingredientStatusOverrides) wins
     // over items_master status. Unknown defaults to Active for filter purposes.
     var _override = (typeof INGREDIENT_STATUS_OVERRIDES !== 'undefined' && INGREDIENT_STATUS_OVERRIDES[code]) || null;
