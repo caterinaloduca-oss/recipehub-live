@@ -7877,7 +7877,7 @@ function buildIngTable() {
       if (ebsP.unit) displayUOM = ebsP.unit;
       if (ebsP.vendor) displayVendor = ebsP.vendor;
     }
-    // Cost/kg: manual override (row[11]) > EBS cache > —
+    // Cost/kg: manual override (row[11]) > EBS cache > Recipe Price when it's already in /kg > —
     var costPerKg = row[11] || null;
     var costKgColor = 'var(--sage)';
     var costKgDisplay = '—';
@@ -7887,6 +7887,18 @@ function buildIngTable() {
     } else if (ebsP && ebsP.price > 0 && (ebsP.unit === 'kg' || displayUOM === 'kg')) {
       costKgDisplay = 'SAR ' + ebsP.price.toFixed(2);
       costKgColor = 'var(--blue)';
+    } else if (displayUOM === 'kg' || (displayUOM || '').toLowerCase() === 'kg') {
+      // Recipe Price already carries a /kg figure (parsed from row[14] numeric or
+      // the display string in row[5]). Mirror it into Cost/kg so the columns agree.
+      var priceFromRow = parseFloat(row[14]);
+      if (isNaN(priceFromRow) || priceFromRow <= 0) {
+        var m = String(displayCost || cost || '').match(/[\d.]+/);
+        priceFromRow = m ? parseFloat(m[0]) : NaN;
+      }
+      if (!isNaN(priceFromRow) && priceFromRow > 0) {
+        costKgDisplay = 'SAR ' + priceFromRow.toFixed(2);
+        costKgColor = 'var(--sage)';
+      }
     }
     const tr = document.createElement('tr');
     // Flag for the price filter: kg = has a per-kg price; unit = has a price but in non-kg UOM (PCK/BAG/BOT…); none = nothing.
