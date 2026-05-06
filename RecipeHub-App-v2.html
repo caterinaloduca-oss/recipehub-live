@@ -5407,21 +5407,12 @@ function _renderConversion(stockroomUnit, recipeUnit, equivalence) {
   return '1 ' + (stockroomUnit||'?') + ' = ' + Number(equivalence) + ' ' + (recipeUnit||'?');
 }
 
-// Cost cell: "SAR 39.10 / kg" or "SAR 1.40 / piece" — collapse the long tail of
-// non-mass UOMs (PCK / BAG / BOT / CTN / PCE / EA / CAS / BOX …) into "piece" so
-// the column reads as a binary kg-vs-piece distinction. Mass / fluid keep their
-// real UOM since those convert cleanly to kg later.
+// Cost cell: "SAR 39.10 / kg" — show the actual recipe UOM as-is (PCK / BAG /
+// BOT / CTN / PCE / EA …). The unit identifies what the price is per, which
+// the floor team needs to see. The Cost / kg column converts to kg separately.
 function _renderRecipeCost(costStr, recipeUnit) {
   if (!costStr || costStr === '—') return '<span style="color:var(--g3)">—</span>';
-  if (!recipeUnit || recipeUnit === '—') return costStr;
-  var u = String(recipeUnit).toLowerCase().trim();
-  var KG_LIKE   = ['kg','kgs','g','gram','grams','gramm','mg'];
-  var FLUID     = ['l','ltr','lit','litre','liter','litres','liters','ml','gal','gallon'];
-  var label;
-  if (KG_LIKE.indexOf(u) !== -1)   label = (u === 'kg' || u === 'kgs') ? 'kg' : u;
-  else if (FLUID.indexOf(u) !== -1) label = (u === 'l' || u === 'ltr') ? 'L' : u;
-  else                              label = 'piece';
-  return costStr + ' <span style="color:var(--g4);font-size:10px;font-weight:400">/ ' + label + '</span>';
+  return costStr + (recipeUnit && recipeUnit !== '—' ? ' <span style="color:var(--g4);font-size:10px;font-weight:400">/ ' + recipeUnit + '</span>' : '');
 }
 
 // Render the Oracle EBS Item Code only. POS / numeric codes are intentionally not displayed —
