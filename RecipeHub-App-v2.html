@@ -5162,19 +5162,35 @@ const EBS_RAW_ITEMS = [
   ['SFTOT0117','Fajita Seasoning Topping Mini Pack (Semi-Finished)','PCK','SFG']
 ];
 
-// Map EBS ITEM_TYPE codes to RecipeHub categories
+// Map EBS item codes / descriptions to RecipeHub categories.
+// Order matters — first match wins. RMxxx prefixes carry strong signal so we
+// check them before the keyword fallbacks.
 function ebsCategoryMap(itemCode, desc) {
-  const d = desc.toLowerCase();
-  if (itemCode.startsWith('RMSET') || d.includes('spice') || d.includes('cumin') || d.includes('oregano') || d.includes('basil') || d.includes('thyme') || d.includes('rosemary') || d.includes('cinnamon') || d.includes('paprika')) return 'Spice / Herb';
-  if (itemCode.startsWith('RMOLT') || d.includes(' oil') || d.includes('butter') || d.includes('fat') || d.includes('margarine') || d.includes('shortening')) return 'Oil / Fat';
-  if (itemCode.startsWith('RMDPC') || itemCode.startsWith('RMDPT') || d.includes('cheese') || d.includes('cream') || d.includes('milk') || d.includes('yogurt') || d.includes('laban')) return 'Dairy';
+  const code = (itemCode || '').toUpperCase();
+  const d = (desc || '').toLowerCase();
+  // Prefix-based — most reliable
+  if (code.startsWith('PM'))                                           return 'Packaging';
+  if (code.startsWith('RMSET') || code.startsWith('RMSEA'))            return 'Spice / Herb';
+  if (code.startsWith('RMOLT') || code.startsWith('RMOLA'))            return 'Oil / Fat';
+  if (code.startsWith('RMDPC') || code.startsWith('RMDPT') || code.startsWith('RMDPF') || code.startsWith('RMDSC')) return 'Dairy';
+  if (code.startsWith('RMTOC') || code.startsWith('RMTOT') || code.startsWith('RMTOF')) return 'Vegetable'; // Toppings — Cold/Topping/Frozen produce
+  if (code.startsWith('RMMP'))                                          return 'Protein'; // Meat / Poultry
+  if (code.startsWith('RMSAT') || code.startsWith('RMSAC') || code.startsWith('RMSAA')) return 'Sauce';
+  if (code.startsWith('RMBR') || code.startsWith('RMGP') || code.startsWith('RMGPA') || code.startsWith('RMGPC') || code.startsWith('RMGPT')) return 'Base / Starch';
+  if (code.startsWith('RMADT') || code.startsWith('RMADA'))             return 'Additive';
+  if (code.startsWith('RMBV') || code.startsWith('RMBVC'))              return 'Beverage';
+  if (code.startsWith('SF'))                                            return 'Semi-finished';
+  // Keyword fallbacks
+  if (d.includes('spice') || d.includes('cumin') || d.includes('oregano') || d.includes('basil') || d.includes('thyme') || d.includes('rosemary') || d.includes('sage') || d.includes('cinnamon') || d.includes('paprika') || d.includes('mint') || d.includes('coriander') || d.includes('sumac') || d.includes('turmeric')) return 'Spice / Herb';
+  if (d.includes(' oil') || d.includes('butter') || d.includes('fat') || d.includes('margarine') || d.includes('shortening')) return 'Oil / Fat';
+  if (d.includes('cheese') || d.includes('cream') || d.includes('milk') || d.includes('yogurt') || d.includes('laban') || d.includes('ricotta')) return 'Dairy';
   if (d.includes('vinegar') || d.includes('citric') || d.includes('lemon juice') || d.includes('lactic')) return 'Acid';
-  if (itemCode.startsWith('RMGP') || d.includes('flour') || d.includes('starch') || d.includes('sugar') || d.includes('salt') || d.includes('yeast') || d.includes('dextrose')) return 'Base / Starch';
-  if (d.includes('tomato') || d.includes('onion') || d.includes('mushroom') || d.includes('olive') || d.includes('vegetable') || d.includes('lettuce') || d.includes('corn') || d.includes('jalap')) return 'Vegetable';
-  if (itemCode.startsWith('RMADA') || d.includes('preservat') || d.includes('sorbat') || d.includes('benzoat') || d.includes('xanthan') || d.includes('guar') || d.includes('carrageenan') || d.includes('improver') || d.includes('colorant') || d.includes('additive')) return 'Additive';
-  if (itemCode.startsWith('PM') || d.includes('film') || d.includes('label') || d.includes('carton') || d.includes('pouch') || d.includes('tray')) return 'Packaging';
-  if (d.includes('chicken') || d.includes('beef') || d.includes('meat') || d.includes('egg') || d.includes('fish') || d.includes('pepperoni')) return 'Dairy';
-  return 'Base / Starch';
+  if (d.includes('flour') || d.includes('starch') || d.includes('sugar') || d.includes('salt') || d.includes('yeast') || d.includes('dextrose')) return 'Base / Starch';
+  if (d.includes('tomato') || d.includes('onion') || d.includes('mushroom') || d.includes('olive') || d.includes('vegetable') || d.includes('lettuce') || d.includes('corn') || d.includes('jalap') || d.includes('rocca') || d.includes('lollo') || d.includes('spinach') || d.includes('beetroot') || d.includes('eggplant') || d.includes('zucchini') || d.includes('okra') || d.includes('pineapple') || d.includes('leek') || d.includes('cabbage') || d.includes('cucumber') || d.includes('carrot') || d.includes('celery') || d.includes('bell')) return 'Vegetable';
+  if (d.includes('preservat') || d.includes('sorbat') || d.includes('benzoat') || d.includes('xanthan') || d.includes('guar') || d.includes('carrageenan') || d.includes('improver') || d.includes('colorant') || d.includes('additive')) return 'Additive';
+  if (d.includes('film') || d.includes('label') || d.includes('carton') || d.includes('pouch') || d.includes('tray') || d.includes('box') || d.includes('sleeve') || d.includes('sticker')) return 'Packaging';
+  if (d.includes('chicken') || d.includes('beef') || d.includes('meat') || d.includes('egg') || d.includes('fish') || d.includes('pepperoni') || d.includes('bacon') || d.includes('shawarma')) return 'Protein';
+  return 'Other';
 }
 
 function syncFromEBS() {
@@ -7869,13 +7885,17 @@ function buildIngTable() {
   if (_itemStatusMap === null) _ensureItemStatus();
   tbody.innerHTML = '';
   ING_DATA.forEach((row, idx) => {
-    const [num,name,supplier,code,cat,cost,storage,shelf,updated] = row;
+    const [num,name,supplier,code,_cat,cost,storage,shelf,updated] = row;
     // Oracle-only view: skip rows without an Oracle EBS item code. POS-only ingredients
     // (numeric POS ids, "POS (unmapped)" supplier) are hidden — they aren't procurable
     // through Oracle and were creating noise in the table.
     if (!_codeIsERP(code)) return;
     // Hide non-recipe categories — operating supply, tools, uniforms, equipment, cleaning.
-    if (ING_EXCLUDED_CATEGORIES.has(cat)) return;
+    if (ING_EXCLUDED_CATEGORIES.has(_cat)) return;
+    // Re-derive the category at render time. If the stored cat is missing or "Other",
+    // fall back to the prefix-aware ebsCategoryMap which knows about RMTOC*, RMSEA*,
+    // RMSAT*, RMMP*, etc. — fixes the "everything is Other" problem without a re-sync.
+    const cat = (!_cat || _cat === 'Other' || _cat === 'Uncategorised') ? ebsCategoryMap(code, name || '') : _cat;
     const catClass = CAT_CLASS[cat] || 'cat-base';
     // Check EBS cache for price, vendor, UOM
     var displayCost = cost;
