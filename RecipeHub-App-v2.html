@@ -18122,6 +18122,53 @@ var BUILDS_DATA = [
   },
 ];
 
+// ────────── Build component cost auto-derivation ──────────
+// c.cost is a manually-entered SAR override. When zero/missing, derive from the
+// linked recipe (c.ref) or ingredient (c.erpCode) using their kg cost × the
+// component weight. Falls back to 0 when no link or no cost-per-kg available
+// (the component just looks "missing price" — Caterina can use that as a signal
+// to ask Purchasing to add an Oracle UOM conversion).
+function _ingCostPerKgByCode(code) {
+  if (!code || typeof ING_DATA === 'undefined') return null;
+  for (var i = 0; i < ING_DATA.length; i++) {
+    var row = ING_DATA[i];
+    if (!Array.isArray(row) || row[3] !== code) continue;
+    var override = parseFloat(row[11]);
+    if (!isNaN(override) && override > 0) return override;
+    var name = (row[1] || '').toLowerCase();
+    var ebs = (typeof _ebsPriceCache !== 'undefined') ? _ebsPriceCache[name] : null;
+    var displayUOM = (row[10] || '').toLowerCase();
+    if (ebs && ebs.price > 0 && (ebs.unit === 'kg' || displayUOM === 'kg')) return ebs.price;
+    var num = parseFloat(row[14]);
+    if (!isNaN(num) && num > 0 && displayUOM === 'kg') return num;
+    return null;
+  }
+  return null;
+}
+function _componentDerivedCost(c) {
+  if (!c) return 0;
+  var manual = parseFloat(c.cost);
+  if (!isNaN(manual) && manual > 0) return manual; // explicit override wins
+  var w = parseFloat(c.weight);
+  if (isNaN(w) || w <= 0) return 0;
+  var weightStr = String(c.weight || '').toLowerCase();
+  var kg = (weightStr.indexOf('kg') > -1) ? w : (w / 1000); // grams unless 'kg'
+  var ckg = null;
+  if (c.ref) {
+    var sub = (typeof RECIPE_DB !== 'undefined') ? RECIPE_DB[c.ref] : null;
+    if (sub && typeof _subRecipeCostPerKg === 'function') ckg = _subRecipeCostPerKg(sub);
+  } else if (c.erpCode) {
+    ckg = _ingCostPerKgByCode(c.erpCode);
+  }
+  if (ckg === null || ckg <= 0) return 0;
+  return kg * ckg;
+}
+function _buildTotalCost(b) {
+  if (!b || !b.components) return 0;
+  var t = 0; for (var i = 0; i < b.components.length; i++) t += _componentDerivedCost(b.components[i]);
+  return t;
+}
+
 function buildBuildsTable() {
   const tbody = document.getElementById('builds-tbody');
   if (!tbody) return;
@@ -18136,7 +18183,7 @@ function buildBuildsTable() {
     if (b.active === undefined) b.active = true;
     if (b.archived) { archivedCount++; if (!showArchived) return; }
     visibleCount++;
-    const totalCost = b.components.reduce((s,c) => s + (c.cost||0), 0);
+    const totalCost = _buildTotalCost(b);
     var _launch = getBuildLaunch(b);
     const tr = document.createElement('tr');
     tr.style.cursor = 'pointer';
@@ -18230,7 +18277,7 @@ function viewBuild(id) {
   const b = BUILDS_DATA.find(x => x.id === id);
   if (!b) return;
   auditEvent('build.view', 'build', id, b.name + ' — ' + (b.brand || ''));
-  const totalCost = b.components.reduce((s,c) => s + (c.cost||0), 0);
+  const totalCost = _buildTotalCost(b);
   const totalWeight = b.components.reduce((s,c) => s + (parseFloat(c.weight)||0), 0);
   const statusMap = {approved:'badge-approved',review:'badge-review',trial:'badge-trial','prod-trial':'badge-prod-trial',draft:'badge-draft'};
   const statusLabel = {approved:'Approved',review:'In Review',trial:'Factory Trial','prod-trial':'Production Trial',draft:'Draft'};
@@ -18329,7 +18376,7 @@ function viewBuild(id) {
                   <td style="font-size:11px;color:var(--g4)">${c.tool || '—'}</td>
                   <td style="font-size:11px;font-weight:500;color:var(--navy)">${c.toolQty || '—'}</td>
                   <td style="text-align:right;font-family:var(--font-m);font-size:12px">${c.weight || '—'}</td>
-                  <td style="text-align:right;font-family:var(--font-m);font-size:12px;color:var(--sage)">SAR ${(c.cost||0).toFixed(2)}</td>
+                  <td style="text-align:right;font-family:var(--font-m);font-size:12px;color:var(--sage)" title="${(parseFloat(c.cost)||0)>0?'Manual override':'Auto-derived from linked '+(c.ref?'recipe':(c.erpCode?'ingredient':'(none)'))}">SAR ${_componentDerivedCost(c).toFixed(2)}</td>
                 </tr>
               `;
               }).join('')}
@@ -18376,7 +18423,7 @@ function viewBuild(id) {
       var all = [b].concat(siblings).sort(function(a,bb){ var order={Small:1,Medium:2,Regular:3,Large:4,Piano:5}; return (order[a.size]||3)-(order[bb.size]||3); });
       return '<div class="card" style="margin-bottom:20px"><div class="card-head"><span class="card-title">Size Variants</span><span style="font-size:11px;color:var(--g3)">'+all.length+' sizes</span></div><div class="card-body" style="padding:0"><table class="data-table"><thead><tr><th>Size</th><th>Components</th><th style="text-align:right">Weight</th><th style="text-align:right">Build Cost</th><th style="text-align:right">Selling Price</th><th style="text-align:right">COGS %</th><th></th></tr></thead><tbody>' +
         all.map(function(x){
-          var xCost = x.components.reduce(function(s,c){return s+(c.cost||0)},0);
+          var xCost = _buildTotalCost(x);
           var xWeight = x.components.reduce(function(s,c){return s+(parseFloat(c.weight)||0)},0);
           var isCurrent = x.id === b.id;
           var cogs = x.sellingPrice ? (xCost/x.sellingPrice*100).toFixed(1)+'%' : '—';
@@ -20769,7 +20816,7 @@ function buildReports() {
 
   var builds = (typeof BUILDS_DATA !== 'undefined') ? BUILDS_DATA : [];
   var buildsCosted = builds.map(function(b) {
-    var total = b.components.reduce(function(s,c){ return s + (c.cost||0); }, 0);
+    var total = _buildTotalCost(b);
     return {id:b.id, name:b.name, brand:b.brand, type:b.type||'Pizza', size:b.size||'—', status:b.status||'draft', components:b.components, cost:total};
   });
 
