@@ -2262,13 +2262,13 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
     <div class="card" style="margin-bottom:24px">
       <div class="card-head">
         <span class="card-title">Factory Codification</span>
-        <span style="font-size:11px;color:var(--g3)">415 active codes · reference</span>
+        <span style="font-size:11px;color:var(--g3)">1,284 active codes · snapshot 6 May 2026</span>
       </div>
       <div class="card-body" style="padding:20px">
 
         <!-- Recipe lines -->
         <div style="margin-bottom:20px">
-          <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--g3);font-weight:600;margin-bottom:10px">Recipes — 153 codes</div>
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--g3);font-weight:600;margin-bottom:10px">Factory Recipes — 152 codes</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div style="padding:12px;border-radius:8px;background:#E8F5E9;border:1px solid #C8E6C9">
               <div style="font-family:var(--font-d);font-size:13px;font-weight:600;color:#1B5E20"><code>211_*</code> · Meat Factory line</div>
@@ -2276,37 +2276,66 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
             </div>
             <div style="padding:12px;border-radius:8px;background:#FFF3E0;border:1px solid #FFE0B2">
               <div style="font-family:var(--font-d);font-size:13px;font-weight:600;color:#E65100"><code>212_*</code> · Bakery line</div>
-              <div style="font-size:11px;color:var(--g4);margin-top:2px">53 recipes</div>
+              <div style="font-size:11px;color:var(--g4);margin-top:2px">52 recipes</div>
             </div>
           </div>
+          <div style="font-size:11px;color:var(--g4);margin-top:8px;line-height:1.5">Plus <strong style="color:var(--navy)">39 R&D-pipeline recipes</strong> on the <code style="background:var(--g1);padding:1px 4px;border-radius:3px;font-size:10px">YYYY-NNN</code> format (auto-generated, awaiting Factory Recipe ID assignment at Trial Passed).</div>
         </div>
 
         <!-- Ingredients -->
         <div style="margin-bottom:20px">
-          <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--g3);font-weight:600;margin-bottom:10px">Ingredients — 262 codes, grouped by prefix</div>
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--g3);font-weight:600;margin-bottom:10px">Ingredients — 1,132 codes, grouped by prefix</div>
 
           <!-- RM Raw Materials -->
           <details open style="border:1px solid var(--g1);border-radius:8px;margin-bottom:8px">
             <summary style="padding:10px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--navy);display:flex;justify-content:space-between;align-items:center">
               <span><code style="background:var(--g1);padding:2px 6px;border-radius:4px;font-size:11px">RM</code> — Raw Materials</span>
-              <span style="font-size:11px;color:var(--g3);font-weight:500">184 codes</span>
+              <span style="font-size:11px;color:var(--g3);font-weight:500">485 codes</span>
             </summary>
             <div style="padding:0 14px 14px 14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px;font-size:12px">
-              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">RMADT</code> <span style="color:var(--g4)">additives, ambient</span> <strong style="color:var(--navy)">· 38</strong></div>
-              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">RMSET</code> <span style="color:var(--g4)">spices, dry</span> <strong style="color:var(--navy)">· 29</strong></div>
-              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">RMTOC</code> <span style="color:var(--g4)">topping chilled</span> <strong style="color:var(--navy)">· 29</strong></div>
-              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">RMSAT</code> <span style="color:var(--g4)">sauces, ambient</span> <strong style="color:var(--navy)">· 18</strong></div>
-              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">RMDPC</code> <span style="color:var(--g4)">dairy, chilled</span> <strong style="color:var(--navy)">· 10</strong></div>
-              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">RMTOT</code> <span style="color:var(--g4)">ambient</span> <strong style="color:var(--navy)">· 9</strong></div>
-              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">RMMPF</code> <span style="color:var(--g4)">meat/protein, frozen</span> <strong style="color:var(--navy)">· 9</strong></div>
-              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">RMGPT</code> <span style="color:var(--g4)">grain/pasta, ambient</span> <strong style="color:var(--navy)">· 8</strong></div>
-              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">RMGPA</code> <span style="color:var(--g4)">grain artisanal</span> <strong style="color:var(--navy)">· 7</strong></div>
-              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">RMTOF</code> <span style="color:var(--g4)">topping</span> <strong style="color:var(--navy)">· 5</strong></div>
-              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">RMMPC</code> <span style="color:var(--g4)">meat/protein, chilled</span> <strong style="color:var(--navy)">· 5</strong></div>
-              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">RMOLT</code> <span style="color:var(--g4)">oil, ambient</span> <strong style="color:var(--navy)">· 3</strong></div>
-              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">RMSEA</code> <span style="color:var(--g4)">spice, ambient whole</span> <strong style="color:var(--navy)">· 3</strong></div>
-              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">RMADA/C/F</code> <span style="color:var(--g4)">additive variants</span> <strong style="color:var(--navy)">· 4</strong></div>
-              <div style="grid-column:1/-1"><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">Other singletons</code> <span style="color:var(--g4)">RMBRT, RMDPT, RMDST, RMBVC, RMSAA, RMSEC, RMGPF</span> <strong style="color:var(--navy)">· 7</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">RMTOC</code> <span style="color:var(--g4)">topping, chilled</span> <strong style="color:var(--navy)">· 70</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">RMADT</code> <span style="color:var(--g4)">additives, ambient</span> <strong style="color:var(--navy)">· 64</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">RMSET</code> <span style="color:var(--g4)">spices, dry</span> <strong style="color:var(--navy)">· 62</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">RMSAT</code> <span style="color:var(--g4)">sauces, ambient</span> <strong style="color:var(--navy)">· 44</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">RMTOF</code> <span style="color:var(--g4)">topping, frozen</span> <strong style="color:var(--navy)">· 30</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">RMGPT</code> <span style="color:var(--g4)">grain/pasta, ambient</span> <strong style="color:var(--navy)">· 27</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">RMTOT</code> <span style="color:var(--g4)">topping, ambient</span> <strong style="color:var(--navy)">· 24</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">RMMPF</code> <span style="color:var(--g4)">meat/protein, frozen</span> <strong style="color:var(--navy)">· 23</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">RMDPC</code> <span style="color:var(--g4)">dairy, chilled</span> <strong style="color:var(--navy)">· 22</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">RMBVC</code> <span style="color:var(--g4)">beverage, chilled</span> <strong style="color:var(--navy)">· 22</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">RMGPA</code> <span style="color:var(--g4)">grain, artisanal</span> <strong style="color:var(--navy)">· 12</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">RMOLT</code> <span style="color:var(--g4)">oil, ambient</span> <strong style="color:var(--navy)">· 11</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">RMMPC</code> <span style="color:var(--g4)">meat/protein, chilled</span> <strong style="color:var(--navy)">· 8</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">RMBVT</code> <span style="color:var(--g4)">beverage, ambient</span> <strong style="color:var(--navy)">· 8</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">RMTOA</code> <span style="color:var(--g4)">topping, ambient (alt)</span> <strong style="color:var(--navy)">· 7</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">RMDPT</code> <span style="color:var(--g4)">dairy, ambient</span> <strong style="color:var(--navy)">· 6</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">RMDST</code> <span style="color:var(--g4)">dessert, ambient</span> <strong style="color:var(--navy)">· 6</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">RMSDF</code> <span style="color:var(--g4)">sweet/dessert, frozen</span> <strong style="color:var(--navy)">· 6</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">RMSEA</code> <span style="color:var(--g4)">spice, ambient whole</span> <strong style="color:var(--navy)">· 6</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">RMGPF</code> <span style="color:var(--g4)">grain, frozen</span> <strong style="color:var(--navy)">· 3</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">RMDSC</code> <span style="color:var(--g4)">dessert, chilled</span> <strong style="color:var(--navy)">· 3</strong></div>
+              <div style="grid-column:1/-1"><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">Other singletons</code> <span style="color:var(--g4)">RMBRT, RMSAA, RMSEC, RMSAF, RMADC, RMADF</span> <strong style="color:var(--navy)">· 21</strong></div>
+            </div>
+          </details>
+
+          <!-- SF Semi-Finished -->
+          <details style="border:1px solid var(--g1);border-radius:8px;margin-bottom:8px">
+            <summary style="padding:10px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--navy);display:flex;justify-content:space-between;align-items:center">
+              <span><code style="background:var(--g1);padding:2px 6px;border-radius:4px;font-size:11px">SF</code> — Semi-Finished (WIP)</span>
+              <span style="font-size:11px;color:var(--g3);font-weight:500">358 codes</span>
+            </summary>
+            <div style="padding:0 14px 14px 14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px;font-size:12px">
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">SFSAC</code> <span style="color:var(--g4)">sauce WIPs, chilled</span> <strong style="color:var(--navy)">· 97</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">SFTOC</code> <span style="color:var(--g4)">vegetable WIPs, chilled</span> <strong style="color:var(--navy)">· 48</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">SFTOF</code> <span style="color:var(--g4)">topping WIPs, frozen</span> <strong style="color:var(--navy)">· 46</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">SFCRF</code> <span style="color:var(--g4)">crust WIPs, frozen</span> <strong style="color:var(--navy)">· 43</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">SFSDF</code> <span style="color:var(--g4)">sweet/dessert, frozen</span> <strong style="color:var(--navy)">· 34</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">SFDSF</code> <span style="color:var(--g4)">dessert, frozen</span> <strong style="color:var(--navy)">· 25</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">SFSAF</code> <span style="color:var(--g4)">sauce WIPs, frozen</span> <strong style="color:var(--navy)">· 22</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">SFPAF</code> <span style="color:var(--g4)">pastry/pasta, frozen</span> <strong style="color:var(--navy)">· 13</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">SFSAT</code> <span style="color:var(--g4)">sauce WIPs, ambient</span> <strong style="color:var(--navy)">· 7</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">SFTOT</code> <span style="color:var(--g4)">topping WIPs, ambient</span> <strong style="color:var(--navy)">· 7</strong></div>
+              <div style="grid-column:1/-1"><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">Other</code> <span style="color:var(--g4)">SFDSC, SFPZF, SFSLC, SFDPF, SFBDF, SFDPC, SFMAF, SFSET</span> <strong style="color:var(--navy)">· 16</strong></div>
             </div>
           </details>
 
@@ -2314,29 +2343,14 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
           <details style="border:1px solid var(--g1);border-radius:8px;margin-bottom:8px">
             <summary style="padding:10px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--navy);display:flex;justify-content:space-between;align-items:center">
               <span><code style="background:var(--g1);padding:2px 6px;border-radius:4px;font-size:11px">PM</code> — Packaging</span>
-              <span style="font-size:11px;color:var(--g3);font-weight:500">42 codes</span>
+              <span style="font-size:11px;color:var(--g3);font-weight:500">285 codes</span>
             </summary>
             <div style="padding:0 14px 14px 14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px;font-size:12px">
-              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">PMPBA</code> <span style="color:var(--g4)">plastic bags</span> <strong style="color:var(--navy)">· 15</strong></div>
-              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">PMLAA</code> <span style="color:var(--g4)">labels</span> <strong style="color:var(--navy)">· 12</strong></div>
-              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">PMPFA</code> <span style="color:var(--g4)">film/laminate rolls</span> <strong style="color:var(--navy)">· 10</strong></div>
-              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">PMOSA</code> <span style="color:var(--g4)">cups, misc</span> <strong style="color:var(--navy)">· 3</strong></div>
-              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">PMPXA</code> <span style="color:var(--g4)">boxes</span> <strong style="color:var(--navy)">· 2</strong></div>
-            </div>
-          </details>
-
-          <!-- SF Semi-Finished -->
-          <details style="border:1px solid var(--g1);border-radius:8px;margin-bottom:8px">
-            <summary style="padding:10px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--navy);display:flex;justify-content:space-between;align-items:center">
-              <span><code style="background:var(--g1);padding:2px 6px;border-radius:4px;font-size:11px">SF</code> — Semi-Finished</span>
-              <span style="font-size:11px;color:var(--g3);font-weight:500">27 codes</span>
-            </summary>
-            <div style="padding:0 14px 14px 14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px;font-size:12px">
-              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">SFTOC</code> <span style="color:var(--g4)">vegetable WIPs</span> <strong style="color:var(--navy)">· 18</strong></div>
-              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">SFSAC</code> <span style="color:var(--g4)">sauce WIPs chilled</span> <strong style="color:var(--navy)">· 3</strong></div>
-              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">SFSAF</code> <span style="color:var(--g4)">sauce WIPs frozen</span> <strong style="color:var(--navy)">· 3</strong></div>
-              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">SFSAT</code> <span style="color:var(--g4)">sauce WIPs ambient</span> <strong style="color:var(--navy)">· 1</strong></div>
-              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">SFCRF / SFTOF</code> <span style="color:var(--g4)">crust/veg frozen</span> <strong style="color:var(--navy)">· 2</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">PMPXA</code> <span style="color:var(--g4)">boxes</span> <strong style="color:var(--navy)">· 115</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">PMLAA</code> <span style="color:var(--g4)">labels</span> <strong style="color:var(--navy)">· 65</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">PMOSA</code> <span style="color:var(--g4)">cups, misc</span> <strong style="color:var(--navy)">· 51</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">PMPFA</code> <span style="color:var(--g4)">film/laminate rolls</span> <strong style="color:var(--navy)">· 28</strong></div>
+              <div><code style="background:var(--g1);padding:1px 5px;border-radius:3px;font-size:11px">PMPBA</code> <span style="color:var(--g4)">plastic bags</span> <strong style="color:var(--navy)">· 26</strong></div>
             </div>
           </details>
 
@@ -2344,11 +2358,11 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
             <div style="padding:10px 14px;border:1px solid var(--g1);border-radius:8px;display:flex;justify-content:space-between;align-items:center">
               <span style="font-size:13px;font-weight:600;color:var(--navy)"><code style="background:var(--g1);padding:2px 6px;border-radius:4px;font-size:11px">CO</code> — Consumables / Operational</span>
-              <span style="font-size:11px;color:var(--g3);font-weight:500">5 codes</span>
+              <span style="font-size:11px;color:var(--g3);font-weight:500">3 codes</span>
             </div>
             <div style="padding:10px 14px;border:1px solid var(--g1);border-radius:8px;display:flex;justify-content:space-between;align-items:center">
-              <span style="font-size:13px;font-weight:600;color:var(--navy)"><code style="background:var(--g1);padding:2px 6px;border-radius:4px;font-size:11px">SCCRF</code> — Semi-Finished Crust</span>
-              <span style="font-size:11px;color:var(--g3);font-weight:500">4 codes</span>
+              <span style="font-size:13px;font-weight:600;color:var(--navy)"><code style="background:var(--g1);padding:2px 6px;border-radius:4px;font-size:11px">SC</code> — Service / Misc</span>
+              <span style="font-size:11px;color:var(--g3);font-weight:500">1 code</span>
             </div>
           </div>
         </div>
@@ -2356,12 +2370,12 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
         <!-- Grand total -->
         <div style="padding:12px 16px;border-radius:8px;background:var(--navy);color:white;display:flex;justify-content:space-between;align-items:center">
           <span style="font-family:var(--font-d);font-size:13px;font-weight:600">Grand Total</span>
-          <span style="font-family:var(--font-d);font-size:18px;font-weight:700">415 codes</span>
+          <span style="font-family:var(--font-d);font-size:18px;font-weight:700">1,284 codes</span>
         </div>
 
         <div style="margin-top:14px;padding:10px 12px;border-radius:8px;background:#E6F1FB;border:1px solid #B3D4F0;font-size:12px;color:#0C6BA8;display:flex;align-items:start;gap:8px">
           <span style="font-size:14px">💡</span>
-          <span><strong>How to read a code:</strong> first 2 letters = material family (RM, PM, SF, CO, SC). Letters 3–4 = sub-category. Last letter = storage state (A ambient · C chilled · F frozen · T ambient tray · etc).</span>
+          <span><strong>How to read a code:</strong> first 2 letters = material family (RM, PM, SF, CO, SC). Letters 3–4 = sub-category. Last letter = storage state (A ambient · C chilled · F frozen · T ambient tray).</span>
         </div>
       </div>
     </div>
@@ -2422,6 +2436,100 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
             <div style="font-size:13px;font-weight:600;color:var(--amber);margin-bottom:2px">Kitchen method vs Factory SOP</div>
             <div style="font-size:12px;color:var(--g4);line-height:1.5">The <strong>recipe method</strong> (shown on the Recipe detail) is the kitchen/trial instructions — free-form prose. The <strong>Factory SOP</strong> is the production-floor document: the three layers above, scaled and formal. R&D drafts the method; Factory refines the SOP steps; the shared blocks are maintained by admin.</div>
           </div>
+        </div>
+
+        <!-- Legacy SOPs callout -->
+        <div style="margin-top:10px;padding:12px 14px;border-radius:8px;background:#E8F5E9;border:1px solid #C8E6C9;display:flex;align-items:flex-start;gap:10px">
+          <span style="font-size:18px">📑</span>
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:600;color:#1B5E20;margin-bottom:2px">Legacy SOPs — auto-approved imports</div>
+            <div style="font-size:12px;color:var(--g4);line-height:1.5">Recipes that came in with their original <strong>DFC-MP PDF</strong> from the old system show a green <strong>Legacy SOP</strong> badge on the Factory SOP list and are auto-marked <strong>Approved</strong> at SOP level — they're already validated documents. The PDF stays attached to the recipe as a download while the live three-layer SOP above it is rebuilt; both versions are valid until R&D archives the legacy one. Filter the SOP list by <strong>Legacy SOP / No SOP / Status</strong> to triage what still needs work.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Legacy SOP Path -->
+    <div class="card" style="margin-bottom:24px">
+      <div class="card-head">
+        <span class="card-title">Legacy SOP Path</span>
+        <span style="font-size:11px;color:var(--g3)">74 of 191 recipes · imports from the old DFC-MP system</span>
+      </div>
+      <div class="card-body" style="padding:24px">
+
+        <!-- 4-state lifecycle -->
+        <div style="display:flex;align-items:flex-start;gap:0;justify-content:center;margin-bottom:20px;flex-wrap:wrap">
+
+          <!-- 1. PDF attached -->
+          <div style="text-align:center;width:170px;padding:0 4px">
+            <div style="width:60px;height:60px;border-radius:50%;background:#E6F1FB;border:2px solid #B3D4F0;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;font-size:24px">📑</div>
+            <div style="font-family:var(--font-d);font-size:13px;font-weight:600;color:var(--navy)">1. PDF attached</div>
+            <div style="font-size:11px;color:var(--g4);margin-top:4px;line-height:1.4">DFC-MP PDF imported and pinned to the recipe's <code style="background:var(--g1);padding:1px 4px;border-radius:3px;font-size:10px">factorySopArchive</code>. Visible on the recipe page as a download.</div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;align-items:center;padding-top:24px;width:50px">
+            <div style="width:34px;height:2px;background:var(--g2)"></div>
+            <div style="font-size:9px;color:var(--g3);margin-top:4px;text-align:center;font-weight:500">auto</div>
+          </div>
+
+          <!-- 2. Auto-approved -->
+          <div style="text-align:center;width:170px;padding:0 4px">
+            <div style="width:60px;height:60px;border-radius:50%;background:var(--sage-lt);border:2px solid var(--sage-mid);display:flex;align-items:center;justify-content:center;margin:0 auto 8px;font-size:24px">✅</div>
+            <div style="font-family:var(--font-d);font-size:13px;font-weight:600;color:var(--navy)">2. Auto-approved</div>
+            <div style="font-size:11px;color:var(--g4);margin-top:4px;line-height:1.4">Recipe's <strong>sopStatus</strong> flips to <span style="display:inline-block;padding:1px 6px;border-radius:30px;font-size:10px;font-weight:600;background:#1B5E20;color:white">Approved</span>. Green <strong>Legacy SOP</strong> badge appears in the SOP list.</div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;align-items:center;padding-top:24px;width:50px">
+            <div style="width:34px;height:2px;background:var(--g2);border-top:2px dashed var(--g3);background:transparent"></div>
+            <div style="font-size:9px;color:var(--g3);margin-top:4px;text-align:center;font-weight:500">optional</div>
+          </div>
+
+          <!-- 3. Rebuild live -->
+          <div style="text-align:center;width:170px;padding:0 4px">
+            <div style="width:60px;height:60px;border-radius:50%;background:#FEF3E2;border:2px solid #F5D5A0;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;font-size:24px">⚙</div>
+            <div style="font-family:var(--font-d);font-size:13px;font-weight:600;color:var(--navy)">3. Rebuild live</div>
+            <div style="font-size:11px;color:var(--g4);margin-top:4px;line-height:1.4">R&D rebuilds the 3-layer SOP above the PDF. <strong>Both versions valid</strong> while the rebuild is in progress — operators can use either.</div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;align-items:center;padding-top:24px;width:50px">
+            <div style="width:34px;height:2px;background:var(--g2)"></div>
+            <div style="font-size:9px;color:var(--g3);margin-top:4px;text-align:center;font-weight:500">R&D</div>
+          </div>
+
+          <!-- 4. Archive legacy -->
+          <div style="text-align:center;width:170px;padding:0 4px">
+            <div style="width:60px;height:60px;border-radius:50%;background:#F3E8FD;border:2px solid #D5C0EB;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;font-size:24px">📦</div>
+            <div style="font-family:var(--font-d);font-size:13px;font-weight:600;color:var(--navy)">4. Archive legacy</div>
+            <div style="font-size:11px;color:var(--g4);margin-top:4px;line-height:1.4">Once the live SOP is signed off, R&D archives the Legacy. PDF still readable in archive — searchable for audit.</div>
+          </div>
+
+        </div>
+
+        <!-- Rule logic -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px">
+
+          <div style="padding:12px 14px;border-radius:8px;background:#E8F5E9;border:1px solid #C8E6C9;display:flex;align-items:flex-start;gap:10px">
+            <span style="font-size:18px">✅</span>
+            <div style="flex:1">
+              <div style="font-size:13px;font-weight:600;color:#1B5E20;margin-bottom:2px">The auto-approval rule</div>
+              <div style="font-size:12px;color:var(--g4);line-height:1.5"><strong>If a recipe has a PDF in <code style="background:white;padding:1px 4px;border-radius:3px;font-size:11px">factorySopArchive</code>, its SOP is automatically Approved.</strong> No QA / R&D sign-off needed — the PDFs come from the old DFC-MP system where they were already validated. Server-side <code style="background:white;padding:1px 4px;border-radius:3px;font-size:11px">_markSOPChanged</code> respects this and won't reset the status.</div>
+            </div>
+          </div>
+
+          <div style="padding:12px 14px;border-radius:8px;background:#FEF3E2;border:1px solid #F5D5A0;display:flex;align-items:flex-start;gap:10px">
+            <span style="font-size:18px">⚠️</span>
+            <div style="flex:1">
+              <div style="font-size:13px;font-weight:600;color:var(--amber);margin-bottom:2px">When does this <em>not</em> apply?</div>
+              <div style="font-size:12px;color:var(--g4);line-height:1.5"><strong>New recipes (authored from R&D draft onward) don't get auto-approval.</strong> They go through the standard approval flow — R&D drafts the 3-layer SOP, then signs it off. Auto-approval is only for the legacy import bridge so the floor isn't blocked while live SOPs are rebuilt.</div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Filter & badge note -->
+        <div style="margin-top:12px;padding:10px 12px;border-radius:8px;background:var(--g1);font-size:12px;color:var(--g5);display:flex;align-items:flex-start;gap:8px">
+          <span style="font-size:14px">🔍</span>
+          <span><strong>On the Factory SOP list</strong> — the dedicated <strong>SOP source</strong> filter (<em>All · Legacy SOP · No SOP</em>) and the <strong>Status</strong> filter (Draft / In Review / Approved / Archived) are independent. Use them together to triage: e.g. "Legacy SOP + Approved" = imported and ready, "No SOP + Approved recipe" = needs the live SOP authored.</span>
         </div>
       </div>
     </div>
@@ -2590,47 +2698,52 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
               <th style="text-align:center"><div style="font-size:11px;font-weight:600">OPS</div></th>
               <th style="text-align:center"><div style="font-size:11px;font-weight:600">Factory</div></th>
               <th style="text-align:center"><div style="font-size:11px;font-weight:600">Purchasing</div></th>
+              <th style="text-align:center"><div style="font-size:11px;font-weight:600">IT</div></th>
               <th style="text-align:center"><div style="font-size:11px;font-weight:600">Viewer</div></th>
             </tr>
           </thead>
           <tbody>
-            <tr><td colspan="8" style="background:var(--g1);font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--navy);padding:8px 16px">View Access — All pages visible to all roles</td></tr>
-            <tr><td style="font-size:12px;padding-left:20px">All pages (except Users)</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td></tr>
-            <tr><td style="font-size:12px;padding-left:20px">Users & Access</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td></tr>
+            <tr><td colspan="9" style="background:var(--g1);font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--navy);padding:8px 16px">View Access</td></tr>
+            <tr><td style="font-size:12px;padding-left:20px">Most pages (Brands, Production, Comms, Library…)</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td></tr>
+            <tr><td style="font-size:12px;padding-left:20px">Recipes / Factory SOP / Branch SOP</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--sage)">✓</td></tr>
+            <tr><td style="font-size:12px;padding-left:20px">Users & Access</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td></tr>
 
-            <tr><td colspan="8" style="background:var(--g1);font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--navy);padding:8px 16px">Recipe Actions</td></tr>
-            <tr><td style="font-size:12px;padding-left:20px">Create / edit recipes</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td></tr>
-            <tr><td style="font-size:12px;padding-left:20px">Move recipe stages</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td></tr>
-            <tr><td style="font-size:12px;padding-left:20px">Final approval</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td></tr>
-            <tr><td style="font-size:12px;padding-left:20px">Delete recipes</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td></tr>
+            <tr><td colspan="9" style="background:var(--g1);font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--navy);padding:8px 16px">Recipe Actions</td></tr>
+            <tr><td style="font-size:12px;padding-left:20px">Create / edit recipes</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td></tr>
+            <tr><td style="font-size:12px;padding-left:20px">Move recipe stages</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td></tr>
+            <tr><td style="font-size:12px;padding-left:20px">Final approval</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td></tr>
+            <tr><td style="font-size:12px;padding-left:20px">Delete recipes</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td></tr>
 
-            <tr><td colspan="8" style="background:var(--g1);font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--navy);padding:8px 16px">Ingredients</td></tr>
-            <tr><td style="font-size:12px;padding-left:20px">Add / edit ingredients</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td></tr>
-            <tr><td style="font-size:12px;padding-left:20px">Edit supplier pricing</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td></tr>
+            <tr><td colspan="9" style="background:var(--g1);font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--navy);padding:8px 16px">Ingredients</td></tr>
+            <tr><td style="font-size:12px;padding-left:20px">Add / edit ingredients</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td></tr>
+            <tr><td style="font-size:12px;padding-left:20px">Edit supplier pricing</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td></tr>
 
-            <tr><td colspan="8" style="background:var(--g1);font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--navy);padding:8px 16px">QA</td></tr>
-            <tr><td style="font-size:12px;padding-left:20px">Enter QA results</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td></tr>
-            <tr><td style="font-size:12px;padding-left:20px">QA sign-off</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td></tr>
+            <tr><td colspan="9" style="background:var(--g1);font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--navy);padding:8px 16px">QA</td></tr>
+            <tr><td style="font-size:12px;padding-left:20px">Enter QA results</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td></tr>
+            <tr><td style="font-size:12px;padding-left:20px">QA sign-off</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td></tr>
 
-            <tr><td colspan="8" style="background:var(--g1);font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--navy);padding:8px 16px">Builds & Branch SOPs</td></tr>
-            <tr><td style="font-size:12px;padding-left:20px">Create / edit builds</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td></tr>
-            <tr><td style="font-size:12px;padding-left:20px">Discontinue builds</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td></tr>
-            <tr><td style="font-size:12px;padding-left:20px">Edit build nutrition</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td></tr>
-            <tr><td style="font-size:12px;padding-left:20px">Create / edit Branch SOPs</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td></tr>
-            <tr><td style="font-size:12px;padding-left:20px">Prepare Branch SOP draft (Stage 1)</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td></tr>
-            <tr><td style="font-size:12px;padding-left:20px">Review Branch SOP — OPS (Stage 2)</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td></tr>
-            <tr><td style="font-size:12px;padding-left:20px">Approve Branch SOP — QA (Stage 3)</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td></tr>
+            <tr><td colspan="9" style="background:var(--g1);font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--navy);padding:8px 16px">Builds & Branch SOPs</td></tr>
+            <tr><td style="font-size:12px;padding-left:20px">Create / edit builds</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td></tr>
+            <tr><td style="font-size:12px;padding-left:20px">Discontinue builds</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td></tr>
+            <tr><td style="font-size:12px;padding-left:20px">Edit build nutrition</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td></tr>
+            <tr><td style="font-size:12px;padding-left:20px">Create / edit Branch SOPs</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td></tr>
+            <tr><td style="font-size:12px;padding-left:20px">Prepare Branch SOP draft (Stage 1)</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td></tr>
+            <tr><td style="font-size:12px;padding-left:20px">Review Branch SOP — OPS (Stage 2)</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td></tr>
+            <tr><td style="font-size:12px;padding-left:20px">Approve Branch SOP — QA (Stage 3)</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td></tr>
 
-            <tr><td colspan="8" style="background:var(--g1);font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--navy);padding:8px 16px">Factory SOPs & Production</td></tr>
-            <tr><td style="font-size:12px;padding-left:20px">Edit Factory SOP steps</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td></tr>
-            <tr><td style="font-size:12px;padding-left:20px">Approve Factory SOPs</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td></tr>
-            <tr><td style="font-size:12px;padding-left:20px">Schedule / edit runs</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td></tr>
-            <tr><td style="font-size:12px;padding-left:20px">Complete runs</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td></tr>
+            <tr><td colspan="9" style="background:var(--g1);font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--navy);padding:8px 16px">Factory SOPs & Production</td></tr>
+            <tr><td style="font-size:12px;padding-left:20px">Edit Factory SOP steps</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td></tr>
+            <tr><td style="font-size:12px;padding-left:20px">Approve Factory SOPs</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td></tr>
+            <tr><td style="font-size:12px;padding-left:20px">Schedule / edit runs</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td></tr>
+            <tr><td style="font-size:12px;padding-left:20px">Complete runs</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td></tr>
 
-            <tr><td colspan="8" style="background:var(--g1);font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--navy);padding:8px 16px">User Management</td></tr>
-            <tr><td style="font-size:12px;padding-left:20px">All user management</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td></tr>
+            <tr><td colspan="9" style="background:var(--g1);font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--navy);padding:8px 16px">User Management</td></tr>
+            <tr><td style="font-size:12px;padding-left:20px">All user management</td><td style="text-align:center;color:var(--sage)">✓</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td><td style="text-align:center;color:var(--g2)">—</td></tr>
           </tbody>
         </table>
+        <div style="padding:10px 16px;border-top:1px solid var(--g1);font-size:11px;color:var(--g4);background:#FAFAFA">
+          <strong style="color:var(--navy)">IT</strong> — supports the portal in read-only mode but Recipes / Factory SOP / Branch SOP stay hidden so formulations remain confidential. Otherwise behaves like Viewer.
+        </div>
       </div>
     </div>
 
@@ -2644,7 +2757,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
       <div style="background:white;border-radius:16px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06)">
         <div style="font-size:32px;margin-bottom:8px">⚙</div>
         <div style="font-size:14px;font-weight:700;color:var(--navy);margin-bottom:4px">Factory SOP</div>
-        <div style="font-size:11px;color:var(--g4);line-height:1.6">1. Open recipe → <strong>Generate Factory SOP</strong><br>2. Steps pulled from recipe method<br>3. Add photos to each step<br>4. Print: Full (photos) or Text Only<br>5. Regenerate anytime from <strong>More ⋯</strong> menu</div>
+        <div style="font-size:11px;color:var(--g4);line-height:1.6">1. Open recipe → <strong>Generate Factory SOP</strong><br>2. Steps pulled from recipe method<br>3. Add photos to each step<br>4. Print: Full (photos) or Text Only<br>5. Imported recipes show a 📑 <strong>Legacy SOP</strong> badge — auto-approved DFC-MP PDFs while the live SOP is rebuilt</div>
       </div>
       <div style="background:white;border-radius:16px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06)">
         <div style="font-size:32px;margin-bottom:8px">📋</div>
@@ -3301,9 +3414,19 @@ var TOUR_TOPICS = {
       },
       {
         title: 'Open the Factory SOPs page',
-        body: 'Lists every recipe with its SOP status. Filter by category, brand or factory line — useful when you\'re reviewing a whole product family.',
+        body: 'Lists every recipe with its SOP status. Filter by category, brand, factory line — and the dedicated <strong>SOP source</strong> filter (All · Legacy SOP · No SOP) plus the recipe <strong>Status</strong> filter to triage what still needs work.',
         page: 'sop',
         selector: '.nav-item[data-page="sop"]'
+      },
+      {
+        title: 'Legacy SOPs — auto-approved imports',
+        body: 'Recipes that came in with their original <strong>DFC-MP PDF</strong> show a green <strong>Legacy SOP</strong> badge. These are auto-marked <strong>Approved</strong> at SOP level — they\'re validated documents from the old system. The PDF stays attached to the recipe (📎 download) while the live SOP page is rebuilt above it. Once the live version is ready, the Legacy badge can be archived.',
+        page: 'sop',
+        roleHints: {
+          npd: 'Use Legacy SOPs as your reference while authoring the live version — keep the PDF open in a second window.',
+          factory: 'Operators can keep using the Legacy SOP until the live version is signed off — both are valid until R&D archives the legacy one.',
+          qa: 'Legacy SOPs already passed QA in the old system; you don\'t need to re-approve them at SOP level.'
+        }
       },
       {
         title: 'Pre-Production: Standard Blocks',
@@ -3563,8 +3686,8 @@ var TOUR_TOPICS = {
     blurb: 'Who can edit what. The 7 roles, role defaults, and per-user overrides.',
     steps: [
       {
-        title: 'Seven roles, clear lanes',
-        body: '<strong>Admin · R&D (npd) · QA · Factory · OPS · Purchasing · Viewer.</strong> Each role edits a specific set of pages. Outside those pages, the role still sees data — just read-only.',
+        title: 'Eight roles, clear lanes',
+        body: '<strong>Admin · R&D (npd) · QA · Factory · OPS · Purchasing · IT · Viewer.</strong> Each role edits a specific set of pages. Outside those pages, the role still sees data — just read-only.',
         page: 'training'
       },
       {
@@ -3586,6 +3709,14 @@ var TOUR_TOPICS = {
         title: 'Factory — production owner',
         body: 'Owns: <strong>Production</strong>. Schedules runs, captures yields, marks complete. <strong>Assigns the Recipe ID at the Factory-Trial-Passed gate</strong> — the chokepoint between trial and prod-trial.',
         page: 'training'
+      },
+      {
+        title: 'IT — support without recipe exposure',
+        body: '<strong>IT</strong> reads the portal for support and audit, but <strong>Recipes / Factory SOP / Branch SOP are hidden</strong> — formulations stay confidential. Otherwise behaves like Viewer (read-only, no edits).',
+        page: 'training',
+        roleHints: {
+          admin: 'Omar holds this role today. Use it for anyone on the IT team who needs to troubleshoot the portal without seeing recipe IP.'
+        }
       },
       {
         title: 'OPS, Purchasing, Viewer',
@@ -3646,6 +3777,17 @@ var TOUR_TOPICS = {
         title: 'Validated yield (regular Production)',
         body: 'Once the recipe is Approved and runs in regular production, Factory captures the <strong>validated yield</strong> from real runs. This replaces the indicative for costing — once you have real production data, you trust it. Both fields live on the recipe; the system uses the validated one if present.',
         page: 'training'
+      },
+      {
+        title: 'Build component cost — auto-derived',
+        body: 'On a Product Build, each component is linked to a <strong>recipe</strong> (composite / SFG) or an <strong>Oracle ingredient code</strong>. Cost is derived automatically from the linked item\'s <strong>/kg</strong> or <strong>/piece</strong> price × the component weight. Components without a link still accept a manual cost. Total build cost shown in the header is the sum of all components.',
+        page: 'builds',
+        selector: '.nav-item[data-page="builds"]',
+        roleHints: {
+          purchasing: 'When an ingredient is missing /kg or /piece, the components using it show as <em>no cost</em>. Add the Oracle UOM conversion to unblock.',
+          factory: 'You don\'t maintain prices, but if a build cost looks wrong it usually traces back to a missing ingredient conversion in Oracle.',
+          npd: 'Linking the right SFG recipe is what makes a composite build cost itself — manual costs are the fallback, not the default.'
+        }
       },
       {
         title: 'Portion cost — from Builds',
@@ -18448,7 +18590,7 @@ function viewBuild(id) {
         <div class="card-head"><span class="card-title">Product Photo</span></div>
         <div class="card-body" style="display:flex;gap:16px;align-items:flex-start">
           <div style="width:200px;height:200px;border-radius:var(--r-md);overflow:hidden;background:var(--g1);border:1px solid var(--g2);flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer" ondragover="_dropZoneOver(event)" ondragleave="_dropZoneLeave(event)" ondrop="_dropZoneDrop(event,'uploadBuildPhoto','${b.id}')" title="Drag &amp; drop a photo here, or use the button below">
-            ${b.photo ? `<img src="${b.photo}" style="width:100%;height:100%;object-fit:cover;cursor:zoom-in;pointer-events:none" onclick="zoomImage('${b.photo}')" />` : `<div style="display:flex;flex-direction:column;align-items:center;color:var(--g3);pointer-events:none"><span style="font-size:40px">📷</span><span style="font-size:10px;margin-top:6px">drag &amp; drop</span></div>`}
+            ${b.photo ? `<img src="${b.photo}" style="width:100%;height:100%;object-fit:cover;cursor:zoom-in" onclick="event.stopPropagation();zoomImage('${b.photo}')" />` : `<div style="display:flex;flex-direction:column;align-items:center;color:var(--g3);pointer-events:none"><span style="font-size:40px">📷</span><span style="font-size:10px;margin-top:6px">drag &amp; drop</span></div>`}
           </div>
           <div>
             <label class="btn btn-outline btn-sm" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px">
@@ -21601,7 +21743,7 @@ function viewBranchSOP(id) {
         ${sop.steps.map((step, i) => `
           <div class="bsop-step" style="border-color:${brandColor}">
             <div class="bsop-step-img" style="position:relative" ondragover="_dropZoneOver(event)" ondragleave="_dropZoneLeave(event)" ondrop="_dropZoneDrop(event,'uploadBranchSOPPhoto','${sop.id}',${i})">
-              ${step.img && step.img !== '[server]' && step.img !== 'null' ? `<img src="${step.img}" alt="Step ${i+1}" onclick="zoomImage('${step.img}')" style="cursor:zoom-in;pointer-events:none" />` : `<div class="bsop-placeholder" style="pointer-events:none">📷<div style="font-size:9px;color:var(--g4);margin-top:4px">drag &amp; drop</div></div>`}
+              ${step.img && step.img !== '[server]' && step.img !== 'null' ? `<img src="${step.img}" alt="Step ${i+1}" onclick="event.stopPropagation();zoomImage('${step.img}')" style="cursor:zoom-in" />` : `<div class="bsop-placeholder" style="pointer-events:none">📷<div style="font-size:9px;color:var(--g4);margin-top:4px">drag &amp; drop</div></div>`}
               <label class="bsop-upload-btn">
                 <span>${step.img ? 'Change Photo' : 'Upload Photo'}</span>
                 <input type="file" accept="image/*" style="display:none" onchange="uploadBranchSOPPhoto('${sop.id}',${i},this)" />
