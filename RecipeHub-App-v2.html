@@ -18997,7 +18997,6 @@ function printBuild(id) {
       '<td style="padding:3px 6px;font-size:8pt;color:#666">'+(c.tool||'—')+'</td>' +
       '<td style="padding:3px 6px;font-size:8pt;font-weight:500">'+(c.toolQty||'—')+'</td>' +
       '<td style="padding:3px 6px;text-align:right;font-family:monospace;font-size:8.5pt">'+(c.weight||'—')+'</td>' +
-      '<td style="padding:3px 6px;text-align:right;font-family:monospace;font-size:8.5pt">SAR '+(c.cost||0).toFixed(2)+'</td>' +
     '</tr>';
   }).join('');
 
@@ -19012,15 +19011,14 @@ function printBuild(id) {
   w.document.write('<div><div style="font-size:6.5pt;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:#999">Type</div>'+(b.type||'—')+'</div>');
   w.document.write('<div><div style="font-size:6.5pt;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:#999">Size</div>'+(b.size||'—')+'</div>');
   w.document.write('<div><div style="font-size:6.5pt;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:#999">Bake</div>'+(b.bakeTemp||'—')+' / '+(b.bakeTime||'—')+'</div>');
-  w.document.write('<div><div style="font-size:6.5pt;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:#999">Build Cost</div><strong style="color:#2D6A4F">SAR '+totalCost.toFixed(2)+'</strong></div>');
   w.document.write('</div></div>');
 
   w.document.write('<div style="display:grid;grid-template-columns:1.2fr 1fr;gap:20px">');
   // Components table
   w.document.write('<div><div style="font-size:10pt;font-weight:700;border-bottom:1px solid #ccc;padding-bottom:3px;margin-bottom:6px">Components</div>');
-  w.document.write('<table><thead><tr><th>Type</th><th>Item</th><th>Code</th><th>Tool</th><th>Qty/Pcs</th><th style="text-align:right">Weight</th><th style="text-align:right">Cost</th></tr></thead><tbody>');
+  w.document.write('<table><thead><tr><th>Type</th><th>Item</th><th>Code</th><th>Tool</th><th>Qty/Pcs</th><th style="text-align:right">Weight</th></tr></thead><tbody>');
   w.document.write(compRows);
-  w.document.write('<tr style="border-top:2px solid #1a1a1a"><td colspan="5" style="font-weight:600;padding:4px 6px">Total</td><td style="text-align:right;font-family:monospace;padding:4px 6px">'+(totalWeight?totalWeight.toFixed(0)+'g':'—')+'</td><td style="text-align:right;font-family:monospace;font-weight:600;padding:4px 6px;color:#2D6A4F">SAR '+totalCost.toFixed(2)+'</td></tr>');
+  w.document.write('<tr style="border-top:2px solid #1a1a1a"><td colspan="5" style="font-weight:600;padding:4px 6px">Total</td><td style="text-align:right;font-family:monospace;font-weight:600;padding:4px 6px">'+(totalWeight?totalWeight.toFixed(0)+'g':'—')+'</td></tr>');
   w.document.write('</tbody></table></div>');
   // Instructions
   w.document.write('<div><div style="font-size:10pt;font-weight:700;border-bottom:1px solid #ccc;padding-bottom:3px;margin-bottom:6px">Assembly Instructions</div>');
@@ -19059,7 +19057,6 @@ function downloadBuildPDF(id) {
       '<td style="color:#666">'+(c.tool||'—')+'</td>' +
       '<td style="font-weight:500">'+(c.toolQty||'—')+'</td>' +
       '<td style="text-align:right;font-family:monospace">'+(c.weight||'—')+'</td>' +
-      '<td style="text-align:right;font-family:monospace">SAR '+(c.cost||0).toFixed(2)+'</td>' +
     '</tr>';
   }).join('');
 
@@ -19093,7 +19090,6 @@ function downloadBuildPDF(id) {
   w.document.write('<div style="font-size:8.5pt;color:#666;margin-top:2px">'+b.brand+' · '+(b.type||'Build')+' · '+(b.size||'—')+' · '+b.id+'</div>');
   if (b.tags&&b.tags.length) w.document.write('<div style="margin-top:6px">'+b.tags.map(function(t){return '<span style="display:inline-block;padding:1px 6px;border-radius:20px;font-size:7pt;border:1px solid #ccc;color:#666;margin:1px">'+t+'</span>'}).join('')+'</div>');
   w.document.write('<div style="display:flex;gap:12px;margin-top:10px">');
-  w.document.write('<div class="stat-box"><div class="stat-label">Build Cost</div><div class="stat-value" style="color:#2D6A4F">SAR '+totalCost.toFixed(2)+'</div></div>');
   w.document.write('<div class="stat-box"><div class="stat-label">Total Weight</div><div class="stat-value">'+(totalWeight?totalWeight.toFixed(0)+'g':'—')+'</div></div>');
   w.document.write('<div class="stat-box"><div class="stat-label">Bake Temp</div><div class="stat-value">'+(b.bakeTemp||'—')+'</div></div>');
   w.document.write('<div class="stat-box"><div class="stat-label">Bake Time</div><div class="stat-value">'+(b.bakeTime||'—')+'</div></div>');
@@ -19101,9 +19097,9 @@ function downloadBuildPDF(id) {
 
   // Components
   w.document.write('<div class="section"><div class="section-title">Components</div>');
-  w.document.write('<table><thead><tr><th>Type</th><th>Item</th><th>Code</th><th>Tool</th><th>Qty/Pcs</th><th style="text-align:right">Weight</th><th style="text-align:right">Cost</th></tr></thead><tbody>');
+  w.document.write('<table><thead><tr><th>Type</th><th>Item</th><th>Code</th><th>Tool</th><th>Qty/Pcs</th><th style="text-align:right">Weight</th></tr></thead><tbody>');
   w.document.write(compRows);
-  w.document.write('<tr style="border-top:2px solid #1a1a1a;font-weight:600"><td colspan="5">Total</td><td style="text-align:right;font-family:monospace">'+(totalWeight?totalWeight.toFixed(0)+'g':'—')+'</td><td style="text-align:right;font-family:monospace;color:#2D6A4F">SAR '+totalCost.toFixed(2)+'</td></tr>');
+  w.document.write('<tr style="border-top:2px solid #1a1a1a;font-weight:600"><td colspan="5">Total</td><td style="text-align:right;font-family:monospace">'+(totalWeight?totalWeight.toFixed(0)+'g':'—')+'</td></tr>');
   w.document.write('</tbody></table></div>');
 
   // Instructions
@@ -19116,12 +19112,10 @@ function downloadBuildPDF(id) {
   if (siblings.length) {
     var all = [b].concat(siblings).sort(function(a,bb){ var order={Small:1,Medium:2,Regular:3,Large:4,Piano:5}; return (order[a.size]||3)-(order[bb.size]||3); });
     w.document.write('<div class="section"><div class="section-title">Size Variants</div>');
-    w.document.write('<table><thead><tr><th>Size</th><th style="text-align:right">Weight</th><th style="text-align:right">Cost</th><th style="text-align:right">Selling</th><th style="text-align:right">COGS</th></tr></thead><tbody>');
+    w.document.write('<table><thead><tr><th>Size</th><th style="text-align:right">Weight</th><th style="text-align:right">Selling</th></tr></thead><tbody>');
     all.forEach(function(x) {
-      var xCost = x.components.reduce(function(s,c){return s+(c.cost||0)},0);
       var xWeight = x.components.reduce(function(s,c){return s+(parseFloat(c.weight)||0)},0);
-      var cogs = x.sellingPrice ? (xCost/x.sellingPrice*100).toFixed(1)+'%' : '—';
-      w.document.write('<tr style="'+(x.id===b.id?'background:#f0f4ff;font-weight:500':'')+'"><td>'+x.size+(x.id===b.id?' ●':'')+'</td><td style="text-align:right;font-family:monospace">'+(xWeight?xWeight.toFixed(0)+'g':'—')+'</td><td style="text-align:right;font-family:monospace;color:#2D6A4F">SAR '+xCost.toFixed(2)+'</td><td style="text-align:right;font-family:monospace">'+(x.sellingPrice?'SAR '+parseFloat(x.sellingPrice).toFixed(2):'—')+'</td><td style="text-align:right;font-family:monospace">'+cogs+'</td></tr>');
+      w.document.write('<tr style="'+(x.id===b.id?'background:#f0f4ff;font-weight:500':'')+'"><td>'+x.size+(x.id===b.id?' ●':'')+'</td><td style="text-align:right;font-family:monospace">'+(xWeight?xWeight.toFixed(0)+'g':'—')+'</td><td style="text-align:right;font-family:monospace">'+(x.sellingPrice?'SAR '+parseFloat(x.sellingPrice).toFixed(2):'—')+'</td></tr>');
     });
     w.document.write('</tbody></table></div>');
   }
