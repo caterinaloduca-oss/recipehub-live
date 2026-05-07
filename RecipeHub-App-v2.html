@@ -8243,7 +8243,63 @@ function buildIngTable() {
 }
 
 // Async: fetch EBS prices for ingredients without a cost and update the table
+// Bulk-sync ING_DATA from the server's /api/ebs/prices cache. Hits the endpoint
+// once, indexes by Oracle item code, and merges into ING_DATA for any row whose
+// cost columns (5/14) are empty. This is the path that makes Fresh Sage /
+// Beetroot / Spinach show DPM-org SEP-25 / MAR-26 prices without manual touch.
+//
+// Doesn't overwrite browser-mode patches (cols 11/12/13) or rows that already
+// have a numeric in col 14 — only fills in genuine gaps. Called once on app
+// boot and again when the user opens the Ingredients page (idempotent).
+var _bulkSyncRan = false;
+function _bulkSyncIngFromEBS(force) {
+  if (_bulkSyncRan && !force) return;
+  _bulkSyncRan = true;
+  fetch(API_BASE + '/api/ebs/prices', {
+    headers: { 'Authorization': 'Bearer ' + API_KEY }
+  }).then(function(r){ return r.json(); }).then(function(data) {
+    if (!data || !data.prices) return;
+    var byCode = {};
+    data.prices.forEach(function(p) {
+      if (p && p.code) byCode[p.code] = p;
+    });
+    var changed = 0;
+    ING_DATA.forEach(function(row) {
+      if (!Array.isArray(row)) return;
+      var code = row[3];
+      if (!code) return;
+      var p = byCode[code];
+      if (!p || !(p.accountingCost > 0)) return;
+      // Only fill empty cells — never clobber what's already there (auto-sync,
+      // browser-mode, or manual entries).
+      var n14 = parseFloat(row[14]);
+      if (isNaN(n14) || n14 <= 0) {
+        var changedHere = false;
+        if (!row[5] || row[5] === '—' || row[5] === 'SAR 0.00') {
+          row[5] = 'SAR ' + Number(p.accountingCost).toFixed(2); changedHere = true;
+        }
+        if (!row[10] || row[10] === '—') { row[10] = p.unit || ''; changedHere = true; }
+        row[14] = Number(p.accountingCost); changedHere = true;
+        if (!row[16] && p.organizationCode) row[16] = p.organizationCode;
+        if (!row[17] && p.periodCode) row[17] = p.periodCode;
+        if (changedHere) changed++;
+      } else if (!row[17] && p.periodCode) {
+        // Existing cost but no period — fill the period.
+        row[17] = p.periodCode;
+        changed++;
+      }
+    });
+    if (changed > 0) {
+      console.log('[bulkSync] updated', changed, 'ING_DATA rows from /api/ebs/prices');
+      try { buildIngTable(); } catch(e) {}
+      try { saveAllData(); } catch(e) {}
+    }
+  }).catch(function(e){ console.warn('[bulkSync] failed:', e && e.message); });
+}
+
 function _syncIngEBSPrices() {
+  // Fire the one-shot bulk sync first (covers most items in a single round-trip)
+  _bulkSyncIngFromEBS();
   var toFetch = [];
   ING_DATA.forEach(function(row, idx) {
     var cost = row[5];
