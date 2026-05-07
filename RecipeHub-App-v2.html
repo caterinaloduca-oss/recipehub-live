@@ -19189,43 +19189,55 @@ function addBuildComponent() {
 }
 
 function saveEditBuild(id) {
-  var b = BUILDS_DATA.find(x => x.id === id);
-  if (!b) return;
-  b.name = document.getElementById('eb-build-name').value;
-  b.brand = document.getElementById('eb-build-brand').value;
-  b.size = document.getElementById('eb-build-size').value;
-  b.bakeTemp = document.getElementById('eb-build-temp').value;
-  b.bakeTime = document.getElementById('eb-build-time').value;
-  b.instructions = document.getElementById('eb-build-instr').value;
-  b.sellingPrice = parseFloat(document.getElementById('eb-build-price').value) || null;
-  b.type = document.getElementById('eb-build-type').value;
-  b.status = document.getElementById('eb-build-status').value;
-  b.updated = 'Just now';
-  b.updatedAt = new Date().toISOString();
-  // Rebuild components from rows
-  b.components = [];
-  document.querySelectorAll('.eb-comp-row').forEach(function(row) {
-    var type = row.querySelector('[data-field="type"]').value;
-    var item = row.querySelector('[data-field="item"]').value;
-    var source = row.querySelector('[data-field="source"]').value;
-    var tool = row.querySelector('[data-field="tool"]') ? row.querySelector('[data-field="tool"]').value : '';
-    var toolQty = row.querySelector('[data-field="toolQty"]') ? row.querySelector('[data-field="toolQty"]').value : '';
-    var weight = row.querySelector('[data-field="weight"]').value;
-    var cost = parseFloat(row.querySelector('[data-field="cost"]').value) || 0;
-    var ref     = row.dataset.ref     || undefined;
-    var erpCode = row.dataset.erpCode || undefined;
-    if (item) {
-      var comp = {type,item,source,tool,toolQty,weight,cost};
-      if (ref)     comp.ref = ref;
-      if (erpCode) comp.erpCode = erpCode;
-      b.components.push(comp);
-    }
-  });
-  closeModal();
-  buildBuildsTable();
-  viewBuild(id);
-  showSaveToast('Build updated');
-  saveBuildToServer(id);
+  // Wrap the whole save in try/catch so a missing field (e.g. on a stale tab
+  // where the modal HTML doesn't match this code's expectations) surfaces as a
+  // toast instead of failing silently. Was burning users — clicking Save did
+  // nothing with no feedback at all.
+  try {
+    var b = BUILDS_DATA.find(x => x.id === id);
+    if (!b) { showSaveToast('Build not found — try reloading (Cmd+Shift+R)', true); return; }
+    // Optional-chain every read so any single missing field can't kill the save.
+    var _v = function(elId) { var el = document.getElementById(elId); return el ? el.value : ''; };
+    b.name         = _v('eb-build-name');
+    b.brand        = _v('eb-build-brand');
+    b.size         = _v('eb-build-size');
+    b.bakeTemp     = _v('eb-build-temp');
+    b.bakeTime     = _v('eb-build-time');
+    b.instructions = _v('eb-build-instr');
+    b.sellingPrice = parseFloat(_v('eb-build-price')) || null;
+    b.type         = _v('eb-build-type');
+    b.status       = _v('eb-build-status');
+    b.updated   = 'Just now';
+    b.updatedAt = new Date().toISOString();
+    // Rebuild components from rows — also defensive about missing fields.
+    b.components = [];
+    var _rv = function(row, field) { var el = row.querySelector('[data-field="'+field+'"]'); return el ? el.value : ''; };
+    document.querySelectorAll('.eb-comp-row').forEach(function(row) {
+      var type    = _rv(row, 'type');
+      var item    = _rv(row, 'item');
+      var source  = _rv(row, 'source');
+      var tool    = _rv(row, 'tool');
+      var toolQty = _rv(row, 'toolQty');
+      var weight  = _rv(row, 'weight');
+      var cost    = parseFloat(_rv(row, 'cost')) || 0;
+      var ref     = row.dataset.ref     || undefined;
+      var erpCode = row.dataset.erpCode || undefined;
+      if (item) {
+        var comp = {type:type, item:item, source:source, tool:tool, toolQty:toolQty, weight:weight, cost:cost};
+        if (ref)     comp.ref = ref;
+        if (erpCode) comp.erpCode = erpCode;
+        b.components.push(comp);
+      }
+    });
+    closeModal();
+    buildBuildsTable();
+    viewBuild(id);
+    showSaveToast('Build updated');
+    saveBuildToServer(id);
+  } catch (e) {
+    console.error('saveEditBuild failed:', e);
+    showSaveToast('Save failed: ' + (e && e.message ? e.message : 'unknown error') + ' — try Cmd+Shift+R', true);
+  }
 }
 
 function deleteBuild(id) {
