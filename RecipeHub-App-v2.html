@@ -8105,18 +8105,42 @@ function buildIngTable() {
     // RMSAT*, RMMP*, etc. — fixes the "everything is Other" problem without a re-sync.
     const cat = (!_cat || _cat === 'Other' || _cat === 'Uncategorised') ? ebsCategoryMap(code, name || '') : _cat;
     const catClass = CAT_CLASS[cat] || 'cat-base';
-    // Check EBS cache for price, vendor, UOM
+    // Check EBS cache for price, vendor, UOM. When the auto-sync didn't price the
+    // item, fall back to the DPM columns the browser-mode session populates:
+    //   col 11 = UOM (KG, BAG, PCK, X24)
+    //   col 12 = display string ("SAR 1.40 / PCK")
+    //   col 13 = numeric per UOM
+    // This is what makes Louisiana Hot Sauce / many produce items show a price now
+    // instead of "—" — col 5 (auto-sync display) was empty for them.
     var displayCost = cost;
     var costColor = 'var(--sage)';
     var displayVendor = supplier || '—';
     var displayUOM = row[10] || '—';
+    if (!displayCost || displayCost === '—' || displayCost === 'SAR 0.00') {
+      // DPM display in col 12 looks like "SAR 1.40 / PCK"; split off the numeric prefix
+      var _col12 = row[12] != null ? String(row[12]) : '';
+      if (_col12 && _col12.indexOf('SAR') === 0) {
+        var _split = _col12.split(' / ');
+        if (_split[0]) displayCost = _split[0].trim();
+      } else {
+        // Fallback: build from col 13 numeric
+        var _n13 = parseFloat(row[13]);
+        if (!isNaN(_n13) && _n13 > 0) displayCost = 'SAR ' + _n13.toFixed(2);
+      }
+    }
+    if (!displayUOM || displayUOM === '—') {
+      if (row[11]) displayUOM = String(row[11]).trim();
+    }
     var ebsP = _ebsPriceCache[name.toLowerCase()];
     if (ebsP) {
       if (!cost || cost === '—' || cost === 'SAR 0.00') {
-        displayCost = 'SAR ' + ebsP.price.toFixed(2);
-        costColor = 'var(--blue)';
+        // Only let the EBS cache override if the DPM fallback didn't already fill displayCost
+        if (!displayCost || displayCost === '—' || displayCost === 'SAR 0.00') {
+          displayCost = 'SAR ' + ebsP.price.toFixed(2);
+          costColor = 'var(--blue)';
+        }
       }
-      if (ebsP.unit) displayUOM = ebsP.unit;
+      if (ebsP.unit && (displayUOM === '—' || !displayUOM)) displayUOM = ebsP.unit;
       if (ebsP.vendor) displayVendor = ebsP.vendor;
     }
     // Cost/kg: manual override (row[11]) > EBS cache > Recipe Price when it's already in /kg > —
@@ -8167,7 +8191,7 @@ function buildIngTable() {
       <td style="color:var(--g4);font-size:12px" id="ing-vendor-${idx}">${displayVendor}</td>
       <td style="font-family:var(--font-m);font-size:12px;color:var(--g3)">${_renderItemCodes(code, row[12])}</td>
       <td><span class="cat-tag ${catClass}">${cat}</span></td>
-      <td style="font-family:var(--font-m);font-size:12px">${currentUserHasAccess('prices') ? _renderStockroomCost(row[14], row[13], row[16]) : '<span style="color:var(--g3)">—</span>'}</td>
+      <td style="font-family:var(--font-m);font-size:12px">${currentUserHasAccess('prices') ? _renderStockroomCost((parseFloat(row[14]) || parseFloat(row[13]) || null), (row[11] || row[10] || ''), row[16]) : '<span style="color:var(--g3)">—</span>'}</td>
       <td style="font-family:var(--font-m);font-weight:500;color:${costColor};${currentUserHasAccess('prices')?'cursor:pointer':''}" id="ing-cost-${idx}" ${currentUserHasAccess('prices')?'onclick="editIngCostPerKg('+idx+')" title="Click to set per-kg override"':''}>${currentUserHasAccess('prices') ? _renderRecipeCost(displayCost, displayUOM) : '<span style="color:var(--g3)">—</span>'}</td>
       <td style="white-space:nowrap"><button class="btn btn-outline btn-sm" style="color:var(--blue);font-weight:700;border-color:var(--blue)" onclick="showIngUsedIn('${name.replace(/'/g,"\\'")}')">Used in</button>${_codeIsERP(code) ? ` <button class="btn btn-outline btn-sm" title="Oracle EBS price history" onclick="openPriceHistory('${code}','${name.replace(/'/g,"\\'")}')">📈 History</button>` : (supplier === 'POS (unmapped)' ? ` <button class="btn btn-sm" style="background:#FFE8A3;color:#8a4500;border:1px solid #d47000" title="Map this POS item to an Oracle EBS item so it gets priced" onclick="openMapModal('${code}','${name.replace(/'/g,"\\'")}')">🔗 Map to EBS</button>` : '')} <button class="btn btn-sm" title="${_ingStatus === 'Inactive' ? 'Marked inactive — click to re-activate' : 'Active — click to mark inactive'}${_override ? ' (manual override)' : ''}" onclick="toggleIngredientStatus('${code.replace(/'/g,"\\'")}')" style="${_ingStatus === 'Inactive' ? 'background:#F0F2F4;color:#7C8A97;border:1px solid #D5D9DE' : 'background:var(--sage-lt);color:var(--sage);border:1px solid var(--sage-mid)'};font-size:10px;padding:3px 8px">${_ingStatus === 'Inactive' ? '⚪ Inactive' : '🟢 Active'}</button> <button class="btn btn-outline btn-sm" onclick="editIngredient(this)">Edit</button>${supplier !== 'Oracle EBS' ? ' <button class="btn btn-sm" style="background:var(--red-lt);color:var(--red);border:1px solid var(--red);margin-left:4px" onclick="deleteIngredient(this)">✕</button>' : ''}</td>
     `;
@@ -8684,7 +8708,16 @@ function buildRecipesTable() {
       <td>${renderBrandChips(r)}</td>
       <td><span class="cat-tag ${r.catClass}">${r.type}</span></td>
       <td><span class="badge badge-navy">${r.version}</span></td>
-      <td style="font-family:var(--font-m);color:${r.costKg ? 'var(--sage);font-weight:500' : 'var(--g3)'}">${currentUserHasAccess('cost') ? (r.costKg || '—') : '<span style="color:var(--g3)">—</span>'}</td>
+      ${(function(){
+        if (!currentUserHasAccess('cost')) return '<td style="color:var(--g3);font-family:var(--font-m)">—</td>';
+        var _rd = _calcIngCostDiag(r);
+        var _stored = r.costKg || (_rd.total !== null ? 'SAR ' + _rd.total.toFixed(2) : '');
+        var _color = (_rd.missingCount > 0 && _rd.matched > 0) ? '#8A4500'
+                    : (_stored ? 'var(--sage)' : 'var(--g3)');
+        var _icon = (_rd.missingCount > 0 && _rd.matched > 0) ? ' <span style="color:#8A4500;font-size:10px" title="Cost incomplete — '+_rd.missingCount+' of '+_rd.totalCount+' ingredients missing a price">⚠</span>' : '';
+        var _disp = _stored || '—';
+        return '<td style="font-family:var(--font-m);color:'+_color+';font-weight:'+(_stored?'500':'400')+'">'+_disp+_icon+'</td>';
+      })()}
       <td style="color:var(--g3);font-size:12px">${r.updated}</td>
       <td>${statusBadge}</td>
       <td onclick="event.stopPropagation()">
@@ -9660,37 +9693,76 @@ function updateRecipeCost(npd) {
   }
 }
 
-// Get effective price per kg for an ingredient (recipe override > ING_DATA cost/kg > ING_DATA cost > EBS cache)
+// Get effective price per kg for an ingredient. Priority:
+//   recipe-level override (i.costPerKg, must be > 0 — CPP imports seed it as 0)
+//   > exact match by itemCode in ING_DATA
+//   > fuzzy match by name in ING_DATA
+//   > EBS price cache by name
+// In ING_DATA, prefer numeric cost columns in this order:
+//   col 14 (auto-sync stockroom numeric)
+//   > col 13 (DPM numeric — pushed by browser-mode for items the sync misses)
+//   > parsed col 5 display string (legacy fallback)
+// Before this fix the function read col 11 expecting a number, but col 11 is now a
+// UOM string ("PCK", "BAG", "KG"), so DPM-priced items silently fell through.
 function _getIngPrice(i) {
-  if (i.costPerKg != null) return i.costPerKg;
-  // Check local ING_DATA — first the cost/kg override (row[11]), then raw cost (row[5])
-  var n = i.name.toLowerCase().replace(/[^a-z0-9]/g,'');
-  var fd = ING_DATA.find(function(row){ var dn=row[1].toLowerCase().replace(/[^a-z0-9]/g,''); return dn.includes(n)||n.includes(dn); });
-  if (fd) {
-    // Cost/kg override on ingredient
-    if (fd[11] != null && fd[11] > 0) return fd[11];
-    // Raw cost
-    var p = parseFloat(String(fd[5]).replace(/[^0-9.]/g,'')); if (!isNaN(p) && p > 0) return p;
+  if (i.costPerKg != null && i.costPerKg > 0) return i.costPerKg;
+  var fd = null;
+  if (i.itemCode) {
+    fd = ING_DATA.find(function(row){ return row[3] === i.itemCode; });
   }
-  // Check EBS price cache
-  var ebsEntry = _ebsPriceCache[i.name.toLowerCase()];
+  if (!fd && i.name) {
+    var n = i.name.toLowerCase().replace(/[^a-z0-9]/g,'');
+    fd = ING_DATA.find(function(row){ var dn=(row[1]||'').toLowerCase().replace(/[^a-z0-9]/g,''); return dn && (dn.includes(n)||n.includes(dn)); });
+  }
+  if (fd) {
+    var n14 = parseFloat(fd[14]); if (!isNaN(n14) && n14 > 0) return n14;
+    var n13 = parseFloat(fd[13]); if (!isNaN(n13) && n13 > 0) return n13;
+    var p = parseFloat(String(fd[5]||'').replace(/[^0-9.]/g,'')); if (!isNaN(p) && p > 0) return p;
+  }
+  var ebsEntry = i.name ? _ebsPriceCache[i.name.toLowerCase()] : null;
   if (ebsEntry && ebsEntry.price > 0) return ebsEntry.price;
   return null;
 }
 
-// Calculate total ingredient cost for a recipe (uses overrides + DB fallback)
-// Returns theoretical cost per kg (before yield). Use _calcActualCostPerKg for yield-adjusted.
-function _calcIngCostTotal(r) {
-  if (!r || !r.ingredients || !r.ingredients.length) return null;
-  var totalPct = r.ingredients.reduce(function(s,i){return s+i.pct},0);
-  if (totalPct === 0) return null;
-  var total = 0; var matched = 0;
+// Detailed cost rollup. Returns { total, matched, totalCount, missingCount,
+// missingNames, totalPct, costedPct, uncostedPct, costedFraction }.
+// total is null when nothing priced (so caller can show 'Pending'); when partial
+// (matched>0, missingCount>0) caller should show 'Cost incomplete' warning.
+function _calcIngCostDiag(r) {
+  var out = { total: null, matched: 0, totalCount: 0, missingCount: 0, missingNames: [], totalPct: 0, costedPct: 0, uncostedPct: 0, costedFraction: 0 };
+  if (!r || !r.ingredients || !r.ingredients.length) return out;
+  out.totalCount = r.ingredients.length;
+  var totalPct = r.ingredients.reduce(function(s,i){return s+(parseFloat(i.pct)||0)},0);
+  if (totalPct <= 0) return out;
+  out.totalPct = totalPct;
+  var total = 0;
+  var costedPct = 0;
   r.ingredients.forEach(function(i) {
-    var frac = i.pct / totalPct;
+    var pct = parseFloat(i.pct) || 0;
+    if (pct <= 0) return;
     var price = _getIngPrice(i);
-    if (price !== null) { total += frac * price; matched++; }
+    var frac = pct / totalPct;
+    if (price !== null && price > 0) {
+      total += frac * price;
+      out.matched++;
+      costedPct += pct;
+    } else {
+      out.missingCount++;
+      if (i.name) out.missingNames.push(i.name);
+    }
   });
-  return matched > 0 ? total : null;
+  out.costedPct = costedPct;
+  out.uncostedPct = Math.max(0, totalPct - costedPct);
+  out.costedFraction = totalPct > 0 ? (costedPct / totalPct) : 0;
+  // Extrapolate: scale up the priced portion to represent the full recipe so the
+  // displayed cost-per-kg isn't artificially low when some ingredients are missing.
+  if (out.matched > 0) out.total = (out.costedFraction > 0) ? (total / out.costedFraction) : total;
+  return out;
+}
+
+// Backward-compat — returns just the rollup number (extrapolated to full recipe).
+function _calcIngCostTotal(r) {
+  return _calcIngCostDiag(r).total;
 }
 
 // Actual cost per kg after yield loss (theoretical / yield)
@@ -10409,7 +10481,8 @@ function viewRecipe(npd) {
 
     <!-- Food Cost -->
     ${(function(){
-      var _theo = _calcIngCostTotal(r);
+      var _diag = _calcIngCostDiag(r);
+      var _theo = _diag.total;
       var _actual = _calcActualCostPerKg(r);
       var _yld = (r.yield && r.yield > 0) ? r.yield : (r.indicativeYield && r.indicativeYield > 0 ? r.indicativeYield : null);
       var _yldPct = _yld ? (_yld * 100).toFixed(0) : null;
@@ -10419,10 +10492,23 @@ function viewRecipe(npd) {
       var _portionCost = (_actual !== null && _ps) ? _actual * _ps / 1000 : null;
       var _margin = (_portionCost !== null && _sp) ? _sp - _portionCost : null;
       var _fcPct = (_portionCost !== null && _sp && _sp > 0) ? (_portionCost / _sp) * 100 : null;
+      // Three-state badge: Costed (all priced), Cost incomplete (partial — extrapolated value),
+      // or Pending (nothing priced). Click the incomplete badge to filter Ingredients DB to the
+      // missing names so Purchasing can fix prices in one go.
+      var _badge;
+      if (_diag.matched === 0) {
+        _badge = '<span class="badge badge-draft">Pending — no ingredient priced</span>';
+      } else if (_diag.missingCount > 0) {
+        var _missList = _diag.missingNames.slice(0, 8).join(', ') + (_diag.missingNames.length > 8 ? ', …' : '');
+        var _coverPct = (_diag.costedFraction * 100).toFixed(0);
+        _badge = '<span class="badge" style="background:#FEF3E2;color:#8A4500;border:1px solid #F5D5A0;cursor:pointer" title="' + _diag.missingCount + ' ingredient' + (_diag.missingCount===1?'':'s') + ' without a price: ' + _missList.replace(/"/g,'&quot;') + '. Click to filter the Ingredients DB to these names." onclick="_filterIngsToMissing(' + JSON.stringify(_diag.missingNames).replace(/"/g,'&quot;') + ')">⚠ Cost incomplete — ' + _diag.missingCount + '/' + _diag.totalCount + ' missing (' + _coverPct + '% mass priced)</span>';
+      } else {
+        _badge = '<span class="badge badge-approved">Costed</span>';
+      }
       return '<div class="card" style="margin-bottom:20px;overflow:hidden">' +
         '<div class="card-head">' +
           '<span class="card-title">Food Cost</span>' +
-          '<span class="badge ' + (_actual !== null ? 'badge-approved' : 'badge-draft') + '">' + (_actual !== null ? 'Costed' : 'Pending') + '</span>' +
+          _badge +
         '</div>' +
         '<div class="card-body" style="padding:0">' +
           '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:0">' +
@@ -13621,7 +13707,46 @@ function filterRecipes() {
 }
 
 // ──────────── FILTER: INGREDIENTS ────────────
+// Jump to the Ingredients DB and filter to a specific list of names. Used by the
+// "Cost incomplete" warning on recipe / build cards so Purchasing can see exactly
+// which ingredients need a price added.
+function _filterIngsToMissing(names) {
+  if (!Array.isArray(names) || !names.length) return;
+  nav('ingredients');
+  setTimeout(function() {
+    var s = document.getElementById('ing-search');
+    if (!s) return;
+    // Multi-name OR-search: use a sentinel only-this-list behaviour by attaching a
+    // dataset filter on the tbody. The filterIngredients() routine already supports
+    // arbitrary search text, so we set a regex-style query that matches any of the
+    // names. Falls back to first name if browser filter doesn't support pipes.
+    var rows = document.getElementById('ing-db-tbody').querySelectorAll('tr');
+    var lcNames = names.map(function(n){ return String(n||'').toLowerCase().trim(); }).filter(Boolean);
+    if (!lcNames.length) return;
+    rows.forEach(function(row) {
+      var nameCell = row.querySelector('strong');
+      var rowName = nameCell ? nameCell.textContent.toLowerCase().trim() : '';
+      var match = lcNames.some(function(n){ return rowName === n || rowName.includes(n) || n.includes(rowName); });
+      row.style.display = match ? '' : 'none';
+    });
+    // Clear search box so the user can see the override is active, and show a banner.
+    s.value = '';
+    var banner = document.getElementById('ing-missing-banner');
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id = 'ing-missing-banner';
+      banner.style = 'margin:0 0 12px;padding:10px 14px;background:#FEF3E2;border:1px solid #F5D5A0;border-radius:8px;font-size:12px;color:#8A4500;display:flex;align-items:center;gap:10px;justify-content:space-between';
+      var page = document.getElementById('page-ingredients');
+      if (page) page.insertBefore(banner, page.firstChild);
+    }
+    banner.innerHTML = '⚠ Filtered to ' + names.length + ' ingredient' + (names.length===1?'':'s') + ' missing a price. <button class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 10px" onclick="document.getElementById(\'ing-missing-banner\').remove();filterIngredients()">Clear filter</button>';
+  }, 100);
+}
+
 function filterIngredients() {
+  // Drop the "missing-only" override banner when any other filter runs
+  var banner = document.getElementById('ing-missing-banner');
+  if (banner) banner.remove();
   const q = (document.getElementById('ing-search').value || '').toLowerCase();
   const cat = document.getElementById('ing-filter-cat').value;
   const supplierEl = document.getElementById('ing-filter-supplier');
@@ -18394,14 +18519,20 @@ function _ingCostPerKgByCode(code) {
   for (var i = 0; i < ING_DATA.length; i++) {
     var row = ING_DATA[i];
     if (!Array.isArray(row) || row[3] !== code) continue;
-    var override = parseFloat(row[11]);
-    if (!isNaN(override) && override > 0) return override;
+    // UOM lookup: prefer the new browser-mode column (col 11), fall back to legacy col 10.
+    // Numeric cost: col 14 (auto-sync stockroom) > col 13 (DPM numeric, browser-mode).
+    var uom = String(row[11] || row[10] || '').toLowerCase().trim();
+    var n14 = parseFloat(row[14]);
+    var n13 = parseFloat(row[13]);
+    var num = (!isNaN(n14) && n14 > 0) ? n14 : ((!isNaN(n13) && n13 > 0) ? n13 : null);
+    // Recognised /kg uoms (kg, kgs, weight class). Fluid items (L) treated 1:1 with kg
+    // for food liquids — same as priceForRecipe in server/index.js.
+    var KG_UOMS = ['kg','kgs','weight','ltr','lit','litre','liter','litres','liters','l'];
+    if (num !== null && KG_UOMS.indexOf(uom) !== -1) return num;
+    // EBS cache fallback by name (for items mapped via POS but not direct ERP)
     var name = (row[1] || '').toLowerCase();
     var ebs = (typeof _ebsPriceCache !== 'undefined') ? _ebsPriceCache[name] : null;
-    var displayUOM = (row[10] || '').toLowerCase();
-    if (ebs && ebs.price > 0 && (ebs.unit === 'kg' || displayUOM === 'kg')) return ebs.price;
-    var num = parseFloat(row[14]);
-    if (!isNaN(num) && num > 0 && displayUOM === 'kg') return num;
+    if (ebs && ebs.price > 0 && (ebs.unit === 'kg' || uom === 'kg')) return ebs.price;
     return null;
   }
   return null;
@@ -18428,6 +18559,30 @@ function _buildTotalCost(b) {
   if (!b || !b.components) return 0;
   var t = 0; for (var i = 0; i < b.components.length; i++) t += _componentDerivedCost(b.components[i]);
   return t;
+}
+
+// Returns { total, matched, missingCount, missingNames, missingComponents, totalCount }
+// for the build's components — same shape as _calcIngCostDiag for consistency.
+function _buildCostDiag(b) {
+  var out = { total: 0, matched: 0, missingCount: 0, missingNames: [], missingComponents: [], totalCount: 0 };
+  if (!b || !b.components) return out;
+  out.totalCount = b.components.length;
+  b.components.forEach(function(c) {
+    var v = _componentDerivedCost(c);
+    if (v > 0) {
+      out.matched++;
+      out.total += v;
+    } else {
+      out.missingCount++;
+      var label = c.item || (c.ref ? ('recipe ' + c.ref) : (c.erpCode ? ('ingredient ' + c.erpCode) : '(unlinked)'));
+      out.missingComponents.push(label);
+      // Collect ingredient codes / recipe NPDs separately so the click-through can filter
+      if (c.ref) out.missingNames.push(c.item || c.ref);
+      else if (c.erpCode) out.missingNames.push(c.item || c.erpCode);
+      else if (c.item) out.missingNames.push(c.item);
+    }
+  });
+  return out;
 }
 
 function buildBuildsTable() {
@@ -18538,7 +18693,8 @@ function viewBuild(id) {
   const b = BUILDS_DATA.find(x => x.id === id);
   if (!b) return;
   auditEvent('build.view', 'build', id, b.name + ' — ' + (b.brand || ''));
-  const totalCost = _buildTotalCost(b);
+  const _bDiag = _buildCostDiag(b);
+  const totalCost = _bDiag.total;
   const totalWeight = b.components.reduce((s,c) => s + (parseFloat(c.weight)||0), 0);
   const statusMap = {approved:'badge-approved',review:'badge-review',trial:'badge-trial','prod-trial':'badge-prod-trial',draft:'badge-draft'};
   const statusLabel = {approved:'Approved',review:'In Review',trial:'Factory Trial','prod-trial':'Production Trial',draft:'Draft'};
@@ -18610,6 +18766,7 @@ function viewBuild(id) {
         <div style="padding:14px 20px;border-right:1px solid var(--g2)"><div style="font-size:9px;font-weight:500;text-transform:uppercase;letter-spacing:0.12em;color:var(--g3);margin-bottom:4px">Bake Temp</div><div style="font-size:14px;font-weight:600;color:var(--navy)">${b.bakeTemp || '—'}</div></div>
         <div style="padding:14px 20px"><div style="font-size:9px;font-weight:500;text-transform:uppercase;letter-spacing:0.12em;color:var(--g3);margin-bottom:4px">Bake Time</div><div style="font-size:14px;font-weight:600;color:var(--navy)">${b.bakeTime || '—'}</div></div>
       </div>
+      ${_bDiag.missingCount > 0 ? `<div style="padding:10px 20px;background:#FEF3E2;border-top:1px solid #F5D5A0;color:#8A4500;font-size:12px;display:flex;align-items:center;gap:10px;cursor:pointer" title="Click to filter the Ingredients DB to these names" onclick="_filterIngsToMissing(${JSON.stringify(_bDiag.missingNames).replace(/"/g,'&quot;')})">⚠ <strong>Cost incomplete</strong> — ${_bDiag.missingCount}/${_bDiag.totalCount} component${_bDiag.missingCount===1?'':'s'} missing a price${_bDiag.missingComponents.length ? ': ' + _bDiag.missingComponents.slice(0,5).join(', ') + (_bDiag.missingComponents.length>5 ? ', …' : '') : ''}</div>` : ''}
     </div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px">
