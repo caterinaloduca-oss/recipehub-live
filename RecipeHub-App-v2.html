@@ -10541,6 +10541,22 @@ function viewRecipe(npd) {
         <div style="padding:12px 18px;border-right:1px solid var(--g2)"><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3);margin-bottom:3px">Ingredients</div><div style="font-size:13px;font-weight:500">${r.ingredients.length} items</div></div>
         <div style="padding:12px 18px"><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3);margin-bottom:3px">Method</div><div style="font-size:13px;font-weight:500">${r.method.length} steps</div></div>
       </div>
+      ${(function(){
+        // pct-sum sanity warning. Recipe ingredient percentages must sum to 100; off-100
+        // sums signal raw-grams entered into the pct field, an incomplete import, or a
+        // typo. R&D / Admin sees a one-click "Normalise to 100" button when sum > 100;
+        // under-100 sums (mass missing) need human review and don't get auto-fixed.
+        if (r.ingredients.length === 0) return '';
+        if (totalPct >= 99 && totalPct <= 101) return '';
+        var over = totalPct > 101;
+        var canFix = over && (_vrRole === 'admin' || _vrRole === 'npd');
+        return '<div style="background:#FEF3E2;border-top:1px solid #F5D5A0;padding:10px 18px;color:#8A4500;font-size:12px;display:flex;align-items:center;gap:10px;justify-content:space-between">' +
+          '<div>⚠ <strong>Ingredient % sum is ' + totalPct.toFixed(1) + '%</strong> — should be 100. ' +
+          (over ? 'Looks like raw grams in the % column.' : 'Missing mass — please review the ingredient list.') +
+          '</div>' +
+          (canFix ? '<button class="btn btn-sm" style="background:#8A4500;color:white;border:none" onclick="normaliseRecipePct(\'' + r.npd + '\')">Normalise to 100</button>' : '') +
+          '</div>';
+      })()}
     </div>
 
     ${isCompositeRecipe(r) ? renderCompositeComponentsCard(r) : ''}
@@ -14642,6 +14658,39 @@ function confirmImportRecipes() {
 }
 
 // ──────────── VERSIONING ────────────
+// Rescale a recipe's ingredient percentages so they sum to 100, in place.
+// Only runs when the current sum is > 101 (over-100); under-100 sums need
+// human review (real missing mass) and aren't auto-fixed. Wired to the
+// Normalise button on the recipe detail "Ingredient % sum is …" warning.
+function normaliseRecipePct(npd) {
+  if (!_requireRole(['npd'], 'R&D')) return;
+  var r = RECIPE_DB[npd];
+  if (!r || !r.ingredients || !r.ingredients.length) return;
+  var total = r.ingredients.reduce(function(s,i){ return s + (parseFloat(i.pct)||0); }, 0);
+  if (total >= 99 && total <= 101) { showSaveToast('Already within tolerance — sum is ' + total.toFixed(2)); return; }
+  if (total <= 0) { showSaveToast('Cannot normalise — pct sum is 0', true); return; }
+  if (total < 99) {
+    showSaveToast('Sum is under 100 (' + total.toFixed(1) + '%) — looks like missing ingredients. Please review manually.', true);
+    return;
+  }
+  if (!confirm('Rescale ' + r.ingredients.length + ' ingredients so percentages sum to 100?\n\nCurrent sum: ' + total.toFixed(2) + '%\nFactor: × ' + (100/total).toFixed(6))) return;
+  r.ingredients.forEach(function(i) {
+    var v = parseFloat(i.pct) || 0;
+    i.pct = Math.round((v / total) * 100 * 10000) / 10000;  // 4 decimal places
+  });
+  r.updated = 'Just now';
+  r.updatedAt = new Date().toISOString();
+  if (!r.changeLog) r.changeLog = [];
+  r.changeLog.push({
+    date: r.updatedAt,
+    by: getCurrentUserName(),
+    changes: 'Normalised ingredient pct values from sum=' + total.toFixed(2) + ' to 100 (proportional rescale)'
+  });
+  saveRecipeToServer(npd);
+  viewRecipe(npd);
+  showSaveToast('Normalised to 100% — ' + r.ingredients.length + ' ingredients rescaled');
+}
+
 function bumpVersion(ver, type) {
   var parts = ver.replace('v','').split('.');
   var major = parseInt(parts[0]) || 1;
