@@ -1082,7 +1082,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
     <div class="card-body" style="padding:0">
       <table class="data-table">
         <thead><tr>
-          <th>#</th><th>Ingredient Name</th><th>Source</th><th>Item Code</th><th>Category</th><th title="Raw EBS price per stockroom unit (e.g. BAG, CTN)">EBS Price</th><th title="Cost per the recipe's unit — either per kg (mass / fluid items) or per piece / pack (BAG, PCK, BOT, PCE, CTN, Rol, etc.)">KG / Piece</th><th></th>
+          <th>#</th><th>Ingredient Name</th><th>Source</th><th>Item Code</th><th>Category</th><th title="Raw EBS price per stockroom unit (e.g. BAG, CTN)">EBS Price</th><th title="Cost per the recipe's unit — either per kg (mass / fluid items) or per piece / pack (BAG, PCK, BOT, PCE, CTN, Rol, etc.)">KG / Piece</th><th title="Oracle period the price was last costed in. Anything older than 90 days is amber-flagged.">Last Costed</th><th></th>
         </tr></thead>
         <tbody id="ing-db-tbody">
           <!-- populated by JS -->
@@ -5568,6 +5568,41 @@ var ORG_LABELS = { '110':'Riyadh','141':'Jeddah','121':'Khobar','151':'Abha','13
 function _orgLabel(code) { return ORG_LABELS[String(code||'').trim()] || code || ''; }
 
 // Stockroom price cell: "SAR 121.22 / XO6" + the warehouse org that price came from
+// Period parsing — Oracle period codes are "MMM-YY" (e.g. "APR-26", "SEP-25").
+// Convert to a Date at the start of that month so we can compute days-since for staleness.
+var _PERIOD_MONTHS = { JAN:0, FEB:1, MAR:2, APR:3, MAY:4, JUN:5, JUL:6, AUG:7, SEP:8, OCT:9, NOV:10, DEC:11 };
+function _parsePeriodToDate(period) {
+  if (!period) return null;
+  var m = String(period).toUpperCase().match(/^([A-Z]{3})-(\d{2})$/);
+  if (!m) return null;
+  var mon = _PERIOD_MONTHS[m[1]];
+  if (mon == null) return null;
+  // Two-digit year — assume 20xx (good through 2099)
+  var yr = 2000 + parseInt(m[2], 10);
+  return new Date(Date.UTC(yr, mon, 1));
+}
+
+function _periodDaysOld(period) {
+  var d = _parsePeriodToDate(period);
+  if (!d) return null;
+  // Days from start of that period to today; older period → bigger number
+  return Math.round((Date.now() - d.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+// Render a "Last Costed: APR-26" cell. Stale (>90 days) gets amber tint.
+// Empty period renders as "—" in a muted style.
+function _renderLastCosted(period) {
+  if (!period) return '<span style="color:var(--g3);font-size:11px">—</span>';
+  var days = _periodDaysOld(period);
+  var stale = days != null && days > 90;
+  var color = stale ? '#8A4500' : 'var(--g4)';
+  var bg    = stale ? '#FEF3E2' : 'transparent';
+  var border = stale ? 'border:1px solid #F5D5A0;' : '';
+  var icon = stale ? '⚠ ' : '';
+  var title = days != null ? (days + ' days old' + (stale ? ' — over 90 days, ask Purchasing to refresh in Oracle' : '')) : '';
+  return '<span style="display:inline-block;padding:2px 8px;border-radius:40px;background:' + bg + ';color:' + color + ';font-size:10px;font-weight:600;font-family:var(--font-m);' + border + '" title="' + title.replace(/"/g,'&quot;') + '">' + icon + period + '</span>';
+}
+
 function _renderStockroomCost(cost, uom, orgCode) {
   if (cost == null || isNaN(cost)) return '<span style="color:var(--g3)">—</span>';
   var org = _orgLabel(orgCode);
@@ -5789,7 +5824,6 @@ function loadFromPOSRecipes(skipConfirm) {
                       : -1;
       if (existingIdx >= 0) {
         var row = ING_DATA[existingIdx];
-        var keepCostPerKg = row[11] && row[11] !== freshCostPerKg && row[2] !== 'Oracle EBS' ? row[11] : freshCostPerKg;
         row[1] = it.name || row[1];
         row[2] = supplier;
         row[3] = code;
@@ -5798,16 +5832,19 @@ function loadFromPOSRecipes(skipConfirm) {
         row[6] = row[6] || 'Ambient';
         row[8] = 'POS Sync';
         row[10] = uom;               // recipe unit
-        row[11] = keepCostPerKg;
-        row[12] = it.invItemId;
-        row[13] = stockroomUom;      // stockroom unit
-        row[14] = stockroomCostNum;  // raw EBS cost per stockroom unit
+        // Cols 11/12/13 are owned by browser-mode (DPM cost UOM/display/numeric).
+        // Auto-sync deliberately doesn't touch them so manual DPM patches survive
+        // a Refresh from Oracle. See feedback_browser_mode_collab + feedback_ing_data_dpm_columns.
+        row[14] = stockroomCostNum;  // raw EBS cost per stockroom unit (legacy numeric)
         row[15] = equivalence;       // recipe units per stockroom unit
         row[16] = sourceOrg;         // Oracle organization the price came from
+        row[17] = (lc && lc.periodCode) || row[17] || '';  // Last Costed period (e.g. "APR-26", "SEP-25")
         updated++;
       } else {
         var num = ING_DATA.length + 1;
-        ING_DATA.push([num, it.name, supplier, code, cat, cost, 'Ambient', '—', 'POS Sync', '', uom, freshCostPerKg, it.invItemId, stockroomUom, stockroomCostNum, equivalence, sourceOrg]);
+        // Cols 11/12/13 left blank for browser-mode DPM data; col 17 = period_code.
+        var periodCode = (lc && lc.periodCode) || '';
+        ING_DATA.push([num, it.name, supplier, code, cat, cost, 'Ambient', '—', 'POS Sync', '', uom, '', '', '', stockroomCostNum, equivalence, sourceOrg, periodCode]);
         added++;
       }
       if (freshCostPerKg) priced++;
@@ -8193,6 +8230,7 @@ function buildIngTable() {
       <td><span class="cat-tag ${catClass}">${cat}</span></td>
       <td style="font-family:var(--font-m);font-size:12px">${currentUserHasAccess('prices') ? _renderStockroomCost((parseFloat(row[14]) || parseFloat(row[13]) || null), (row[11] || row[10] || ''), row[16]) : '<span style="color:var(--g3)">—</span>'}</td>
       <td style="font-family:var(--font-m);font-weight:500;color:${costColor};${currentUserHasAccess('prices')?'cursor:pointer':''}" id="ing-cost-${idx}" ${currentUserHasAccess('prices')?'onclick="editIngCostPerKg('+idx+')" title="Click to set per-kg override"':''}>${currentUserHasAccess('prices') ? _renderRecipeCost(displayCost, displayUOM) : '<span style="color:var(--g3)">—</span>'}</td>
+      <td style="text-align:center">${_renderLastCosted(row[17])}</td>
       <td style="white-space:nowrap"><button class="btn btn-outline btn-sm" style="color:var(--blue);font-weight:700;border-color:var(--blue)" onclick="showIngUsedIn('${name.replace(/'/g,"\\'")}')">Used in</button>${_codeIsERP(code) ? ` <button class="btn btn-outline btn-sm" title="Oracle EBS price history" onclick="openPriceHistory('${code}','${name.replace(/'/g,"\\'")}')">📈 History</button>` : (supplier === 'POS (unmapped)' ? ` <button class="btn btn-sm" style="background:#FFE8A3;color:#8a4500;border:1px solid #d47000" title="Map this POS item to an Oracle EBS item so it gets priced" onclick="openMapModal('${code}','${name.replace(/'/g,"\\'")}')">🔗 Map to EBS</button>` : '')} <button class="btn btn-sm" title="${_ingStatus === 'Inactive' ? 'Marked inactive — click to re-activate' : 'Active — click to mark inactive'}${_override ? ' (manual override)' : ''}" onclick="toggleIngredientStatus('${code.replace(/'/g,"\\'")}')" style="${_ingStatus === 'Inactive' ? 'background:#F0F2F4;color:#7C8A97;border:1px solid #D5D9DE' : 'background:var(--sage-lt);color:var(--sage);border:1px solid var(--sage-mid)'};font-size:10px;padding:3px 8px">${_ingStatus === 'Inactive' ? '⚪ Inactive' : '🟢 Active'}</button> <button class="btn btn-outline btn-sm" onclick="editIngredient(this)">Edit</button>${supplier !== 'Oracle EBS' ? ' <button class="btn btn-sm" style="background:var(--red-lt);color:var(--red);border:1px solid var(--red);margin-left:4px" onclick="deleteIngredient(this)">✕</button>' : ''}</td>
     `;
     tbody.appendChild(tr);
@@ -9765,6 +9803,32 @@ function _calcIngCostTotal(r) {
   return _calcIngCostDiag(r).total;
 }
 
+// Return the oldest period among a recipe's matched ingredients — that's the
+// "as-old-as" the recipe's cost can be trusted. Returns null if no periods are
+// recorded (browser-mode-pushed items don't carry a period yet).
+function _recipeOldestPeriod(r) {
+  if (!r || !r.ingredients || !r.ingredients.length) return null;
+  var oldest = null;
+  var oldestMs = Infinity;
+  r.ingredients.forEach(function(i) {
+    var fd = null;
+    if (i.itemCode) fd = ING_DATA.find(function(row){ return row[3] === i.itemCode; });
+    if (!fd && i.name) {
+      var n = i.name.toLowerCase().replace(/[^a-z0-9]/g,'');
+      fd = ING_DATA.find(function(row){ var dn=(row[1]||'').toLowerCase().replace(/[^a-z0-9]/g,''); return dn && (dn.includes(n)||n.includes(dn)); });
+    }
+    if (!fd) return;
+    var period = fd[17];
+    if (!period) return;
+    var d = _parsePeriodToDate(period);
+    if (d && d.getTime() < oldestMs) {
+      oldestMs = d.getTime();
+      oldest = period;
+    }
+  });
+  return oldest;
+}
+
 // Actual cost per kg after yield loss (theoretical / yield)
 function _calcActualCostPerKg(r) {
   var theoretical = _calcIngCostTotal(r);
@@ -10512,11 +10576,17 @@ function viewRecipe(npd) {
         '</div>' +
         '<div class="card-body" style="padding:0">' +
           '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:0">' +
-            '<div style="padding:16px 20px;border-right:1px solid var(--g2);text-align:center">' +
-              '<div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3);margin-bottom:6px">Cost / kg</div>' +
-              '<div style="font-family:var(--font-m);font-size:22px;font-weight:700;color:var(--navy)">' + (_actual !== null ? 'SAR ' + _actual.toFixed(2) : '—') + '</div>' +
-              (_yld && _theo !== null ? '<div style="font-size:10px;color:var(--g3);margin-top:2px">after ' + _yldPct + '% yield <span style="color:var(--amber)">(' + _lossPct + '% loss)</span></div><div style="font-size:9px;color:var(--g3)">theoretical: SAR ' + _theo.toFixed(2) + '</div>' : '<div style="font-size:10px;color:var(--g3);margin-top:2px">no yield set</div>') +
-            '</div>' +
+            (function(){
+              var _oldestPeriod = _recipeOldestPeriod(r);
+              var _periodLine = _oldestPeriod ? '<div style="font-size:9px;color:var(--g3);margin-top:2px">' + _renderLastCosted(_oldestPeriod) + ' (oldest of recipe)</div>' : '';
+              var _tip = _oldestPeriod ? ('Cost rolls up from ingredient prices. Oldest ingredient costed in ' + _oldestPeriod + '.') : 'Cost rolls up from current ingredient prices.';
+              return '<div style="padding:16px 20px;border-right:1px solid var(--g2);text-align:center" title="' + _tip.replace(/"/g,'&quot;') + '">' +
+                '<div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3);margin-bottom:6px">Cost / kg</div>' +
+                '<div style="font-family:var(--font-m);font-size:22px;font-weight:700;color:var(--navy);cursor:help">' + (_actual !== null ? 'SAR ' + _actual.toFixed(2) : '—') + '</div>' +
+                (_yld && _theo !== null ? '<div style="font-size:10px;color:var(--g3);margin-top:2px">after ' + _yldPct + '% yield <span style="color:var(--amber)">(' + _lossPct + '% loss)</span></div><div style="font-size:9px;color:var(--g3)">theoretical: SAR ' + _theo.toFixed(2) + '</div>' : '<div style="font-size:10px;color:var(--g3);margin-top:2px">no yield set</div>') +
+                _periodLine +
+              '</div>';
+            })() +
             '<div style="padding:16px 20px;border-right:1px solid var(--g2);text-align:center">' +
               '<div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3);margin-bottom:6px">Portion Cost</div>' +
               '<div style="display:flex;align-items:center;justify-content:center;gap:4px;margin-bottom:4px">' +

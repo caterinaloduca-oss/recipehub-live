@@ -92,8 +92,12 @@ function init() {
 }
 
 // Preference order for multi-org pricing. Riyadh (110) wins; DPM is the CPP master and
-// has the broadest coverage; other warehouses as tie-breakers.
-const ORG_PRIORITY = ['110', '141', '121', '151', '131', '211', '212', 'DPM', 'UPM'];
+// DPM (cost rollup org) first — it carries the canonical recipe-relevant cost roll
+// and includes items the warehouse orgs don't transact every period (mostly fresh
+// produce). Falls back to Riyadh (110, broadest warehouse coverage), then the
+// remaining warehouses as tie-breakers. UPM last (lowest signal). Reordered
+// 2026-05-07 per Phase 2 of the cost-fresh initiative.
+const ORG_PRIORITY = ['DPM', '110', '141', '121', '151', '131', '211', '212', 'UPM'];
 
 function _orgRank(code) {
   const i = ORG_PRIORITY.indexOf(String(code || ''));
