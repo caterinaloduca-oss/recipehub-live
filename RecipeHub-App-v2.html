@@ -6628,6 +6628,50 @@ function clearRecipeFlag(npd) {
   showSaveToast('Flag cleared');
 }
 
+// Factory-SOP flag — same pattern as recipe flag but stored on r.sopFlag and
+// visible from the Factory SOP list + the SOP detail page. Anyone in the SOP
+// workflow can flag (R&D / Factory / QA / Admin) since each touches the SOP
+// at different gates and might raise a query for the others.
+async function openSOPFlagModal(npd) {
+  var role = (typeof getCurrentUserRole === 'function') ? getCurrentUserRole() : 'viewer';
+  if (['admin','npd','factory','qa'].indexOf(role) === -1) {
+    showSaveToast('Only R&D / Factory / QA can flag SOPs', true); return;
+  }
+  var r = RECIPE_DB[npd];
+  if (!r) return;
+  var current = (r.sopFlag && r.sopFlag.question) || '';
+  var q = await customPromptAsync('Flag this Factory SOP with a quick note (visible to everyone, no email sent):', current);
+  if (q === null) return;
+  var trimmed = String(q || '').trim();
+  if (!trimmed) return;
+  r.sopFlag = {
+    question: trimmed,
+    askedBy: getCurrentUserName(),
+    askedAt: new Date().toISOString(),
+  };
+  r.updatedAt = new Date().toISOString();
+  saveRecipeToServer(npd);
+  // Re-open the SOP detail so the yellow strip + button state refresh.
+  if (typeof exportToSOP === 'function') exportToSOP(npd);
+  if (typeof buildFactorySOPTable === 'function') buildFactorySOPTable();
+  showSaveToast('SOP flagged');
+}
+
+function clearSOPFlag(npd) {
+  var role = (typeof getCurrentUserRole === 'function') ? getCurrentUserRole() : 'viewer';
+  if (['admin','npd','factory','qa'].indexOf(role) === -1) {
+    showSaveToast('Only R&D / Factory / QA can clear SOP flags', true); return;
+  }
+  var r = RECIPE_DB[npd];
+  if (!r) return;
+  r.sopFlag = null;
+  r.updatedAt = new Date().toISOString();
+  saveRecipeToServer(npd);
+  if (typeof exportToSOP === 'function') exportToSOP(npd);
+  if (typeof buildFactorySOPTable === 'function') buildFactorySOPTable();
+  showSaveToast('SOP flag cleared');
+}
+
 function saveBuildToServer(id) {
   var b = BUILDS_DATA.find(function(x) { return x.id === id; });
   if (!b) return;
@@ -11755,8 +11799,11 @@ function buildFactorySOPTable() {
     const _archCell = _archLatest
       ? `<a href="${_archLatest.url}" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="${_arch.length} Legacy SOP${_arch.length===1?'':'s'} — opens latest (${_archLatest.dfcCode||''})" style="display:inline-flex;align-items:center;gap:4px;text-decoration:none;color:var(--navy);font-size:12px;font-weight:600">📄${_arch.length>1?' '+_arch.length:''}</a>`
       : '<span style="color:var(--g2);font-size:14px" title="No Legacy SOP">—</span>';
+    var _sopFlagPin = (r.sopFlag && r.sopFlag.question)
+      ? ' <span style="font-size:13px;margin-left:4px;cursor:help" title="SOP Flagged: ' + (r.sopFlag.question||'').replace(/"/g,'&quot;').replace(/</g,'&lt;') + '">🚩</span>'
+      : '';
     tr.innerHTML = `
-      <td><strong>${r.name}</strong>${r.factorySopArchived ? ' <span style="display:inline-block;padding:1px 6px;border-radius:40px;font-size:9px;font-weight:600;background:#F0F2F4;color:#7C8A97;margin-left:4px">SOP ARCHIVED</span>' : ''}</td>
+      <td><strong>${r.name}</strong>${_sopFlagPin}${r.factorySopArchived ? ' <span style="display:inline-block;padding:1px 6px;border-radius:40px;font-size:9px;font-weight:600;background:#F0F2F4;color:#7C8A97;margin-left:4px">SOP ARCHIVED</span>' : ''}</td>
       <td style="font-family:var(--font-m);font-size:12px;color:var(--g3)">SOP-${r.npd}</td>
       <td>${r.brand}</td>
       <td style="font-size:12px;color:var(--g4)">${r.version}</td>
@@ -13324,6 +13371,14 @@ function exportToSOP(npd) {
           <span class="badge ${r.sopStatus==='approved'?'badge-approved':(r.sopStatus==='pending-review'||r.sopStatus==='pending-approval'||r.sopStatus==='pending')?'badge-review':'badge-draft'}" style="font-size:11px" id="sop-status-badge">${r.sopStatus==='approved'?'Approved for Production':r.sopStatus==='pending-approval'?'Pending Final Approval':(r.sopStatus==='pending-review'||r.sopStatus==='pending')?'Pending Review':'Draft'}</span>
           <div style="display:flex;gap:6px">
             <button class="btn btn-sm" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15)" onclick="saveAllData();showSaveToast('SOP saved')">💾 Save</button>
+            ${(function(){
+              var role = (typeof getCurrentUserRole === 'function') ? getCurrentUserRole() : 'viewer';
+              var canFlag = ['admin','npd','factory','qa'].indexOf(role) !== -1;
+              if (!canFlag) return '';
+              return (r.sopFlag && r.sopFlag.question)
+                ? '<button class="btn btn-sm" style="background:#D4700A;color:white;border:none" onclick="clearSOPFlag(\'' + r.npd + '\')" title="Note: &quot;' + (r.sopFlag.question||'').replace(/"/g,'&quot;') + '&quot; — click to clear">🚩 Clear flag</button>'
+                : '<button class="btn btn-sm" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15)" onclick="openSOPFlagModal(\'' + r.npd + '\')" title="Flag this SOP with a quick note">🚩 Flag</button>';
+            })()}
             <button class="btn btn-sm" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15)" onclick="openSOPFlowchart('${r.npd}')">🔀 Flowchart</button>${(Array.isArray(r.flowchart_archive) && r.flowchart_archive.length) ? `
             <button class="btn btn-sm" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15)" onclick="openCapturedFlowchart('${r.npd}')" title="View the original captured flowchart pages from the source SOP">📑 As captured (${r.flowchart_archive.length})</button>` : ''}${(Array.isArray(r.factorySopArchive) && r.factorySopArchive.length) ? `
             <a href="${r.factorySopArchive[r.factorySopArchive.length-1].url}" target="_blank" rel="noopener" class="btn btn-sm" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15);text-decoration:none" title="Open the Legacy SOP — pre-RecipeHub Manufacturing Process PDF (${r.factorySopArchive[r.factorySopArchive.length-1].dfcCode||''})">📄 Legacy SOP${r.factorySopArchive.length>1?' ('+r.factorySopArchive.length+')':''}</a>` : ''}
@@ -13345,6 +13400,19 @@ function exportToSOP(npd) {
           </div>
         </div>
       </div>
+      ${(r.sopFlag && r.sopFlag.question) ? `<div style="background:#FFF6E5;border-top:1px solid #F0D8A8;padding:12px 24px;display:flex;justify-content:space-between;align-items:flex-start;gap:16px">
+        <div style="flex:1">
+          <div style="font-size:10px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:#A35400;margin-bottom:4px">🚩 SOP Flagged</div>
+          <div style="font-size:13px;color:var(--navy);line-height:1.5;white-space:pre-wrap">${(r.sopFlag.question||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+          <div style="font-size:11px;color:var(--g4);margin-top:4px">Flagged by ${r.sopFlag.askedBy || 'R&D'}${r.sopFlag.askedAt ? ' on ' + r.sopFlag.askedAt.slice(0,10) : ''}</div>
+        </div>
+        ${(function(){
+          var role = (typeof getCurrentUserRole === 'function') ? getCurrentUserRole() : 'viewer';
+          return (['admin','npd','factory','qa'].indexOf(role) !== -1)
+            ? '<button class="btn btn-sm" style="background:#D4700A;color:white;border:none;flex-shrink:0" onclick="clearSOPFlag(\'' + r.npd + '\')">Clear flag</button>'
+            : '';
+        })()}
+      </div>` : ''}
       <div style="border-top:1px solid var(--g2);padding:12px 18px;display:flex;align-items:center;gap:10px">
         <span style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--g3)">Brands</span>
         <span style="font-size:13px;font-weight:500">${renderBrandChips(r, 'font-size:11px;padding:3px 10px')}</span>
