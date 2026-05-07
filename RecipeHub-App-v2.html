@@ -10613,6 +10613,7 @@ function viewRecipe(npd) {
           <div style="display:flex;align-items:center;gap:8px">
             <span style="font-size:11px;color:var(--g3)">Per 1 kg</span>
             ${(r.type === 'Dough' || r.ingredients.some(function(i){ return /flour|dough/i.test(i.name); })) ? '<button class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 10px" onclick="toggleBakerPct(\''+r.npd+'\')" id="baker-btn-'+r.npd+'">Baker\'s %</button>' : ''}
+            ${r.ingredients.length ? `<button class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 10px" onclick="copyRecipeIngredientsToClipboard('${r.npd}')" title="Copy ingredient list as code | pct | name lines for paste anywhere">📋 Copy</button>` : ''}
             <button class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 10px" onclick="exportRecipeCSV('${r.npd}')" title="Download this recipe's ingredients as CSV (Excel-ready)">📊 Export CSV</button>
             ${_vrIsRD ? `<button class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 10px" onclick="editRecipe('${r.npd}')">Edit</button>` : ''}
           </div>
@@ -15141,6 +15142,7 @@ function editRecipe(npd) {
       <div style="display:flex;gap:8px">
         <button class="btn btn-ghost-sm" onclick="addEditIngRow()">+ Add Ingredient</button>
         <button class="btn btn-ghost-sm" onclick="openImportIngredients()">⬆ Import Ingredients</button>
+        <button class="btn btn-ghost-sm" onclick="openImportIngredientsFromRecipe('${r.npd}')" title="Copy the ingredient list from another recipe and overwrite this one's">📋 From another recipe…</button>
       </div>
 
       <div class="sec-divider" style="margin-top:20px"><span class="sec-divider-label">Method Steps</span><span class="sec-divider-line"></span></div>
@@ -15464,6 +15466,118 @@ function doImportIngredients() {
   closeImportIngOverlay();
   var total = parsed.reduce(function(s,x){ return s + x.pct; }, 0);
   showSaveToast(parsed.length + ' ingredients imported (' + total.toFixed(2) + '%)');
+}
+
+// ── INGREDIENTS: import from another recipe ────────────────────────────────
+// Same UX as method import — typeahead picker → on select, replace the open
+// edit form's ingredient rows with the source recipe's. Includes a confirm
+// because ingredients drive cost rollup, allergens, FC%, etc. — heavier than
+// method.
+function openImportIngredientsFromRecipe(currentNpd) {
+  closeImportStepsOverlay();
+  var ov = document.createElement('div');
+  ov.id = 'import-steps-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(10,18,32,0.55);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.innerHTML =
+    '<div style="background:white;border-radius:16px;width:min(640px,100%);max-height:90vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.35)">' +
+      '<div class="card-head" style="background:var(--navy);border-radius:16px 16px 0 0">' +
+        '<span class="card-title" style="color:white">Import Ingredients From Another Recipe</span>' +
+        '<button class="btn btn-sm" style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:none" onclick="closeImportStepsOverlay()">✕</button>' +
+      '</div>' +
+      '<div style="padding:16px 20px;border-bottom:1px solid var(--g1);background:#FFF6E5;font-size:12px;color:#8A4500">⚠ This <strong>overwrites</strong> the current ingredient list. Cost rollup, allergens, and FC% will recompute. Save Changes after picking to commit.</div>' +
+      '<input type="text" id="iimr-search" placeholder="Type to search by name, code, or brand…" oninput="_iimrRender(\'' + currentNpd + '\')" autocomplete="off" style="width:100%;box-sizing:border-box;border:none;border-bottom:1px solid var(--g1);padding:14px 18px;font-size:14px;outline:none;font-family:inherit" />' +
+      '<div id="iimr-results" style="flex:1;overflow-y:auto;max-height:50vh"></div>' +
+    '</div>';
+  document.body.appendChild(ov);
+  setTimeout(function(){ var s = document.getElementById('iimr-search'); if (s) s.focus(); _iimrRender(currentNpd); }, 30);
+}
+
+function _iimrRender(currentNpd) {
+  var list = document.getElementById('iimr-results');
+  if (!list) return;
+  var q = (document.getElementById('iimr-search')?.value || '').toLowerCase().trim();
+  var all = Object.values(RECIPE_DB).filter(function(x) {
+    if (!x || !x.npd || x.npd === currentNpd || x.archived) return false;
+    return Array.isArray(x.ingredients) && x.ingredients.length > 0;
+  });
+  if (q) {
+    all = all.filter(function(x) {
+      var n = (x.name || '').toLowerCase();
+      var c = (x.npd || '').toLowerCase();
+      var rid = (x.recipeId || '').toLowerCase();
+      var br = (x.brand || '').toLowerCase();
+      return n.indexOf(q) > -1 || c.indexOf(q) > -1 || rid.indexOf(q) > -1 || br.indexOf(q) > -1;
+    });
+  }
+  all.sort(function(a, b) { return (a.name || '').localeCompare(b.name || ''); });
+  if (!all.length) {
+    list.innerHTML = '<div style="padding:32px;text-align:center;color:var(--g4);font-size:12px">No recipes with ingredients match.</div>';
+    return;
+  }
+  list.innerHTML = all.slice(0, 200).map(function(x) {
+    var safeNpd = (x.npd || '').replace(/'/g, "\\'");
+    var sumPct = (x.ingredients || []).reduce(function(s,i){return s+(parseFloat(i.pct)||0)},0);
+    var pctTag = (sumPct < 99 || sumPct > 101) ? ' <span style="color:#8A4500" title="Ingredient sum is ' + sumPct.toFixed(1) + '% (not 100)">⚠</span>' : '';
+    return '<div onclick="_iimrApply(\'' + safeNpd + '\')" style="padding:12px 18px;border-bottom:1px solid var(--g1);cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:12px" onmouseover="this.style.background=\'#F7F5F0\'" onmouseout="this.style.background=\'\'">' +
+      '<div style="flex:1;min-width:0">' +
+        '<div style="font-size:13px;font-weight:600;color:var(--navy);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (x.name || '(no name)') + pctTag + '</div>' +
+        '<div style="font-size:10px;color:var(--g3);font-family:var(--font-m);margin-top:2px">' + x.npd + (x.brand ? ' · ' + x.brand : '') + ' · ' + x.ingredients.length + ' ingredients · sum ' + sumPct.toFixed(1) + '%</div>' +
+      '</div>' +
+      '<span style="font-size:11px;color:var(--g4)">→ Import</span>' +
+    '</div>';
+  }).join('') + (all.length > 200 ? '<div style="padding:8px;text-align:center;font-size:10px;color:var(--g4)">Showing first 200 of ' + all.length + '. Refine search.</div>' : '');
+}
+
+function _iimrApply(sourceNpd) {
+  var src = RECIPE_DB[sourceNpd];
+  if (!src || !Array.isArray(src.ingredients) || !src.ingredients.length) { showSaveToast('Source recipe has no ingredients', true); return; }
+  if (!confirm('Replace the current ingredient list with the ' + src.ingredients.length + ' ingredients from "' + (src.name || sourceNpd) + '"?\n\nThis will recompute cost, allergens, and FC% on Save.')) return;
+  var container = document.getElementById('er-ingredients');
+  if (!container) { closeImportStepsOverlay(); showSaveToast('Edit form not open', true); return; }
+  // Compute total pct so the gram column displays consistently with the source
+  var srcTotal = src.ingredients.reduce(function(s,i){return s+(parseFloat(i.pct)||0)},0) || 100;
+  container.innerHTML = '';
+  src.ingredients.forEach(function(ing) {
+    addEditIngRow();
+    var rows = container.querySelectorAll('.er-ing-row');
+    var last = rows[rows.length - 1];
+    if (!last) return;
+    var nameInp = last.querySelector('input[data-field="name"]');
+    var pctInp  = last.querySelector('.er-ing-pct');
+    var gInp    = last.querySelector('.er-ing-g');
+    if (nameInp) nameInp.value = ing.name || '';
+    if (pctInp)  pctInp.value  = (ing.pct != null) ? ing.pct : '';
+    if (gInp && ing.pct != null) gInp.value = (parseFloat(ing.pct) / srcTotal * 1000).toFixed(1);
+    // Re-attach EBS autocomplete on the new name input
+    if (nameInp && typeof ebsAutocomplete === 'function') ebsAutocomplete(nameInp);
+  });
+  closeImportStepsOverlay();
+  if (typeof _recipeEditDirty !== 'undefined') _recipeEditDirty = true;
+  showSaveToast('Imported ' + src.ingredients.length + ' ingredients from ' + (src.name || sourceNpd) + ' — Save to commit');
+}
+
+// ── INGREDIENTS: copy to clipboard (cross-tool sharing) ─────────────────────
+// One line per ingredient: "code | pct% | name". Compatible with Excel paste
+// (just uses pipes as a clear visual delimiter; tab-separated would be cleaner
+// for spreadsheet but pipes round-trip through Slack/email better).
+function copyRecipeIngredientsToClipboard(npd) {
+  var r = RECIPE_DB[npd];
+  if (!r || !Array.isArray(r.ingredients) || !r.ingredients.length) { showSaveToast('No ingredients to copy', true); return; }
+  var lines = ['code | pct% | name'];  // header
+  r.ingredients.forEach(function(i) {
+    var code = (i.itemCode || '').toString();
+    var pct = (i.pct != null) ? Number(i.pct).toFixed(3) : '';
+    var name = (i.name || '').toString();
+    lines.push(code + ' | ' + pct + ' | ' + name);
+  });
+  var text = lines.join('\n');
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(function() {
+      showSaveToast('Ingredients copied — ' + r.ingredients.length + ' rows.');
+    }).catch(function() { _fallbackClipboardCopy(text, r.ingredients.length); });
+  } else {
+    _fallbackClipboardCopy(text, r.ingredients.length);
+  }
 }
 
 // ── METHOD: import from another recipe ──────────────────────────────────────
