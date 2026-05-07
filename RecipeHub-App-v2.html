@@ -13943,10 +13943,38 @@ function openModal(html, width) {
   document.getElementById('modal-overlay').style.display = 'flex';
   document.body.style.overflow = 'hidden';
 }
+
+// Recipe-edit dirty tracking — prevents losing typed text when something else
+// (version bump, accidental close) tries to navigate away. Set true on any input
+// inside the edit modal; reset on save / cancel-after-confirm.
+var _recipeEditDirty = false;
+var _recipeEditNpd = null;
+
+function _markRecipeEditOpen(npd) {
+  _recipeEditDirty = false;
+  _recipeEditNpd = npd;
+  setTimeout(function() {
+    var box = document.getElementById('modal-box');
+    if (!box || !box.querySelector('#er-name')) return;
+    box.addEventListener('input', function _h() { _recipeEditDirty = true; }, { once: true });
+  }, 50);
+}
+
+function _clearRecipeEditDirty() {
+  _recipeEditDirty = false;
+  _recipeEditNpd = null;
+}
+
 function closeModal() {
+  // Guard: if recipe-edit modal is open with unsaved typed text, confirm before discarding.
+  // Detected by the presence of the edit form's #er-name field + the dirty flag.
+  var box = document.getElementById('modal-box');
+  if (_recipeEditDirty && box && box.querySelector('#er-name')) {
+    if (!confirm('You have unsaved changes in this recipe edit. Discard them?')) return;
+  }
+  _clearRecipeEditDirty();
   document.getElementById('modal-overlay').style.display = 'none';
   document.body.style.overflow = '';
-  var box = document.getElementById('modal-box');
   if (box) box.style.width = '';
 }
 // Modal only closes via X button — no accidental close on background click
@@ -14720,6 +14748,13 @@ function createNewVersion(npd, type) {
   var r = RECIPE_DB[npd];
   if (!r) return;
 
+  // Guard: if the recipe-edit modal is open with unsaved changes for *this* recipe,
+  // don't bump — the user would lose their typed text. Tell them to save or cancel first.
+  if (_recipeEditDirty && _recipeEditNpd === npd) {
+    showSaveToast('You have unsaved changes in the edit form. Save or cancel first before creating a new version.', true);
+    return;
+  }
+
   // Save current as history
   if (!r.versionHistory) r.versionHistory = [];
   r.versionHistory.push(snapshotRecipe(r));
@@ -14738,7 +14773,11 @@ function createNewVersion(npd, type) {
 
   // Open the edit modal for the new draft
   setTimeout(function(){ editRecipe(npd); }, 300);
-  saveAllData();
+  // Use the per-recipe endpoint (mergeRecipe) instead of /api/data — that way the
+  // version-bump and status='draft' go through the proper concurrency-aware merge.
+  // Was using saveAllData() which can lose the bump to a stale-tab full-blob push
+  // (the 211_SMS Spicy Marinara incident on 2026-05-07).
+  saveRecipeToServer(npd);
 }
 
 function viewVersionHistory(npd) {
@@ -14787,6 +14826,11 @@ function restoreVersion(npd, idx) {
   var r = RECIPE_DB[npd];
   if (!r || !r.versionHistory || !r.versionHistory[idx]) return;
 
+  if (_recipeEditDirty && _recipeEditNpd === npd) {
+    showSaveToast('You have unsaved changes in the edit form. Save or cancel first before restoring.', true);
+    return;
+  }
+
   // Snapshot current before restoring
   r.versionHistory.push(snapshotRecipe(r));
 
@@ -14808,7 +14852,8 @@ function restoreVersion(npd, idx) {
   closeModal();
   viewRecipe(npd);
   showSaveToast('Restored ' + old.version + ' as draft');
-  saveAllData();
+  // Per-recipe endpoint so mergeRecipe handles concurrency (was saveAllData → lost to stale tabs)
+  saveRecipeToServer(npd);
 }
 
 // ──────────── BATCH LOG ────────────
@@ -15085,6 +15130,9 @@ function editRecipe(npd) {
   document.querySelectorAll('#er-ingredients .er-ing-row input[data-field="name"]').forEach(function(inp) {
     ebsAutocomplete(inp);
   });
+  // Wire dirty tracking — used by closeModal to warn before discard, and by
+  // createNewVersion / restoreVersion to refuse mid-edit.
+  _markRecipeEditOpen(npd);
 }
 
 let _erIngMode = 'pct';
@@ -15529,6 +15577,8 @@ function saveEditRecipe(npd) {
     changes: 'Recipe edited — ' + r.ingredients.length + ' ingredients, ' + r.method.length + ' steps, status: ' + r.status,
   });
 
+  // Save reached server; clear dirty flag so the closeModal guard doesn't fire.
+  _clearRecipeEditDirty();
   closeModal();
 
   // Refresh recipes table
