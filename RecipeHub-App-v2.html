@@ -22511,7 +22511,7 @@ function viewBranchSOP(id) {
       <button class="btn btn-outline btn-sm" onclick="document.getElementById('bsop-detail').style.display='none';var _lv=document.getElementById('bsop-list-view');if(_lv)_lv.style.display='';applyWatermark();">← Back to List</button>
       <button class="btn btn-gold btn-sm" onclick="editBranchSOP('${sop.id}')">✏️ Edit Steps</button>
       <button class="btn btn-outline btn-sm" onclick="printBranchSOP('${sop.id}')">🖨️ Print</button>
-      <button class="btn btn-outline btn-sm" style="color:var(--red)" onclick="downloadBranchSOPPDF('${sop.id}')" title="Open the printable view and Save as PDF (use your browser's print → Save as PDF)">📄 PDF</button>
+      <button class="btn btn-outline btn-sm" style="color:var(--red)" onclick="downloadBranchSOPPDF('${sop.id}')" title="Download the SOP as a PDF — file lands in Downloads. First click loads the PDF library (~360KB); subsequent clicks instant.">📄 Download PDF</button>
     </div>
     ${(function(){ var lb = sop.buildRef ? BUILDS_DATA.find(function(x){return x.id===sop.buildRef}) : null; return lb && getBuildLaunch(lb)==='inactive' ? '<div style="background:var(--red);color:white;padding:10px 20px;border-radius:var(--r-lg) var(--r-lg) 0 0;font-size:12px;font-weight:600;display:flex;align-items:center;gap:8px"><span style="font-size:16px">⚠</span> This product has been discontinued — the linked build ('+sop.buildRef+') is no longer active</div>' : ''; })()}
     <div style="background:white;border-radius:${(function(){ var lb = sop.buildRef ? BUILDS_DATA.find(function(x){return x.id===sop.buildRef}) : null; return lb && getBuildLaunch(lb)==='inactive' ? '0 0 var(--r-lg) var(--r-lg)' : 'var(--r-lg)'; })()};overflow:hidden;box-shadow:var(--sh-md);margin-bottom:20px">
@@ -22893,19 +22893,33 @@ function deleteBranchSOP(id) {
   );
 }
 
-// Download the Branch SOP as a PDF. Uses the same printable HTML as
-// printBranchSOP — the only difference is the suggested filename in the
-// new window's <title> (browsers use this as the default Save-as-PDF
-// filename) and the audit event. The user still goes through Cmd+P →
-// Save as PDF → Save, but the button labels their intent so the flow
-// is one click instead of two clicks + thinking.
+// Lazy-load html2pdf from CDN on first call. Cached on window so subsequent
+// downloads are instant. Returns a promise that resolves with the html2pdf
+// function. Falls back to print dialog if CDN load fails.
+function _loadHtml2Pdf() {
+  if (window.html2pdf) return Promise.resolve(window.html2pdf);
+  if (window._html2pdfLoading) return window._html2pdfLoading;
+  window._html2pdfLoading = new Promise(function(resolve, reject) {
+    var s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+    s.crossOrigin = 'anonymous';
+    s.onload  = function() { resolve(window.html2pdf); };
+    s.onerror = function() { reject(new Error('Failed to load html2pdf.js')); };
+    document.head.appendChild(s);
+  });
+  return window._html2pdfLoading;
+}
+
+// Download the Branch SOP as a PDF — direct file save, no print dialog.
+// First click downloads ~360 KB library from CDN; subsequent clicks instant.
+// Falls back to the print-dialog flow if CDN load fails (offline / blocked).
 function downloadBranchSOPPDF(id) {
   var sop = BRANCH_SOPS.find(function(s){ return s.id === id; });
   if (!sop) return;
   auditEvent('branch_sop.pdf', 'branch_sop', id, sop.name + ' — ' + (sop.brand || ''));
   var bc = BSOP_BRAND_COLORS[sop.brand] || '#1B2A4A';
   var stepsHTML = sop.steps.map(function(step) {
-    return '<div style="border:2px solid '+bc+';background:white;overflow:hidden">' +
+    return '<div style="border:2px solid '+bc+';background:white;overflow:hidden;break-inside:avoid">' +
       '<div style="width:100%;aspect-ratio:1;background:#f0f0f0;display:flex;align-items:center;justify-content:center;overflow:hidden">' +
         (step.img ? '<img src="'+step.img+'" style="width:100%;height:100%;object-fit:cover" />' : '<div style="color:#ccc;font-size:24px">📷</div>') +
       '</div>' +
@@ -22916,20 +22930,59 @@ function downloadBranchSOPPDF(id) {
     '</div>';
   }).join('');
 
-  // Suggested filename: "<brand> — <name> (Branch SOP).pdf"
+  // Build the full printable HTML once, used by both the html2pdf path and the fallback.
+  var brandTag = sop.brand ? sop.brand.replace(/[^A-Za-z0-9]/g,'_') + '_' : '';
+  var nameTag  = (sop.name || 'BranchSOP').replace(/[^A-Za-z0-9 _-]/g,'').replace(/\s+/g,'_');
+  var filename = brandTag + nameTag + '_BranchSOP.pdf';
+  var html =
+    '<div id="bsop-pdf-root" style="font-family:sans-serif;color:#1a1a1a">' +
+      '<div style="background:'+bc+';padding:16px 24px;display:flex;align-items:center;gap:16px">' +
+        '<div style="background:white;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;color:'+bc+'">'+sop.brand+'</div>' +
+        '<div style="font-size:28px;font-weight:700;color:white;text-transform:uppercase;letter-spacing:0.02em">'+sop.name+'</div>' +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0;border:2px solid '+bc+'">'+stepsHTML+'</div>' +
+      getBranchSOPAllergenNutritionPrintHTML(sop) +
+      '<div style="text-align:right;padding:8px 16px;font-size:10px;color:#999">'+sop.id+' '+sop.version+' dt '+sop.date+'</div>' +
+    '</div>';
+
+  showSaveToast('Generating PDF…');
+  _loadHtml2Pdf().then(function(html2pdf) {
+    // Render in an offscreen container so layout works, then convert.
+    var holder = document.createElement('div');
+    holder.style.cssText = 'position:fixed;left:-9999px;top:0;width:1100px;background:white';
+    holder.innerHTML = html;
+    document.body.appendChild(holder);
+    var opts = {
+      margin: 8,                                       // mm
+      filename: filename,
+      image: { type: 'jpeg', quality: 0.92 },
+      html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
+      pagebreak: { mode: ['avoid-all', 'css'] },
+    };
+    html2pdf().from(holder).set(opts).save().then(function() {
+      document.body.removeChild(holder);
+      showSaveToast('Downloaded ' + filename);
+    }).catch(function(err) {
+      console.error('html2pdf failed:', err);
+      document.body.removeChild(holder);
+      showSaveToast('PDF generation failed — falling back to print dialog', true);
+      _branchSOPPrintFallback(sop, html, bc);
+    });
+  }).catch(function(err) {
+    console.warn('html2pdf CDN load failed, using print dialog:', err.message);
+    showSaveToast('Offline — using print dialog (Save as PDF)', true);
+    _branchSOPPrintFallback(sop, html, bc);
+  });
+}
+
+// Fallback when html2pdf is unavailable (offline / CDN blocked).
+function _branchSOPPrintFallback(sop, html, bc) {
   var fname = (sop.brand ? sop.brand + ' — ' : '') + sop.name + ' (Branch SOP)';
   var w = window.open('','_blank');
   w.document.write('<html><head><title>'+fname+'</title>');
   w.document.write('<style>@page{size:landscape;margin:10mm}body{margin:0;font-family:sans-serif}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style>');
-  w.document.write('</head><body>');
-  w.document.write('<div style="background:'+bc+';padding:16px 24px;display:flex;align-items:center;gap:16px">');
-  w.document.write('<div style="background:white;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;color:'+bc+'">'+sop.brand+'</div>');
-  w.document.write('<div style="font-size:28px;font-weight:700;color:white;text-transform:uppercase;letter-spacing:0.02em">'+sop.name+'</div>');
-  w.document.write('</div>');
-  w.document.write('<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0;border:2px solid '+bc+'">'+stepsHTML+'</div>');
-  w.document.write(getBranchSOPAllergenNutritionPrintHTML(sop));
-  w.document.write('<div style="text-align:right;padding:8px 16px;font-size:10px;color:#999">'+sop.id+' '+sop.version+' dt '+sop.date+'</div>');
-  w.document.write('</body></html>');
+  w.document.write('</head><body>'+html+'</body></html>');
   w.document.close();
   setTimeout(function(){ w.print(); }, 500);
 }
