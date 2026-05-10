@@ -20343,12 +20343,12 @@ function toggleArchivedRuns() {
 
 function archiveProductionRun(id) {
   var run = PRODUCTION_RUNS.find(function(r){return r.id===id});
-  if (run) { run.archived = true; buildProductionTable(); logActivity('production','📦','Archived: '+run.recipe); showSaveToast('Run archived'); saveAllData(); }
+  if (run) { run.archived = true; run.updatedAt = new Date().toISOString(); buildProductionTable(); logActivity('production','📦','Archived: '+run.recipe); showSaveToast('Run archived'); saveProductionRunToServer(run.id); }
 }
 
 function unarchiveProductionRun(id) {
   var run = PRODUCTION_RUNS.find(function(r){return r.id===id});
-  if (run) { run.archived = false; buildProductionTable(); showSaveToast('Run restored'); saveAllData(); }
+  if (run) { run.archived = false; run.updatedAt = new Date().toISOString(); buildProductionTable(); showSaveToast('Run restored'); saveProductionRunToServer(run.id); }
 }
 
 function buildProductionTable() {
@@ -20846,7 +20846,10 @@ function saveProductionRun() {
   var childN = result.children.length;
   logActivity('production','📅','Run scheduled: '+r.name + (childN ? ' (+ '+childN+' sub-batches)' : ''));
   showSaveToast(childN ? 'Run scheduled + '+childN+' sub-batches auto-created' : 'Run scheduled');
-  saveAllData();
+  // Per-entity save for the parent + every auto-created sub-batch — narrows
+  // the conflict surface so a stale tab elsewhere can't strip the new run(s).
+  if (result.parent && result.parent.id) saveProductionRunToServer(result.parent.id);
+  result.children.forEach(function(c){ if (c && c.id) saveProductionRunToServer(c.id); });
   // Notify R&D, QA, Purchasing
   if (dateStr) {
     fetch(API_BASE + '/api/notify', {
@@ -20923,7 +20926,8 @@ function setRunStatus(id, status) {
   updateDashboardStats();
   logActivity('production', '🔄', run.recipe + ': ' + labels[oldStatus] + ' → ' + labels[status]);
   showSaveToast('Status changed to ' + labels[status]);
-  saveAllData();
+  run.updatedAt = new Date().toISOString();
+  saveProductionRunToServer(id);   // per-entity save — preserves missing-flag fields against stale-tab clobber
 
   // Notify on schedule
   if (status === 'scheduled') {
@@ -20951,8 +20955,9 @@ function saveCompleteRun(id) {
   var run = PRODUCTION_RUNS.find(function(r){return r.id===id});
   if (!run) return;
   run.status='completed'; run.completedAt=new Date().toISOString(); run.yield=document.getElementById('cp-yield').value+'%'; run.waste=document.getElementById('cp-waste').value+'%'; run.notes=document.getElementById('cp-notes').value;
+  run.updatedAt = run.completedAt;
   closeModal(); buildProductionTable(); logActivity('production','✅','Completed: '+run.recipe,'Yield: '+run.yield+' · Waste: '+run.waste); showSaveToast('Run completed');
-  saveAllData();
+  saveProductionRunToServer(id);   // per-entity save
 
   // Notify R&D + QA that run is completed
   fetch(API_BASE + '/api/notify', {
@@ -21105,10 +21110,26 @@ function editProductionRun(id) {
       '<div style="display:flex;gap:10px;justify-content:flex-end">' +
         '<button class="btn btn-outline" onclick="closeModal()">Cancel</button>' +
         '<button class="btn btn-gold" onclick="saveEditRun(\''+id+'\')">Save</button>' +
-        '<button class="btn" style="background:var(--red);color:white" onclick="if(confirm(\'Delete this run?\')){PRODUCTION_RUNS=PRODUCTION_RUNS.filter(function(r){return r.id!==\''+id+'\'});closeModal();buildProductionTable();saveAllData();showSaveToast(\'Deleted\')}">Delete</button>' +
+        '<button class="btn" style="background:var(--red);color:white" onclick="deleteProductionRun(\''+id+'\')">Delete</button>' +
       '</div>' +
     '</div>'
   );
+}
+
+// Permanent delete of a production run via the dedicated DELETE endpoint.
+// /api/data ignores body.deletedProductionRunIds, so this is the only path
+// that actually retires a run server-side (stops zombie resurrection).
+function deleteProductionRun(id) {
+  if (!confirm('Delete this production run permanently?')) return;
+  PRODUCTION_RUNS = PRODUCTION_RUNS.filter(function(r){ return r.id !== id; });
+  closeModal();
+  buildProductionTable();
+  showSaveToast('Deleted');
+  fetch(API_BASE + '/api/productionrun/' + encodeURIComponent(id), {
+    method: 'DELETE',
+    headers: { 'Authorization': 'Bearer ' + API_KEY },
+  }).then(function(r){ if (!r.ok) console.warn('Run delete returned', r.status); })
+    .catch(function(err){ console.warn('Run delete failed:', err); });
 }
 
 function saveEditRun(id) {
@@ -21136,8 +21157,9 @@ function saveEditRun(id) {
     run.status = 'scheduled';
     logActivity('production', '📋', run.recipe + ': Pending → Scheduled', 'Date set to ' + newDate);
   }
+  run.updatedAt = new Date().toISOString();
   closeModal(); buildProductionTable(); showSaveToast('Updated');
-  saveAllData();
+  saveProductionRunToServer(id);   // per-entity save
   // Notify R&D, QA, Purchasing when the schedule is set or rescheduled
   if (dateOrTimeChanged && newDate) {
     fetch(API_BASE + '/api/notify', {
