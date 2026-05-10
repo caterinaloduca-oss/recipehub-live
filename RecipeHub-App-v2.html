@@ -23006,98 +23006,205 @@ function _imgUrlToDataURL(url) {
     });
 }
 
+// Convert hex color (#RRGGBB) → [r,g,b] for jsPDF's color setters.
+function _hexToRgb(hex) {
+  var m = String(hex || '').match(/^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
+  return m ? [parseInt(m[1],16), parseInt(m[2],16), parseInt(m[3],16)] : [27,42,74];
+}
+
+// Get image natural dimensions from a data URL (loads it into an Image element).
+function _imgDimensions(dataUrl) {
+  if (!dataUrl) return Promise.resolve(null);
+  return new Promise(function(resolve) {
+    var img = new Image();
+    img.onload  = function(){ resolve({ w: img.naturalWidth, h: img.naturalHeight, dataUrl: dataUrl }); };
+    img.onerror = function(){ resolve(null); };
+    img.src = dataUrl;
+  });
+}
+
 function downloadBranchSOPPDF(id) {
   var sop = BRANCH_SOPS.find(function(s){ return s.id === id; });
   if (!sop) return;
   auditEvent('branch_sop.pdf', 'branch_sop', id, sop.name + ' — ' + (sop.brand || ''));
-  var bc = BSOP_BRAND_COLORS[sop.brand] || '#1B2A4A';
-  var COL = 270, IMG_H = 240;
 
   showSaveToast('Generating PDF…');
 
-  // Step 1 — pre-fetch and inline every step image as a data URL so html2canvas
-  // doesn't taint the canvas (which causes blank image cells on the PDF).
+  var bc = BSOP_BRAND_COLORS[sop.brand] || '#1B2A4A';
+  var rgb = _hexToRgb(bc);
+  var brandTag = sop.brand ? sop.brand.replace(/[^A-Za-z0-9]/g,'_') + '_' : '';
+  var nameTag  = (sop.name || 'BranchSOP').replace(/[^A-Za-z0-9 _-]/g,'').replace(/\s+/g,'_');
+  var filename = brandTag + nameTag + '_BranchSOP.pdf';
+
+  // Pre-fetch all step images as data URLs (server doesn't send CORS headers,
+  // so we can't pass URLs to jsPDF directly — it'd taint internal canvas).
   var stepImagePromises = (sop.steps || []).map(function(step){
-    return _imgUrlToDataURL(step && step.img);
+    return _imgUrlToDataURL(step && step.img).then(_imgDimensions);
   });
 
-  Promise.all(stepImagePromises).then(function(imgDataUrls){
-    var stepsHTML = (sop.steps || []).map(function(step, i) {
-      var imgDataUrl = imgDataUrls[i];
+  return _loadHtml2Pdf().then(function() {
+    var jsPDFCtor = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
+    if (!jsPDFCtor) throw new Error('jsPDF unavailable');
+    return Promise.all(stepImagePromises).then(function(imgs) {
+
+      var inlined = imgs.filter(Boolean).length;
+      console.log('[PDF] resolved', inlined, 'of', imgs.length, 'images');
+
+      var doc = new jsPDFCtor({ orientation: 'landscape', unit: 'mm', format: 'a4', compress: true });
+      // A4 landscape = 297 x 210 mm
+      var PAGE_W = 297, PAGE_H = 210;
+      var MARGIN = 8;
+      var HEADER_H = 16;
+
+      // Header banner
+      doc.setFillColor(rgb[0], rgb[1], rgb[2]);
+      doc.rect(0, 0, PAGE_W, HEADER_H, 'F');
+      // Brand pill
+      doc.setFillColor(255,255,255);
+      doc.roundedRect(MARGIN, 4, 28, 8, 1.5, 1.5, 'F');
+      doc.setTextColor(rgb[0], rgb[1], rgb[2]);
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(9);
+      doc.text(String(sop.brand || ''), MARGIN + 14, 9.5, { align: 'center' });
+      // Title
+      doc.setTextColor(255,255,255);
+      doc.setFontSize(15);
+      doc.text(String(sop.name || '').toUpperCase(), MARGIN + 32, 10.5);
+
+      // Step grid: 4 columns, 2 rows per page = 8 steps/page
+      var COLS = 4;
+      var ROWS = 2;
+      var GAP = 2;
+      var GRID_W = PAGE_W - MARGIN * 2;
+      var CELL_W = (GRID_W - GAP * (COLS - 1)) / COLS;     // ~70mm
+      var GRID_H = PAGE_H - HEADER_H - MARGIN * 2;
+      var CELL_H = (GRID_H - GAP * (ROWS - 1)) / ROWS;     // ~88mm
+      var IMG_H  = CELL_H * 0.72;                           // image takes top 72% of the cell
+      var TEXT_PAD = 2;
+
+      var perPage = COLS * ROWS;
+      var steps = sop.steps || [];
+
+      steps.forEach(function(step, i) {
+        if (i > 0 && i % perPage === 0) {
+          doc.addPage('a4', 'landscape');
+          // Repeat header on each page
+          doc.setFillColor(rgb[0], rgb[1], rgb[2]);
+          doc.rect(0, 0, PAGE_W, HEADER_H, 'F');
+          doc.setFillColor(255,255,255);
+          doc.roundedRect(MARGIN, 4, 28, 8, 1.5, 1.5, 'F');
+          doc.setTextColor(rgb[0], rgb[1], rgb[2]);
+          doc.setFont('helvetica','bold'); doc.setFontSize(9);
+          doc.text(String(sop.brand || ''), MARGIN + 14, 9.5, { align: 'center' });
+          doc.setTextColor(255,255,255); doc.setFontSize(15);
+          doc.text(String(sop.name || '').toUpperCase(), MARGIN + 32, 10.5);
+        }
+        var idxOnPage = i % perPage;
+        var col = idxOnPage % COLS;
+        var row = Math.floor(idxOnPage / COLS);
+        var x = MARGIN + col * (CELL_W + GAP);
+        var y = HEADER_H + MARGIN + row * (CELL_H + GAP);
+
+        // Cell border
+        doc.setDrawColor(rgb[0], rgb[1], rgb[2]);
+        doc.setLineWidth(0.6);
+        doc.rect(x, y, CELL_W, CELL_H);
+
+        // Image area background
+        doc.setFillColor(240,240,240);
+        doc.rect(x + 0.3, y + 0.3, CELL_W - 0.6, IMG_H - 0.3, 'F');
+
+        var img = imgs[i];
+        if (img && img.dataUrl && img.w > 0 && img.h > 0) {
+          // Cover-fit the image in the image area
+          var areaW = CELL_W - 0.6;
+          var areaH = IMG_H - 0.3;
+          var srcRatio = img.w / img.h;
+          var dstRatio = areaW / areaH;
+          var drawW, drawH, dx, dy;
+          if (srcRatio > dstRatio) {
+            // Image is wider — fit to height, crop sides
+            drawH = areaH;
+            drawW = areaH * srcRatio;
+            dx = x + 0.3 - (drawW - areaW) / 2;
+            dy = y + 0.3;
+          } else {
+            drawW = areaW;
+            drawH = areaW / srcRatio;
+            dx = x + 0.3;
+            dy = y + 0.3 - (drawH - areaH) / 2;
+          }
+          try {
+            // Clip to the image area then draw
+            // jsPDF doesn't have native clipping for raster, so we just draw and trust the cover sizing
+            doc.addImage(img.dataUrl, 'JPEG', dx, dy, drawW, drawH, undefined, 'FAST');
+          } catch (e) {
+            console.warn('[PDF] addImage failed for step ' + (i+1) + ':', e && e.message);
+          }
+        } else {
+          // Placeholder camera glyph
+          doc.setTextColor(180,180,180);
+          doc.setFontSize(18);
+          doc.text('Photo', x + CELL_W / 2, y + IMG_H / 2 + 2, { align: 'center' });
+        }
+
+        // Divider between image and text
+        doc.setDrawColor(rgb[0], rgb[1], rgb[2]);
+        doc.setLineWidth(0.6);
+        doc.line(x, y + IMG_H, x + CELL_W, y + IMG_H);
+
+        // Step text
+        doc.setTextColor(26,26,26);
+        doc.setFont('helvetica','bold');
+        doc.setFontSize(8);
+        var textLines = doc.splitTextToSize(String(step.text || ''), CELL_W - TEXT_PAD * 2);
+        doc.text(textLines, x + TEXT_PAD, y + IMG_H + 4);
+
+        // Portions
+        if (step.portions) {
+          doc.setTextColor(rgb[0], rgb[1], rgb[2]);
+          doc.setFont('helvetica','bold');
+          doc.setFontSize(7);
+          doc.text(String(step.portions), x + TEXT_PAD, y + CELL_H - 2);
+        }
+      });
+
+      // Footer (last page only)
+      doc.setTextColor(160,160,160);
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(8);
+      doc.text(
+        String(sop.id || '') + '   ' + String(sop.version || '') + '   dt ' + String(sop.date || ''),
+        PAGE_W - MARGIN, PAGE_H - 3, { align: 'right' }
+      );
+
+      doc.save(filename);
+      showSaveToast('Downloaded ' + filename);
+    });
+  }).catch(function(err) {
+    console.error('[PDF] generation failed:', err);
+    showSaveToast('PDF generation failed — opening print dialog instead', true);
+    // Build the same print HTML used by the print fallback so user can Save as PDF
+    var COL = 270, IMG_H = 240;
+    var stepsHTML = (sop.steps || []).map(function(step) {
       return '<div style="display:inline-block;vertical-align:top;width:'+COL+'px;border:2px solid '+bc+';background:white;overflow:hidden;box-sizing:border-box">' +
         '<div style="width:'+COL+'px;height:'+IMG_H+'px;background:#f0f0f0;display:flex;align-items:center;justify-content:center;overflow:hidden">' +
-          (imgDataUrl ? '<img src="'+imgDataUrl+'" style="width:'+COL+'px;height:'+IMG_H+'px;object-fit:cover;display:block" />' : '<div style="color:#ccc;font-size:24px">📷</div>') +
+          (step.img ? '<img src="'+step.img+'" style="width:'+COL+'px;height:'+IMG_H+'px;object-fit:cover" />' : '<div style="color:#ccc;font-size:24px">📷</div>') +
         '</div>' +
-        '<div style="padding:8px 10px;border-top:2px solid '+bc+';font-size:11px;line-height:1.4;min-height:80px;box-sizing:border-box">' +
+        '<div style="padding:8px 10px;border-top:2px solid '+bc+';font-size:11px;line-height:1.4">' +
           '<strong>'+(step.text||'')+'</strong>' +
           (step.portions ? '<div style="color:'+bc+';font-weight:600;font-size:10px;margin-top:3px">'+step.portions+'</div>' : '') +
         '</div>' +
       '</div>';
     }).join('');
-
-    var brandTag = sop.brand ? sop.brand.replace(/[^A-Za-z0-9]/g,'_') + '_' : '';
-    var nameTag  = (sop.name || 'BranchSOP').replace(/[^A-Za-z0-9 _-]/g,'').replace(/\s+/g,'_');
-    var filename = brandTag + nameTag + '_BranchSOP.pdf';
-    var TOTAL_W = COL * 4;
-    var html =
-      '<div id="bsop-pdf-root" style="font-family:Arial,sans-serif;color:#1a1a1a;width:'+TOTAL_W+'px;background:white">' +
-        '<div style="background:'+bc+';padding:16px 24px;display:flex;align-items:center;gap:16px;width:'+TOTAL_W+'px;box-sizing:border-box">' +
-          '<div style="background:white;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;color:'+bc+'">'+sop.brand+'</div>' +
-          '<div style="font-size:28px;font-weight:700;color:white;text-transform:uppercase;letter-spacing:0.02em">'+sop.name+'</div>' +
-        '</div>' +
-        '<div style="border:2px solid '+bc+';width:'+TOTAL_W+'px;font-size:0;box-sizing:border-box">'+stepsHTML+'</div>' +
-        getBranchSOPAllergenNutritionPrintHTML(sop) +
-        '<div style="text-align:right;padding:8px 16px;font-size:10px;color:#999">'+sop.id+' '+sop.version+' dt '+sop.date+'</div>' +
-      '</div>';
-
-    var inlinedCount = imgDataUrls.filter(Boolean).length;
-    var totalImgs = imgDataUrls.length;
-    console.log('[PDF] inlined', inlinedCount, 'of', totalImgs, 'step images as data URLs');
-
-    return _loadHtml2Pdf().then(function(html2pdf) {
-      var holder = document.createElement('div');
-      // True offscreen positioning — element is laid out but off the viewport.
-      // Avoid `visibility:hidden` (html2canvas skips hidden elements) and
-      // `display:none` (no layout = nothing to capture).
-      holder.style.cssText = 'position:fixed;left:-99999px;top:0;background:white';
-      holder.innerHTML = html;
-      document.body.appendChild(holder);
-
-      // Even though images are now data URLs, give them a tick to decode.
-      var imgs = holder.querySelectorAll('img');
-      var pending = Array.prototype.map.call(imgs, function(im) {
-        if (im.complete && im.naturalHeight > 0) return Promise.resolve();
-        return new Promise(function(resolve){
-          im.addEventListener('load',  function(){ resolve(); });
-          im.addEventListener('error', function(){ console.warn('[PDF] img element load error for', (im.src||'').slice(0,80)); resolve(); });
-          setTimeout(resolve, 3000);
-        });
-      });
-
-      return Promise.all(pending).then(function() {
-        var opts = {
-          margin: 6,
-          filename: filename,
-          image: { type: 'jpeg', quality: 0.92 },
-          html2canvas: { scale: 2, useCORS: false, allowTaint: true, backgroundColor: '#ffffff', logging: false },
-          jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape', compress: true },
-          pagebreak: { mode: ['css', 'legacy'] },
-        };
-        return html2pdf().from(holder.querySelector('#bsop-pdf-root')).set(opts).save().then(function(){
-          try { document.body.removeChild(holder); } catch (e) {}
-          showSaveToast('Downloaded ' + filename);
-        });
-      }).catch(function(err) {
-        console.error('html2pdf failed:', err);
-        try { document.body.removeChild(holder); } catch (e) {}
-        showSaveToast('PDF generation failed — opening print dialog instead', true);
-        _branchSOPPrintFallback(sop, html, bc);
-      });
-    }).catch(function(err) {
-      console.warn('html2pdf CDN load failed, using print dialog:', err && err.message);
-      showSaveToast('Offline — using print dialog (Save as PDF)', true);
-      _branchSOPPrintFallback(sop, html, bc);
-    });
+    var html = '<div style="font-family:Arial,sans-serif;width:'+(COL*4)+'px;background:white">' +
+      '<div style="background:'+bc+';padding:16px 24px;display:flex;align-items:center;gap:16px;width:'+(COL*4)+'px;box-sizing:border-box">' +
+        '<div style="background:white;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;color:'+bc+'">'+sop.brand+'</div>' +
+        '<div style="font-size:28px;font-weight:700;color:white;text-transform:uppercase">'+sop.name+'</div>' +
+      '</div>' +
+      '<div style="border:2px solid '+bc+';width:'+(COL*4)+'px;font-size:0;box-sizing:border-box">'+stepsHTML+'</div>' +
+    '</div>';
+    _branchSOPPrintFallback(sop, html, bc);
   });
 }
 
