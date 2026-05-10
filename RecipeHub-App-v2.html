@@ -7027,6 +7027,63 @@ function reloadAppHard() {
   }
 }
 
+// ─── Stale-version detector ───────────────────────────────────────────────
+// Tabs left open across a deploy used to silently run old code (Cristina's
+// "wrong version" issue 2026-05-10). We now poll /api/version every minute;
+// if the server's deployed HTML mtime is newer than the one this tab loaded,
+// a reload banner appears. User can dismiss for a single session, but it
+// re-shows after another deploy.
+window._appLoadedVersion = null;       // captured on first /api/version call
+var _stalePollTimer = null;
+var _staleBannerShown = false;
+var _staleDismissedFor = null;          // version we dismissed; banner skips for that one
+
+function _showStaleBanner(serverVer) {
+  if (_staleBannerShown) return;
+  if (_staleDismissedFor === serverVer) return;
+  _staleBannerShown = true;
+  var bar = document.createElement('div');
+  bar.id = 'stale-version-banner';
+  bar.style.cssText = 'position:fixed;left:0;right:0;bottom:0;background:#1B2A4A;color:white;padding:12px 20px;z-index:99999;display:flex;align-items:center;gap:14px;box-shadow:0 -4px 18px rgba(0,0,0,0.25);font-family:var(--font-b),system-ui,sans-serif;font-size:13px';
+  bar.innerHTML =
+    '<span style="font-size:18px">⟳</span>' +
+    '<span style="flex:1"><strong>A newer version of Recipe Hub is live.</strong> Reload to get the latest features and fixes.</span>' +
+    '<button id="stale-reload-btn" style="background:#D4A537;color:#1B2A4A;border:none;padding:7px 14px;border-radius:6px;font-weight:700;font-size:13px;cursor:pointer">Reload now</button>' +
+    '<button id="stale-dismiss-btn" style="background:none;border:1px solid rgba(255,255,255,0.3);color:rgba(255,255,255,0.7);padding:7px 12px;border-radius:6px;font-size:13px;cursor:pointer">Later</button>';
+  document.body.appendChild(bar);
+  document.getElementById('stale-reload-btn').onclick = function(){ reloadAppHard(); };
+  document.getElementById('stale-dismiss-btn').onclick = function(){
+    _staleDismissedFor = serverVer;
+    _staleBannerShown = false;
+    bar.remove();
+  };
+}
+
+function _checkAppVersion() {
+  fetch(API_BASE + '/api/version', { cache: 'no-store' })
+    .then(function(r){ if (!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+    .then(function(j){
+      var serverVer = j && j.htmlVersion;
+      if (!serverVer) return;
+      if (window._appLoadedVersion == null) {
+        window._appLoadedVersion = serverVer;   // first call — this IS our version
+        return;
+      }
+      if (serverVer > window._appLoadedVersion) {
+        _showStaleBanner(serverVer);
+      }
+    })
+    .catch(function(){ /* offline / transient — ignore */ });
+}
+
+// Kick off on load + poll every 60 seconds. Also re-check on tab visibility
+// (waking from background) so a tab parked overnight catches up immediately.
+setTimeout(_checkAppVersion, 2000);   // initial probe
+setInterval(_checkAppVersion, 60 * 1000);
+document.addEventListener('visibilitychange', function(){
+  if (!document.hidden) _checkAppVersion();
+});
+
 function forceRefreshFromServer() {
   showSaveToast('Pulling data from server...');
   fetch(API_BASE + '/api/data', { headers: { 'Authorization': 'Bearer ' + API_KEY } })

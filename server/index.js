@@ -135,6 +135,31 @@ app.get('/api/health', (req, res) => {
 });
 
 // GET /api/data — load the shared app state
+// Version probe — returns the deployed HTML file's mtime (epoch ms). The
+// client polls this periodically and prompts a reload when its loaded version
+// is older than the server's current. Cheap (just an fs.stat); safe to poll
+// every 60 seconds.
+const HTML_PATHS = [
+  '/var/www/recipehub/RecipeHub-App-v2.html',
+  '/var/www/recipehub/index.html',
+];
+app.get('/api/version', (req, res) => {
+  try {
+    let latest = 0;
+    for (const p of HTML_PATHS) {
+      try {
+        const st = fs.statSync(p);
+        if (st.mtimeMs > latest) latest = st.mtimeMs;
+      } catch (e) { /* file may not exist on dev — ignore */ }
+    }
+    // Falls back to process start time if we can't read either file
+    if (!latest) latest = Date.now() - process.uptime() * 1000;
+    res.json({ htmlVersion: Math.floor(latest) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/data', requireAuth, (req, res) => {
   try {
     const state = db.getState();
