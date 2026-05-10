@@ -563,7 +563,11 @@ function mergeRecipe(existing, incoming) {
   // These are user/system metadata, not formulation data — implicit-clear via
   // omission is almost always wrong (stale tab posts that don't know about the
   // flag would silently clear it).
-  ['flag','sopFlag','sopApproval','sopStatus','sopVersion','factorySopArchived','importFlags','source','importedAt','fgItemCode','fgDescription','recipeId','tags']
+  ['flag','sopFlag','sopApproval','sopStatus','sopVersion','factorySopArchived','importFlags','source','importedAt','fgItemCode','fgDescription','recipeId','tags',
+   // QA-owned fields — preserved when incoming lacks them so a non-QA user
+   // saving the recipe can never wipe QA work. trialQA / prodQA / prod-trialQA
+   // already have explicit signed/files protection above; these are the rest:
+   'qaLab','shelfLife','qasStatus','qas','sensoryGate1','sensoryGate2','sopApprovalHistory']
     .forEach(f => {
       if (result[f] === undefined && existing[f] !== undefined) result[f] = existing[f];
     });
