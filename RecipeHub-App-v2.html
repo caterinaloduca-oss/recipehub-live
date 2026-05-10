@@ -23353,14 +23353,19 @@ function downloadBranchSOPPDF(id) {
     return _loadHtml2Pdf().then(function(html2pdf) {
       // A4 landscape = 297mm × 210mm. With 8mm margin on each side the
       // content area is 281mm wide. Sizing the holder to that exact width
-      // (rather than 1080px / generic viewport) means html2canvas snapshots
-      // the layout at the same width the PDF renders — no horizontal clipping.
+      // means html2canvas snapshots the layout at the same width the PDF
+      // renders — no horizontal clipping.
+      //
+      // We mount the holder *visibly* in the document flow (just below the
+      // current viewport at top:9999px) instead of trying to clip-path or
+      // visibility:hidden it. Both of those caused html2canvas to either
+      // capture from the wrong origin (left-edge clipping) or render
+      // transparent pixels. With a real on-screen offset, html2canvas grabs
+      // the element's actual bounds correctly. The holder is removed as soon
+      // as the PDF has saved, so the user never sees it scroll into view.
       var PAGE_W_PX = 1062; // ≈ 281mm @ 96 DPI
       var holder = document.createElement('div');
-      // Keep the element fully rendered (so html2canvas can snapshot real
-      // pixels) but visually clip to nothing — opacity:0 / visibility:hidden
-      // both confuse html2canvas (transparent or skipped output).
-      holder.style.cssText = 'position:fixed;top:0;left:0;width:'+PAGE_W_PX+'px;background:white;font-family:sans-serif;z-index:-1;clip-path:inset(50%);pointer-events:none';
+      holder.style.cssText = 'position:absolute;top:9999px;left:0;width:'+PAGE_W_PX+'px;background:white;font-family:sans-serif;pointer-events:none';
       holder.innerHTML = '<style>.bsop-print-row{break-inside:avoid;page-break-inside:avoid}.bsop-print-cell{break-inside:avoid;page-break-inside:avoid}#bsop-print-root,#bsop-print-root *{box-sizing:border-box}#bsop-print-root table{table-layout:auto}img{max-width:100%}</style>' + bodyHtml;
       document.body.appendChild(holder);
 
@@ -23460,12 +23465,12 @@ function _buildBranchSOPPrintBody(sop, opts) {
     return '<div class="bsop-print-row" style="display:grid;grid-template-columns:repeat('+COLS+',1fr);gap:0">' + cells.join('') + '</div>';
   }).join('');
 
+  var bannerParts = [];
+  if (sop.id)      bannerParts.push(sop.id);
+  if (sop.version) bannerParts.push(sop.version);
+  if (sop.date)    bannerParts.push('dt ' + sop.date);
   var bannerMeta = '<div style="text-align:right;color:rgba(255,255,255,0.95);font-family:monospace;font-size:13px;line-height:1.4;white-space:nowrap">' +
-    (sop.id || '') +
-    '<span style="opacity:0.6;margin:0 6px">·</span>' +
-    (sop.version || '') +
-    '<span style="opacity:0.6;margin:0 6px">·</span>' +
-    'dt ' + (sop.date || '') +
+    bannerParts.join('<span style="opacity:0.6;margin:0 6px">·</span>') +
   '</div>';
 
   return '<div id="bsop-print-root">' +
