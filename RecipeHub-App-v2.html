@@ -22597,13 +22597,23 @@ async function setComponentShelfLife(sopId, itemName, selectEl, type) {
 
 // Inline edit on a Branch SOP step text/portions — saves on blur.
 // Persists per-SOP via the per-entity endpoint so concurrent edits don't clobber.
+// Safeguards:
+//   - never silently wipe non-empty content to empty (asks first)
+//   - never silently truncate substantially (>50% length drop unless old was short)
 function _bsopInlineSaveStep(sopId, idx, field, el) {
   try {
     var sop = BRANCH_SOPS.find(function(s){ return s.id === sopId; });
     if (!sop || !Array.isArray(sop.steps) || !sop.steps[idx]) return;
     var newVal = (el.textContent || '').trim();
-    var oldVal = sop.steps[idx][field] || '';
-    if (newVal === oldVal) return;   // no change, no save
+    var oldVal = (sop.steps[idx][field] || '').trim();
+    if (newVal === oldVal) return;
+    // Anti-foot-gun: if a non-trivial old value would be wiped or truncated to almost nothing,
+    // confirm first. Skip the check for the portions field (can legitimately be cleared).
+    var bigDrop = field === 'text' && oldVal.length > 8 && (newVal.length === 0 || newVal.length < Math.max(3, oldVal.length * 0.4));
+    if (bigDrop) {
+      var ok = confirm('Replace step ' + (idx+1) + ' text?\n\nOld: "' + oldVal + '"\nNew: "' + (newVal || '(empty)') + '"');
+      if (!ok) { el.textContent = oldVal; return; }   // restore and skip
+    }
     sop.steps[idx][field] = newVal;
     sop.updatedAt = new Date().toISOString();
     saveBranchSOPToServer(sopId);
