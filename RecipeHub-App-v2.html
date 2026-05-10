@@ -11517,7 +11517,8 @@ function updateRecipeShelfLife(npd, val) {
   var r = RECIPE_DB[npd];
   if (!r) return;
   r.shelfLife = val;
-  saveAllData();
+  r.updatedAt = new Date().toISOString();
+  saveRecipeToServer(npd);
   showSaveToast('Shelf life updated');
 }
 
@@ -11561,7 +11562,8 @@ async function signOffTrialQA(npd, stage) {
   updateDashboardStats();
   viewRecipe(npd);
   showSaveToast('QA sign-off recorded' + (qa.conditional ? ' (with conditions)' : '') + ' for ' + (stage === 'trial' ? 'Factory Trial' : 'Production Trial'));
-  saveAllData();
+  r.updatedAt = new Date().toISOString();
+  saveRecipeToServer(npd);   // per-recipe save — protects QA signature against stale-tab clobber
 
   // Notify all four teams (R&D / QA / Factory / Purchasing) that QA signed off
   fetch(API_BASE + '/api/notify', {
@@ -13121,15 +13123,15 @@ function _qasRefresh(npd) {
   det.innerHTML = _renderQasDetail(r);
 }
 
-function addQasSpec(npd)        { var r = RECIPE_DB[npd]; if (!r) return; _qasInitDefaults(r); r.qas.visualSpecs.push({attribute:'', target:'', accept:'', reject:''}); r.updatedAt = new Date().toISOString(); saveAllData(); _qasRefresh(npd); }
-function removeQasSpec(npd, i)  { var r = RECIPE_DB[npd]; if (!r || !r.qas) return; r.qas.visualSpecs.splice(i, 1); r.updatedAt = new Date().toISOString(); saveAllData(); _qasRefresh(npd); }
+function addQasSpec(npd)        { var r = RECIPE_DB[npd]; if (!r) return; _qasInitDefaults(r); r.qas.visualSpecs.push({attribute:'', target:'', accept:'', reject:''}); r.updatedAt = new Date().toISOString(); saveRecipeToServer(npd); _qasRefresh(npd); }
+function removeQasSpec(npd, i)  { var r = RECIPE_DB[npd]; if (!r || !r.qas) return; r.qas.visualSpecs.splice(i, 1); r.updatedAt = new Date().toISOString(); saveRecipeToServer(npd); _qasRefresh(npd); }
 function updateQasSpec(npd, i, field, val) {
   var r = RECIPE_DB[npd]; if (!r) return;
   _qasInitDefaults(r);
   if (!r.qas.visualSpecs[i]) return;
   r.qas.visualSpecs[i][field] = val;
   r.updatedAt = new Date().toISOString();
-  saveAllData();
+  saveRecipeToServer(npd);
   showSaveToast('Saved');
 }
 
@@ -13153,7 +13155,7 @@ function uploadQasPhotos(npd, kind, input) {
         if (body && body.url) {
           r.qas[key].push({ url: body.url, caption: '' });
           r.updatedAt = new Date().toISOString();
-          saveAllData();
+          saveRecipeToServer(npd);
         } else {
           showSaveToast('Upload failed: ' + (body && body.error || 'no url'), true);
         }
@@ -13174,7 +13176,7 @@ function removeQasPhoto(npd, kind, i) {
   var key = (kind === 'reference') ? 'referencePhotos' : 'defectPhotos';
   r.qas[key].splice(i, 1);
   r.updatedAt = new Date().toISOString();
-  saveAllData(); _qasRefresh(npd);
+  saveRecipeToServer(npd); _qasRefresh(npd);
 }
 
 function updateQasPhotoCaption(npd, kind, i, val) {
@@ -13183,14 +13185,14 @@ function updateQasPhotoCaption(npd, kind, i, val) {
   if (!r.qas[key][i]) return;
   r.qas[key][i].caption = val;
   r.updatedAt = new Date().toISOString();
-  saveAllData();
+  saveRecipeToServer(npd);
 }
 
 function qasSetStatus(npd, status) {
   var r = RECIPE_DB[npd]; if (!r) return;
   r.qasStatus = status;
   r.updatedAt = new Date().toISOString();
-  saveAllData(); _qasRefresh(npd);
+  saveRecipeToServer(npd); _qasRefresh(npd);
   auditEvent('qas.status_change', 'recipe', r.npd, r.name, { status: status });
 }
 
@@ -13206,7 +13208,7 @@ function qasSignOff(npd) {
   r.qasApproval = { by: getCurrentUserName(), at: new Date().toISOString(), comment: '' };
   delete r.qasBypass; // approval supersedes any earlier bypass
   r.updatedAt = new Date().toISOString();
-  saveAllData(); _qasRefresh(npd);
+  saveRecipeToServer(npd); _qasRefresh(npd);
   auditEvent('qas.signoff', 'recipe', r.npd, r.name, { by: r.qasApproval.by });
   showSaveToast('QAS approved — recipe can now be moved to Approved');
 }
@@ -13217,7 +13219,7 @@ function qasUnsign(npd) {
   r.qasStatus = 'draft';
   delete r.qasApproval;
   r.updatedAt = new Date().toISOString();
-  saveAllData(); _qasRefresh(npd);
+  saveRecipeToServer(npd); _qasRefresh(npd);
   auditEvent('qas.unsign', 'recipe', r.npd, r.name);
 }
 
@@ -13227,7 +13229,7 @@ function qasReject(npd) {
     r.qasStatus = 'rejected';
     r.qasApproval = { by: getCurrentUserName(), at: new Date().toISOString(), comment: reason || '' };
     r.updatedAt = new Date().toISOString();
-    saveAllData(); _qasRefresh(npd);
+    saveRecipeToServer(npd); _qasRefresh(npd);
     auditEvent('qas.reject', 'recipe', r.npd, r.name, { reason: reason });
   });
 }
@@ -13240,7 +13242,7 @@ function qasBypass(npd) {
     var r = RECIPE_DB[npd]; if (!r) return;
     r.qasBypass = { by: getCurrentUserName(), at: new Date().toISOString(), reason: reason };
     r.updatedAt = new Date().toISOString();
-    saveAllData();
+    saveRecipeToServer(npd);
     auditEvent('qas.bypass', 'recipe', r.npd, r.name, { reason: reason });
     showSaveToast('QAS gate bypassed — proceed to set Approved');
   });
@@ -17726,7 +17728,7 @@ function setQALabSpec(key, field, value) {
   if (!r.qaLab[key]) r.qaLab[key] = {};
   r.qaLab[key][field] = value;
   r.updatedAt = new Date().toISOString();
-  saveAllData();
+  saveRecipeToServer(npd);
   // Refresh count badges (don't full-re-render — keeps cursor in input)
   var pCnt = document.getElementById('phychem-status');
   if (pCnt) {
@@ -17844,7 +17846,7 @@ function uploadQaMedia(kind, input) {
             at: new Date().toISOString(),
           });
           r.updatedAt = new Date().toISOString();
-          saveAllData();
+          saveRecipeToServer(r.npd);   // per-recipe save — QA media list
           auditEvent('qa.media_upload', 'recipe', r.npd, r.name, { kind: kind, name: file.name });
         } else {
           failN++;
@@ -17879,7 +17881,7 @@ function removeQaMedia(npd, idx) {
   if (!confirm('Delete "' + (m.name || m.kind) + '"?')) return;
   r.qaMedia.splice(idx, 1);
   r.updatedAt = new Date().toISOString();
-  saveAllData();
+  saveRecipeToServer(npd);
   renderQaMedia();
   auditEvent('qa.media_delete', 'recipe', r.npd, r.name, { kind: m.kind, name: m.name });
 }
@@ -17890,7 +17892,7 @@ function updateQaMediaCaption(npd, idx, val) {
   if (!r.qaMedia[idx]) return;
   r.qaMedia[idx].caption = val;
   r.updatedAt = new Date().toISOString();
-  saveAllData();
+  saveRecipeToServer(npd);
 }
 
 function saveQABatchInfo() {
@@ -17903,7 +17905,7 @@ function saveQABatchInfo() {
   r.qaBatch = batch;
   r.qaDate  = date;
   r.updatedAt = new Date().toISOString();
-  saveAllData();
+  saveRecipeToServer(npd);
   auditEvent('qa.save_batch', 'recipe', npd, r.name + (batch ? ' · batch ' + batch : ''));
   showSaveToast('Batch info saved');
 }
@@ -18716,7 +18718,8 @@ function setSensoryGateData(npd, gate, result) {
   var key = 'sensoryGate' + gate;
   if (!r[key]) r[key] = {};
   r[key].result = result;
-  saveAllData();
+  r.updatedAt = new Date().toISOString();
+  saveRecipeToServer(npd);
   var scrollY = window.scrollY;
   var mainEl = document.querySelector('.main');
   var mainScroll = mainEl ? mainEl.scrollTop : 0;
@@ -18736,7 +18739,8 @@ function updateSensoryGate(npd, gate, field, value) {
   var key = 'sensoryGate' + gate;
   if (!r[key]) r[key] = {};
   r[key][field] = value;
-  saveAllData();
+  r.updatedAt = new Date().toISOString();
+  saveRecipeToServer(npd);
 }
 
 function toggleQAEdit(btn) {
