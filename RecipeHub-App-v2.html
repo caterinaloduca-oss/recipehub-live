@@ -6712,6 +6712,31 @@ function saveBuildToServer(id) {
   });
 }
 
+// Per-run save — same conflict-narrowing pattern as saveRecipeToServer.
+// Use this instead of saveAllData() whenever a single production run was
+// edited (status change, scheduled date, RM flag, comment). Stops a stale
+// tab elsewhere from clobbering by posting an old full-blob.
+function saveProductionRunToServer(id) {
+  var run = (typeof PRODUCTION_RUNS !== 'undefined' ? PRODUCTION_RUNS : []).find(function(r){ return r && r.id === id; });
+  if (!run) return;
+  run.updatedAt = new Date().toISOString();
+  _persistLocal(_buildDataBlob());
+  fetch(API_BASE + '/api/productionrun/' + encodeURIComponent(id), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + API_KEY },
+    body: JSON.stringify({ run: run }),
+  }).then(function(resp) {
+    if (!resp.ok) throw new Error('Server ' + resp.status);
+    return resp.json();
+  }).then(function(result) {
+    if (result.run) { var idx = PRODUCTION_RUNS.findIndex(function(r){return r && r.id===id}); if (idx>=0) PRODUCTION_RUNS[idx] = result.run; }
+    _localDirty = false;
+  }).catch(function(err) {
+    console.warn('Per-run save failed, falling back:', err.message);
+    _saveToServer(_buildDataBlob());
+  });
+}
+
 function saveBranchSOPToServer(id) {
   var sop = BRANCH_SOPS.find(function(x) { return x.id === id; });
   if (!sop) return;
@@ -6956,15 +6981,22 @@ document.addEventListener('keydown', function(e) {
   }
 });
 
-// Save before page unload (use sendBeacon for reliability)
+// beforeunload save was REMOVED 2026-05-10 — it was the single worst source
+// of stale-tab clobber. Every tab close fired _buildDataBlob + sendBeacon
+// posting an entire stale snapshot to /api/data, which raced against fresh
+// edits and silently overwrote them (the cause of today's 8 recipe
+// regressions, lost RM flags, and resurrected zombie production runs).
+//
+// Real edits already persist locally + to server via saveAllData() and the
+// per-entity endpoints; nothing legitimate is lost by killing this beacon.
+// Local-only state (which would only have mattered if the user closed before
+// any save fired) is still flushed to localStorage by other code paths.
 window.addEventListener('beforeunload', function() {
-  if (typeof RECIPE_DB !== 'undefined') {
-    try {
-      var data = _buildDataBlob();
-      _persistLocal(data);
-      navigator.sendBeacon(API_BASE + '/api/data?key=' + API_KEY, new Blob([JSON.stringify(data)], { type: 'application/json' }));
-    } catch(e) {}
-  }
+  try {
+    if (typeof RECIPE_DB !== 'undefined' && typeof _buildDataBlob === 'function') {
+      _persistLocal(_buildDataBlob());   // local cache only — no network
+    }
+  } catch (e) {}
 });
 
 // Sync from server — pulls latest shared data if newer than local

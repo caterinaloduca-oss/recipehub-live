@@ -823,6 +823,57 @@ app.post('/api/build/:id', requireAuth, (req, res) => {
   }
 });
 
+// Per-run save — preserve-when-undefined for status / missingIngredients /
+// blockedAt / blockedBy / blockedNote / previousStatus so a non-flag-aware
+// save can never silently clear an RM-blocked flag. (Two flags vanished this
+// morning when a stale tab posted runs with status='pending' and no
+// missingIngredients — that's how we lost BBQ + Korean BBQ flags.)
+app.post('/api/productionrun/:id', requireAuth, (req, res) => {
+  try {
+    const { id } = req.params;
+    const incoming = req.body.run;
+    if (!incoming) return res.status(400).json({ error: 'run required' });
+    const state = db.getState();
+    if (!state || !state.data) return res.status(500).json({ error: 'No data on server' });
+    const data = state.data;
+    if (!Array.isArray(data.productionRuns)) data.productionRuns = [];
+    // Refuse to revive a run that's been explicitly killed (use a fresh id instead)
+    if (Array.isArray(data.deletedProductionRunIds) && data.deletedProductionRunIds.includes(id)) {
+      return res.status(409).json({ error: 'Run id is in the kill list — pick a different id' });
+    }
+    const idx = data.productionRuns.findIndex(r => r && r.id === id);
+    let merged;
+    if (idx >= 0) {
+      const existing = data.productionRuns[idx];
+      const eTime = existing.updatedAt || '2000-01-01';
+      const iTime = incoming.updatedAt || '2000-01-01';
+      merged = { ...incoming };
+      // If existing newer, preserve formulation/identity fields
+      if (eTime > iTime) {
+        ['recipe','npd','brand','runType','batchSize','date','time','operator','notes'].forEach(f => {
+          if (existing[f] !== undefined) merged[f] = existing[f];
+        });
+        merged.updatedAt = eTime;
+      }
+      // Always preserve when incoming lacks them — stale saves shouldn't wipe flags / audit / archived
+      ['status','missingIngredients','blockedAt','blockedBy','blockedNote','previousStatus',
+       'archived','completedAt','waste','yield','dateLog','comments','parentRunId','childRunIds','stageLabel'].forEach(f => {
+        if (merged[f] === undefined && existing[f] !== undefined) merged[f] = existing[f];
+      });
+      data.productionRuns[idx] = merged;
+    } else {
+      merged = incoming;
+      data.productionRuns.push(merged);
+    }
+    data.savedAt = new Date().toISOString();
+    const savedAt = db.setState(JSON.stringify(data), data.dataVersion || 0);
+    res.json({ ok: true, savedAt, run: merged });
+  } catch (err) {
+    console.error('POST /api/productionrun error:', err);
+    res.status(500).json({ error: 'Failed to save production run: ' + err.message });
+  }
+});
+
 // Explicit Production Run delete — adds the ID to the server's authoritative
 // kill list and removes the run from productionRuns. /api/data ignores the
 // body's deletedProductionRunIds, so this endpoint is the only path that can
