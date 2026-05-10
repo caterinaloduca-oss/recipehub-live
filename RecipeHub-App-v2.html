@@ -23071,102 +23071,132 @@ function downloadBranchSOPPDF(id) {
       doc.setFontSize(15);
       doc.text(String(sop.name || '').toUpperCase(), MARGIN + 32, 10.5);
 
-      // Step grid: 4 columns, 2 rows per page = 8 steps/page
+      // Step grid — 4 columns. Row height varies: full (image + text) or
+      // compact (text only) when none of the 4 cells in that row has a photo.
       var COLS = 4;
-      var ROWS = 2;
       var GAP = 2;
       var GRID_W = PAGE_W - MARGIN * 2;
       var CELL_W = (GRID_W - GAP * (COLS - 1)) / COLS;     // ~70mm
-      var GRID_H = PAGE_H - HEADER_H - MARGIN * 2;
-      var CELL_H = (GRID_H - GAP * (ROWS - 1)) / ROWS;     // ~88mm
-      var IMG_H  = CELL_H * 0.72;                           // image takes top 72% of the cell
+      var FULL_H = 88;     // mm — image cell
+      var COMPACT_H = 16;  // mm — text-only cell
+      var IMG_FRAC = 0.72; // image area = 72% of full cell height
       var TEXT_PAD = 2;
 
-      var perPage = COLS * ROWS;
       var steps = sop.steps || [];
 
-      steps.forEach(function(step, i) {
-        if (i > 0 && i % perPage === 0) {
+      // Group steps into rows of 4. Row is "full" if any cell has an image.
+      var rowGroups = [];
+      for (var ri = 0; ri < steps.length; ri += COLS) {
+        var rowSteps = steps.slice(ri, ri + COLS);
+        var hasImg = rowSteps.some(function(_s, j){
+          var im = imgs[ri + j];
+          return im && im.dataUrl && im.w > 0;
+        });
+        rowGroups.push({ startIdx: ri, steps: rowSteps, hasImg: hasImg });
+      }
+
+      var drawHeader = function() {
+        doc.setFillColor(rgb[0], rgb[1], rgb[2]);
+        doc.rect(0, 0, PAGE_W, HEADER_H, 'F');
+        doc.setFillColor(255,255,255);
+        doc.roundedRect(MARGIN, 4, 28, 8, 1.5, 1.5, 'F');
+        doc.setTextColor(rgb[0], rgb[1], rgb[2]);
+        doc.setFont('helvetica','bold'); doc.setFontSize(9);
+        doc.text(String(sop.brand || ''), MARGIN + 14, 9.5, { align: 'center' });
+        doc.setTextColor(255,255,255); doc.setFontSize(15);
+        doc.text(String(sop.name || '').toUpperCase(), MARGIN + 32, 10.5);
+      };
+
+      var y = HEADER_H + MARGIN;
+      rowGroups.forEach(function(grp) {
+        var rowH = grp.hasImg ? FULL_H : COMPACT_H;
+        if (y + rowH > PAGE_H - MARGIN - 4) {
           doc.addPage('a4', 'landscape');
-          // Repeat header on each page
-          doc.setFillColor(rgb[0], rgb[1], rgb[2]);
-          doc.rect(0, 0, PAGE_W, HEADER_H, 'F');
-          doc.setFillColor(255,255,255);
-          doc.roundedRect(MARGIN, 4, 28, 8, 1.5, 1.5, 'F');
-          doc.setTextColor(rgb[0], rgb[1], rgb[2]);
-          doc.setFont('helvetica','bold'); doc.setFontSize(9);
-          doc.text(String(sop.brand || ''), MARGIN + 14, 9.5, { align: 'center' });
-          doc.setTextColor(255,255,255); doc.setFontSize(15);
-          doc.text(String(sop.name || '').toUpperCase(), MARGIN + 32, 10.5);
+          drawHeader();
+          y = HEADER_H + MARGIN;
         }
-        var idxOnPage = i % perPage;
-        var col = idxOnPage % COLS;
-        var row = Math.floor(idxOnPage / COLS);
-        var x = MARGIN + col * (CELL_W + GAP);
-        var y = HEADER_H + MARGIN + row * (CELL_H + GAP);
+        var IMG_H = rowH * IMG_FRAC;
 
-        // Cell border
-        doc.setDrawColor(rgb[0], rgb[1], rgb[2]);
-        doc.setLineWidth(0.6);
-        doc.rect(x, y, CELL_W, CELL_H);
+        grp.steps.forEach(function(step, j) {
+          var i = grp.startIdx + j;
+          var x = MARGIN + j * (CELL_W + GAP);
 
-        // Image area background
-        doc.setFillColor(240,240,240);
-        doc.rect(x + 0.3, y + 0.3, CELL_W - 0.6, IMG_H - 0.3, 'F');
+          // Cell border
+          doc.setDrawColor(rgb[0], rgb[1], rgb[2]);
+          doc.setLineWidth(0.6);
+          doc.rect(x, y, CELL_W, rowH);
 
-        var img = imgs[i];
-        if (img && img.dataUrl && img.w > 0 && img.h > 0) {
-          // Cover-fit the image in the image area
-          var areaW = CELL_W - 0.6;
-          var areaH = IMG_H - 0.3;
-          var srcRatio = img.w / img.h;
-          var dstRatio = areaW / areaH;
-          var drawW, drawH, dx, dy;
-          if (srcRatio > dstRatio) {
-            // Image is wider — fit to height, crop sides
-            drawH = areaH;
-            drawW = areaH * srcRatio;
-            dx = x + 0.3 - (drawW - areaW) / 2;
-            dy = y + 0.3;
+          if (grp.hasImg) {
+            // Image area background
+            doc.setFillColor(240,240,240);
+            doc.rect(x + 0.3, y + 0.3, CELL_W - 0.6, IMG_H - 0.3, 'F');
+
+            var img = imgs[i];
+            if (img && img.dataUrl && img.w > 0 && img.h > 0) {
+              var areaW = CELL_W - 0.6;
+              var areaH = IMG_H - 0.3;
+              var srcRatio = img.w / img.h;
+              var dstRatio = areaW / areaH;
+              var drawW, drawH, dx, dy;
+              if (srcRatio > dstRatio) {
+                drawH = areaH;
+                drawW = areaH * srcRatio;
+                dx = x + 0.3 - (drawW - areaW) / 2;
+                dy = y + 0.3;
+              } else {
+                drawW = areaW;
+                drawH = areaW / srcRatio;
+                dx = x + 0.3;
+                dy = y + 0.3 - (drawH - areaH) / 2;
+              }
+              try {
+                doc.addImage(img.dataUrl, 'JPEG', dx, dy, drawW, drawH, undefined, 'FAST');
+              } catch (e) {
+                console.warn('[PDF] addImage failed for step ' + (i+1) + ':', e && e.message);
+              }
+            } else {
+              doc.setTextColor(180,180,180);
+              doc.setFontSize(14);
+              doc.setFont('helvetica','normal');
+              doc.text('No photo', x + CELL_W / 2, y + IMG_H / 2 + 2, { align: 'center' });
+            }
+
+            // Divider between image and text
+            doc.setDrawColor(rgb[0], rgb[1], rgb[2]);
+            doc.setLineWidth(0.6);
+            doc.line(x, y + IMG_H, x + CELL_W, y + IMG_H);
+
+            // Step text
+            doc.setTextColor(26,26,26);
+            doc.setFont('helvetica','bold');
+            doc.setFontSize(8);
+            var textLines = doc.splitTextToSize(String(step.text || ''), CELL_W - TEXT_PAD * 2);
+            doc.text(textLines, x + TEXT_PAD, y + IMG_H + 4);
+
+            if (step.portions) {
+              doc.setTextColor(rgb[0], rgb[1], rgb[2]);
+              doc.setFont('helvetica','bold');
+              doc.setFontSize(7);
+              doc.text(String(step.portions), x + TEXT_PAD, y + rowH - 2);
+            }
           } else {
-            drawW = areaW;
-            drawH = areaW / srcRatio;
-            dx = x + 0.3;
-            dy = y + 0.3 - (drawH - areaH) / 2;
+            // Compact text-only cell
+            doc.setTextColor(26,26,26);
+            doc.setFont('helvetica','bold');
+            doc.setFontSize(8);
+            var compactLines = doc.splitTextToSize(String(step.text || ''), CELL_W - TEXT_PAD * 2);
+            // Vertically center text (1-2 lines fit in 16mm cell)
+            doc.text(compactLines, x + TEXT_PAD, y + 4);
+            if (step.portions) {
+              doc.setTextColor(rgb[0], rgb[1], rgb[2]);
+              doc.setFont('helvetica','bold');
+              doc.setFontSize(7);
+              doc.text(String(step.portions), x + TEXT_PAD, y + rowH - 2);
+            }
           }
-          try {
-            // Clip to the image area then draw
-            // jsPDF doesn't have native clipping for raster, so we just draw and trust the cover sizing
-            doc.addImage(img.dataUrl, 'JPEG', dx, dy, drawW, drawH, undefined, 'FAST');
-          } catch (e) {
-            console.warn('[PDF] addImage failed for step ' + (i+1) + ':', e && e.message);
-          }
-        } else {
-          // Placeholder camera glyph
-          doc.setTextColor(180,180,180);
-          doc.setFontSize(18);
-          doc.text('Photo', x + CELL_W / 2, y + IMG_H / 2 + 2, { align: 'center' });
-        }
+        });
 
-        // Divider between image and text
-        doc.setDrawColor(rgb[0], rgb[1], rgb[2]);
-        doc.setLineWidth(0.6);
-        doc.line(x, y + IMG_H, x + CELL_W, y + IMG_H);
-
-        // Step text
-        doc.setTextColor(26,26,26);
-        doc.setFont('helvetica','bold');
-        doc.setFontSize(8);
-        var textLines = doc.splitTextToSize(String(step.text || ''), CELL_W - TEXT_PAD * 2);
-        doc.text(textLines, x + TEXT_PAD, y + IMG_H + 4);
-
-        // Portions
-        if (step.portions) {
-          doc.setTextColor(rgb[0], rgb[1], rgb[2]);
-          doc.setFont('helvetica','bold');
-          doc.setFontSize(7);
-          doc.text(String(step.portions), x + TEXT_PAD, y + CELL_H - 2);
-        }
+        y += rowH + GAP;
       });
 
       // Footer (last page only)
