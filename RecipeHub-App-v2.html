@@ -23227,11 +23227,18 @@ function downloadBranchSOPPDF(id) {
         }
       };
 
-      var build = sop.buildRef ? BUILDS_DATA.find(function(b){ return b.id === sop.buildRef; }) : null;
-      if (!build) build = BUILDS_DATA.find(function(b){ return b.name === sop.name; }) || null;
-      var components = (build && build.components) ? build.components : [];
+      var build = null, components = [];
+      try {
+        build = sop.buildRef ? BUILDS_DATA.find(function(b){ return b.id === sop.buildRef; }) : null;
+        if (!build) build = BUILDS_DATA.find(function(b){ return b.name === sop.name; }) || null;
+        components = (build && Array.isArray(build.components)) ? build.components : [];
+        console.log('[PDF] build:', build && build.id, 'components:', components.length);
+      } catch (e) {
+        console.warn('[PDF] build lookup failed:', e && e.message);
+      }
 
       // Components table
+      try {
       if (components.length) {
         ensureSpace(14 + components.length * 5);
         doc.setTextColor(rgb[0], rgb[1], rgb[2]);
@@ -23277,9 +23284,14 @@ function downloadBranchSOPPDF(id) {
         });
         y += 4;
       }
+      } catch (e) { console.warn('[PDF] components section failed:', e && e.message); }
 
       // Allergens + Nutrition (two columns)
-      var info = getBranchSOPAllergenNutritionData(sop);
+      try {
+      var info = (typeof getBranchSOPAllergenNutritionData === 'function')
+        ? getBranchSOPAllergenNutritionData(sop)
+        : { allergens: [], nutrition: null };
+      console.log('[PDF] allergens:', (info.allergens||[]).length, 'nutrition:', !!info.nutrition);
       if (info.allergens.length || info.nutrition) {
         ensureSpace(40);
         var halfW = (PAGE_W - MARGIN * 2) / 2;
@@ -23332,14 +23344,19 @@ function downloadBranchSOPPDF(id) {
         }
         y += 2;
       }
+      } catch (e) { console.warn('[PDF] allergen/nutrition section failed:', e && e.message); }
 
       // Approval signoffs (3 cards)
-      var approval = getBSOPApproval(sop);
+      try {
+      var approval = (typeof getBSOPApproval === 'function')
+        ? getBSOPApproval(sop)
+        : (sop.approval || { prepared:null, reviewed:null, approved:null });
       var statusMap = {'draft':'DRAFT','pending-review':'PENDING OPS REVIEW','pending-approval':'PENDING QA SIGN-OFF','approved':'APPROVED'};
+      var derivedStatus = (typeof bsopDerivedStatus === 'function') ? bsopDerivedStatus(sop) : (sop.status || 'draft');
       ensureSpace(34);
       doc.setTextColor(rgb[0], rgb[1], rgb[2]);
       doc.setFont('helvetica','bold'); doc.setFontSize(10);
-      doc.text('SOP APPROVAL — ' + (statusMap[bsopDerivedStatus(sop)] || ''), MARGIN, y + 4);
+      doc.text('SOP APPROVAL — ' + (statusMap[derivedStatus] || ''), MARGIN, y + 4);
       y += 8;
       var cardW = (PAGE_W - MARGIN * 2 - 4) / 3;
       var cardH = 22;
@@ -23380,6 +23397,7 @@ function downloadBranchSOPPDF(id) {
         }
       });
       y += cardH + 4;
+      } catch (e) { console.warn('[PDF] approval section failed:', e && e.message); }
 
       // Footer (last page only)
       doc.setTextColor(160,160,160);
