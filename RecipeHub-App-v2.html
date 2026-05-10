@@ -12304,7 +12304,7 @@ function viewVisualSOP(npd) {
   showPage('sop');
 }
 
-function uploadImageToServer(file, key, cb) {
+function uploadImageToServer(file, key, cb, opts) {
   compressImage(file, 600, 0.6, function(dataUrl) {
     fetch(API_BASE + '/api/img/upload', {
       method: 'POST',
@@ -12316,16 +12316,38 @@ function uploadImageToServer(file, key, cb) {
         else { cb(dataUrl); } // Fallback to base64 if upload fails
       })
       .catch(function() { cb(dataUrl); }); // Fallback
-  });
+  }, opts);
 }
 
 // Escape HTML to prevent XSS in user content
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
-function compressImage(file, maxSize, quality, cb) {
+// Compress (and optionally centre-crop to a target aspect ratio) an uploaded
+// image. opts.cropAspect = w/h target (1 for square). When set, the source
+// is centre-cropped to that ratio before resizing — keeps the visual grid
+// uniform regardless of how the photo was taken.
+function compressImage(file, maxSize, quality, cb, opts) {
+  opts = opts || {};
   var img = new Image();
   img.onload = function() {
-    var w = img.width, h = img.height;
+    // Source-rect (sx, sy, sw, sh) — defaults to the whole image
+    var sx = 0, sy = 0, sw = img.width, sh = img.height;
+    if (opts.cropAspect && sw && sh) {
+      var srcAspect = sw / sh;
+      if (srcAspect > opts.cropAspect) {
+        // Image is wider than target → crop the sides
+        var newSW = sh * opts.cropAspect;
+        sx = Math.round((sw - newSW) / 2);
+        sw = Math.round(newSW);
+      } else if (srcAspect < opts.cropAspect) {
+        // Image is taller than target → crop top/bottom
+        var newSH = sw / opts.cropAspect;
+        sy = Math.round((sh - newSH) / 2);
+        sh = Math.round(newSH);
+      }
+    }
+    // Output dimensions — scale source-rect down so neither side exceeds maxSize
+    var w = sw, h = sh;
     if (w > maxSize || h > maxSize) {
       var ratio = Math.min(maxSize / w, maxSize / h);
       w = Math.round(w * ratio);
@@ -12333,7 +12355,7 @@ function compressImage(file, maxSize, quality, cb) {
     }
     var canvas = document.createElement('canvas');
     canvas.width = w; canvas.height = h;
-    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+    canvas.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, w, h);
     var result = canvas.toDataURL('image/jpeg', quality);
     URL.revokeObjectURL(img.src);
     cb(result);
@@ -23252,13 +23274,16 @@ function deleteBranchSOPPhoto(sopId, stepIdx) {
 function uploadBranchSOPPhoto(sopId, stepIdx, input) {
   const sop = BRANCH_SOPS.find(s => s.id === sopId);
   if (!sop || !input.files[0]) return;
+  // cropAspect:1 — every step photo is auto-cropped to a perfect square so
+  // the SOP grid stays visually uniform regardless of what shape phone
+  // photo the user uploads.
   uploadImageToServer(input.files[0], 'bsop-'+sopId+'-step'+stepIdx, function(url) {
     sop.steps[stepIdx].img = url;
     sop.updatedAt = new Date().toISOString();  // so server merge treats this as newer
     viewBranchSOP(sopId);
-    saveAllData();
+    saveBranchSOPToServer(sopId);
     showSaveToast('Step photo saved');
-  });
+  }, { cropAspect: 1 });
 }
 
 function openBranchSOPForm() {
