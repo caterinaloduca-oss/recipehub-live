@@ -23218,6 +23218,169 @@ function downloadBranchSOPPDF(id) {
         y += rowH + GAP;
       });
 
+      // ─── Extra sections (mirror the on-screen Branch SOP detail view) ───
+      var ensureSpace = function(needed) {
+        if (y + needed > PAGE_H - MARGIN - 4) {
+          doc.addPage('a4', 'landscape');
+          drawHeader();
+          y = HEADER_H + MARGIN;
+        }
+      };
+
+      var build = sop.buildRef ? BUILDS_DATA.find(function(b){ return b.id === sop.buildRef; }) : null;
+      if (!build) build = BUILDS_DATA.find(function(b){ return b.name === sop.name; }) || null;
+      var components = (build && build.components) ? build.components : [];
+
+      // Components table
+      if (components.length) {
+        ensureSpace(14 + components.length * 5);
+        doc.setTextColor(rgb[0], rgb[1], rgb[2]);
+        doc.setFont('helvetica','bold'); doc.setFontSize(10);
+        doc.text('COMPONENTS', MARGIN, y + 4);
+        y += 8;
+        // Table header
+        var colXs = [MARGIN, MARGIN + 25, MARGIN + 110, MARGIN + 145, MARGIN + 175, MARGIN + 220, MARGIN + 255];
+        doc.setDrawColor(220,220,220); doc.setLineWidth(0.3);
+        doc.line(MARGIN, y, PAGE_W - MARGIN, y);
+        doc.setTextColor(120,120,120);
+        doc.setFont('helvetica','bold'); doc.setFontSize(7);
+        doc.text('TYPE',           colXs[0] + 1, y + 4);
+        doc.text('ITEM',           colXs[1] + 1, y + 4);
+        doc.text('WEIGHT',         colXs[2] + 1, y + 4, { align: 'left' });
+        doc.text('TOOL / QTY',     colXs[3] + 1, y + 4);
+        doc.text('2ND SHELF LIFE', colXs[4] + 1, y + 4);
+        doc.text('AFTER OPENING',  colXs[5] + 1, y + 4);
+        y += 6;
+        var _csl = sop.componentShelfLife || {};
+        var _cslOpen = sop.componentShelfLifeOpen || {};
+        components.forEach(function(c) {
+          ensureSpace(6);
+          doc.setTextColor(120,120,120);
+          doc.setFont('helvetica','normal'); doc.setFontSize(8);
+          doc.text(String(c.type || ''), colXs[0] + 1, y + 3.2);
+          doc.setTextColor(40,40,40);
+          var itemLines = doc.splitTextToSize(String(c.item || ''), 80);
+          doc.text(itemLines[0] || '', colXs[1] + 1, y + 3.2);
+          doc.setTextColor(80,80,80);
+          doc.text(String(c.weight || ''), colXs[2] + 1, y + 3.2);
+          var toolStr = c.toolQty ? ((c.tool ? c.tool + ' — ' : '') + c.toolQty) : (c.tool || '');
+          doc.text(toolStr, colXs[3] + 1, y + 3.2);
+          var sl = _csl[c.item] || '—';
+          var slOpen = _cslOpen[c.item] || '—';
+          doc.setTextColor(sl !== '—' ? 110 : 180, sl !== '—' ? 145 : 180, sl !== '—' ? 110 : 180);
+          doc.text(String(sl), colXs[4] + 1, y + 3.2);
+          doc.setTextColor(slOpen !== '—' ? 200 : 180, slOpen !== '—' ? 140 : 180, slOpen !== '—' ? 60 : 180);
+          doc.text(String(slOpen), colXs[5] + 1, y + 3.2);
+          doc.setDrawColor(240,240,240);
+          doc.line(MARGIN, y + 5, PAGE_W - MARGIN, y + 5);
+          y += 5;
+        });
+        y += 4;
+      }
+
+      // Allergens + Nutrition (two columns)
+      var info = getBranchSOPAllergenNutritionData(sop);
+      if (info.allergens.length || info.nutrition) {
+        ensureSpace(40);
+        var halfW = (PAGE_W - MARGIN * 2) / 2;
+        // Allergens (left)
+        doc.setTextColor(200,140,60);
+        doc.setFont('helvetica','bold'); doc.setFontSize(9);
+        doc.text('⚠ ALLERGENS', MARGIN, y + 4);
+        // Nutrition (right)
+        doc.setTextColor(110,145,110);
+        doc.text('NUTRITION (per 100g)', MARGIN + halfW, y + 4);
+        y += 8;
+        var blockY = y;
+        // Allergens body
+        doc.setTextColor(40,40,40);
+        doc.setFont('helvetica','normal'); doc.setFontSize(9);
+        if (info.allergens.length) {
+          var allergenStr = info.allergens.map(function(a){ return (typeof a === 'string') ? a : (a.name || a); }).join(', ');
+          var allergenLines = doc.splitTextToSize(allergenStr, halfW - 4);
+          doc.text(allergenLines, MARGIN, blockY + 4);
+        } else {
+          doc.setTextColor(150,150,150); doc.setFont('helvetica','italic');
+          doc.text('No allergens detected', MARGIN, blockY + 4);
+        }
+        // Nutrition body
+        if (info.nutrition) {
+          var n = info.nutrition;
+          var rows = [
+            ['Energy',  n.energy,  'kcal'],
+            ['Protein', n.protein, 'g'],
+            ['Total Fat', n.fat,   'g'],
+            ['Carbs',   n.carbs,   'g'],
+            ['Fibre',   n.fibre,   'g'],
+            ['Sodium',  n.sodium,  'mg'],
+          ].filter(function(r){ return r[1]; });
+          var ny = blockY + 4;
+          rows.forEach(function(r) {
+            doc.setTextColor(120,120,120);
+            doc.setFont('helvetica','normal'); doc.setFontSize(9);
+            doc.text(r[0], MARGIN + halfW, ny);
+            doc.setTextColor(40,40,40);
+            doc.setFont('helvetica','bold');
+            doc.text(String(r[1]) + ' ' + r[2], PAGE_W - MARGIN, ny, { align: 'right' });
+            ny += 4.5;
+          });
+          y = Math.max(y + 12, ny + 2);
+        } else {
+          doc.setTextColor(150,150,150); doc.setFont('helvetica','italic'); doc.setFontSize(9);
+          doc.text('No nutrition data', MARGIN + halfW, blockY + 4);
+          y = blockY + 14;
+        }
+        y += 2;
+      }
+
+      // Approval signoffs (3 cards)
+      var approval = getBSOPApproval(sop);
+      var statusMap = {'draft':'DRAFT','pending-review':'PENDING OPS REVIEW','pending-approval':'PENDING QA SIGN-OFF','approved':'APPROVED'};
+      ensureSpace(34);
+      doc.setTextColor(rgb[0], rgb[1], rgb[2]);
+      doc.setFont('helvetica','bold'); doc.setFontSize(10);
+      doc.text('SOP APPROVAL — ' + (statusMap[bsopDerivedStatus(sop)] || ''), MARGIN, y + 4);
+      y += 8;
+      var cardW = (PAGE_W - MARGIN * 2 - 4) / 3;
+      var cardH = 22;
+      var fmtSig = function(iso) {
+        try { return new Date(iso).toLocaleString('en-GB', {day:'2-digit',month:'short',year:'2-digit',hour:'2-digit',minute:'2-digit'}); }
+        catch(e) { return iso || ''; }
+      };
+      [
+        { stage:'prepared', label:'Stage 1 · Prepared by',  role:'NPD / QA', sig: approval.prepared },
+        { stage:'reviewed', label:'Stage 2 · Reviewed by',  role:'OPS',      sig: approval.reviewed },
+        { stage:'approved', label:'Stage 3 · Approved by',  role:'QA',       sig: approval.approved },
+      ].forEach(function(card, ci) {
+        var cx = MARGIN + ci * (cardW + 2);
+        if (card.sig) {
+          doc.setFillColor(231, 240, 232); doc.setDrawColor(110,145,110);
+        } else {
+          doc.setFillColor(255, 248, 230); doc.setDrawColor(232,200,117);
+        }
+        doc.setLineWidth(0.4);
+        doc.roundedRect(cx, y, cardW, cardH, 1.5, 1.5, 'FD');
+        doc.setTextColor(120,120,120);
+        doc.setFont('helvetica','bold'); doc.setFontSize(7);
+        doc.text(card.label.toUpperCase(), cx + 3, y + 4);
+        doc.setTextColor(rgb[0], rgb[1], rgb[2]);
+        doc.setFont('helvetica','bold'); doc.setFontSize(9);
+        doc.text(card.role, cx + 3, y + 9);
+        if (card.sig) {
+          doc.setTextColor(40,40,40);
+          doc.setFont('helvetica','bold'); doc.setFontSize(9);
+          doc.text(String(card.sig.by || ''), cx + 3, y + 14);
+          doc.setTextColor(120,120,120); doc.setFont('helvetica','normal'); doc.setFontSize(7);
+          doc.text(fmtSig(card.sig.at), cx + 3, y + 18);
+          doc.setTextColor(110,145,110); doc.setFont('helvetica','bold'); doc.setFontSize(7);
+          doc.text('✓ SIGNED', cx + cardW - 3, y + 18, { align: 'right' });
+        } else {
+          doc.setTextColor(150,150,150); doc.setFont('helvetica','italic'); doc.setFontSize(8);
+          doc.text('Pending sign-off', cx + 3, y + 15);
+        }
+      });
+      y += cardH + 4;
+
       // Footer (last page only)
       doc.setTextColor(160,160,160);
       doc.setFont('helvetica','normal');
