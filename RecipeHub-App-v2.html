@@ -23767,14 +23767,18 @@ function printBranchSOP(id) {
     rows.push({ steps: rowSteps, hasImg: rowHasImg });
   }
 
-  var IMG_H_FULL = '180px', IMG_H_NONE = 0;
+  // Photo cells should NOT be squeezed — A4 landscape with 4 columns ≈ 70mm
+  // wide cells, so a comfortable ~70mm tall image (260px @ 96dpi) keeps the
+  // photos roughly square. Two rows of full cells fit per page; anything
+  // beyond that flows naturally to a second page.
+  var IMG_H_FULL = '260px';
   var stepCellHTML = function(step, hasImg) {
     var imgArea = hasImg
       ? '<div style="width:100%;height:'+IMG_H_FULL+';background:#f0f0f0;display:flex;align-items:center;justify-content:center;overflow:hidden">' +
           (step.img ? '<img src="'+step.img+'" style="width:100%;height:100%;object-fit:cover" />' : '<div style="color:#ccc;font-size:24px">📷</div>') +
         '</div>'
       : '';
-    return '<div style="border:2px solid '+bc+';background:white;overflow:hidden">' +
+    return '<div class="bsop-print-cell" style="border:2px solid '+bc+';background:white;overflow:hidden">' +
       imgArea +
       '<div style="padding:8px 10px;' + (hasImg ? 'border-top:2px solid '+bc+';' : '') + 'font-size:11px;line-height:1.4">' +
         '<strong>'+(step.text||'')+'</strong>' +
@@ -23787,7 +23791,7 @@ function printBranchSOP(id) {
     // Pad short last row with empty cells so the grid stays 4-wide visually
     var cells = row.steps.map(function(s){ return stepCellHTML(s, row.hasImg); });
     while (cells.length < COLS) cells.push('<div></div>');
-    return '<div style="display:grid;grid-template-columns:repeat('+COLS+',1fr);gap:0">' + cells.join('') + '</div>';
+    return '<div class="bsop-print-row" style="display:grid;grid-template-columns:repeat('+COLS+',1fr);gap:0">' + cells.join('') + '</div>';
   }).join('');
 
   // Banner with id · version · date on the right (mirrors the on-screen banner)
@@ -23800,7 +23804,7 @@ function printBranchSOP(id) {
   '</div>';
 
   var w = window.open('','_blank');
-  w.document.write('<html><head><title>'+sop.name+' — Branch SOP</title><style>@page{size:landscape;margin:10mm}body{margin:0;font-family:sans-serif}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body>');
+  w.document.write('<html><head><title>'+sop.name+' — Branch SOP</title><style>@page{size:landscape;margin:10mm}body{margin:0;font-family:sans-serif}.bsop-print-row{break-inside:avoid;page-break-inside:avoid}.bsop-print-cell{break-inside:avoid;page-break-inside:avoid}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}img{max-width:100%}}</style></head><body>');
   w.document.write('<div style="background:'+bc+';padding:16px 24px;display:flex;align-items:center;gap:16px">');
   w.document.write('<div style="background:white;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;color:'+bc+'">'+sop.brand+'</div>');
   w.document.write('<div style="font-size:28px;font-weight:700;color:white;text-transform:uppercase;letter-spacing:0.02em;flex:1">'+sop.name+'</div>');
