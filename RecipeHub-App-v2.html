@@ -22658,7 +22658,12 @@ function viewBranchSOP(id) {
         <div style="background:white;border-radius:var(--r-md);padding:8px 14px;font-family:var(--font-d);font-size:14px;font-weight:700;color:${brandColor}">${sop.brand}</div>
         <div style="font-family:var(--font-d);font-size:32px;font-weight:700;color:white;flex:1;text-transform:uppercase;letter-spacing:0.02em">${sop.name}</div>
         <div class="bsop-meta" style="text-align:right;color:rgba(255,255,255,0.95);font-family:var(--font-m);font-size:13px;line-height:1.5;white-space:nowrap">
-          <span style="opacity:0.85">${esc(sop.id || '')}</span>
+          <span contenteditable="true" spellcheck="false"
+                class="bsop-meta-edit"
+                data-placeholder="M-PS-XXX"
+                onblur="_bsopSaveId('${sop.id}',this)"
+                onkeydown="_bsopInlineEditKey(event)"
+                title="Click to edit SOP code (renames the SOP)">${esc(sop.id || '')}</span>
           <span style="opacity:0.6;margin:0 6px">·</span>
           V-<span contenteditable="true" spellcheck="false"
                   class="bsop-meta-edit"
@@ -22778,6 +22783,61 @@ function _bsopInlineSaveStep(sopId, idx, field, el) {
 // Enter on inline-edit blurs (commit) instead of inserting a newline.
 function _bsopInlineEditKey(e) {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.blur(); }
+}
+
+// Rename a Branch SOP — sop.id is both the display code AND the server key,
+// so a rename = create-with-new-id + delete-old. Refuses if the new id is
+// already in use, or if it would conflict with the kill list.
+function _bsopSaveId(oldId, el) {
+  try {
+    var sop = BRANCH_SOPS.find(function(s){ return s.id === oldId; });
+    if (!sop) return;
+    var newId = (el.textContent || '').trim();
+    if (!newId || newId === oldId) { el.textContent = oldId; return; }
+    // Validate: SOP codes are typically M-PS-NNN — allow letters/digits/hyphens only
+    if (!/^[A-Za-z0-9_\-]+$/.test(newId)) {
+      showSaveToast('Invalid code — letters, numbers, hyphens only', true);
+      el.textContent = oldId; return;
+    }
+    if (BRANCH_SOPS.some(function(s){ return s.id === newId; })) {
+      showSaveToast('Code ' + newId + ' is already in use', true);
+      el.textContent = oldId; return;
+    }
+    if (!confirm('Rename SOP from ' + oldId + ' to ' + newId + '?\n\nThe old code will be deleted from the server.')) {
+      el.textContent = oldId; return;
+    }
+    // Local rename
+    sop.id = newId;
+    sop.updatedAt = new Date().toISOString();
+    if (!sop.changeLog) sop.changeLog = [];
+    sop.changeLog.push({ date: sop.updatedAt, by: (window.CURRENT_USER && CURRENT_USER.name) || 'User', changes: 'Renamed from ' + oldId + ' to ' + newId });
+    // Save the new SOP, then delete the old
+    fetch(API_BASE + '/api/branchsop/' + encodeURIComponent(newId), {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', 'Authorization':'Bearer ' + API_KEY },
+      body: JSON.stringify({ sop: sop }),
+    }).then(function(r){
+      if (!r.ok) throw new Error('Save new failed: HTTP ' + r.status);
+      return fetch(API_BASE + '/api/branchsop/' + encodeURIComponent(oldId), {
+        method: 'DELETE',
+        headers: { 'Authorization':'Bearer ' + API_KEY },
+      });
+    }).then(function(){
+      buildBranchSOPTable();
+      viewBranchSOP(newId);
+      showSaveToast('Renamed to ' + newId);
+    }).catch(function(err){
+      console.error('Rename failed:', err);
+      // Roll back local id so view stays consistent
+      sop.id = oldId;
+      buildBranchSOPTable();
+      viewBranchSOP(oldId);
+      showSaveToast('Rename failed: ' + err.message, true);
+    });
+  } catch (err) {
+    console.error('save id failed:', err);
+    showSaveToast('Save failed: ' + (err && err.message ? err.message : 'unknown'), true);
+  }
 }
 
 // Save the SOP's version or date from the green-banner inline edit.
