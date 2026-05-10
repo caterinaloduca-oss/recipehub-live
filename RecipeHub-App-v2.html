@@ -6712,6 +6712,29 @@ function saveBuildToServer(id) {
   });
 }
 
+// Per-substitution-request save — replaces saveAllData() for create / approve /
+// reject / comment actions on a substitution request. Server merges approvals
+// per-role and unions comments by date.
+function saveSubRequestToServer(id) {
+  var sub = (typeof SUB_REQUESTS !== 'undefined' ? SUB_REQUESTS : []).find(function(s){ return s && s.id === id; });
+  if (!sub) return Promise.reject(new Error('not found'));
+  _persistLocal(_buildDataBlob());
+  return fetch(API_BASE + '/api/substitution/' + encodeURIComponent(id), {
+    method: 'POST',
+    headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+API_KEY },
+    body: JSON.stringify({ request: sub }),
+  }).then(function(r){
+    if (!r.ok) throw new Error('Server '+r.status);
+    return r.json();
+  }).then(function(result){
+    if (result.request) { var idx = SUB_REQUESTS.findIndex(function(s){return s&&s.id===id}); if (idx>=0) SUB_REQUESTS[idx] = result.request; }
+    _localDirty = false;
+  }).catch(function(err){
+    console.warn('Per-substitution save failed, falling back:', err && err.message);
+    _saveToServer(_buildDataBlob());
+  });
+}
+
 // Per-ingredient save — narrowest conflict surface for ingredient rows.
 // Routes through POST /api/ingredient instead of /api/data, so a stale tab
 // elsewhere can't clobber the row by reposting an old ingredients blob.
@@ -24962,7 +24985,7 @@ function saveSubRequest() {
   if (typeof auditEvent === 'function') auditEvent('sub.create', 'substitution', id, cur.name + ' → ' + prop.name, { reason: reason, affected: affected.length });
   toggleSubRequestForm();
   buildSubRequestList();
-  saveAllData();
+  saveSubRequestToServer(id);   // per-entity save
   _subNotify('sub-created', entry);
   showSaveToast('Substitution request raised — R&D, QA, and Factory notified');
 }
@@ -25124,7 +25147,7 @@ function approveSubRequest(id, role, ok) {
   var justApproved = false;
   if (allOk && r.status !== 'approved') { r.status = 'approved'; justApproved = true; }
   if (typeof auditEvent === 'function') auditEvent('sub.' + (ok?'approve':'undo'), 'substitution', id, _subRoleLabel(role), {});
-  saveAllData();
+  saveSubRequestToServer(id);
   // Notify the next role in the sequence (or "all approved" once Factory closes it)
   if (ok) {
     if (justApproved) _subNotify('sub-approved', r);
@@ -25146,7 +25169,7 @@ async function rejectSubRequest(id, role) {
   r.status = 'rejected';
   r.rejection = { by: u.email || 'unknown', byName: u.name || u.email || 'unknown', at: new Date().toISOString(), role: role, reason: reason };
   if (typeof auditEvent === 'function') auditEvent('sub.reject', 'substitution', id, _subRoleLabel(role), { reason: reason });
-  saveAllData();
+  saveSubRequestToServer(id);
   _subNotify('sub-rejected', r);
   viewSubRequestDetail(id);
   buildSubRequestList();
@@ -25164,7 +25187,7 @@ function markSubRequestImplemented(id) {
   r.implementedBy = u.email || 'unknown';
   r.implementedByName = u.name || u.email || 'unknown';
   if (typeof auditEvent === 'function') auditEvent('sub.implement', 'substitution', id, '', {});
-  saveAllData();
+  saveSubRequestToServer(id);
   _subNotify('sub-implemented', r);
   viewSubRequestDetail(id);
   buildSubRequestList();
@@ -25195,7 +25218,7 @@ function addSubComment(id) {
   var u = _subCurrentUser();
   r.comments = r.comments || [];
   r.comments.push({ by: u.email || 'unknown', byName: u.name || u.email || 'unknown', at: new Date().toISOString(), text: txt });
-  saveAllData();
+  saveSubRequestToServer(id);
   viewSubRequestDetail(id);
 }
 

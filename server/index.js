@@ -904,6 +904,61 @@ app.delete('/api/ingredient', requireAuth, (req, res) => {
   }
 });
 
+// Substitution request upsert (Purchasing → R&D/QA/Factory ingredient swap
+// workflow). Identified by id; same approval state can be touched by multiple
+// roles, so the existing union-merge + preserve-when-undefined patterns
+// elsewhere apply here too.
+app.post('/api/substitution/:id', requireAuth, (req, res) => {
+  try {
+    const { id } = req.params;
+    const incoming = req.body.request;
+    if (!incoming) return res.status(400).json({ error: 'request required' });
+    const state = db.getState();
+    if (!state || !state.data) return res.status(500).json({ error: 'No data on server' });
+    const data = state.data;
+    if (!Array.isArray(data.substitutionRequests)) data.substitutionRequests = [];
+    const idx = data.substitutionRequests.findIndex(r => r && r.id === id);
+    let merged;
+    if (idx >= 0) {
+      const existing = data.substitutionRequests[idx];
+      merged = { ...existing, ...incoming };
+      // Approvals merge per-role: existing approval wins unless incoming explicitly sets ok=true on a role
+      if (existing.approvals && incoming.approvals) {
+        merged.approvals = { ...existing.approvals };
+        Object.keys(incoming.approvals).forEach(role => {
+          const inc = incoming.approvals[role] || {};
+          const exi = existing.approvals[role] || {};
+          merged.approvals[role] = (inc.ok && !exi.ok) ? inc : { ...exi, ...inc };
+        });
+      }
+      // Comments union by their timestamp key (substitutionRequests use `at`,
+      // not `date`). Audit log — never delete.
+      if (Array.isArray(existing.comments) || Array.isArray(incoming.comments)) {
+        const seen = new Set();
+        merged.comments = [];
+        [].concat(Array.isArray(existing.comments) ? existing.comments : [],
+                  Array.isArray(incoming.comments) ? incoming.comments : []).forEach(c => {
+          if (!c) return;
+          const key = c.at || c.date;
+          if (!key || seen.has(key)) return;
+          seen.add(key);
+          merged.comments.push(c);
+        });
+      }
+      data.substitutionRequests[idx] = merged;
+    } else {
+      merged = incoming;
+      data.substitutionRequests.unshift(merged);
+    }
+    data.savedAt = new Date().toISOString();
+    const savedAt = db.setState(JSON.stringify(data), data.dataVersion || 0);
+    res.json({ ok: true, savedAt, request: merged });
+  } catch (err) {
+    console.error('POST /api/substitution error:', err);
+    res.status(500).json({ error: 'Failed to save substitution: ' + err.message });
+  }
+});
+
 // Append one commsLog entry. Comms log is append-only audit history; we
 // dedupe by `date` (ISO timestamp) — duplicate sends won't double-log.
 // Stale-tab clobber on commsLog (entry vanishes after a sync) is the failure
