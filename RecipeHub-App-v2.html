@@ -23977,8 +23977,9 @@ function sendCommsMessage() {
     }),
   }).then(function(r) { return r.json(); }).then(function(data) {
     if (data.error) { showSaveToast('Send failed: ' + data.error, true); return; }
-    // Log locally
-    COMMS_LOG.unshift({
+    // Log locally + persist via the per-entry endpoint so a stale tab
+    // elsewhere can't wipe this entry by reposting an older commsLog blob.
+    var entry = {
       date: new Date().toISOString(),
       to: to === 'individual' ? document.getElementById('comms-individual').value : to,
       toLabel: to === 'all' ? 'Everyone' : to === 'individual' ? (USERS_DATA.find(function(u){return u.email===document.getElementById('comms-individual').value})||{}).name||to : to.toUpperCase(),
@@ -23988,8 +23989,17 @@ function sendCommsMessage() {
       body: body,
       recipe: recipeName,
       sentBy: getCurrentUserName(),
+    };
+    COMMS_LOG.unshift(entry);
+    _persistLocal(_buildDataBlob());
+    fetch(API_BASE + '/api/comms/log', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+API_KEY },
+      body: JSON.stringify({ entry: entry }),
+    }).catch(function(err){
+      console.warn('Per-entry comms log save failed, falling back:', err && err.message);
+      _saveToServer(_buildDataBlob());
     });
-    saveAllData();
     showSaveToast('Email sent to ' + recipients.length + ' recipients');
     logActivity('comms', '✉', 'Email sent: ' + subject, 'To: ' + (to === 'all' ? 'Everyone' : to));
     clearCommsForm();

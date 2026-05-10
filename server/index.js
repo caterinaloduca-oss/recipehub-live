@@ -904,6 +904,32 @@ app.delete('/api/ingredient', requireAuth, (req, res) => {
   }
 });
 
+// Append one commsLog entry. Comms log is append-only audit history; we
+// dedupe by `date` (ISO timestamp) — duplicate sends won't double-log.
+// Stale-tab clobber on commsLog (entry vanishes after a sync) is the failure
+// this endpoint blocks: server appends and persists; subsequent /api/data
+// merges keep it via the existing union-by-date logic.
+app.post('/api/comms/log', requireAuth, (req, res) => {
+  try {
+    const entry = req.body.entry;
+    if (!entry || !entry.date) return res.status(400).json({ error: 'entry.date required' });
+    const state = db.getState();
+    if (!state || !state.data) return res.status(500).json({ error: 'No data on server' });
+    const data = state.data;
+    if (!Array.isArray(data.commsLog)) data.commsLog = [];
+    // If the date is already present (duplicate send), update the entry rather than re-appending
+    const idx = data.commsLog.findIndex(e => e && e.date === entry.date);
+    if (idx >= 0) data.commsLog[idx] = entry;
+    else data.commsLog.unshift(entry);   // newest first matches client convention
+    data.savedAt = new Date().toISOString();
+    const savedAt = db.setState(JSON.stringify(data), data.dataVersion || 0);
+    res.json({ ok: true, savedAt, entry });
+  } catch (err) {
+    console.error('POST /api/comms/log error:', err);
+    res.status(500).json({ error: 'Failed to append comms log: ' + err.message });
+  }
+});
+
 app.post('/api/build/:id', requireAuth, (req, res) => {
   try {
     const { id } = req.params;
