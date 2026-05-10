@@ -22306,8 +22306,11 @@ function getBranchSOPAllergenNutritionPrintHTML(sop) {
 function getBranchSOPAllergenNutritionData(sop) {
   var build = sop.buildRef ? BUILDS_DATA.find(function(b){ return b.id === sop.buildRef; }) : null;
 
+  // SOP allergens: only honor as override if it's a non-empty array. An empty
+  // array is treated as "no override" so the mirror keeps working — left
+  // around by accidental blur-saves before the inline-save guard was added.
   var allergens, allergenSource;
-  if (Array.isArray(sop.allergens)) {
+  if (Array.isArray(sop.allergens) && sop.allergens.length) {
     allergens = sop.allergens.slice(); allergenSource = 'sop';
   } else if (build && Array.isArray(build.allergens)) {
     allergens = build.allergens.slice(); allergenSource = 'build';
@@ -22317,9 +22320,12 @@ function getBranchSOPAllergenNutritionData(sop) {
     allergens = []; allergenSource = 'none';
   }
 
+  // SOP nutrition: only honor as override if at least one field has a value.
+  var sopNut = (sop.nutrition && typeof sop.nutrition === 'object') ? sop.nutrition : null;
+  var sopNutHasAny = sopNut && Object.keys(sopNut).some(function(k){ var v = sopNut[k]; return v !== '' && v != null; });
   var nutrition, nutritionSource;
-  if (sop.nutrition && typeof sop.nutrition === 'object' && Object.keys(sop.nutrition).length) {
-    nutrition = sop.nutrition; nutritionSource = 'sop';
+  if (sopNutHasAny) {
+    nutrition = sopNut; nutritionSource = 'sop';
   } else if (build && build.nutrition && Object.keys(build.nutrition).length) {
     nutrition = build.nutrition; nutritionSource = 'build';
   } else {
@@ -22754,22 +22760,35 @@ function _bsopInlineEditKey(e) {
 }
 
 // Save manual allergens — comma-separated string → array, deduped, trimmed.
+// If the typed value matches the linked Build's allergens, DON'T set
+// sop.allergens (keep the mirror). Only set when the user genuinely deviates
+// from the build. Setting "" (or matching build) clears any prior override.
 function _bsopSaveAllergens(sopId, el) {
   try {
     var sop = BRANCH_SOPS.find(function(s){ return s.id === sopId; });
     if (!sop) return;
     var raw = (el.textContent || '').trim();
     var arr = raw ? raw.split(',').map(function(s){ return s.trim(); }).filter(Boolean) : [];
-    // dedupe
     var seen = {};
     arr = arr.filter(function(a){ var k = a.toLowerCase(); if (seen[k]) return false; seen[k] = 1; return true; });
-    var was = JSON.stringify(sop.allergens || []);
-    var now = JSON.stringify(arr);
-    if (was === now) return;
-    sop.allergens = arr;
+    // Build's effective allergen list (manual list if set, else auto-detect)
+    var build = sop.buildRef ? BUILDS_DATA.find(function(b){ return b.id === sop.buildRef; }) : null;
+    var buildArr = build ? getBuildAllergens(build) : [];
+    var matchesBuild = JSON.stringify(arr.slice().sort()) === JSON.stringify(buildArr.slice().sort());
+    var hadOverride = Array.isArray(sop.allergens);
+    if (matchesBuild) {
+      if (!hadOverride) return;          // no change, no save
+      delete sop.allergens;               // clear the override → resume mirroring build
+    } else {
+      // Real override — store on the SOP
+      var prev = JSON.stringify(sop.allergens || null);
+      var now = JSON.stringify(arr);
+      if (prev === now) return;
+      sop.allergens = arr;
+    }
     sop.updatedAt = new Date().toISOString();
     saveBranchSOPToServer(sopId);
-    showSaveToast('Allergens updated');
+    showSaveToast(matchesBuild ? 'Mirroring build allergens' : 'Allergens overridden for this branch');
   } catch (err) {
     console.error('save allergens failed:', err);
     showSaveToast('Save failed: ' + (err && err.message ? err.message : 'unknown'), true);
@@ -22777,22 +22796,33 @@ function _bsopSaveAllergens(sopId, el) {
 }
 
 // Save one nutrition field — accepts numbers (10, 10.5, "10g" → 10).
+// Same mirror-aware rule as allergens: if the typed value matches the build's,
+// don't store an override on the SOP.
 function _bsopSaveNutritionField(sopId, field, el) {
   try {
     var sop = BRANCH_SOPS.find(function(s){ return s.id === sopId; });
     if (!sop) return;
     var raw = (el.textContent || '').trim();
     var newVal = raw === '' ? null : (isNaN(parseFloat(raw)) ? raw : parseFloat(raw));
-    if (!sop.nutrition) sop.nutrition = {};
-    var oldVal = sop.nutrition[field];
-    if (oldVal === newVal || (oldVal == null && newVal == null)) return;
-    if (newVal == null) { delete sop.nutrition[field]; }
-    else { sop.nutrition[field] = newVal; }
-    // Drop the whole nutrition object if empty so we don't carry a useless {}
-    if (sop.nutrition && !Object.keys(sop.nutrition).length) delete sop.nutrition;
+    var build = sop.buildRef ? BUILDS_DATA.find(function(b){ return b.id === sop.buildRef; }) : null;
+    var buildVal = (build && build.nutrition) ? build.nutrition[field] : undefined;
+    var sopHasField = sop.nutrition && Object.prototype.hasOwnProperty.call(sop.nutrition, field);
+    var oldSopVal = sopHasField ? sop.nutrition[field] : undefined;
+    var matchesBuild = (newVal == null && buildVal == null) || (newVal === buildVal) || (String(newVal) === String(buildVal));
+    if (matchesBuild) {
+      if (!sopHasField) return;           // already mirroring
+      delete sop.nutrition[field];        // remove the override
+      if (sop.nutrition && !Object.keys(sop.nutrition).length) delete sop.nutrition;
+    } else {
+      if (oldSopVal === newVal) return;
+      if (!sop.nutrition) sop.nutrition = {};
+      if (newVal == null) { delete sop.nutrition[field]; }
+      else { sop.nutrition[field] = newVal; }
+      if (sop.nutrition && !Object.keys(sop.nutrition).length) delete sop.nutrition;
+    }
     sop.updatedAt = new Date().toISOString();
     saveBranchSOPToServer(sopId);
-    showSaveToast('Nutrition updated');
+    showSaveToast(matchesBuild ? 'Mirroring build ' + field : 'Nutrition overridden');
   } catch (err) {
     console.error('save nutrition failed:', err);
     showSaveToast('Save failed: ' + (err && err.message ? err.message : 'unknown'), true);
