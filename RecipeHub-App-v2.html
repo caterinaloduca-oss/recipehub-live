@@ -16069,7 +16069,8 @@ function saveNewIngredient() {
   const storage = document.getElementById('ni-storage').value || 'Ambient';
   const shelf = document.getElementById('ni-shelf').value || '—';
   const num = ING_DATA.length + 1;
-  ING_DATA.push([num, name, supplier, code, cat, cost, storage, shelf, 'Just now']);
+  const newRow = [num, name, supplier, code, cat, cost, storage, shelf, 'Just now'];
+  ING_DATA.push(newRow);
   const tbody = document.getElementById('ing-db-tbody');
   const catClass = CAT_CLASS[cat] || 'cat-base';
   const tr = document.createElement('tr');
@@ -16085,7 +16086,8 @@ function saveNewIngredient() {
   `;
   tbody.appendChild(tr);
   closeModal();
-  saveAllData();
+  // Per-ingredient endpoint — survives stale-tab clobber
+  saveIngredientRowToServer(newRow).catch(function(){});
 }
 
 // ──────────── EDIT INGREDIENT (inline) ────────────
@@ -16240,7 +16242,12 @@ function saveEditIngredient() {
     newCost = _parseCost(ING_DATA[idx][5]);
   }
   buildIngTable();
-  saveAllData();
+  // Per-ingredient endpoint — survives stale-tab clobber
+  if (idx >= 0 && idx < ING_DATA.length) {
+    saveIngredientRowToServer(ING_DATA[idx]).catch(function(){});
+  } else {
+    saveAllData();
+  }
   closeModal();
   // If cost changed, show impact
   if (oldCost != null && newCost != null && oldCost !== newCost) {
