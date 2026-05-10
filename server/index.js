@@ -501,6 +501,37 @@ app.post('/api/data', requireAuth, (req, res) => {
       const deletedRecipes = new Set(body.deletedRecipeIds || []);
       body.productionRuns = body.productionRuns.filter(r => !r.npd || (validRecipes.has(r.npd) && !deletedRecipes.has(r.npd)));
     }
+    // Kill list for production runs — server-authoritative (same pattern as
+    // branchSOPs). /api/data ignores any body.deletedProductionRunIds and only
+    // honors the server's existing list, so stale tabs can't kill alive runs
+    // by replaying old local state. The DELETE /api/productionrun/:id endpoint
+    // is the only way to retire a run.
+    if (existing && existing.data && Array.isArray(existing.data.deletedProductionRunIds)) {
+      body.deletedProductionRunIds = existing.data.deletedProductionRunIds.slice();
+    } else {
+      body.deletedProductionRunIds = [];
+    }
+    if (Array.isArray(body.productionRuns) && body.deletedProductionRunIds.length) {
+      const killedRuns = new Set(body.deletedProductionRunIds);
+      body.productionRuns = body.productionRuns.filter(r => !killedRuns.has(r && r.id));
+    }
+    // Aliveness merge for productionRuns — re-add any server-side run absent
+    // from the body and not in the kill list (low-count safe; matches branchSOPs).
+    if (existing && existing.data && Array.isArray(existing.data.productionRuns)) {
+      const oldRuns = existing.data.productionRuns;
+      const newRuns = Array.isArray(body.productionRuns) ? body.productionRuns.slice() : oldRuns.slice();
+      const killSet = new Set(body.deletedProductionRunIds);
+      const seen = new Set(newRuns.map(r => r && r.id).filter(Boolean));
+      let reAdded = 0;
+      oldRuns.forEach(r => {
+        if (!r || !r.id) return;
+        if (seen.has(r.id) || killSet.has(r.id)) return;
+        newRuns.push(r);
+        reAdded++;
+      });
+      if (reAdded) console.warn('[mergeProductionRuns] re-added ' + reAdded + ' server-only run(s) absent from client post');
+      body.productionRuns = newRuns;
+    }
     // Auto-clean: remove deleted Branch SOPs.
     //
     // /api/data is the bulk-sync path; it MUST NOT be allowed to kill a SOP
@@ -789,6 +820,30 @@ app.post('/api/build/:id', requireAuth, (req, res) => {
   } catch (err) {
     console.error('POST /api/build error:', err);
     res.status(500).json({ error: 'Failed to save build: ' + err.message });
+  }
+});
+
+// Explicit Production Run delete — adds the ID to the server's authoritative
+// kill list and removes the run from productionRuns. /api/data ignores the
+// body's deletedProductionRunIds, so this endpoint is the only path that can
+// retire a run.
+app.delete('/api/productionrun/:id', requireAuth, (req, res) => {
+  try {
+    const { id } = req.params;
+    const state = db.getState();
+    if (!state || !state.data) return res.status(500).json({ error: 'No data on server' });
+    const data = state.data;
+    if (!Array.isArray(data.deletedProductionRunIds)) data.deletedProductionRunIds = [];
+    if (!data.deletedProductionRunIds.includes(id)) data.deletedProductionRunIds.push(id);
+    if (Array.isArray(data.productionRuns)) {
+      data.productionRuns = data.productionRuns.filter(r => r && r.id !== id);
+    }
+    data.savedAt = new Date().toISOString();
+    const savedAt = db.setState(JSON.stringify(data), data.dataVersion || 0);
+    res.json({ ok: true, savedAt, killed: id });
+  } catch (err) {
+    console.error('DELETE /api/productionrun error:', err);
+    res.status(500).json({ error: 'Failed to delete production run: ' + err.message });
   }
 });
 
