@@ -6712,6 +6712,58 @@ function saveBuildToServer(id) {
   });
 }
 
+// Per-brand save. Replaces saveAllData() for brand edits / new brand / archive.
+function saveBrandToServer(id) {
+  var b = (typeof BRANDS !== 'undefined' ? BRANDS : []).find(function(x){ return x && x.id === id; });
+  if (!b) return Promise.reject(new Error('not found'));
+  b.updatedAt = new Date().toISOString();
+  _persistLocal(_buildDataBlob());
+  return fetch(API_BASE + '/api/brand/' + encodeURIComponent(id), {
+    method: 'POST',
+    headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+API_KEY },
+    body: JSON.stringify({ brand: b }),
+  }).then(function(r){ if (!r.ok) throw new Error('Server '+r.status); return r.json(); })
+    .then(function(result){
+      if (result.brand) { var idx = BRANDS.findIndex(function(x){return x&&x.id===id}); if (idx>=0) BRANDS[idx] = result.brand; }
+      _localDirty = false;
+    })
+    .catch(function(err){ console.warn('Per-brand save failed, falling back:', err && err.message); _saveToServer(_buildDataBlob()); });
+}
+
+// Per-user save. Replaces saveAllData() for user edits / role change / access toggle.
+function saveUserToServer(email) {
+  var u = (typeof USERS_DATA !== 'undefined' ? USERS_DATA : []).find(function(x){ return x && String((x.email||'')).toLowerCase() === String(email||'').toLowerCase(); });
+  if (!u) return Promise.reject(new Error('not found'));
+  u.updatedAt = new Date().toISOString();
+  _persistLocal(_buildDataBlob());
+  return fetch(API_BASE + '/api/user/' + encodeURIComponent(u.email), {
+    method: 'POST',
+    headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+API_KEY },
+    body: JSON.stringify({ user: u }),
+  }).then(function(r){ if (!r.ok) throw new Error('Server '+r.status); return r.json(); })
+    .then(function(result){
+      if (result.user) { var idx = USERS_DATA.findIndex(function(x){return x && String((x.email||'')).toLowerCase() === String(u.email).toLowerCase()}); if (idx>=0) USERS_DATA[idx] = result.user; }
+      _localDirty = false;
+    })
+    .catch(function(err){ console.warn('Per-user save failed, falling back:', err && err.message); _saveToServer(_buildDataBlob()); });
+}
+
+// Per-savingsProject (KPI & Goals) save.
+function saveSavingsProjectToServer(id) {
+  var arr = (typeof SAVINGS_PROJECTS !== 'undefined') ? SAVINGS_PROJECTS : ((window.SAVINGS_PROJECTS) || []);
+  var p = arr.find(function(x){ return x && x.id === id; });
+  if (!p) return Promise.reject(new Error('not found'));
+  p.updatedAt = new Date().toISOString();
+  _persistLocal(_buildDataBlob());
+  return fetch(API_BASE + '/api/savingsproject/' + encodeURIComponent(id), {
+    method: 'POST',
+    headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+API_KEY },
+    body: JSON.stringify({ project: p }),
+  }).then(function(r){ if (!r.ok) throw new Error('Server '+r.status); return r.json(); })
+    .then(function(){ _localDirty = false; })
+    .catch(function(err){ console.warn('Per-savings save failed, falling back:', err && err.message); _saveToServer(_buildDataBlob()); });
+}
+
 // Per-substitution-request save — replaces saveAllData() for create / approve /
 // reject / comment actions on a substitution request. Server merges approvals
 // per-role and unions comments by date.
@@ -7694,7 +7746,7 @@ function toggleUserAccess(email, key) {
   u.updatedAt = new Date().toISOString();
   auditEvent('user.access_change', 'user', u.email, u.name, { key: key, value: u.access[key] });
   buildUsersTable();
-  saveAllData();
+  saveUserToServer(u.email);
   showSaveToast(u.name + ' — ' + ACCESS_LABELS[key] + ': ' + (u.access[key] ? 'on' : 'off'));
 }
 
@@ -8138,7 +8190,7 @@ function saveRecipeTags(npd) {
   buildRecipesTable();
   viewRecipe(npd);
   showSaveToast('Tags updated');
-  saveAllData();
+  saveRecipeToServer(npd);
 }
 
 function renderAllergenBadges(allergens) {
@@ -9159,7 +9211,7 @@ function handleMediaUpload(npd, inputEl) {
         }).catch(function(err) {
           showSaveToast('Upload error: ' + err.message, true);
         }).finally(function() {
-          if (--pending === 0) { renderMediaGrid(npd); saveAllData(); showSaveToast('Media saved'); }
+          if (--pending === 0) { renderMediaGrid(npd); saveRecipeToServer(npd); showSaveToast('Media saved'); }
         });
       }; })(file, isVideo, isPdf);
       reader.readAsDataURL(file);
@@ -9168,7 +9220,7 @@ function handleMediaUpload(npd, inputEl) {
       uploadImageToServer(file, 'recipe-'+npd+'-media'+Date.now()+'-'+i, function(url) {
         r.media.push({ name: file.name, url: url, isVideo: false, type: 'image/jpeg' });
         r.updatedAt = new Date().toISOString();
-        if (--pending === 0) { renderMediaGrid(npd); saveAllData(); showSaveToast('Photos saved'); }
+        if (--pending === 0) { renderMediaGrid(npd); saveRecipeToServer(npd); showSaveToast('Photos saved'); }
       });
     }
   }
@@ -9182,7 +9234,7 @@ function removeMedia(npd, idx) {
   r.media.splice(idx, 1);
   r.updatedAt = new Date().toISOString();
   renderMediaGrid(npd);
-  saveAllData();
+  saveRecipeToServer(npd);
 }
 
 function renderMediaGrid(npd) {
@@ -10076,7 +10128,7 @@ async function editIngCost(npd, idx) {
   // Update recipe total cost
   var total = _calcIngCostTotal(r);
   if (total !== null) { r.costKg = 'SAR ' + total.toFixed(2); }
-  saveAllData();
+  saveRecipeToServer(npd);
   viewRecipe(npd); // re-render
 }
 
@@ -10138,7 +10190,7 @@ function updateFoodCost(npd) {
 
   // Debounced save — wait 1 second after user stops typing
   if (_fcSaveTimer) clearTimeout(_fcSaveTimer);
-  _fcSaveTimer = setTimeout(function() { saveAllData(); }, 1000);
+  _fcSaveTimer = setTimeout(function() { saveRecipeToServer(npd); }, 1000);
 }
 
 // ──────────── RECIPE DETAIL VIEW ────────────
@@ -11509,7 +11561,7 @@ function updateTrialQA(npd, stage, field, value) {
   if (!r) return;
   if (!r[stage+'QA']) r[stage+'QA'] = { signed:false, files:[] };
   r[stage+'QA'][field] = value;
-  saveAllData();
+  saveRecipeToServer(npd);
 }
 
 function updateRecipeShelfLife(npd, val) {
@@ -11591,7 +11643,7 @@ function handleTrialQAMedia(npd, stage, inputEl) {
     const file = inputEl.files[i];
     compressImage(file, 300, 0.4, function(dataUrl) {
       r[stage+'QA'].files.push({ name: file.name, url: dataUrl, type: 'image/jpeg' });
-      if (--pending === 0) { viewRecipe(npd); saveAllData(); }
+      if (--pending === 0) { viewRecipe(npd); saveRecipeToServer(npd); }
     });
   }
   inputEl.value = '';
@@ -11603,7 +11655,7 @@ function removeTrialQAMedia(npd, stage, idx) {
   if (!r || !r[stage+'QA'] || !r[stage+'QA'].files) return;
   r[stage+'QA'].files.splice(idx, 1);
   viewRecipe(npd);
-  saveAllData();
+  saveRecipeToServer(npd);
 }
 
 // Get current user role from auth
@@ -11680,7 +11732,7 @@ function archiveRecipe(npd) {
   updateSidebarBadges();
   viewRecipe(npd);
   showSaveToast('Recipe archived');
-  saveAllData();
+  saveRecipeToServer(npd);
 }
 
 function unarchiveRecipe(npd) {
@@ -11697,7 +11749,7 @@ function unarchiveRecipe(npd) {
   updateSidebarBadges();
   viewRecipe(npd);
   showSaveToast('Recipe restored');
-  saveAllData();
+  saveRecipeToServer(npd);
 }
 
 // ──────────── DISCONTINUE RECIPE ────────────
@@ -11722,7 +11774,7 @@ function discontinueRecipe(npd) {
   updateSidebarBadges();
   viewRecipe(npd);
   showSaveToast('Recipe discontinued');
-  saveAllData();
+  saveRecipeToServer(npd);
 }
 function reactivateRecipe(npd) {
   var role = getCurrentUserRole();
@@ -11742,7 +11794,7 @@ function reactivateRecipe(npd) {
   updateSidebarBadges();
   viewRecipe(npd);
   showSaveToast('Recipe reactivated');
-  saveAllData();
+  saveRecipeToServer(npd);
 }
 
 // ──────────── EXPORT TO FACTORY SOP ────────────
@@ -12025,7 +12077,7 @@ function deleteSOPCompletely(npd) {
   r.sopApproval = { prepared: null, reviewed: null, approved: null };
   r.sopStandardBlocks = [];
   r.updatedAt = new Date().toISOString();
-  saveAllData();
+  saveRecipeToServer(npd);
   buildFactorySOPTable();
   if (typeof auditEvent === 'function') auditEvent('sop.delete', 'recipe', npd, r.name + ' (SOP deleted)');
   showSaveToast('SOP deleted from "' + r.name + '"');
@@ -12088,7 +12140,7 @@ function generateFactorySOP(npd) {
   });
   r.sopSteps = steps;
   r.sopStatus = 'draft';
-  saveAllData();
+  saveRecipeToServer(npd);
   showSaveToast('Factory SOP generated with ' + steps.length + ' steps');
   exportToSOP(npd);
 }
@@ -12290,7 +12342,7 @@ function _uploadVisualSOPFile(npd, stepIdx, file) {
     var editBody = document.getElementById('sop-steps-body');
     if (editBody) { refreshSOPSteps(npd); }
     else { viewVisualSOP(npd); }
-    saveAllData();
+    saveRecipeToServer(npd);
     showSaveToast('Step photo saved');
   });
 }
@@ -12358,7 +12410,7 @@ function deleteVisualSOPImg(npd, stepIdx) {
   var editBody = document.getElementById('sop-steps-body');
   if (editBody) { refreshSOPSteps(npd); }
   else { viewVisualSOP(npd); }
-  saveAllData();
+  saveRecipeToServer(npd);
   showSaveToast('Step photo deleted');
 }
 
@@ -13094,7 +13146,7 @@ function addQasPhotoComment(npd, kind, idx) {
   if (!Array.isArray(photo.comments)) photo.comments = [];
   photo.comments.push({ by: getCurrentUserName(), at: new Date().toISOString(), text: text });
   r.updatedAt = new Date().toISOString();
-  saveAllData();
+  saveRecipeToServer(npd);
   _qasRefresh(npd);
   auditEvent('qas.photo_comment_add', 'recipe', r.npd, r.name, { kind: kind, photoIndex: idx });
 }
@@ -13112,7 +13164,7 @@ function removeQasPhotoComment(npd, kind, idx, ci) {
   }
   photo.comments.splice(ci, 1);
   r.updatedAt = new Date().toISOString();
-  saveAllData();
+  saveRecipeToServer(npd);
   _qasRefresh(npd);
 }
 
@@ -13484,7 +13536,7 @@ function exportToSOP(npd) {
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px">
           <span class="badge ${r.sopStatus==='approved'?'badge-approved':(r.sopStatus==='pending-review'||r.sopStatus==='pending-approval'||r.sopStatus==='pending')?'badge-review':'badge-draft'}" style="font-size:11px" id="sop-status-badge">${r.sopStatus==='approved'?'Approved for Production':r.sopStatus==='pending-approval'?'Pending Final Approval':(r.sopStatus==='pending-review'||r.sopStatus==='pending')?'Pending Review':'Draft'}</span>
           <div style="display:flex;gap:6px">
-            <button class="btn btn-sm" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15)" onclick="saveAllData();showSaveToast('SOP saved')">💾 Save</button>
+            <button class="btn btn-sm" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15)" onclick="saveRecipeToServer(npd);showSaveToast('SOP saved')">💾 Save</button>
             ${(function(){
               var role = (typeof getCurrentUserRole === 'function') ? getCurrentUserRole() : 'viewer';
               var canFlag = ['admin','npd','factory','qa'].indexOf(role) !== -1;
@@ -13696,13 +13748,13 @@ function handleSOPStepMedia(npd, idx, inputEl) {
       var reader = new FileReader();
       reader.onload = function(e) {
         step.media.push({ name: file.name, url: e.target.result, isVideo: true, type: file.type });
-        if (--pending === 0) { refreshSOPSteps(npd); saveAllData(); }
+        if (--pending === 0) { refreshSOPSteps(npd); saveRecipeToServer(npd); }
       };
       reader.readAsDataURL(file);
     } else {
       compressImage(file, 300, 0.4, function(dataUrl) {
         step.media.push({ name: file.name, url: dataUrl, isVideo: false, type: 'image/jpeg' });
-        if (--pending === 0) { refreshSOPSteps(npd); saveAllData(); }
+        if (--pending === 0) { refreshSOPSteps(npd); saveRecipeToServer(npd); }
       });
     }
   }
@@ -13715,7 +13767,7 @@ function removeSOPStepMedia(npd, idx, mediaIdx) {
     step.media.splice(mediaIdx, 1);
   }
   refreshSOPSteps(npd);
-  saveAllData();
+  saveRecipeToServer(npd);
 }
 
 function toggleSOPIcon(npd, idx, iconKey) {
@@ -13725,7 +13777,7 @@ function toggleSOPIcon(npd, idx, iconKey) {
   if (i >= 0) step.icons.splice(i, 1);
   else step.icons.push(iconKey);
   refreshSOPSteps(npd);
-  saveAllData();
+  saveRecipeToServer(npd);
 }
 
 function addSOPParam(npd, idx) {
@@ -13733,18 +13785,18 @@ function addSOPParam(npd, idx) {
   if (!step.params) step.params = [];
   step.params.push({l:'', v:''});
   refreshSOPSteps(npd);
-  saveAllData();
+  saveRecipeToServer(npd);
 }
 
 function updateSOPParam(npd, idx, pi, field, val) {
   RECIPE_DB[npd].sopSteps[idx].params[pi][field] = val;
-  saveAllData();
+  saveRecipeToServer(npd);
 }
 
 function removeSOPParam(npd, idx, pi) {
   RECIPE_DB[npd].sopSteps[idx].params.splice(pi, 1);
   refreshSOPSteps(npd);
-  saveAllData();
+  saveRecipeToServer(npd);
 }
 
 async function toggleSOPCCP(npd, idx) {
@@ -13754,7 +13806,7 @@ async function toggleSOPCCP(npd, idx) {
   _markSOPChanged(npd);
   step.ccp = val || null;
   refreshSOPSteps(npd);
-  saveAllData();
+  saveRecipeToServer(npd);
 }
 
 async function toggleSOPWarning(npd, idx) {
@@ -13764,7 +13816,7 @@ async function toggleSOPWarning(npd, idx) {
   _markSOPChanged(npd);
   step.warning = val || null;
   refreshSOPSteps(npd);
-  saveAllData();
+  saveRecipeToServer(npd);
 }
 
 function addSOPStep(npd) {
@@ -13774,7 +13826,7 @@ function addSOPStep(npd) {
   refreshSOPSteps(npd);
   // update badge
   document.querySelector('#page-sop .badge-navy').textContent = r.sopSteps.length + ' Steps';
-  saveAllData();
+  saveRecipeToServer(npd);
 }
 
 function removeSOPStep(npd, idx) {
@@ -13783,7 +13835,7 @@ function removeSOPStep(npd, idx) {
   r.sopSteps.splice(idx, 1);
   refreshSOPSteps(npd);
   document.querySelector('#page-sop .badge-navy').textContent = r.sopSteps.length + ' Steps';
-  saveAllData();
+  saveRecipeToServer(npd);
 }
 
 // Move a step up (-1) or down (+1) in r.sopSteps. Clamped at the array boundaries.
@@ -13797,7 +13849,7 @@ function moveSOPStep(npd, idx, dir) {
   r.sopSteps[newIdx] = tmp;
   _markSOPChanged(npd);
   refreshSOPSteps(npd);
-  saveAllData();
+  saveRecipeToServer(npd);
 }
 
 function updateSOPBatch(npd) {
@@ -13994,7 +14046,7 @@ function saveSOPDraft(npd) {
   r.sopSavedAt = new Date().toLocaleString('en-GB');
   updateSOPStatusBadge(r);
   showSOPMsg('✓ Draft saved — ' + r.sopSavedAt, 'success');
-  saveAllData();
+  saveRecipeToServer(npd);
 }
 
 // ── Back-compat shims (old buttons may still be in memory or old code paths) ──
@@ -14284,7 +14336,7 @@ function saveNewRecipe() {
   tbody.innerHTML = '';
   buildRecipesTable();
   closeModal();
-  saveAllData();
+  saveRecipeToServer(npd);
   showSaveToast('Recipe created — ' + name);
 }
 
@@ -15107,7 +15159,7 @@ function saveBatchLog(npd) {
   logActivity('production', '🏭', 'Batch ' + entry.batchNo + ' logged for ' + r.name, entry.size + ' · ' + entry.yield + ' yield · ' + entry.operator);
   viewRecipe(npd);
   showSaveToast('Batch log saved');
-  saveAllData();
+  saveRecipeToServer(npd);
 }
 
 function removeBatchLog(npd, idx) {
@@ -15116,7 +15168,7 @@ function removeBatchLog(npd, idx) {
   if (!r || !r.batchLog) return;
   r.batchLog.splice(idx, 1);
   viewRecipe(npd);
-  saveAllData();
+  saveRecipeToServer(npd);
 }
 
 // ──────────── VERSION COMPARISON ────────────
@@ -15482,7 +15534,7 @@ function doImportStepsToRecipe(npd) {
     r.method.push({ title: title, text: desc });
   });
   closeModal();
-  saveAllData();
+  saveRecipeToServer(npd);
   viewRecipe(npd);
   showSaveToast(lines.length + ' steps imported');
 }
@@ -16346,7 +16398,7 @@ function saveEditUser(email) {
 
   var tbody = document.getElementById('users-tbody');
   if (tbody) { tbody.innerHTML = ''; buildUsersTable(); }
-  saveAllData();
+  saveUserToServer(u.email);
   closeModal();
   showSaveToast(u.name + ' updated');
 }
@@ -17994,7 +18046,7 @@ function confirmBypassQA() {
   r[stage.key].bypassReason = reason + (notes ? ' — ' + notes : '');
   r.updatedAt = nowIso;
   closeModal();
-  saveAllData();
+  saveRecipeToServer(npd);
   auditEvent('qa.bypass', 'recipe', npd, r.name + ' · ' + stage.label + ' — ' + reason + (notes ? ' (' + notes + ')' : ''));
   logActivity('recipe', '⚡', stage.label + ' QA bypassed for ' + r.name, reason + (notes ? ' — ' + notes : ''));
   // Email all four teams that a QA bypass just occurred
@@ -18094,7 +18146,7 @@ function saveRecipeNutrition(npd) {
   toggleNutritionEdit(npd);
   showSaveToast('Nutrition saved');
   logActivity('qa', '🥗', 'Nutrition updated for ' + r.name);
-  saveAllData();
+  saveRecipeToServer(npd);
 }
 
 // ──────────── NUTRITION ────────────
@@ -18340,7 +18392,7 @@ function saveNutrition() {
   });
   showSaveToast('Nutritional data saved for ' + r.name);
   logActivity('qa', '🥗', 'Nutrition updated for ' + r.name);
-  saveAllData();
+  saveRecipeToServer(npd);
 }
 
 function loadNutrition(npd) {
@@ -18430,7 +18482,7 @@ function saveEditBrand(id) {
   renderBrandDetail(id);
   closeModal();
   showSaveToast('Brand updated');
-  saveAllData();
+  saveBrandToServer(id);
 }
 
 function deleteBrand(id) {
@@ -18509,7 +18561,7 @@ function confirmDeleteRecipe(npd) {
   updateDashboardStats();
   updateSidebarBadges();
   logActivity('recipe', '🗑️', 'Deleted recipe: ' + name + (removedRuns ? ' + ' + removedRuns + ' production run(s)' : ''));
-  saveAllData();
+  saveRecipeToServer(npd);
   showSaveToast('Recipe deleted' + (removedRuns ? ' + ' + removedRuns + ' run(s)' : ''));
   nav('recipes');
 }
@@ -18754,7 +18806,7 @@ function toggleQAEdit(btn) {
     inputs.forEach(function(inp) { inp.style.background = ''; });
     btn.textContent = 'Edit';
     btn.className = 'btn btn-outline btn-sm';
-    saveAllData();
+    saveRecipeToServer(npd);
     showSaveToast('Changes saved');
   } else {
     // Edit — highlight section and focus first input
@@ -18816,7 +18868,7 @@ function saveNewBrand() {
   buildBrandCards();
   closeModal();
   showSaveToast('Brand "'+name+'" created');
-  saveAllData();
+  saveBrandToServer(id);
 }
 
 // ──────────── VIEW BRAND RECIPE ────────────
@@ -24513,7 +24565,7 @@ function duplicateRecipe(npd) {
   logActivity('recipe', '📋', 'Duplicated ' + r.name + ' → ' + copy.name, 'New code: ' + nextCode);
   viewRecipe(nextCode);
   showSaveToast('Recipe duplicated as ' + copy.name);
-  saveAllData();
+  saveRecipeToServer(npd);
 }
 
 // ──────────── REFRESH UI AFTER DATA CHANGES ────────────
@@ -24608,7 +24660,7 @@ var stressTest = (function() {
     for(var m=0;m<ns;m++){var st2=[];for(var s=0;s<rb(5,8);s++)st2.push({img:null,text:'Step '+(s+1)+': Assembly instruction.',portions:rb(1,3)+' scoops'});BRANCH_SOPS.push({id:'ST-SOP-'+pd(m+1),name:pk(_adj)+' '+pk(['Ranch','BBQ','Classic','Supreme','Deluxe'])+' #'+(m+1),brand:pk(_brands),version:'V-0'+rb(1,5),date:rd(60),status:pk(['draft','review','approved']),buildRef:m<nb?'ST-BLD-'+pd(m+1):'',steps:st2})}
     console.log('  + '+ns+' SOPs ('+BRANCH_SOPS.length+' total)');
     var t1=performance.now();console.log('  Generated in '+Math.round(t1-t0)+'ms');
-    try{saveAllData();console.log('  saveAllData() OK')}catch(e){console.error('  saveAllData() FAILED:',e.message)}
+    try{saveRecipeToServer(npd);console.log('  saveAllData() OK')}catch(e){console.error('  saveAllData() FAILED:',e.message)}
     report();
     try{buildRecipesTable();buildBuildsTable();buildProductionTable();buildBranchSOPTable();updateDashboardStats();updateSidebarBadges();renderActivityLog();console.log('  UI refreshed')}catch(e){console.error('  UI refresh error:',e.message)}
     console.log('Done. Navigate around to check.');
@@ -24629,7 +24681,7 @@ var stressTest = (function() {
     for(var i=BUILDS_DATA.length-1;i>=0;i--)if(BUILDS_DATA[i].id.indexOf('ST-')===0)BUILDS_DATA.splice(i,1);
     for(var j=PRODUCTION_RUNS.length-1;j>=0;j--)if(PRODUCTION_RUNS[j].id.indexOf('ST-')===0)PRODUCTION_RUNS.splice(j,1);
     for(var k=BRANCH_SOPS.length-1;k>=0;k--)if(BRANCH_SOPS[k].id.indexOf('ST-')===0)BRANCH_SOPS.splice(k,1);
-    saveAllData();buildRecipesTable();buildBuildsTable();buildProductionTable();buildBranchSOPTable();updateDashboardStats();updateSidebarBadges();
+    saveRecipeToServer(npd);buildRecipesTable();buildBuildsTable();buildProductionTable();buildBranchSOPTable();updateDashboardStats();updateSidebarBadges();
     report();console.log('Cleanup done.');
   }
 

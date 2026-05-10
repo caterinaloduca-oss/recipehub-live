@@ -904,6 +904,122 @@ app.delete('/api/ingredient', requireAuth, (req, res) => {
   }
 });
 
+// Per-brand upsert. Brand carries id, name, color, targetFC, archived. Stored
+// in data.brands as an array; lookup by id.
+app.post('/api/brand/:id', requireAuth, (req, res) => {
+  try {
+    const { id } = req.params;
+    const incoming = req.body.brand;
+    if (!incoming) return res.status(400).json({ error: 'brand required' });
+    const state = db.getState();
+    if (!state || !state.data) return res.status(500).json({ error: 'No data on server' });
+    const data = state.data;
+    if (!Array.isArray(data.brands)) data.brands = [];
+    const idx = data.brands.findIndex(b => b && b.id === id);
+    let merged;
+    if (idx >= 0) {
+      const existing = data.brands[idx];
+      const eTime = existing.updatedAt || '2000-01-01';
+      const iTime = incoming.updatedAt || '2000-01-01';
+      merged = { ...incoming };
+      if (eTime > iTime) {
+        ['name','color','targetFC','sellingMargin','archived'].forEach(f => {
+          if (existing[f] !== undefined) merged[f] = existing[f];
+        });
+        merged.updatedAt = eTime;
+      }
+      // Preserve-when-undefined for incoming saves missing fields
+      ['archived','color','targetFC','sellingMargin'].forEach(f => {
+        if (merged[f] === undefined && existing[f] !== undefined) merged[f] = existing[f];
+      });
+      data.brands[idx] = merged;
+    } else {
+      merged = incoming;
+      data.brands.push(merged);
+    }
+    data.savedAt = new Date().toISOString();
+    const savedAt = db.setState(JSON.stringify(data), data.dataVersion || 0);
+    res.json({ ok: true, savedAt, brand: merged });
+  } catch (err) {
+    console.error('POST /api/brand error:', err);
+    res.status(500).json({ error: 'Failed to save brand: ' + err.message });
+  }
+});
+
+// Per-user upsert by email. The /api/data path already has a users-by-email
+// merge that protects against stale-tab user-list shrinkage; this endpoint is
+// for explicit user edits (role change, access toggle, password reset).
+app.post('/api/user/:email', requireAuth, (req, res) => {
+  try {
+    const email = String(req.params.email || '').toLowerCase();
+    const incoming = req.body.user;
+    if (!incoming) return res.status(400).json({ error: 'user required' });
+    if (!incoming.email || incoming.email.toLowerCase() !== email) {
+      return res.status(400).json({ error: 'user.email must match URL email' });
+    }
+    const state = db.getState();
+    if (!state || !state.data) return res.status(500).json({ error: 'No data on server' });
+    const data = state.data;
+    if (!Array.isArray(data.users)) data.users = [];
+    const idx = data.users.findIndex(u => u && String((u.email || '')).toLowerCase() === email);
+    let merged;
+    if (idx >= 0) {
+      const existing = data.users[idx];
+      const eTime = existing.updatedAt || '2000-01-01';
+      const iTime = incoming.updatedAt || '2000-01-01';
+      merged = { ...existing, ...incoming };
+      if (eTime > iTime) {
+        ['name','role','active','phone','department'].forEach(f => {
+          if (existing[f] !== undefined) merged[f] = existing[f];
+        });
+        merged.updatedAt = eTime;
+      }
+      // Access map merges field-by-field; existing wins per-key when newer
+      if (existing.access || incoming.access) {
+        merged.access = { ...(existing.access || {}), ...(incoming.access || {}) };
+      }
+      data.users[idx] = merged;
+    } else {
+      merged = incoming;
+      data.users.push(merged);
+    }
+    data.savedAt = new Date().toISOString();
+    const savedAt = db.setState(JSON.stringify(data), data.dataVersion || 0);
+    res.json({ ok: true, savedAt, user: merged });
+  } catch (err) {
+    console.error('POST /api/user error:', err);
+    res.status(500).json({ error: 'Failed to save user: ' + err.message });
+  }
+});
+
+// Per-savingsProject upsert (KPI & Goals). Identified by id.
+app.post('/api/savingsproject/:id', requireAuth, (req, res) => {
+  try {
+    const { id } = req.params;
+    const incoming = req.body.project;
+    if (!incoming) return res.status(400).json({ error: 'project required' });
+    const state = db.getState();
+    if (!state || !state.data) return res.status(500).json({ error: 'No data on server' });
+    const data = state.data;
+    if (!Array.isArray(data.savingsProjects)) data.savingsProjects = [];
+    const idx = data.savingsProjects.findIndex(p => p && p.id === id);
+    let merged;
+    if (idx >= 0) {
+      merged = { ...data.savingsProjects[idx], ...incoming };
+      data.savingsProjects[idx] = merged;
+    } else {
+      merged = incoming;
+      data.savingsProjects.push(merged);
+    }
+    data.savedAt = new Date().toISOString();
+    const savedAt = db.setState(JSON.stringify(data), data.dataVersion || 0);
+    res.json({ ok: true, savedAt, project: merged });
+  } catch (err) {
+    console.error('POST /api/savingsproject error:', err);
+    res.status(500).json({ error: 'Failed to save project: ' + err.message });
+  }
+});
+
 // Substitution request upsert (Purchasing → R&D/QA/Factory ingredient swap
 // workflow). Identified by id; same approval state can be touched by multiple
 // roles, so the existing union-merge + preserve-when-undefined patterns
