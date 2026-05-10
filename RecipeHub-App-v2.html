@@ -22267,33 +22267,9 @@ function getBranchSOPAllergenNutritionPrintHTML(sop) {
     html += '</div>';
   }
 
-  // Approval signoffs row — mirrors the on-screen 3-stage cards
-  try {
-    var approval = (typeof getBSOPApproval === 'function') ? getBSOPApproval(sop) : (sop.approval || { prepared:null, reviewed:null, approved:null });
-    var statusMap = {'draft':'DRAFT','pending-review':'PENDING OPS REVIEW','pending-approval':'PENDING QA SIGN-OFF','approved':'APPROVED'};
-    var derivedStatus = (typeof bsopDerivedStatus === 'function') ? bsopDerivedStatus(sop) : (sop.status || 'draft');
-    var fmtSig = function(iso){ try { return new Date(iso).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'2-digit',hour:'2-digit',minute:'2-digit'}); } catch(e){ return iso || ''; } };
-    var cardHtml = function(label, role, sig) {
-      var bg = sig ? '#E7F0E8' : '#FFF8E6';
-      var border = sig ? '#6E9170' : '#E8C875';
-      var body = sig
-        ? '<div style="font-size:11px;font-weight:700;color:#1B2A4A">'+(sig.by||'')+'</div>' +
-          '<div style="font-size:9px;color:#888;margin-top:2px">'+fmtSig(sig.at)+'</div>' +
-          '<div style="margin-top:4px;font-size:9px;color:#6E9170;font-weight:700">✓ SIGNED</div>'
-        : '<div style="font-size:10px;color:#999;font-style:italic">Pending sign-off</div>';
-      return '<div style="flex:1;background:'+bg+';border:1px solid '+border+';border-radius:6px;padding:10px 12px">' +
-        '<div style="font-size:8px;text-transform:uppercase;letter-spacing:0.1em;color:#888;margin-bottom:3px">'+label+'</div>' +
-        '<div style="font-size:11px;font-weight:700;color:#1B2A4A;margin-bottom:6px">'+role+'</div>' + body +
-      '</div>';
-    };
-    html += '<div style="padding:12px 20px;border-top:2px solid #ddd;background:#FAFAF8">';
-    html += '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:'+_bc+';margin-bottom:8px">SOP Approval — ' + (statusMap[derivedStatus] || '') + '</div>';
-    html += '<div style="display:flex;gap:8px">' +
-      cardHtml('Stage 1 · Prepared by', 'NPD / QA', approval.prepared) +
-      cardHtml('Stage 2 · Reviewed by', 'OPS',      approval.reviewed) +
-      cardHtml('Stage 3 · Approved by', 'QA',       approval.approved) +
-    '</div></div>';
-  } catch (e) { /* non-fatal */ }
+  // Approval signoffs are intentionally omitted from the print/PDF output —
+  // the kitchen-floor copy doesn't need internal sign-off state. The 3-stage
+  // cards still live on the on-screen view (renderBSOPApprovalUI).
 
   return html;
 }
@@ -23647,7 +23623,9 @@ function downloadBranchSOPPDF(id) {
       }
       } catch (e) { console.warn('[PDF] allergen/nutrition section failed:', e && e.message); }
 
-      // Approval signoffs (3 cards)
+      // Approval signoffs intentionally omitted from PDF output too — internal
+      // sign-off state isn't needed on the kitchen-floor copy.
+      if (false) {
       try {
       var approval = (typeof getBSOPApproval === 'function')
         ? getBSOPApproval(sop)
@@ -23699,6 +23677,7 @@ function downloadBranchSOPPDF(id) {
       });
       y += cardH + 4;
       } catch (e) { console.warn('[PDF] approval section failed:', e && e.message); }
+      } /* end if(false) — approval block intentionally skipped on print/PDF */
 
       // Footer (last page only)
       doc.setTextColor(160,160,160);
