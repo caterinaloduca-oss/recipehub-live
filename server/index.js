@@ -226,6 +226,9 @@ app.post('/api/data', requireAuth, (req, res) => {
       // (ingredients are stored as flat arrays: [id, name, supplier, code, ...]).
       const idOf = (x, idField) => {
         if (!x || idField == null) return null;
+        // Function form: caller provides a custom keyer (e.g. r => r[3]+'|'+r[1]
+        // for ingredients, where the unique key is code+name not just code).
+        if (typeof idField === 'function') return idField(x);
         const v = (typeof idField === 'number') ? x[idField] : x[idField];
         return v;
       };
@@ -306,7 +309,46 @@ app.post('/api/data', requireAuth, (req, res) => {
           console.warn('[ingredients] filtered ' + (before - body.ingredients.length) + ' codes via deletedIngredientCodes');
         }
       }
-      guardArray('ingredients', 3, _ingDeleted);
+      // deletedIngredientAliases: same pattern but keyed by NAME (idx 1), so
+      // stale tabs cannot re-add a typo'd alias for an ERP code we still keep.
+      // Used when an item has multiple aliases and we canonicalize down to one.
+      //
+      // Reconcile lift: client may post `removeDeletedIngredientAliases: [name, …]`
+      // signalling that the user explicitly re-added the name through the Reconcile
+      // modal. Those names get subtracted from the union before the strip filter
+      // runs — otherwise the alias is wiped and the user's reconcile work
+      // disappears (Cate hit this 10× before we found it on 2026-05-10).
+      const _liftSet = new Set(
+        (Array.isArray(body.removeDeletedIngredientAliases) ? body.removeDeletedIngredientAliases : [])
+          .map(s => String(s || '').toLowerCase().trim())
+          .filter(Boolean)
+      );
+      const _aliasDeletedArr = Array.from(new Set([
+        ...(Array.isArray(body.deletedIngredientAliases) ? body.deletedIngredientAliases : []),
+        ...(Array.isArray(old.deletedIngredientAliases) ? old.deletedIngredientAliases : []),
+      ])).filter(n => !_liftSet.has(String(n || '').toLowerCase().trim()));
+      const _aliasDeleted = new Set(_aliasDeletedArr);
+      body.deletedIngredientAliases = _aliasDeletedArr;
+      delete body.removeDeletedIngredientAliases;  // consumed
+      if (_liftSet.size) {
+        console.log('[ingredients] reconcile lift removed ' + _liftSet.size + ' name(s) from deletedIngredientAliases');
+      }
+      if (_aliasDeleted.size && Array.isArray(body.ingredients)) {
+        const before = body.ingredients.length;
+        body.ingredients = body.ingredients.filter(r => !(Array.isArray(r) && r.length > 1 && _aliasDeleted.has(r[1])));
+        if (body.ingredients.length !== before) {
+          console.warn('[ingredients] filtered ' + (before - body.ingredients.length) + ' alias names via deletedIngredientAliases');
+        }
+      }
+      // Ingredients: composite key (code + name) so multiple alias rows for the
+      // same code (e.g. "Salt" + "Iodized Salt" + "Saudi Sea Salt" all on
+      // RMADT0013) all survive a stale-tab merge. Reconciliation aliases were
+      // disappearing when the merge deduped by code only.
+      const _ingKey = r => (Array.isArray(r) && r.length > 3) ? (String(r[3]||'') + '|' + String(r[1]||'').toLowerCase()) : null;
+      // _ingDeleted is keyed by code, so wrap it so the deletion check works
+      // when the key is the composite — extract the code half before lookup.
+      const _ingDeletedComposite = { has: k => { if (typeof k !== 'string') return false; const code = k.split('|')[0]; return _ingDeleted.has(code); } };
+      guardArray('ingredients', _ingKey, _ingDeletedComposite);
       guardArray('builds', 'id');
       guardArray('branchSOPs', 'id');
       guardArray('brands', 'id');
@@ -760,6 +802,30 @@ app.get('/api/ebs/prices', requireAuth, (req, res) => {
   } catch (err) {
     console.error('EBS prices error:', err);
     res.status(500).json({ error: 'Failed to fetch EBS prices: ' + err.message });
+  }
+});
+
+// GET /api/items/status — returns { code: status } map for every item in items_master.
+// Used client-side to drive the Active/Inactive filter on the Ingredients DB.
+// Cached in-memory for 10 min so we don't hammer the gateway on every page render.
+let _itemStatusCache = { at: 0, map: null };
+app.get('/api/items/status', requireAuth, async (req, res) => {
+  try {
+    const now = Date.now();
+    if (_itemStatusCache.map && (now - _itemStatusCache.at) < 10 * 60 * 1000) {
+      return res.json({ count: Object.keys(_itemStatusCache.map).length, cached: true, map: _itemStatusCache.map });
+    }
+    const r = await queryGateway('items_master', `SELECT ITEM_CODE, STATUS FROM data`);
+    const map = {};
+    for (const row of (r.rows || [])) {
+      const c = (row.ITEM_CODE || '').trim();
+      if (c) map[c] = row.STATUS || 'Unknown';
+    }
+    _itemStatusCache = { at: now, map };
+    res.json({ count: Object.keys(map).length, cached: false, map });
+  } catch (err) {
+    console.error('items status error:', err);
+    res.status(500).json({ error: 'Failed to fetch item status: ' + err.message });
   }
 });
 

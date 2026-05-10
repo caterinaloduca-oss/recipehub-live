@@ -6472,6 +6472,9 @@ function _buildDataBlob() {
     ppeLibrary: PPE_LIBRARY,
     sopStandardBlocks: SOP_STANDARD_BLOCKS,
     ingredientStatusOverrides: INGREDIENT_STATUS_OVERRIDES,
+    // Reconcile lift — names to remove from server's deletedIngredientAliases filter.
+    // Server consumes + clears these after applying. Empty / absent on most saves.
+    removeDeletedIngredientAliases: (typeof window !== 'undefined' && Array.isArray(window._reconcileLift) && window._reconcileLift.length) ? window._reconcileLift.slice() : undefined,
     savedAt: new Date().toISOString(),
     dataVersion: DATA_VERSION,
   };
@@ -23953,6 +23956,14 @@ function _ingResAddAlias(recipeName, item, inputEl) {
   if (exists) {
     showSaveToast('Alias already exists for ' + recipeName);
     return;
+  }
+  // Tell the server to lift the deletedIngredientAliases filter for THIS name.
+  // Without this, the server's strip filter kills the alias on save (reconcile
+  // work disappears). Patched into the POST body via window._reconcileLift, picked
+  // up by saveAllData → _saveToServer.
+  if (typeof window !== 'undefined') {
+    window._reconcileLift = window._reconcileLift || [];
+    if (window._reconcileLift.indexOf(recipeName) === -1) window._reconcileLift.push(recipeName);
   }
   var today = new Date().toISOString().slice(0,10);
   ING_DATA.push([
