@@ -20568,7 +20568,14 @@ function _renderManageMissingModal(run) {
   var addable = (window._mgrRecipeIngs || []).filter(function(ing){
     return ing && ing.name && !missingNames.has(ing.name.toLowerCase());
   });
-  var addOpts = '<option value="">— pick an ingredient to add —</option>' + addable.map(function(ing, i) {
+  // IMPORTANT: option value = index into the FULL recipe ingredient list
+  // (window._mgrRecipeIngs), not the filtered `addable` list. _mgrAddMissing
+  // looks up the full list, so using the filtered index would pick the wrong
+  // ingredient (off-by-N where N = items already on the missing list).
+  var fullIngs = window._mgrRecipeIngs || [];
+  var addOpts = '<option value="">— pick an ingredient to add —</option>' + fullIngs.map(function(ing, i) {
+    if (!ing || !ing.name) return '';
+    if (missingNames.has(ing.name.toLowerCase())) return '';   // already missing — hide
     return '<option value="' + i + '">' + (ing.name || '').replace(/"/g,'&quot;') + ' (' + (ing.pct || 0).toFixed(1) + '%)</option>';
   }).join('');
 
