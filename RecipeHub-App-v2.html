@@ -23719,7 +23719,10 @@ function _buildBranchSOPPrintBody(sop, opts) {
     var rowHasImg = rowSteps.some(function(s){ return s && s.img; });
     rows.push({ steps: rowSteps, hasImg: rowHasImg });
   }
-  var IMG_H_FULL = '260px';
+  // 200px (≈53mm) so TWO rows fit on a single A4 landscape page (header +
+  // 2×280px = 656px out of 733px usable). Wider cells from object-fit:contain
+  // don't squeeze the photo — the whole image stays visible.
+  var IMG_H_FULL = '200px';
   var stepCellHTML = function(step, hasImg) {
     var src = step && step.img ? (imgMap[step.img] || step.img) : '';
     var imgArea = hasImg
