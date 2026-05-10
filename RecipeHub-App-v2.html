@@ -23351,9 +23351,17 @@ function downloadBranchSOPPDF(id) {
     var bodyHtml = _buildBranchSOPPrintBody(sop, { imgMap: imgMap });
 
     return _loadHtml2Pdf().then(function(html2pdf) {
+      // A4 landscape = 297mm × 210mm. With 8mm margin on each side the
+      // content area is 281mm wide. Sizing the holder to that exact width
+      // (rather than 1080px / generic viewport) means html2canvas snapshots
+      // the layout at the same width the PDF renders — no horizontal clipping.
+      var PAGE_W_PX = 1062; // ≈ 281mm @ 96 DPI
       var holder = document.createElement('div');
-      holder.style.cssText = 'position:absolute;left:-99999px;top:0;width:1080px;background:white;font-family:sans-serif';
-      holder.innerHTML = '<style>.bsop-print-row{break-inside:avoid;page-break-inside:avoid}.bsop-print-cell{break-inside:avoid;page-break-inside:avoid}img{max-width:100%}</style>' + bodyHtml;
+      // Keep the element fully rendered (so html2canvas can snapshot real
+      // pixels) but visually clip to nothing — opacity:0 / visibility:hidden
+      // both confuse html2canvas (transparent or skipped output).
+      holder.style.cssText = 'position:fixed;top:0;left:0;width:'+PAGE_W_PX+'px;background:white;font-family:sans-serif;z-index:-1;clip-path:inset(50%);pointer-events:none';
+      holder.innerHTML = '<style>.bsop-print-row{break-inside:avoid;page-break-inside:avoid}.bsop-print-cell{break-inside:avoid;page-break-inside:avoid}#bsop-print-root,#bsop-print-root *{box-sizing:border-box}#bsop-print-root table{table-layout:auto}img{max-width:100%}</style>' + bodyHtml;
       document.body.appendChild(holder);
 
       var imgs = holder.querySelectorAll('img');
@@ -23371,9 +23379,19 @@ function downloadBranchSOPPDF(id) {
           margin: 8,
           filename: filename,
           image: { type: 'jpeg', quality: 0.92 },
-          html2canvas: { scale: 2, useCORS: false, allowTaint: true, backgroundColor: '#ffffff', logging: false, windowWidth: 1080 },
+          html2canvas: {
+            scale: 2,
+            useCORS: false,
+            allowTaint: true,
+            backgroundColor: '#ffffff',
+            logging: false,
+            windowWidth: PAGE_W_PX,
+            width: PAGE_W_PX,
+            scrollX: 0,
+            scrollY: 0,
+          },
           jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape', compress: true },
-          pagebreak: { mode: ['css','legacy'], avoid: '.bsop-print-cell' },
+          pagebreak: { mode: ['css','legacy'], avoid: ['.bsop-print-cell','table','tr'] },
         };
         return html2pdf().from(holder.querySelector('#bsop-print-root')).set(opts).save().then(function(){
           try { document.body.removeChild(holder); } catch (e) {}
