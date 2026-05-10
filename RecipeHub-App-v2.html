@@ -23320,401 +23320,76 @@ function _imgDimensions(dataUrl) {
   });
 }
 
+
+// Download as PDF — renders the SAME HTML as printBranchSOP (so the
+// downloaded file looks exactly like the print preview), but uses html2pdf
+// to convert the offscreen DOM to a downloadable PDF instead of opening a
+// print dialog.
 function downloadBranchSOPPDF(id) {
   var sop = BRANCH_SOPS.find(function(s){ return s.id === id; });
   if (!sop) return;
   auditEvent('branch_sop.pdf', 'branch_sop', id, sop.name + ' — ' + (sop.brand || ''));
-
   showSaveToast('Generating PDF…');
 
-  var bc = BSOP_BRAND_COLORS[sop.brand] || '#1B2A4A';
-  var rgb = _hexToRgb(bc);
   var brandTag = sop.brand ? sop.brand.replace(/[^A-Za-z0-9]/g,'_') + '_' : '';
   var nameTag  = (sop.name || 'BranchSOP').replace(/[^A-Za-z0-9 _-]/g,'').replace(/\s+/g,'_');
   var filename = brandTag + nameTag + '_BranchSOP.pdf';
 
-  // Pre-fetch all step images as data URLs (server doesn't send CORS headers,
-  // so we can't pass URLs to jsPDF directly — it'd taint internal canvas).
-  var stepImagePromises = (sop.steps || []).map(function(step){
-    return _imgUrlToDataURL(step && step.img).then(_imgDimensions);
-  });
+  // Pre-fetch every distinct step image URL and convert to data URL — server
+  // doesn't send CORS headers on /docs/img/* so html2canvas would taint the
+  // canvas and render blank cells if the original URLs were left in place.
+  var urlSet = {};
+  (sop.steps || []).forEach(function(s){ if (s && s.img) urlSet[s.img] = true; });
+  var urlList = Object.keys(urlSet);
+  var fetches = urlList.map(function(u){ return _imgUrlToDataURL(u).then(function(d){ return [u, d]; }); });
 
-  return _loadHtml2Pdf().then(function() {
-    var jsPDFCtor = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
-    if (!jsPDFCtor) throw new Error('jsPDF unavailable');
-    return Promise.all(stepImagePromises).then(function(imgs) {
+  return Promise.all(fetches).then(function(pairs){
+    var imgMap = {};
+    pairs.forEach(function(p){ if (p[1]) imgMap[p[0]] = p[1]; });
+    console.log('[PDF] inlined', Object.keys(imgMap).length, 'of', urlList.length, 'images');
 
-      var inlined = imgs.filter(Boolean).length;
-      console.log('[PDF] resolved', inlined, 'of', imgs.length, 'images');
+    var bodyHtml = _buildBranchSOPPrintBody(sop, { imgMap: imgMap });
 
-      var doc = new jsPDFCtor({ orientation: 'landscape', unit: 'mm', format: 'a4', compress: true });
-      // A4 landscape = 297 x 210 mm
-      var PAGE_W = 297, PAGE_H = 210;
-      var MARGIN = 8;
-      var HEADER_H = 16;
+    return _loadHtml2Pdf().then(function(html2pdf) {
+      var holder = document.createElement('div');
+      holder.style.cssText = 'position:absolute;left:-99999px;top:0;width:1080px;background:white;font-family:sans-serif';
+      holder.innerHTML = '<style>.bsop-print-row{break-inside:avoid;page-break-inside:avoid}.bsop-print-cell{break-inside:avoid;page-break-inside:avoid}img{max-width:100%}</style>' + bodyHtml;
+      document.body.appendChild(holder);
 
-      // Header banner
-      doc.setFillColor(rgb[0], rgb[1], rgb[2]);
-      doc.rect(0, 0, PAGE_W, HEADER_H, 'F');
-      // Brand pill
-      doc.setFillColor(255,255,255);
-      doc.roundedRect(MARGIN, 4, 28, 8, 1.5, 1.5, 'F');
-      doc.setTextColor(rgb[0], rgb[1], rgb[2]);
-      doc.setFont('helvetica','bold');
-      doc.setFontSize(9);
-      doc.text(String(sop.brand || ''), MARGIN + 14, 9.5, { align: 'center' });
-      // Title
-      doc.setTextColor(255,255,255);
-      doc.setFontSize(15);
-      doc.text(String(sop.name || '').toUpperCase(), MARGIN + 32, 10.5);
-
-      // Step grid — 4 columns. Row height varies: full (image + text) or
-      // compact (text only) when none of the 4 cells in that row has a photo.
-      var COLS = 4;
-      var GAP = 2;
-      var GRID_W = PAGE_W - MARGIN * 2;
-      var CELL_W = (GRID_W - GAP * (COLS - 1)) / COLS;     // ~70mm
-      var FULL_H = 88;     // mm — image cell
-      var COMPACT_H = 16;  // mm — text-only cell
-      var IMG_FRAC = 0.72; // image area = 72% of full cell height
-      var TEXT_PAD = 2;
-
-      var steps = sop.steps || [];
-
-      // Group steps into rows of 4. Row is "full" if any cell has an image.
-      var rowGroups = [];
-      for (var ri = 0; ri < steps.length; ri += COLS) {
-        var rowSteps = steps.slice(ri, ri + COLS);
-        var hasImg = rowSteps.some(function(_s, j){
-          var im = imgs[ri + j];
-          return im && im.dataUrl && im.w > 0;
+      var imgs = holder.querySelectorAll('img');
+      var pending = Array.prototype.map.call(imgs, function(im){
+        if (im.complete && im.naturalHeight > 0) return Promise.resolve();
+        return new Promise(function(resolve){
+          im.addEventListener('load',  function(){ resolve(); });
+          im.addEventListener('error', function(){ resolve(); });
+          setTimeout(resolve, 3000);
         });
-        rowGroups.push({ startIdx: ri, steps: rowSteps, hasImg: hasImg });
-      }
-
-      var drawHeader = function() {
-        doc.setFillColor(rgb[0], rgb[1], rgb[2]);
-        doc.rect(0, 0, PAGE_W, HEADER_H, 'F');
-        doc.setFillColor(255,255,255);
-        doc.roundedRect(MARGIN, 4, 28, 8, 1.5, 1.5, 'F');
-        doc.setTextColor(rgb[0], rgb[1], rgb[2]);
-        doc.setFont('helvetica','bold'); doc.setFontSize(9);
-        doc.text(String(sop.brand || ''), MARGIN + 14, 9.5, { align: 'center' });
-        doc.setTextColor(255,255,255); doc.setFontSize(15);
-        doc.text(String(sop.name || '').toUpperCase(), MARGIN + 32, 10.5);
-      };
-
-      var y = HEADER_H + MARGIN;
-      rowGroups.forEach(function(grp) {
-        var rowH = grp.hasImg ? FULL_H : COMPACT_H;
-        if (y + rowH > PAGE_H - MARGIN - 4) {
-          doc.addPage('a4', 'landscape');
-          drawHeader();
-          y = HEADER_H + MARGIN;
-        }
-        var IMG_H = rowH * IMG_FRAC;
-
-        grp.steps.forEach(function(step, j) {
-          var i = grp.startIdx + j;
-          var x = MARGIN + j * (CELL_W + GAP);
-
-          // Cell border
-          doc.setDrawColor(rgb[0], rgb[1], rgb[2]);
-          doc.setLineWidth(0.6);
-          doc.rect(x, y, CELL_W, rowH);
-
-          if (grp.hasImg) {
-            // Image area background
-            doc.setFillColor(240,240,240);
-            doc.rect(x + 0.3, y + 0.3, CELL_W - 0.6, IMG_H - 0.3, 'F');
-
-            var img = imgs[i];
-            if (img && img.dataUrl && img.w > 0 && img.h > 0) {
-              var areaW = CELL_W - 0.6;
-              var areaH = IMG_H - 0.3;
-              var srcRatio = img.w / img.h;
-              var dstRatio = areaW / areaH;
-              var drawW, drawH, dx, dy;
-              if (srcRatio > dstRatio) {
-                drawH = areaH;
-                drawW = areaH * srcRatio;
-                dx = x + 0.3 - (drawW - areaW) / 2;
-                dy = y + 0.3;
-              } else {
-                drawW = areaW;
-                drawH = areaW / srcRatio;
-                dx = x + 0.3;
-                dy = y + 0.3 - (drawH - areaH) / 2;
-              }
-              try {
-                doc.addImage(img.dataUrl, 'JPEG', dx, dy, drawW, drawH, undefined, 'FAST');
-              } catch (e) {
-                console.warn('[PDF] addImage failed for step ' + (i+1) + ':', e && e.message);
-              }
-            } else {
-              doc.setTextColor(180,180,180);
-              doc.setFontSize(14);
-              doc.setFont('helvetica','normal');
-              doc.text('No photo', x + CELL_W / 2, y + IMG_H / 2 + 2, { align: 'center' });
-            }
-
-            // Divider between image and text
-            doc.setDrawColor(rgb[0], rgb[1], rgb[2]);
-            doc.setLineWidth(0.6);
-            doc.line(x, y + IMG_H, x + CELL_W, y + IMG_H);
-
-            // Step text
-            doc.setTextColor(26,26,26);
-            doc.setFont('helvetica','bold');
-            doc.setFontSize(8);
-            var textLines = doc.splitTextToSize(String(step.text || ''), CELL_W - TEXT_PAD * 2);
-            doc.text(textLines, x + TEXT_PAD, y + IMG_H + 4);
-
-            if (step.portions) {
-              doc.setTextColor(rgb[0], rgb[1], rgb[2]);
-              doc.setFont('helvetica','bold');
-              doc.setFontSize(7);
-              doc.text(String(step.portions), x + TEXT_PAD, y + rowH - 2);
-            }
-          } else {
-            // Compact text-only cell
-            doc.setTextColor(26,26,26);
-            doc.setFont('helvetica','bold');
-            doc.setFontSize(8);
-            var compactLines = doc.splitTextToSize(String(step.text || ''), CELL_W - TEXT_PAD * 2);
-            // Vertically center text (1-2 lines fit in 16mm cell)
-            doc.text(compactLines, x + TEXT_PAD, y + 4);
-            if (step.portions) {
-              doc.setTextColor(rgb[0], rgb[1], rgb[2]);
-              doc.setFont('helvetica','bold');
-              doc.setFontSize(7);
-              doc.text(String(step.portions), x + TEXT_PAD, y + rowH - 2);
-            }
-          }
-        });
-
-        y += rowH + GAP;
       });
 
-      // ─── Extra sections (mirror the on-screen Branch SOP detail view) ───
-      var ensureSpace = function(needed) {
-        if (y + needed > PAGE_H - MARGIN - 4) {
-          doc.addPage('a4', 'landscape');
-          drawHeader();
-          y = HEADER_H + MARGIN;
-        }
-      };
-
-      var build = null, components = [];
-      try {
-        build = sop.buildRef ? BUILDS_DATA.find(function(b){ return b.id === sop.buildRef; }) : null;
-        if (!build) build = BUILDS_DATA.find(function(b){ return b.name === sop.name; }) || null;
-        components = (build && Array.isArray(build.components)) ? build.components : [];
-        console.log('[PDF] build:', build && build.id, 'components:', components.length);
-      } catch (e) {
-        console.warn('[PDF] build lookup failed:', e && e.message);
-      }
-
-      // Components table
-      try {
-      if (components.length) {
-        ensureSpace(14 + components.length * 5);
-        doc.setTextColor(rgb[0], rgb[1], rgb[2]);
-        doc.setFont('helvetica','bold'); doc.setFontSize(10);
-        doc.text('COMPONENTS', MARGIN, y + 4);
-        y += 8;
-        // Table header — Weight column dropped (Branch SOP shows it on the
-        // Build only; here we only need Type / Item / Tool / Shelf-life × 2).
-        var colXs = [MARGIN, MARGIN + 25, MARGIN + 130, MARGIN + 195, MARGIN + 240];
-        doc.setDrawColor(220,220,220); doc.setLineWidth(0.3);
-        doc.line(MARGIN, y, PAGE_W - MARGIN, y);
-        doc.setTextColor(120,120,120);
-        doc.setFont('helvetica','bold'); doc.setFontSize(7);
-        doc.text('TYPE',           colXs[0] + 1, y + 4);
-        doc.text('ITEM',           colXs[1] + 1, y + 4);
-        doc.text('TOOL / QTY',     colXs[2] + 1, y + 4);
-        doc.text('2ND SHELF LIFE', colXs[3] + 1, y + 4);
-        doc.text('AFTER OPENING',  colXs[4] + 1, y + 4);
-        y += 6;
-        var _csl = sop.componentShelfLife || {};
-        var _cslOpen = sop.componentShelfLifeOpen || {};
-        components.forEach(function(c) {
-          ensureSpace(6);
-          doc.setTextColor(120,120,120);
-          doc.setFont('helvetica','normal'); doc.setFontSize(8);
-          doc.text(String(c.type || ''), colXs[0] + 1, y + 3.2);
-          doc.setTextColor(40,40,40);
-          var itemLines = doc.splitTextToSize(String(c.item || ''), 100);
-          doc.text(itemLines[0] || '', colXs[1] + 1, y + 3.2);
-          var toolStr = c.toolQty ? ((c.tool ? c.tool + ' — ' : '') + c.toolQty) : (c.tool || '');
-          doc.setTextColor(80,80,80);
-          doc.text(toolStr, colXs[2] + 1, y + 3.2);
-          var sl = _csl[c.item] || '—';
-          var slOpen = _cslOpen[c.item] || '—';
-          doc.setTextColor(sl !== '—' ? 110 : 180, sl !== '—' ? 145 : 180, sl !== '—' ? 110 : 180);
-          doc.text(String(sl), colXs[3] + 1, y + 3.2);
-          doc.setTextColor(slOpen !== '—' ? 200 : 180, slOpen !== '—' ? 140 : 180, slOpen !== '—' ? 60 : 180);
-          doc.text(String(slOpen), colXs[4] + 1, y + 3.2);
-          doc.setDrawColor(240,240,240);
-          doc.line(MARGIN, y + 5, PAGE_W - MARGIN, y + 5);
-          y += 5;
+      return Promise.all(pending).then(function(){
+        var opts = {
+          margin: 8,
+          filename: filename,
+          image: { type: 'jpeg', quality: 0.92 },
+          html2canvas: { scale: 2, useCORS: false, allowTaint: true, backgroundColor: '#ffffff', logging: false, windowWidth: 1080 },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape', compress: true },
+          pagebreak: { mode: ['css','legacy'], avoid: '.bsop-print-cell' },
+        };
+        return html2pdf().from(holder.querySelector('#bsop-print-root')).set(opts).save().then(function(){
+          try { document.body.removeChild(holder); } catch (e) {}
+          showSaveToast('Downloaded ' + filename);
         });
-        y += 4;
-      }
-      } catch (e) { console.warn('[PDF] components section failed:', e && e.message); }
-
-      // Allergens + Nutrition (two columns)
-      try {
-      var info = (typeof getBranchSOPAllergenNutritionData === 'function')
-        ? getBranchSOPAllergenNutritionData(sop)
-        : { allergens: [], nutrition: null };
-      console.log('[PDF] allergens:', (info.allergens||[]).length, 'nutrition:', !!info.nutrition);
-      if (info.allergens.length || info.nutrition) {
-        ensureSpace(40);
-        var halfW = (PAGE_W - MARGIN * 2) / 2;
-        // Allergens (left)
-        doc.setTextColor(200,140,60);
-        doc.setFont('helvetica','bold'); doc.setFontSize(9);
-        doc.text('⚠ ALLERGENS', MARGIN, y + 4);
-        // Nutrition (right)
-        doc.setTextColor(110,145,110);
-        doc.text('NUTRITION (per 100g)', MARGIN + halfW, y + 4);
-        y += 8;
-        var blockY = y;
-        // Allergens body
-        doc.setTextColor(40,40,40);
-        doc.setFont('helvetica','normal'); doc.setFontSize(9);
-        if (info.allergens.length) {
-          var allergenStr = info.allergens.map(function(a){ return (typeof a === 'string') ? a : (a.name || a); }).join(', ');
-          var allergenLines = doc.splitTextToSize(allergenStr, halfW - 4);
-          doc.text(allergenLines, MARGIN, blockY + 4);
-        } else {
-          doc.setTextColor(150,150,150); doc.setFont('helvetica','italic');
-          doc.text('No allergens detected', MARGIN, blockY + 4);
-        }
-        // Nutrition body
-        if (info.nutrition) {
-          var n = info.nutrition;
-          var rows = [
-            ['Energy',  n.energy,  'kcal'],
-            ['Protein', n.protein, 'g'],
-            ['Total Fat', n.fat,   'g'],
-            ['Carbs',   n.carbs,   'g'],
-            ['Fibre',   n.fibre,   'g'],
-            ['Sodium',  n.sodium,  'mg'],
-          ].filter(function(r){ return r[1]; });
-          var ny = blockY + 4;
-          rows.forEach(function(r) {
-            doc.setTextColor(120,120,120);
-            doc.setFont('helvetica','normal'); doc.setFontSize(9);
-            doc.text(r[0], MARGIN + halfW, ny);
-            doc.setTextColor(40,40,40);
-            doc.setFont('helvetica','bold');
-            doc.text(String(r[1]) + ' ' + r[2], PAGE_W - MARGIN, ny, { align: 'right' });
-            ny += 4.5;
-          });
-          y = Math.max(y + 12, ny + 2);
-        } else {
-          doc.setTextColor(150,150,150); doc.setFont('helvetica','italic'); doc.setFontSize(9);
-          doc.text('No nutrition data', MARGIN + halfW, blockY + 4);
-          y = blockY + 14;
-        }
-        y += 2;
-      }
-      } catch (e) { console.warn('[PDF] allergen/nutrition section failed:', e && e.message); }
-
-      // Approval signoffs intentionally omitted from PDF output too — internal
-      // sign-off state isn't needed on the kitchen-floor copy.
-      if (false) {
-      try {
-      var approval = (typeof getBSOPApproval === 'function')
-        ? getBSOPApproval(sop)
-        : (sop.approval || { prepared:null, reviewed:null, approved:null });
-      var statusMap = {'draft':'DRAFT','pending-review':'PENDING OPS REVIEW','pending-approval':'PENDING QA SIGN-OFF','approved':'APPROVED'};
-      var derivedStatus = (typeof bsopDerivedStatus === 'function') ? bsopDerivedStatus(sop) : (sop.status || 'draft');
-      ensureSpace(34);
-      doc.setTextColor(rgb[0], rgb[1], rgb[2]);
-      doc.setFont('helvetica','bold'); doc.setFontSize(10);
-      doc.text('SOP APPROVAL — ' + (statusMap[derivedStatus] || ''), MARGIN, y + 4);
-      y += 8;
-      var cardW = (PAGE_W - MARGIN * 2 - 4) / 3;
-      var cardH = 22;
-      var fmtSig = function(iso) {
-        try { return new Date(iso).toLocaleString('en-GB', {day:'2-digit',month:'short',year:'2-digit',hour:'2-digit',minute:'2-digit'}); }
-        catch(e) { return iso || ''; }
-      };
-      [
-        { stage:'prepared', label:'Stage 1 · Prepared by',  role:'NPD / QA', sig: approval.prepared },
-        { stage:'reviewed', label:'Stage 2 · Reviewed by',  role:'OPS',      sig: approval.reviewed },
-        { stage:'approved', label:'Stage 3 · Approved by',  role:'QA',       sig: approval.approved },
-      ].forEach(function(card, ci) {
-        var cx = MARGIN + ci * (cardW + 2);
-        if (card.sig) {
-          doc.setFillColor(231, 240, 232); doc.setDrawColor(110,145,110);
-        } else {
-          doc.setFillColor(255, 248, 230); doc.setDrawColor(232,200,117);
-        }
-        doc.setLineWidth(0.4);
-        doc.roundedRect(cx, y, cardW, cardH, 1.5, 1.5, 'FD');
-        doc.setTextColor(120,120,120);
-        doc.setFont('helvetica','bold'); doc.setFontSize(7);
-        doc.text(card.label.toUpperCase(), cx + 3, y + 4);
-        doc.setTextColor(rgb[0], rgb[1], rgb[2]);
-        doc.setFont('helvetica','bold'); doc.setFontSize(9);
-        doc.text(card.role, cx + 3, y + 9);
-        if (card.sig) {
-          doc.setTextColor(40,40,40);
-          doc.setFont('helvetica','bold'); doc.setFontSize(9);
-          doc.text(String(card.sig.by || ''), cx + 3, y + 14);
-          doc.setTextColor(120,120,120); doc.setFont('helvetica','normal'); doc.setFontSize(7);
-          doc.text(fmtSig(card.sig.at), cx + 3, y + 18);
-          doc.setTextColor(110,145,110); doc.setFont('helvetica','bold'); doc.setFontSize(7);
-          doc.text('✓ SIGNED', cx + cardW - 3, y + 18, { align: 'right' });
-        } else {
-          doc.setTextColor(150,150,150); doc.setFont('helvetica','italic'); doc.setFontSize(8);
-          doc.text('Pending sign-off', cx + 3, y + 15);
-        }
+      }).catch(function(err){
+        console.error('[PDF] html2pdf failed:', err);
+        try { document.body.removeChild(holder); } catch (e) {}
+        showSaveToast('PDF generation failed — opening print dialog instead', true);
+        _branchSOPPrintFallback(sop, bodyHtml);
       });
-      y += cardH + 4;
-      } catch (e) { console.warn('[PDF] approval section failed:', e && e.message); }
-      } /* end if(false) — approval block intentionally skipped on print/PDF */
-
-      // Footer (last page only)
-      doc.setTextColor(160,160,160);
-      doc.setFont('helvetica','normal');
-      doc.setFontSize(8);
-      doc.text(
-        String(sop.id || '') + '   ' + String(sop.version || '') + '   dt ' + String(sop.date || ''),
-        PAGE_W - MARGIN, PAGE_H - 3, { align: 'right' }
-      );
-
-      doc.save(filename);
-      showSaveToast('Downloaded ' + filename);
+    }).catch(function(err){
+      console.warn('[PDF] html2pdf load failed:', err && err.message);
+      showSaveToast('Offline — using print dialog (Save as PDF)', true);
+      _branchSOPPrintFallback(sop, bodyHtml);
     });
-  }).catch(function(err) {
-    console.error('[PDF] generation failed:', err);
-    showSaveToast('PDF generation failed — opening print dialog instead', true);
-    // Build the same print HTML used by the print fallback so user can Save as PDF
-    var COL = 270, IMG_H = 240;
-    var stepsHTML = (sop.steps || []).map(function(step) {
-      return '<div style="display:inline-block;vertical-align:top;width:'+COL+'px;border:2px solid '+bc+';background:white;overflow:hidden;box-sizing:border-box">' +
-        '<div style="width:'+COL+'px;height:'+IMG_H+'px;background:#f0f0f0;display:flex;align-items:center;justify-content:center;overflow:hidden">' +
-          (step.img ? '<img src="'+step.img+'" style="width:'+COL+'px;height:'+IMG_H+'px;object-fit:cover" />' : '<div style="color:#ccc;font-size:24px">📷</div>') +
-        '</div>' +
-        '<div style="padding:8px 10px;border-top:2px solid '+bc+';font-size:11px;line-height:1.4">' +
-          '<strong>'+(step.text||'')+'</strong>' +
-          (step.portions ? '<div style="color:'+bc+';font-weight:600;font-size:10px;margin-top:3px">'+step.portions+'</div>' : '') +
-        '</div>' +
-      '</div>';
-    }).join('');
-    var html = '<div style="font-family:Arial,sans-serif;width:'+(COL*4)+'px;background:white">' +
-      '<div style="background:'+bc+';padding:16px 24px;display:flex;align-items:center;gap:16px;width:'+(COL*4)+'px;box-sizing:border-box">' +
-        '<div style="background:white;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;color:'+bc+'">'+sop.brand+'</div>' +
-        '<div style="font-size:28px;font-weight:700;color:white;text-transform:uppercase">'+sop.name+'</div>' +
-      '</div>' +
-      '<div style="border:2px solid '+bc+';width:'+(COL*4)+'px;font-size:0;box-sizing:border-box">'+stepsHTML+'</div>' +
-    '</div>';
-    _branchSOPPrintFallback(sop, html, bc);
   });
 }
 
@@ -23729,14 +23404,14 @@ function _branchSOPPrintFallback(sop, html, bc) {
   setTimeout(function(){ w.print(); }, 500);
 }
 
-function printBranchSOP(id) {
-  var sop = BRANCH_SOPS.find(function(s){ return s.id === id; });
-  if (!sop) return;
-  auditEvent('branch_sop.print', 'branch_sop', id, sop.name + ' — ' + (sop.brand || ''));
+// Shared print/PDF body builder — both printBranchSOP and downloadBranchSOPPDF
+// render the SAME HTML so the printed page and the downloaded PDF look
+// identical. opts.imgMap (URL → data URL) lets the PDF path inline images so
+// html2canvas doesn't taint the canvas; print path passes nothing.
+function _buildBranchSOPPrintBody(sop, opts) {
+  opts = opts || {};
+  var imgMap = opts.imgMap || {};
   var bc = BSOP_BRAND_COLORS[sop.brand] || '#1B2A4A';
-
-  // Group steps into rows of 4. Rows where every cell has no photo render
-  // compact (no wasted image area) — mirrors the on-screen + PDF behavior.
   var COLS = 4;
   var steps = sop.steps || [];
   var rows = [];
@@ -23745,16 +23420,12 @@ function printBranchSOP(id) {
     var rowHasImg = rowSteps.some(function(s){ return s && s.img; });
     rows.push({ steps: rowSteps, hasImg: rowHasImg });
   }
-
-  // Photo cells should NOT be squeezed — A4 landscape with 4 columns ≈ 70mm
-  // wide cells, so a comfortable ~70mm tall image (260px @ 96dpi) keeps the
-  // photos roughly square. Two rows of full cells fit per page; anything
-  // beyond that flows naturally to a second page.
   var IMG_H_FULL = '260px';
   var stepCellHTML = function(step, hasImg) {
+    var src = step && step.img ? (imgMap[step.img] || step.img) : '';
     var imgArea = hasImg
       ? '<div style="width:100%;height:'+IMG_H_FULL+';background:#f0f0f0;display:flex;align-items:center;justify-content:center;overflow:hidden">' +
-          (step.img ? '<img src="'+step.img+'" style="width:100%;height:100%;object-fit:cover" />' : '<div style="color:#ccc;font-size:24px">📷</div>') +
+          (src ? '<img src="'+src+'" style="width:100%;height:100%;object-fit:cover" />' : '<div style="color:#ccc;font-size:24px">📷</div>') +
         '</div>'
       : '';
     return '<div class="bsop-print-cell" style="border:2px solid '+bc+';background:white;overflow:hidden">' +
@@ -23765,15 +23436,12 @@ function printBranchSOP(id) {
       '</div>' +
     '</div>';
   };
-
   var rowsHTML = rows.map(function(row) {
-    // Pad short last row with empty cells so the grid stays 4-wide visually
     var cells = row.steps.map(function(s){ return stepCellHTML(s, row.hasImg); });
     while (cells.length < COLS) cells.push('<div></div>');
     return '<div class="bsop-print-row" style="display:grid;grid-template-columns:repeat('+COLS+',1fr);gap:0">' + cells.join('') + '</div>';
   }).join('');
 
-  // Banner with id · version · date on the right (mirrors the on-screen banner)
   var bannerMeta = '<div style="text-align:right;color:rgba(255,255,255,0.95);font-family:monospace;font-size:13px;line-height:1.4;white-space:nowrap">' +
     (sop.id || '') +
     '<span style="opacity:0.6;margin:0 6px">·</span>' +
@@ -23782,17 +23450,27 @@ function printBranchSOP(id) {
     'dt ' + (sop.date || '') +
   '</div>';
 
+  return '<div id="bsop-print-root">' +
+    '<div style="background:'+bc+';padding:16px 24px;display:flex;align-items:center;gap:16px">' +
+      '<div style="background:white;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;color:'+bc+'">'+sop.brand+'</div>' +
+      '<div style="font-size:28px;font-weight:700;color:white;text-transform:uppercase;letter-spacing:0.02em;flex:1">'+sop.name+'</div>' +
+      bannerMeta +
+    '</div>' +
+    '<div style="border:2px solid '+bc+';border-top:0">'+rowsHTML+'</div>' +
+    getBranchSOPAllergenNutritionPrintHTML(sop) +
+    '<div style="text-align:right;padding:8px 16px;font-size:10px;color:#999">'+sop.id+' '+(sop.version||'')+' dt '+(sop.date||'')+'</div>' +
+  '</div>';
+}
+
+var _BSOP_PRINT_CSS = '@page{size:landscape;margin:10mm}body{margin:0;font-family:sans-serif}.bsop-print-row{break-inside:avoid;page-break-inside:avoid}.bsop-print-cell{break-inside:avoid;page-break-inside:avoid}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}img{max-width:100%}}';
+
+function printBranchSOP(id) {
+  var sop = BRANCH_SOPS.find(function(s){ return s.id === id; });
+  if (!sop) return;
+  auditEvent('branch_sop.print', 'branch_sop', id, sop.name + ' — ' + (sop.brand || ''));
+  var body = _buildBranchSOPPrintBody(sop);
   var w = window.open('','_blank');
-  w.document.write('<html><head><title>'+sop.name+' — Branch SOP</title><style>@page{size:landscape;margin:10mm}body{margin:0;font-family:sans-serif}.bsop-print-row{break-inside:avoid;page-break-inside:avoid}.bsop-print-cell{break-inside:avoid;page-break-inside:avoid}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}img{max-width:100%}}</style></head><body>');
-  w.document.write('<div style="background:'+bc+';padding:16px 24px;display:flex;align-items:center;gap:16px">');
-  w.document.write('<div style="background:white;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;color:'+bc+'">'+sop.brand+'</div>');
-  w.document.write('<div style="font-size:28px;font-weight:700;color:white;text-transform:uppercase;letter-spacing:0.02em;flex:1">'+sop.name+'</div>');
-  w.document.write(bannerMeta);
-  w.document.write('</div>');
-  w.document.write('<div style="border:2px solid '+bc+';border-top:0">'+rowsHTML+'</div>');
-  w.document.write(getBranchSOPAllergenNutritionPrintHTML(sop));
-  w.document.write('<div style="text-align:right;padding:8px 16px;font-size:10px;color:#999">'+sop.id+' '+(sop.version||'')+' dt '+(sop.date||'')+'</div>');
-  w.document.write('</body></html>');
+  w.document.write('<html><head><title>'+sop.name+' — Branch SOP</title><style>'+_BSOP_PRINT_CSS+'</style></head><body>'+body+'</body></html>');
   w.document.close();
   setTimeout(function(){ w.print(); }, 500);
 }
