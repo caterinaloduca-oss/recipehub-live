@@ -23632,10 +23632,10 @@ function _imgDimensions(dataUrl) {
 }
 
 
-// Download as PDF — renders the SAME HTML as printBranchSOP (so the
-// downloaded file looks exactly like the print preview), but uses html2pdf
-// to convert the offscreen DOM to a downloadable PDF instead of opening a
-// print dialog.
+// Download as PDF — server-side rendering via headless Chrome (Puppeteer).
+// We send the same HTML that the Print preview uses; the server runs it
+// through a real browser engine and streams a PDF back. No html2canvas, no
+// clipping, no blank cells — what you see in print preview is what you get.
 function downloadBranchSOPPDF(id) {
   var sop = BRANCH_SOPS.find(function(s){ return s.id === id; });
   if (!sop) return;
@@ -23646,9 +23646,10 @@ function downloadBranchSOPPDF(id) {
   var nameTag  = (sop.name || 'BranchSOP').replace(/[^A-Za-z0-9 _-]/g,'').replace(/\s+/g,'_');
   var filename = brandTag + nameTag + '_BranchSOP.pdf';
 
-  // Pre-fetch every distinct step image URL and convert to data URL — server
-  // doesn't send CORS headers on /docs/img/* so html2canvas would taint the
-  // canvas and render blank cells if the original URLs were left in place.
+  // Pre-fetch step images as data URLs so the rendered PDF is self-contained
+  // (the server's headless Chrome wouldn't have the user's session cookie to
+  // hit /docs/img/* directly even though they're public — inlining sidesteps
+  // any auth / CORS concerns).
   var urlSet = {};
   (sop.steps || []).forEach(function(s){ if (s && s.img) urlSet[s.img] = true; });
   var urlList = Object.keys(urlSet);
@@ -23657,71 +23658,35 @@ function downloadBranchSOPPDF(id) {
   return Promise.all(fetches).then(function(pairs){
     var imgMap = {};
     pairs.forEach(function(p){ if (p[1]) imgMap[p[0]] = p[1]; });
-    console.log('[PDF] inlined', Object.keys(imgMap).length, 'of', urlList.length, 'images');
-
     var bodyHtml = _buildBranchSOPPrintBody(sop, { imgMap: imgMap });
+    var fullHtml =
+      '<!doctype html><html><head><meta charset="utf-8">' +
+      '<title>' + (sop.name || 'Branch SOP') + '</title>' +
+      '<style>' + _BSOP_PRINT_CSS + '.bsop-print-row{break-inside:avoid;page-break-inside:avoid}.bsop-print-cell{break-inside:avoid;page-break-inside:avoid}img{max-width:100%}body{font-family:sans-serif}</style>' +
+      '</head><body>' + bodyHtml + '</body></html>';
 
-    return _loadHtml2Pdf().then(function(html2pdf) {
-      // A4 landscape = 297mm × 210mm. With 8mm margin on each side the
-      // content area is 281mm wide. Sizing the holder to that exact width
-      // means html2canvas snapshots the layout at the same width the PDF
-      // renders — no horizontal clipping.
-      //
-      // We mount the holder *visibly* in the document flow (just below the
-      // current viewport at top:9999px) instead of trying to clip-path or
-      // visibility:hidden it. Both of those caused html2canvas to either
-      // capture from the wrong origin (left-edge clipping) or render
-      // transparent pixels. With a real on-screen offset, html2canvas grabs
-      // the element's actual bounds correctly. The holder is removed as soon
-      // as the PDF has saved, so the user never sees it scroll into view.
-      var PAGE_W_PX = 1062; // ≈ 281mm @ 96 DPI
-      var holder = document.createElement('div');
-      holder.style.cssText = 'position:absolute;top:9999px;left:0;width:'+PAGE_W_PX+'px;background:white;font-family:sans-serif;pointer-events:none';
-      holder.innerHTML = '<style>.bsop-print-row{break-inside:avoid;page-break-inside:avoid}.bsop-print-cell{break-inside:avoid;page-break-inside:avoid}#bsop-print-root,#bsop-print-root *{box-sizing:border-box}#bsop-print-root table{table-layout:auto}img{max-width:100%}</style>' + bodyHtml;
-      document.body.appendChild(holder);
-
-      var imgs = holder.querySelectorAll('img');
-      var pending = Array.prototype.map.call(imgs, function(im){
-        if (im.complete && im.naturalHeight > 0) return Promise.resolve();
-        return new Promise(function(resolve){
-          im.addEventListener('load',  function(){ resolve(); });
-          im.addEventListener('error', function(){ resolve(); });
-          setTimeout(resolve, 3000);
-        });
-      });
-
-      return Promise.all(pending).then(function(){
-        var opts = {
-          margin: 8,
-          filename: filename,
-          image: { type: 'jpeg', quality: 0.92 },
-          html2canvas: {
-            scale: 2,
-            useCORS: false,
-            allowTaint: true,
-            backgroundColor: '#ffffff',
-            logging: false,
-            windowWidth: PAGE_W_PX,
-            width: PAGE_W_PX,
-            scrollX: 0,
-            scrollY: 0,
-          },
-          jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape', compress: true },
-          pagebreak: { mode: ['css','legacy'], avoid: ['.bsop-print-cell','table','tr'] },
-        };
-        return html2pdf().from(holder.querySelector('#bsop-print-root')).set(opts).save().then(function(){
-          try { document.body.removeChild(holder); } catch (e) {}
-          showSaveToast('Downloaded ' + filename);
-        });
-      }).catch(function(err){
-        console.error('[PDF] html2pdf failed:', err);
-        try { document.body.removeChild(holder); } catch (e) {}
-        showSaveToast('PDF generation failed — opening print dialog instead', true);
-        _branchSOPPrintFallback(sop, bodyHtml);
-      });
+    return fetch(API_BASE + '/api/pdf/render', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + API_KEY },
+      body: JSON.stringify({
+        html: fullHtml,
+        filename: filename,
+        options: { format: 'A4', landscape: true, margin: { top: '8mm', bottom: '8mm', left: '8mm', right: '8mm' } },
+      }),
+    }).then(function(resp){
+      if (!resp.ok) throw new Error('Server ' + resp.status);
+      return resp.blob();
+    }).then(function(blob){
+      // Trigger browser download
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = filename; a.style.display = 'none';
+      document.body.appendChild(a); a.click();
+      setTimeout(function(){ try { document.body.removeChild(a); } catch (e) {} URL.revokeObjectURL(url); }, 500);
+      showSaveToast('Downloaded ' + filename);
     }).catch(function(err){
-      console.warn('[PDF] html2pdf load failed:', err && err.message);
-      showSaveToast('Offline — using print dialog (Save as PDF)', true);
+      console.error('[PDF] server render failed:', err);
+      showSaveToast('PDF generation failed — opening print dialog instead', true);
       _branchSOPPrintFallback(sop, bodyHtml);
     });
   });

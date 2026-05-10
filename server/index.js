@@ -58,6 +58,9 @@ function getEmailsByRole(roles) {
 
 app.use(cors({ origin: ['https://recipehub.dailyfoodsa.com', 'http://localhost:5500', 'http://127.0.0.1:5500'] }));
 app.use(express.json({ limit: '10mb' }));
+// PDF render takes inlined-image HTML which can run 5–25MB depending on the
+// number of step photos. Use a larger limit JUST for that endpoint.
+const pdfRenderJson = express.json({ limit: '40mb' });
 
 // Security headers
 app.use((req, res, next) => {
@@ -135,6 +138,61 @@ app.get('/api/health', (req, res) => {
 });
 
 // GET /api/data — load the shared app state
+// PDF rendering via headless Chrome (Puppeteer). Lazy-load on first call so
+// the server starts fast — Puppeteer initialisation is ~1s. Reuse the same
+// browser instance across requests; restart it if it dies.
+let _browser = null;
+async function _getBrowser() {
+  if (_browser && _browser.isConnected && _browser.isConnected()) return _browser;
+  const puppeteer = require('puppeteer');
+  _browser = await puppeteer.launch({
+    headless: 'new',
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+  });
+  // Replace the cached handle if Chrome exits unexpectedly
+  _browser.on('disconnected', () => { _browser = null; });
+  return _browser;
+}
+
+// Render any HTML to a PDF and stream it back. Body: { html, filename, options }.
+// options.format defaults to 'A4', options.landscape to true (matches the SOP
+// print preview's @page rule). Same-content endpoint also lets us reuse this
+// for recipe / build PDFs later without extra plumbing.
+app.post('/api/pdf/render', pdfRenderJson, requireAuth, async (req, res) => {
+  let page = null;
+  try {
+    const html = String((req.body && req.body.html) || '');
+    if (!html) return res.status(400).json({ error: 'html required' });
+    const filename = String((req.body && req.body.filename) || 'document.pdf').replace(/[^A-Za-z0-9 _.\-]/g, '_');
+    const opts = (req.body && req.body.options) || {};
+    const browser = await _getBrowser();
+    page = await browser.newPage();
+    // emulateMediaType('print') applies @media print rules in the source HTML
+    // (we already use them for break-inside:avoid + @page sizing).
+    await page.emulateMediaType('print');
+    await page.setContent(html, { waitUntil: 'networkidle0', timeout: 30000 });
+    const pdf = await page.pdf({
+      format: opts.format || 'A4',
+      landscape: opts.landscape !== false,           // default landscape
+      printBackground: true,                         // honour background colours / images
+      margin: opts.margin || { top: '8mm', bottom: '8mm', left: '8mm', right: '8mm' },
+      preferCSSPageSize: true,                       // let the source @page rules win when set
+    });
+    // Puppeteer 24+ returns Uint8Array; res.send treats it as JSON unless we
+    // explicitly wrap it as a Buffer.
+    const pdfBuf = Buffer.isBuffer(pdf) ? pdf : Buffer.from(pdf);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Length', String(pdfBuf.length));
+    res.setHeader('Content-Disposition', 'attachment; filename="' + filename + '"');
+    res.end(pdfBuf);
+  } catch (err) {
+    console.error('PDF render failed:', err);
+    if (!res.headersSent) res.status(500).json({ error: 'PDF render failed: ' + err.message });
+  } finally {
+    if (page) try { await page.close(); } catch (e) {}
+  }
+});
+
 // Version probe — returns the deployed HTML file's mtime (epoch ms). The
 // client polls this periodically and prompts a reload when its loaded version
 // is older than the server's current. Cheap (just an fs.stat); safe to poll
