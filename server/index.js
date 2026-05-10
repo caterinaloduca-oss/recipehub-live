@@ -738,8 +738,10 @@ function mergeBranchSOP(existing, incoming) {
   }
   // Preserve-when-undefined for audit / shelf-life data — branch SOPs carry
   // per-component shelf-life maps that stale tabs would otherwise wipe.
+  // Also preserves manual allergens / nutrition fields (Cate's call 2026-05-10
+  // — these are now SOP-level, not auto-populated from build).
   ['archived','componentShelfLife','componentShelfLifeOpen','componentNotes',
-   'createdBy','createdAt','flag']
+   'createdBy','createdAt','flag','allergens','nutrition']
     .forEach(f => {
       if (result[f] === undefined && existing[f] !== undefined) result[f] = existing[f];
     });

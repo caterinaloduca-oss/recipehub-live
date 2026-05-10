@@ -355,6 +355,9 @@ body { font-family:var(--font-b); background:var(--cream); color:var(--g5); font
 .bsop-inline-edit:focus { background:rgba(255,255,255,0.7); box-shadow:inset 0 0 0 1.5px var(--sage); }
 .bsop-portions-edit { display:block; min-height:14px; }
 .bsop-portions-edit:empty:before { content:attr(data-placeholder); color:var(--g3); font-weight:400; font-style:italic; }
+.bsop-inline-edit[data-placeholder]:empty:before { content:attr(data-placeholder); color:var(--g3); font-weight:400; font-style:italic; }
+.bsop-nut-val { color:var(--navy); }
+.bsop-nut-val:empty:before { content:'—'; color:var(--g3); font-style:normal; }
 .bsop-step-delete { position:absolute; top:6px; right:6px; z-index:20; width:22px; height:22px; padding:0; line-height:1; border:none; border-radius:50%; background:rgba(0,0,0,0.55); color:white; font-size:12px; font-weight:600; cursor:pointer; opacity:0; transition:opacity 0.15s, background 0.15s; box-shadow:0 1px 3px rgba(0,0,0,0.35); }
 .bsop-step:hover .bsop-step-delete { opacity:1; }
 .bsop-step-delete:hover { background:#C0392B; }
@@ -22232,15 +22235,14 @@ function getBranchSOPAllergenNutritionPrintHTML(sop) {
   return html;
 }
 
+// Branch SOP allergens + nutrition are MANUAL fields stored on the SOP itself
+// (Cate's call 2026-05-10). They are NOT auto-populated from the linked Build
+// — different branches may need to declare different allergen/nutrition info
+// from the central recipe data, e.g. due to local component substitutions.
 function getBranchSOPAllergenNutritionData(sop) {
-  var allergens = [];
-  var mainNutrition = null;
-  var build = sop.buildRef ? BUILDS_DATA.find(function(b){ return b.id === sop.buildRef; }) : null;
-  if (build) {
-    allergens = getBuildAllergens(build);
-    if (build.nutrition) mainNutrition = build.nutrition;
-  }
-  return { allergens: allergens, nutrition: mainNutrition };
+  var allergens = Array.isArray(sop.allergens) ? sop.allergens.slice() : [];
+  var nutrition = (sop.nutrition && typeof sop.nutrition === 'object') ? sop.nutrition : null;
+  return { allergens: allergens, nutrition: nutrition };
 }
 
 function getBranchSOPAllergenNutritionHTML(sop) {
@@ -22296,46 +22298,52 @@ function getBranchSOPAllergenNutritionHTML(sop) {
     html += '</tbody></table></div>';
   }
 
-  if (allergens.length || mainNutrition) {
-    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0;border-top:2px solid var(--g2)">';
+  // Allergens + Nutrition — always rendered, editable inline. Manual fields
+  // on the SOP, not auto-populated from the build (Cate 2026-05-10).
+  var n = mainNutrition || {};
+  var allergenStr = allergens.join(', ');
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0;border-top:2px solid var(--g2)">';
 
-    // Allergens column
-    html += '<div style="padding:16px 20px;border-right:1px solid var(--g2)">';
-    html += '<div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:var(--amber);margin-bottom:8px">⚠ Allergens</div>';
-    if (allergens.length) {
-      html += renderAllergenBadges(allergens);
-    } else {
-      html += '<span style="font-size:11px;color:var(--g3)">No allergens detected</span>';
-    }
-    html += '</div>';
+  // Allergens column — editable single-line
+  html += '<div style="padding:16px 20px;border-right:1px solid var(--g2)">';
+  html += '<div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:var(--amber);margin-bottom:8px">⚠ Allergens <span style="color:var(--g3);font-weight:400;font-style:italic;text-transform:none;letter-spacing:0">(comma-separated)</span></div>';
+  html += '<div contenteditable="true" spellcheck="false" class="bsop-inline-edit"' +
+    ' data-placeholder="e.g. Gluten, Dairy, Egg"' +
+    ' style="font-size:13px;color:var(--navy);min-height:18px;display:block"' +
+    ' onblur="_bsopSaveAllergens(\'' + sop.id + '\',this)"' +
+    ' onkeydown="_bsopInlineEditKey(event)">' + esc(allergenStr) + '</div>';
+  html += '</div>';
 
-    // Nutrition column
-    html += '<div style="padding:16px 20px">';
-    html += '<div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:var(--sage);margin-bottom:8px">🥗 Nutrition (per 100g)</div>';
-    if (mainNutrition) {
-      var rows = [
-        {label:'Energy', val:mainNutrition.energy, unit:'kcal'},
-        {label:'Protein', val:mainNutrition.protein, unit:'g'},
-        {label:'Total Fat', val:mainNutrition.fat, unit:'g'},
-        {label:'Carbs', val:mainNutrition.carbs, unit:'g'},
-        {label:'Fibre', val:mainNutrition.fibre, unit:'g'},
-        {label:'Sodium', val:mainNutrition.sodium, unit:'mg'},
-      ];
-      html += '<table style="width:100%;font-size:12px;border-collapse:collapse">';
-      rows.forEach(function(r) {
-        if (r.val) {
-          html += '<tr><td style="padding:3px 0;color:var(--g4)">' + r.label + '</td><td style="padding:3px 0;text-align:right;font-family:var(--font-m);font-weight:500">' + r.val + ' ' + r.unit + '</td></tr>';
-        }
-      });
-      html += '</table>';
-    } else {
-      html += '<span style="font-size:11px;color:var(--g3)">No nutrition data — link a build with recipe references</span>';
-    }
-    html += '</div>';
+  // Nutrition column — table with editable values per row
+  html += '<div style="padding:16px 20px">';
+  html += '<div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:var(--sage);margin-bottom:8px">🥗 Nutrition (per 100g)</div>';
+  var nutFields = [
+    {key:'energy',  label:'Energy',     unit:'kcal'},
+    {key:'protein', label:'Protein',    unit:'g'},
+    {key:'fat',     label:'Total Fat',  unit:'g'},
+    {key:'carbs',   label:'Carbs',      unit:'g'},
+    {key:'fibre',   label:'Fibre',      unit:'g'},
+    {key:'sodium',  label:'Sodium',     unit:'mg'},
+  ];
+  html += '<table style="width:100%;font-size:12px;border-collapse:collapse">';
+  nutFields.forEach(function(f) {
+    var val = n[f.key];
+    html += '<tr>' +
+      '<td style="padding:3px 0;color:var(--g4)">' + f.label + '</td>' +
+      '<td style="padding:3px 0;text-align:right;font-family:var(--font-m);font-weight:500;color:var(--navy)">' +
+        '<span contenteditable="true" spellcheck="false" class="bsop-inline-edit bsop-nut-val"' +
+          ' data-placeholder="—"' +
+          ' style="display:inline-block;min-width:30px;text-align:right"' +
+          ' onblur="_bsopSaveNutritionField(\'' + sop.id + '\',\'' + f.key + '\',this)"' +
+          ' onkeydown="_bsopInlineEditKey(event)">' + (val != null && val !== '' ? esc(String(val)) : '') + '</span>' +
+        ' <span style="color:var(--g3);font-size:11px">' + f.unit + '</span>' +
+      '</td>' +
+    '</tr>';
+  });
+  html += '</table>';
+  html += '</div>';
 
-    html += '</div>';
-  }
-
+  html += '</div>';
   return html;
 }
 
@@ -22661,6 +22669,52 @@ function _bsopInlineSaveStep(sopId, idx, field, el) {
 // Enter on inline-edit blurs (commit) instead of inserting a newline.
 function _bsopInlineEditKey(e) {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.blur(); }
+}
+
+// Save manual allergens — comma-separated string → array, deduped, trimmed.
+function _bsopSaveAllergens(sopId, el) {
+  try {
+    var sop = BRANCH_SOPS.find(function(s){ return s.id === sopId; });
+    if (!sop) return;
+    var raw = (el.textContent || '').trim();
+    var arr = raw ? raw.split(',').map(function(s){ return s.trim(); }).filter(Boolean) : [];
+    // dedupe
+    var seen = {};
+    arr = arr.filter(function(a){ var k = a.toLowerCase(); if (seen[k]) return false; seen[k] = 1; return true; });
+    var was = JSON.stringify(sop.allergens || []);
+    var now = JSON.stringify(arr);
+    if (was === now) return;
+    sop.allergens = arr;
+    sop.updatedAt = new Date().toISOString();
+    saveBranchSOPToServer(sopId);
+    showSaveToast('Allergens updated');
+  } catch (err) {
+    console.error('save allergens failed:', err);
+    showSaveToast('Save failed: ' + (err && err.message ? err.message : 'unknown'), true);
+  }
+}
+
+// Save one nutrition field — accepts numbers (10, 10.5, "10g" → 10).
+function _bsopSaveNutritionField(sopId, field, el) {
+  try {
+    var sop = BRANCH_SOPS.find(function(s){ return s.id === sopId; });
+    if (!sop) return;
+    var raw = (el.textContent || '').trim();
+    var newVal = raw === '' ? null : (isNaN(parseFloat(raw)) ? raw : parseFloat(raw));
+    if (!sop.nutrition) sop.nutrition = {};
+    var oldVal = sop.nutrition[field];
+    if (oldVal === newVal || (oldVal == null && newVal == null)) return;
+    if (newVal == null) { delete sop.nutrition[field]; }
+    else { sop.nutrition[field] = newVal; }
+    // Drop the whole nutrition object if empty so we don't carry a useless {}
+    if (sop.nutrition && !Object.keys(sop.nutrition).length) delete sop.nutrition;
+    sop.updatedAt = new Date().toISOString();
+    saveBranchSOPToServer(sopId);
+    showSaveToast('Nutrition updated');
+  } catch (err) {
+    console.error('save nutrition failed:', err);
+    showSaveToast('Save failed: ' + (err && err.message ? err.message : 'unknown'), true);
+  }
 }
 
 // Delete a Branch SOP step inline (✕ at the top-right of the step square).
