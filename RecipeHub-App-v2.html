@@ -22223,7 +22223,6 @@ function getBranchSOPAllergenNutritionPrintHTML(sop) {
     html += '<thead><tr style="border-bottom:1px solid #ddd">' +
       '<th style="text-align:left;padding:3px 6px;color:#888;font-weight:600">Type</th>' +
       '<th style="text-align:left;padding:3px 6px;color:#888;font-weight:600">Item</th>' +
-      '<th style="text-align:right;padding:3px 6px;color:#888;font-weight:600">Weight</th>' +
       '<th style="text-align:left;padding:3px 6px;color:#888;font-weight:600">Tool / Qty</th>' +
       '<th style="text-align:left;padding:3px 6px;color:#888;font-weight:600">2nd Shelf Life</th>' +
       '<th style="text-align:left;padding:3px 6px;color:#888;font-weight:600">After Opening</th>' +
@@ -22234,7 +22233,6 @@ function getBranchSOPAllergenNutritionPrintHTML(sop) {
       html += '<tr style="border-bottom:1px solid #eee">' +
         '<td style="padding:3px 6px;color:#888">' + c.type + '</td>' +
         '<td style="padding:3px 6px;font-weight:500">' + c.item + '</td>' +
-        '<td style="padding:3px 6px;text-align:right;color:#666">' + (c.weight||'') + '</td>' +
         '<td style="padding:3px 6px;color:#888">' + (c.toolQty ? (c.tool ? c.tool + ' — ' : '') + c.toolQty : (c.tool||'')) + '</td>' +
         '<td style="padding:3px 6px;color:' + (sl !== '—' ? _bc : '#ccc') + ';font-weight:' + (sl !== '—' ? '600' : '400') + '">' + sl + '</td>' +
         '<td style="padding:3px 6px;color:' + (slOpen !== '—' ? '#D4700A' : '#ccc') + ';font-weight:' + (slOpen !== '—' ? '600' : '400') + '">' + slOpen + '</td>' +
@@ -22355,7 +22353,6 @@ function getBranchSOPAllergenNutritionHTML(sop) {
     html += '<thead><tr style="border-bottom:1px solid var(--g2)">' +
       '<th style="' + _thStyle + '">Type</th>' +
       '<th style="' + _thStyle + '">Item</th>' +
-      '<th style="' + _thStyle + ';text-align:right">Weight</th>' +
       '<th style="' + _thStyle + '">Tool / Qty</th>' +
       '<th style="' + _thStyle + '">2nd Shelf Life</th>' +
       '<th style="' + _thStyle + '">After Opening</th>' +
@@ -22369,7 +22366,6 @@ function getBranchSOPAllergenNutritionHTML(sop) {
       html += '<tr style="border-bottom:1px solid var(--g1)">' +
         '<td style="padding:5px 8px;color:var(--g3);font-weight:500">' + c.type + '</td>' +
         '<td style="padding:5px 8px;font-weight:500;color:var(--g5)">' + c.item + '</td>' +
-        '<td style="padding:5px 8px;text-align:right;font-family:var(--font-m);color:var(--g4)">' + (c.weight||'') + '</td>' +
         '<td style="padding:5px 8px;font-size:11px;color:var(--g3)">' + (c.toolQty ? (c.tool ? c.tool + ' — ' : '') + c.toolQty : (c.tool||'')) + '</td>' +
         '<td style="padding:5px 8px"><select style="' + _selStyle + ';color:' + (_curSL ? 'var(--sage)' : 'var(--g3)') + '" onchange="setComponentShelfLife(\'' + sop.id + '\',\'' + c.item.replace(/'/g,"\\'") + '\',this,\'sealed\')">' +
           _slOptions.map(function(o) { return '<option value="' + o + '"' + (o === _curSL || (_isCustom && o === 'Custom') ? ' selected' : '') + '>' + (o || '— set —') + '</option>'; }).join('') +
@@ -23415,18 +23411,18 @@ function downloadBranchSOPPDF(id) {
         doc.setFont('helvetica','bold'); doc.setFontSize(10);
         doc.text('COMPONENTS', MARGIN, y + 4);
         y += 8;
-        // Table header
-        var colXs = [MARGIN, MARGIN + 25, MARGIN + 110, MARGIN + 145, MARGIN + 175, MARGIN + 220, MARGIN + 255];
+        // Table header — Weight column dropped (Branch SOP shows it on the
+        // Build only; here we only need Type / Item / Tool / Shelf-life × 2).
+        var colXs = [MARGIN, MARGIN + 25, MARGIN + 130, MARGIN + 195, MARGIN + 240];
         doc.setDrawColor(220,220,220); doc.setLineWidth(0.3);
         doc.line(MARGIN, y, PAGE_W - MARGIN, y);
         doc.setTextColor(120,120,120);
         doc.setFont('helvetica','bold'); doc.setFontSize(7);
         doc.text('TYPE',           colXs[0] + 1, y + 4);
         doc.text('ITEM',           colXs[1] + 1, y + 4);
-        doc.text('WEIGHT',         colXs[2] + 1, y + 4, { align: 'left' });
-        doc.text('TOOL / QTY',     colXs[3] + 1, y + 4);
-        doc.text('2ND SHELF LIFE', colXs[4] + 1, y + 4);
-        doc.text('AFTER OPENING',  colXs[5] + 1, y + 4);
+        doc.text('TOOL / QTY',     colXs[2] + 1, y + 4);
+        doc.text('2ND SHELF LIFE', colXs[3] + 1, y + 4);
+        doc.text('AFTER OPENING',  colXs[4] + 1, y + 4);
         y += 6;
         var _csl = sop.componentShelfLife || {};
         var _cslOpen = sop.componentShelfLifeOpen || {};
@@ -23436,18 +23432,17 @@ function downloadBranchSOPPDF(id) {
           doc.setFont('helvetica','normal'); doc.setFontSize(8);
           doc.text(String(c.type || ''), colXs[0] + 1, y + 3.2);
           doc.setTextColor(40,40,40);
-          var itemLines = doc.splitTextToSize(String(c.item || ''), 80);
+          var itemLines = doc.splitTextToSize(String(c.item || ''), 100);
           doc.text(itemLines[0] || '', colXs[1] + 1, y + 3.2);
-          doc.setTextColor(80,80,80);
-          doc.text(String(c.weight || ''), colXs[2] + 1, y + 3.2);
           var toolStr = c.toolQty ? ((c.tool ? c.tool + ' — ' : '') + c.toolQty) : (c.tool || '');
-          doc.text(toolStr, colXs[3] + 1, y + 3.2);
+          doc.setTextColor(80,80,80);
+          doc.text(toolStr, colXs[2] + 1, y + 3.2);
           var sl = _csl[c.item] || '—';
           var slOpen = _cslOpen[c.item] || '—';
           doc.setTextColor(sl !== '—' ? 110 : 180, sl !== '—' ? 145 : 180, sl !== '—' ? 110 : 180);
-          doc.text(String(sl), colXs[4] + 1, y + 3.2);
+          doc.text(String(sl), colXs[3] + 1, y + 3.2);
           doc.setTextColor(slOpen !== '—' ? 200 : 180, slOpen !== '—' ? 140 : 180, slOpen !== '—' ? 60 : 180);
-          doc.text(String(slOpen), colXs[5] + 1, y + 3.2);
+          doc.text(String(slOpen), colXs[4] + 1, y + 3.2);
           doc.setDrawColor(240,240,240);
           doc.line(MARGIN, y + 5, PAGE_W - MARGIN, y + 5);
           y += 5;
