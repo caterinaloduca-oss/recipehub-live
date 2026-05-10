@@ -20346,10 +20346,13 @@ function buildProductionTable() {
         actions += '<button class="btn btn-outline btn-sm" style="' + _btnStyle + '" onclick="changeRunStatus(\''+run.id+'\')" title="Change status">Status</button>';
         actions += '<button class="btn btn-outline btn-sm" style="' + _btnStyle + '" onclick="editProductionRun(\''+run.id+'\')" title="Edit run">Edit</button>';
       }
-      // Block / Unblock — Trial runs only (Factory & Production Trial), Factory + Admin only.
-      // Once approved the recipe is out of NPD scope and goes to Factory's regular production environment.
+      // Block / Unblock — Trial runs only (Factory & Production Trial).
+      // Allowed roles: Factory, Purchasing, Admin. Purchasing was added 2026-05-10
+      // so they can manage the missing-ingredient list end-to-end (add, delete,
+      // tick off arrivals) — they're the team chasing the supplier and tracking
+      // what's actually inbound.
       var _isTrialRun = (run.runType === 'Factory Trial' || run.runType === 'Production Trial');
-      var _canBlock = _isTrialRun && (_role === 'factory' || _role === 'admin');
+      var _canBlock = _isTrialRun && (_role === 'factory' || _role === 'purchasing' || _role === 'admin');
       if (_canBlock && run.status !== 'completed') {
         if (run.status === 'blocked-materials') {
           actions += '<button class="btn btn-sage btn-sm" style="' + _btnStyle + '" onclick="event.stopPropagation();unblockProductionRun(\''+run.id+'\')" title="Mark materials as arrived">📦 Materials in</button>';
@@ -20443,7 +20446,7 @@ function openBlockProductionRun(id) {
   var run = PRODUCTION_RUNS.find(function(r){ return r.id === id; });
   if (!run) return;
   var _role = getCurrentUserRole();
-  if (_role !== 'factory' && _role !== 'admin') { showSaveToast('Factory / Admin only', true); return; }
+  if (_role !== 'factory' && _role !== 'purchasing' && _role !== 'admin') { showSaveToast('Factory / Purchasing / Admin only', true); return; }
   if (run.runType !== 'Factory Trial' && run.runType !== 'Production Trial') {
     showSaveToast('Block is for Factory Trial / Production Trial runs only', true);
     return;
@@ -20504,7 +20507,7 @@ function confirmBlockProductionRun(id) {
   run.missingIngredients = missing;
   run.blockedNote = note;
   closeModal();
-  saveAllData();
+  saveProductionRunToServer(run.id);   // per-entity save — preserves the flag against stale-tab writes
   buildProductionTable();
   if (typeof updateSidebarBadges === 'function') updateSidebarBadges();
   logActivity('production', '📦', (run.runType || 'Trial') + ' needs RM: ' + run.recipe, missing.length + ' material' + (missing.length > 1 ? 's' : '') + ' missing' + (note ? ' — ' + note : ''));
@@ -20532,40 +20535,105 @@ function unblockProductionRun(id) {
   var run = PRODUCTION_RUNS.find(function(r){ return r.id === id; });
   if (!run || run.status !== 'blocked-materials') return;
   var _role = getCurrentUserRole();
-  if (_role !== 'factory' && _role !== 'admin') { showSaveToast('Only Factory / Admin can update materials', true); return; }
+  if (_role !== 'factory' && _role !== 'purchasing' && _role !== 'admin') { showSaveToast('Only Factory / Purchasing / Admin can manage materials', true); return; }
+  if (!Array.isArray(run.missingIngredients)) run.missingIngredients = [];
+  // Recipe ingredients available to add to the missing list
+  var r = RECIPE_DB[run.npd];
+  var allIngredients = (r && Array.isArray(r.ingredients)) ? r.ingredients : [];
+  // Build the modal HTML and re-render in place after every add/delete so the
+  // user can add multiple missing items in one session. Stash recipe ingredients
+  // on window for the picker to read without re-finding the run.
+  window._mgrRunId = id;
+  window._mgrRecipeIngs = allIngredients;
+  _renderManageMissingModal(run);
+}
+
+// Modal renderer — separated so add/delete actions can re-paint without
+// reopening (which would lose any ticks the user had already made).
+function _renderManageMissingModal(run) {
   var missing = Array.isArray(run.missingIngredients) ? run.missingIngredients : [];
-  if (!missing.length) {
-    // Defensive — no missing list, just clear the block
-    _finalizeUnblock(run, 'All clear', false);
-    return;
-  }
-  var rows = missing.map(function(m, i) {
+  var rows = missing.length ? missing.map(function(m, i) {
     var name = (m.name || '').replace(/"/g,'&quot;');
     var code = (m.itemCode || '').replace(/"/g,'&quot;');
-    return '<label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--g1);cursor:pointer;font-size:13px">' +
+    return '<label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--g1);font-size:13px">' +
       '<input type="checkbox" data-arr-idx="' + i + '" />' +
-      '<span style="flex:1">' + name + (code ? ' <span style="font-family:var(--font-m);color:var(--g3);font-size:11px">(' + code + ')</span>' : '') + '</span>' +
+      '<span style="flex:1;cursor:pointer">' + name + (code ? ' <span style="font-family:var(--font-m);color:var(--g3);font-size:11px">(' + code + ')</span>' : '') + '</span>' +
       '<span style="font-size:11px;color:#8C1A1A;font-weight:500">missing</span>' +
+      '<button title="Remove from missing list" type="button" onclick="event.stopPropagation();_mgrRemoveMissing(' + i + ')" style="background:none;border:none;color:#C0392B;font-size:14px;cursor:pointer;padding:0 4px;line-height:1">✕</button>' +
     '</label>';
+  }).join('') : '<div style="padding:14px;color:var(--g3);font-style:italic;font-size:12px">Nothing currently missing — saving with no ticks will clear the block.</div>';
+
+  // Picker for adding ingredients — only those not already in missing list
+  var missingNames = new Set(missing.map(function(m){ return (m.name || '').toLowerCase(); }));
+  var addable = (window._mgrRecipeIngs || []).filter(function(ing){
+    return ing && ing.name && !missingNames.has(ing.name.toLowerCase());
+  });
+  var addOpts = '<option value="">— pick an ingredient to add —</option>' + addable.map(function(ing, i) {
+    return '<option value="' + i + '">' + (ing.name || '').replace(/"/g,'&quot;') + ' (' + (ing.pct || 0).toFixed(1) + '%)</option>';
   }).join('');
+
   openModal(
     '<div class="card-head" style="background:#2D6A4F;border-radius:16px 16px 0 0">' +
-      '<span class="card-title" style="color:white">📦 Materials update</span>' +
+      '<span class="card-title" style="color:white">📦 Manage missing materials</span>' +
       '<button class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:white;border:none" onclick="closeModal()">✕</button>' +
     '</div>' +
     '<div class="card-body" style="padding:18px 20px">' +
       '<div style="font-size:12px;color:var(--g4);margin-bottom:6px"><strong>' + (run.recipe || '') + '</strong> · ' + (run.runType || 'Trial') + (run.date ? ' · ' + run.date : '') + '</div>' +
-      '<div style="font-size:13px;color:var(--g4);margin-bottom:14px">Tick each material that arrived. The rest stay on the missing list. If everything is in, the run unblocks and goes back on schedule.</div>' +
+      '<div style="font-size:13px;color:var(--g4);margin-bottom:14px">Tick each material that arrived (resolves the block when all done). Use ✕ to remove an item posted by mistake. Add more from the recipe at the bottom.</div>' +
       '<div style="display:flex;gap:6px;margin-bottom:10px"><button class="btn btn-outline btn-sm" onclick="document.querySelectorAll(\'#unblk-list input[data-arr-idx]\').forEach(function(c){c.checked=true})">Mark all arrived</button><button class="btn btn-outline btn-sm" onclick="document.querySelectorAll(\'#unblk-list input[data-arr-idx]\').forEach(function(c){c.checked=false})">Clear</button></div>' +
       '<div style="border:1px solid var(--g2);border-radius:8px;max-height:280px;overflow-y:auto" id="unblk-list">' + rows + '</div>' +
+      (addable.length ? (
+        '<div style="margin-top:14px;padding:10px;border:1px dashed var(--g2);border-radius:8px;background:#FAFAF8">' +
+          '<div style="font-size:11px;color:var(--g3);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.05em;font-weight:600">Add missing ingredient</div>' +
+          '<div style="display:flex;gap:6px">' +
+            '<select id="mgr-add-pick" class="form-input" style="flex:1;font-size:13px">' + addOpts + '</select>' +
+            '<button class="btn btn-outline btn-sm" onclick="_mgrAddMissing()">+ Add</button>' +
+          '</div>' +
+        '</div>'
+      ) : '') +
       '<div class="form-group" style="margin-top:14px"><label class="form-label">Note (optional)</label><textarea class="form-input" id="unblk-note" placeholder="e.g. Sunflower oil arrived; chilled water short on supply" style="min-height:60px;resize:vertical"></textarea></div>' +
       '<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px">' +
         '<button class="btn btn-outline" onclick="closeModal()">Cancel</button>' +
-        '<button class="btn btn-sage btn-sm" onclick="confirmUnblockProductionRun(\'' + id + '\')">Save</button>' +
+        '<button class="btn btn-sage btn-sm" onclick="confirmUnblockProductionRun(\'' + run.id + '\')">Save</button>' +
       '</div>' +
     '</div>',
     '560px'
   );
+}
+
+function _mgrRemoveMissing(idx) {
+  var run = PRODUCTION_RUNS.find(function(r){ return r.id === window._mgrRunId; });
+  if (!run || !Array.isArray(run.missingIngredients) || !run.missingIngredients[idx]) return;
+  var name = run.missingIngredients[idx].name || 'this item';
+  if (!confirm('Remove "' + name + '" from the missing list?\n\n(Use ✕ when an item was posted by mistake or no longer needed. Use the checkbox if it actually arrived.)')) return;
+  run.missingIngredients.splice(idx, 1);
+  run.updatedAt = new Date().toISOString();
+  saveProductionRunToServer(run.id);
+  buildProductionTable();
+  if (typeof updateSidebarBadges === 'function') updateSidebarBadges();
+  if (typeof auditEvent === 'function') auditEvent('run.rm.remove', 'production-run', run.id, run.recipe, { item: name });
+  _renderManageMissingModal(run);
+  showSaveToast('Removed ' + name);
+}
+
+function _mgrAddMissing() {
+  var run = PRODUCTION_RUNS.find(function(r){ return r.id === window._mgrRunId; });
+  if (!run) return;
+  var sel = document.getElementById('mgr-add-pick');
+  if (!sel || !sel.value) { showSaveToast('Pick an ingredient first', true); return; }
+  var idx = parseInt(sel.value, 10);
+  var ing = (window._mgrRecipeIngs || [])[idx];
+  if (!ing || !ing.name) return;
+  var code = (typeof resolveItemCode === 'function') ? (resolveItemCode(ing.name) || '') : '';
+  if (!Array.isArray(run.missingIngredients)) run.missingIngredients = [];
+  run.missingIngredients.push({ name: ing.name, itemCode: code });
+  run.updatedAt = new Date().toISOString();
+  saveProductionRunToServer(run.id);
+  buildProductionTable();
+  if (typeof updateSidebarBadges === 'function') updateSidebarBadges();
+  if (typeof auditEvent === 'function') auditEvent('run.rm.add', 'production-run', run.id, run.recipe, { item: ing.name });
+  _renderManageMissingModal(run);
+  showSaveToast('Added ' + ing.name + ' to missing list');
 }
 
 function confirmUnblockProductionRun(id) {
@@ -20573,8 +20641,16 @@ function confirmUnblockProductionRun(id) {
   if (!run || run.status !== 'blocked-materials') { closeModal(); return; }
   var arrivedIdx = Array.from(document.querySelectorAll('#unblk-list input[data-arr-idx]:checked'))
     .map(function(cb){ return parseInt(cb.getAttribute('data-arr-idx'), 10); });
-  if (!arrivedIdx.length) { showSaveToast('Tick at least one material that arrived', true); return; }
   var missing = Array.isArray(run.missingIngredients) ? run.missingIngredients : [];
+  // Empty list (user removed every item via ✕) → unblock with no email
+  if (!missing.length) {
+    closeModal();
+    _finalizeUnblock(run, 'List cleared via Manage missing', false);
+    return;
+  }
+  // Nothing ticked + items still on list → user just used the modal to add/delete.
+  // Their changes already saved per-action; just close.
+  if (!arrivedIdx.length) { closeModal(); return; }
   var arrivedSet = new Set(arrivedIdx);
   var arrivedItems = missing.filter(function(_, i){ return arrivedSet.has(i); });
   var stillMissing = missing.filter(function(_, i){ return !arrivedSet.has(i); });
@@ -20597,7 +20673,7 @@ function _finalizeUnblock(run, note, sendEmail, arrivedItems) {
   run.missingIngredients = [];
   delete run.previousStatus;
   run.updatedAt = nowIso;
-  saveAllData();
+  saveProductionRunToServer(run.id);   // per-entity save — narrow conflict surface
   buildProductionTable();
   if (typeof updateSidebarBadges === 'function') updateSidebarBadges();
   logActivity('production', '✓', (run.runType || 'Trial') + ' unblocked: ' + run.recipe, note || 'All materials in');
@@ -20632,7 +20708,7 @@ function _finalizePartial(run, arrivedItems, stillMissing, note) {
     note: note,
   });
   run.updatedAt = nowIso;
-  saveAllData();
+  saveProductionRunToServer(run.id);   // per-entity save
   buildProductionTable();
   if (typeof updateSidebarBadges === 'function') updateSidebarBadges();
   var arrivedNames = arrivedItems.map(function(m){return m.name}).join(', ');
