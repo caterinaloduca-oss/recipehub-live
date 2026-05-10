@@ -350,6 +350,11 @@ body { font-family:var(--font-b); background:var(--cream); color:var(--g5); font
 .bsop-step-text { padding:10px 12px; min-height:70px; font-size:12px; color:var(--g5); line-height:1.5; }
 .bsop-step-text strong { color:var(--navy); }
 .bsop-step-text .bsop-portions { color:var(--sage); font-weight:600; font-size:11px; margin-top:4px; }
+.bsop-inline-edit { outline:none; cursor:text; border-radius:3px; padding:1px 3px; margin:-1px -3px; transition:background 0.12s, box-shadow 0.12s; }
+.bsop-inline-edit:hover { background:rgba(27,42,74,0.04); }
+.bsop-inline-edit:focus { background:rgba(255,255,255,0.7); box-shadow:inset 0 0 0 1.5px var(--sage); }
+.bsop-portions-edit { display:block; min-height:14px; }
+.bsop-portions-edit:empty:before { content:attr(data-placeholder); color:var(--g3); font-weight:400; font-style:italic; }
 .bsop-upload-btn { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; cursor:pointer; background:rgba(0,0,0,0); transition:background 0.15s; }
 .bsop-upload-btn:hover { background:rgba(0,0,0,0.3); }
 .bsop-upload-btn span { display:none; color:white; font-size:12px; font-weight:500; }
@@ -22534,8 +22539,18 @@ function viewBranchSOP(id) {
               ${step.img && step.img !== '[server]' && step.img !== 'null' ? `<button title="Delete photo" type="button" onclick="event.stopPropagation();event.preventDefault();deleteBranchSOPPhoto('${sop.id}',${i});return false;" style="position:absolute;top:4px;right:4px;background:rgba(192,57,43,0.95);color:white;border:none;border-radius:50%;width:24px;height:24px;font-size:13px;cursor:pointer;line-height:1;padding:0;z-index:10;box-shadow:0 1px 3px rgba(0,0,0,0.3)">✕</button>` : ''}
             </div>
             <div class="bsop-step-text" style="border-top:2px solid ${brandColor}">
-              <strong>${step.text}</strong>
-              ${step.portions ? `<div class="bsop-portions" style="color:${brandColor}">${step.portions}</div>` : ''}
+              <strong contenteditable="true" spellcheck="false"
+                      class="bsop-inline-edit"
+                      onblur="_bsopInlineSaveStep('${sop.id}',${i},'text',this)"
+                      onkeydown="_bsopInlineEditKey(event)"
+                      title="Click to edit">${esc(step.text||'')}</strong>
+              <div contenteditable="true" spellcheck="false"
+                   class="bsop-portions bsop-inline-edit bsop-portions-edit"
+                   style="color:${brandColor}"
+                   data-placeholder="+ portions"
+                   onblur="_bsopInlineSaveStep('${sop.id}',${i},'portions',this)"
+                   onkeydown="_bsopInlineEditKey(event)"
+                   title="Click to edit">${esc(step.portions||'')}</div>
             </div>
           </div>
         `).join('')}
@@ -22578,6 +22593,29 @@ async function setComponentShelfLife(sopId, itemName, selectEl, type) {
     selectEl.style.color = 'var(--g3)';
   }
   saveAllData();
+}
+
+// Inline edit on a Branch SOP step text/portions — saves on blur.
+// Persists per-SOP via the per-entity endpoint so concurrent edits don't clobber.
+function _bsopInlineSaveStep(sopId, idx, field, el) {
+  try {
+    var sop = BRANCH_SOPS.find(function(s){ return s.id === sopId; });
+    if (!sop || !Array.isArray(sop.steps) || !sop.steps[idx]) return;
+    var newVal = (el.textContent || '').trim();
+    var oldVal = sop.steps[idx][field] || '';
+    if (newVal === oldVal) return;   // no change, no save
+    sop.steps[idx][field] = newVal;
+    sop.updatedAt = new Date().toISOString();
+    saveBranchSOPToServer(sopId);
+    showSaveToast('Step ' + (idx+1) + ' updated');
+  } catch (err) {
+    console.error('inline step save failed:', err);
+    showSaveToast('Save failed: ' + (err && err.message ? err.message : 'unknown'), true);
+  }
+}
+// Enter on inline-edit blurs (commit) instead of inserting a newline.
+function _bsopInlineEditKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.blur(); }
 }
 
 // Remove a Branch SOP step photo — sets img to null, bumps updatedAt so the server
