@@ -386,39 +386,21 @@ app.post('/api/data', requireAuth, (req, res) => {
       };
 
       if (body.recipes && old.recipes) {
+        // Per-recipe merge through the same mergeRecipe used by /api/recipe/:npd.
+        // Without this, a stale tab posting full /api/data could clobber methods,
+        // ingredients, status, etc. — Cate hit this on 2026-05-10 (20 sauces lost
+        // method steps because a stale tab from 2026-04-24 won the full-blob race).
+        // Now: same concurrency rules apply whether you save via the per-entity
+        // endpoint or the bulk one.
         Object.keys(body.recipes).forEach(k => {
           const nr = body.recipes[k], or = old.recipes[k];
-          if (!or) return;
-          // Merge recipe media: combine both, dedupe by name, keep old images that aren't in the incoming list
-          if (or.media && or.media.length) {
-            if (!nr.media) nr.media = [];
-            const nrNames = new Set(nr.media.map(m => m.name));
-            or.media.forEach(m => {
-              if (m.url && !nrNames.has(m.name)) nr.media.push(m);
-            });
-          }
-          // Preserve SOP step images unless client is newer and explicitly cleared
-          if (or.sopSteps && nr.sopSteps) {
-            nr.sopSteps.forEach((s, i) => {
-              const oldStep = or.sopSteps[i];
-              if (oldStep && oldStep.visualImg && imgIsEmpty(s.visualImg) && !clientIsNewer(nr, or)) {
-                s.visualImg = oldStep.visualImg;
-              }
-            });
-          }
-          // Merge QA files
-          ['trialQA','prodQA'].forEach(stage => {
-            if (or[stage] && or[stage].files && or[stage].files.length) {
-              if (!nr[stage]) nr[stage] = { signed: false, files: [] };
-              if (!nr[stage].files) nr[stage].files = [];
-              const nrNames = new Set(nr[stage].files.map(f => f.name));
-              or[stage].files.forEach(f => {
-                if (f.url && !nrNames.has(f.name)) nr[stage].files.push(f);
-              });
-            }
-          });
+          if (!or) return;  // brand new recipe in body, leave alone
+          body.recipes[k] = mergeRecipe(or, nr);
         });
       }
+      // Helper passthrough — still used by the builds merge path below.
+      // (Was previously the recipe-image clear/restore helper; now lives outside
+      // the recipe block since mergeRecipe handles those internally.)
       // Build sync: if existing has a newer updatedAt than incoming, keep existing entirely.
       // Otherwise preserve photo when incoming is empty. Protects builds from stale pushes.
       if (body.builds && old.builds) {
@@ -583,6 +565,19 @@ function mergeRecipe(existing, incoming) {
   // Union-merge append-only logs (audit trails — never delete)
   result.changeLog = unionByKey(existing.changeLog, result.changeLog, 'date');
   result.versionHistory = unionByKey(existing.versionHistory, result.versionHistory, 'savedAt');
+  // factorySopArchive (Legacy SOP PDFs): append-only audit; union by dfcCode so
+  // any client posting a recipe without this field doesn't wipe historical
+  // attachments. (65 legacy SOPs got dropped on 2026-05-10 because incoming
+  // bodies lacked the field — restore + cleanup scripts overwrote them.)
+  result.factorySopArchive = unionByKey(existing.factorySopArchive, result.factorySopArchive, 'dfcCode');
+  // Preserve flag fields if incoming doesn't carry them. Same with importFlags.
+  // These are user/system metadata, not formulation data — implicit-clear via
+  // omission is almost always wrong (stale tab posts that don't know about the
+  // flag would silently clear it).
+  ['flag','sopFlag','sopApproval','sopStatus','sopVersion','factorySopArchived','importFlags','source','importedAt','fgItemCode','fgDescription','recipeId','tags']
+    .forEach(f => {
+      if (result[f] === undefined && existing[f] !== undefined) result[f] = existing[f];
+    });
   // Comments: respect deletes when the client is newer. Stale tabs still get protected
   // because their updatedAt is older than the server's, so we union them in.
   const _commentsClientWins = (incoming.updatedAt || '') > (existing.updatedAt || '');
