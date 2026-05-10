@@ -613,6 +613,29 @@ function mergeRecipe(existing, incoming) {
     });
   }
 
+  // Legacy SOP invariant (Cate's rule, baked in 2026-05-10):
+  // A recipe with a legacy SOP PDF attached is, by definition, in production
+  // — the historical Manufacturing Process doc IS the approved spec. So:
+  //   - sopStatus must be 'approved' (no draft / pending)
+  //   - recipe stage cannot be 'draft' (bump to 'approved')
+  // Higher recipe stages (review / trial / prod-trial / approved) stay as-is
+  // so an in-flight rework doesn't get force-bumped past its current gate.
+  // Skip if not archived — archived recipes can sit at any stage / status.
+  if (Array.isArray(result.factorySopArchive) && result.factorySopArchive.length > 0) {
+    if (result.sopStatus !== 'approved') {
+      result.sopStatus = 'approved';
+      if (!result.sopApproval || !result.sopApproval.approved) {
+        const ts = result.updatedAt || new Date().toISOString();
+        const signoff = { by: 'Legacy SOP', at: ts };
+        result.sopApproval = { prepared: { ...signoff }, reviewed: { ...signoff }, approved: { ...signoff } };
+      }
+      if (!result.sopVersion) result.sopVersion = '1.0';
+    }
+    if (result.status === 'draft' && !result.archived) {
+      result.status = 'approved';
+    }
+  }
+
   return result;
 }
 
