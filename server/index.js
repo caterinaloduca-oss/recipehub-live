@@ -402,35 +402,24 @@ app.post('/api/data', requireAuth, (req, res) => {
       // (Was previously the recipe-image clear/restore helper; now lives outside
       // the recipe block since mergeRecipe handles those internally.)
       // Build sync: if existing has a newer updatedAt than incoming, keep existing entirely.
-      // Otherwise preserve photo when incoming is empty. Protects builds from stale pushes.
+      // Per-build merge through mergeBuild — same concurrency-aware logic as
+      // /api/build/:id. Without this, a stale tab posting full /api/data could
+      // clobber components, sellingPrice, audit fields. Now: same merge rules
+      // whether you save via per-entity endpoint or the bulk one. (Mirror of the
+      // recipes fix that landed earlier today after the 65-legacy-SOP loss.)
       if (body.builds && old.builds) {
         body.builds = body.builds.map(b => {
           const ob = old.builds.find(x => x.id === b.id);
-          if (!ob) return b;
-          if (!clientIsNewer(b, ob)) {
-            // Stale push for this build — keep server's full record
-            return { ...ob };
-          }
-          // Client is newer — preserve photo if they didn't send one
-          if (ob.photo && imgIsEmpty(b.photo)) b.photo = ob.photo;
-          return b;
+          if (!ob) return b;  // brand new build, leave alone
+          return mergeBuild(ob, b);
         });
       }
-      // Branch SOP sync: same protection — stale clients keep existing SOP unchanged
+      // Per-branchSOP merge through mergeBranchSOP — same protection.
       if (body.branchSOPs && old.branchSOPs) {
         body.branchSOPs = body.branchSOPs.map(sop => {
           const os = old.branchSOPs.find(x => x.id === sop.id);
           if (!os) return sop;
-          if (!clientIsNewer(sop, os)) {
-            return { ...os };
-          }
-          if (os.steps && sop.steps) {
-            sop.steps.forEach((s, i) => {
-              const oldStep = os.steps[i];
-              if (oldStep && oldStep.img && imgIsEmpty(s.img)) s.img = oldStep.img;
-            });
-          }
-          return sop;
+          return mergeBranchSOP(os, sop);
         });
       }
     }
@@ -652,9 +641,21 @@ function mergeBuild(existing, incoming) {
   }
   // Preserve photo
   if (existing.photo && !result.photo) result.photo = existing.photo;
-  // Defensive: if a stale client posts without launchStatus/active, never let the server lose what it had
-  if (result.launchStatus === undefined && existing.launchStatus !== undefined) result.launchStatus = existing.launchStatus;
-  if (result.active === undefined && existing.active !== undefined) result.active = existing.active;
+  // Union-merge append-only audit logs (changeLog by date, comments by date).
+  // Builds may not always carry these — unionByKey is a no-op when both are absent.
+  if (existing.changeLog || result.changeLog) {
+    result.changeLog = unionByKey(existing.changeLog, result.changeLog, 'date');
+  }
+  if (existing.comments || result.comments) {
+    result.comments = unionByKey(existing.comments, result.comments, 'date');
+  }
+  // Preserve-when-undefined: stale tabs / scripts posting bodies without these
+  // fields can no longer silently clear them. Same pattern as mergeRecipe.
+  ['archived','discontinued','photo','nutrition','tags','createdBy','createdAt',
+   'flag','launchStatus','active']
+    .forEach(f => {
+      if (result[f] === undefined && existing[f] !== undefined) result[f] = existing[f];
+    });
   return result;
 }
 
@@ -693,6 +694,20 @@ function mergeBranchSOP(existing, incoming) {
       });
     }
   }
+  // Union-merge audit logs (no-op if neither side has them)
+  if (existing.changeLog || result.changeLog) {
+    result.changeLog = unionByKey(existing.changeLog, result.changeLog, 'date');
+  }
+  if (existing.comments || result.comments) {
+    result.comments = unionByKey(existing.comments, result.comments, 'date');
+  }
+  // Preserve-when-undefined for audit / shelf-life data — branch SOPs carry
+  // per-component shelf-life maps that stale tabs would otherwise wipe.
+  ['archived','componentShelfLife','componentShelfLifeOpen','componentNotes',
+   'createdBy','createdAt','flag']
+    .forEach(f => {
+      if (result[f] === undefined && existing[f] !== undefined) result[f] = existing[f];
+    });
   return result;
 }
 
