@@ -19381,9 +19381,20 @@ function viewBuild(id) {
         </div>
       </div>
       <div class="card">
-        <div class="card-head"><span class="card-title">⚠ Allergens</span></div>
+        <div class="card-head">
+          <span class="card-title">⚠ Allergens</span>
+          <button class="btn btn-outline btn-sm" onclick="editBuildAllergens('${b.id}')">Edit</button>
+        </div>
         <div class="card-body" style="padding:14px 18px">
-          ${renderAllergenBadges(getBuildAllergens(b))}
+          ${(function(){
+            var list = getBuildAllergens(b);
+            if (!list.length) return '<span style="font-size:12px;color:var(--g3);font-style:italic">No allergens — click Edit to declare</span>';
+            var manual = Array.isArray(b.allergens);
+            return renderAllergenBadges(list) +
+              '<div style="font-size:10px;color:var(--g3);margin-top:8px">' +
+                (manual ? 'Manually declared — mirrored to all linked Branch SOPs' : 'Auto-detected from components — click Edit to override') +
+              '</div>';
+          })()}
         </div>
       </div>
     </div>
@@ -19494,6 +19505,10 @@ function toggleBuildActive(id) {
 }
 
 function getBuildAllergens(b) {
+  // Manual list takes precedence — once a user explicitly picks the allergens
+  // for a build via the Edit Allergens modal, that's the canonical answer.
+  // Auto-detection from components is the fallback for older builds.
+  if (Array.isArray(b.allergens)) return b.allergens.slice();
   var allergens = [];
   if (b.components) {
     b.components.forEach(function(c) {
@@ -19504,6 +19519,52 @@ function getBuildAllergens(b) {
     });
   }
   return allergens;
+}
+
+// Build allergen picker — checkbox grid from ALLERGEN_LIST. Initial state =
+// build's manual list if present, else the auto-detected list (so the user
+// starts from a useful default and just tweaks).
+function editBuildAllergens(id) {
+  var b = BUILDS_DATA.find(function(x){ return x.id === id; });
+  if (!b) return;
+  var current = Array.isArray(b.allergens) ? b.allergens.slice() : getBuildAllergens(b);
+  var grid = ALLERGEN_LIST.map(function(a) {
+    var checked = current.indexOf(a) > -1;
+    return '<label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:6px;border:1px solid var(--g2);cursor:pointer;background:'+(checked?'#FFF8E6':'white')+'">' +
+      '<input type="checkbox" data-allergen="'+a+'" '+(checked?'checked':'')+' style="cursor:pointer" />' +
+      '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:'+(ALLERGEN_COLORS[a]||'#666')+'"></span>' +
+      '<span style="font-size:13px;color:var(--navy)">'+a+'</span>' +
+    '</label>';
+  }).join('');
+  openModal(
+    '<div class="card-head" style="background:var(--amber);border-radius:16px 16px 0 0">' +
+      '<span class="card-title" style="color:white">⚠ Edit Allergens — ' + (b.name || '') + '</span>' +
+      '<button class="btn btn-sm" style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:none" onclick="closeModal()">✕</button>' +
+    '</div>' +
+    '<div class="card-body" style="padding:24px">' +
+      '<div style="font-size:12px;color:var(--g4);margin-bottom:14px">Tick every allergen this product contains. Branch SOPs linked to this build mirror this list automatically.</div>' +
+      '<div id="bld-allergen-grid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">' + grid + '</div>' +
+      '<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px">' +
+        '<button class="btn btn-outline" onclick="closeModal()">Cancel</button>' +
+        '<button class="btn btn-gold" onclick="saveBuildAllergens(\''+id+'\')">Save Allergens</button>' +
+      '</div>' +
+    '</div>'
+  );
+}
+
+function saveBuildAllergens(id) {
+  var b = BUILDS_DATA.find(function(x){ return x.id === id; });
+  if (!b) return;
+  var picks = [];
+  document.querySelectorAll('#bld-allergen-grid input[type="checkbox"]').forEach(function(cb) {
+    if (cb.checked) picks.push(cb.getAttribute('data-allergen'));
+  });
+  b.allergens = picks;
+  b.updatedAt = new Date().toISOString();
+  closeModal();
+  saveBuildToServer(id);
+  viewBuild(id);
+  showSaveToast('Allergens updated — ' + picks.length + ' selected');
 }
 
 function toggleBuildNutritionEdit(id) {
@@ -22235,14 +22296,39 @@ function getBranchSOPAllergenNutritionPrintHTML(sop) {
   return html;
 }
 
-// Branch SOP allergens + nutrition are MANUAL fields stored on the SOP itself
-// (Cate's call 2026-05-10). They are NOT auto-populated from the linked Build
-// — different branches may need to declare different allergen/nutrition info
-// from the central recipe data, e.g. due to local component substitutions.
+// Branch SOP allergens + nutrition: mirror the linked Build's manual values,
+// with optional per-SOP override.
+//   - Build's Edit Allergens modal sets b.allergens (the picker table).
+//   - Build's Edit Nutrition fields set b.nutrition.
+//   - SOP's inline edit (above the steps grid) sets sop.allergens / sop.nutrition.
+//     Once a SOP has its own value, it overrides the build mirror — this lets
+//     a single branch declare a local-only difference without affecting all
+//     other branches sharing the same Build.
+// `mirroredFrom` tells the UI whether to show "(mirrored from build)" hints.
 function getBranchSOPAllergenNutritionData(sop) {
-  var allergens = Array.isArray(sop.allergens) ? sop.allergens.slice() : [];
-  var nutrition = (sop.nutrition && typeof sop.nutrition === 'object') ? sop.nutrition : null;
-  return { allergens: allergens, nutrition: nutrition };
+  var build = sop.buildRef ? BUILDS_DATA.find(function(b){ return b.id === sop.buildRef; }) : null;
+
+  var allergens, allergenSource;
+  if (Array.isArray(sop.allergens)) {
+    allergens = sop.allergens.slice(); allergenSource = 'sop';
+  } else if (build && Array.isArray(build.allergens)) {
+    allergens = build.allergens.slice(); allergenSource = 'build';
+  } else if (build) {
+    allergens = getBuildAllergens(build); allergenSource = 'auto';
+  } else {
+    allergens = []; allergenSource = 'none';
+  }
+
+  var nutrition, nutritionSource;
+  if (sop.nutrition && typeof sop.nutrition === 'object' && Object.keys(sop.nutrition).length) {
+    nutrition = sop.nutrition; nutritionSource = 'sop';
+  } else if (build && build.nutrition && Object.keys(build.nutrition).length) {
+    nutrition = build.nutrition; nutritionSource = 'build';
+  } else {
+    nutrition = null; nutritionSource = 'none';
+  }
+
+  return { allergens: allergens, nutrition: nutrition, allergenSource: allergenSource, nutritionSource: nutritionSource };
 }
 
 function getBranchSOPAllergenNutritionHTML(sop) {

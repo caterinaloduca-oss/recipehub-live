@@ -669,7 +669,7 @@ function mergeBuild(existing, incoming) {
   const eTime = existing.updatedAt || '2000-01-01';
   const iTime = incoming.updatedAt || '2000-01-01';
   if (eTime > iTime) {
-    ['name','brand','type','size','components','instructions','bakeTemp','bakeTime','sellingPrice','status','launchStatus','active','nutrition','tags'].forEach(f => {
+    ['name','brand','type','size','components','instructions','bakeTemp','bakeTime','sellingPrice','status','launchStatus','active','nutrition','tags','allergens'].forEach(f => {
       if (existing[f] !== undefined) result[f] = existing[f];
     });
     result.updatedAt = eTime;
@@ -687,7 +687,7 @@ function mergeBuild(existing, incoming) {
   // Preserve-when-undefined: stale tabs / scripts posting bodies without these
   // fields can no longer silently clear them. Same pattern as mergeRecipe.
   ['archived','discontinued','photo','nutrition','tags','createdBy','createdAt',
-   'flag','launchStatus','active']
+   'flag','launchStatus','active','allergens']
     .forEach(f => {
       if (result[f] === undefined && existing[f] !== undefined) result[f] = existing[f];
     });
