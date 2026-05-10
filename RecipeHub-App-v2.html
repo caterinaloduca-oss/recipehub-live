@@ -1074,6 +1074,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
       <input class="search-input" placeholder="Search ingredients, suppliers, codes…" id="ing-search" oninput="filterIngredients()" />
     </div>
     <select class="filter-select" id="ing-filter-cat" onchange="filterIngredients()"><option>All Categories</option></select>
+    <select class="filter-select" id="ing-filter-kind" onchange="filterIngredients()" title="Food = raw materials and SFGs (RM*, SF*). Non-food = packaging and consumables (PM*, CO*, SC*)."><option>All Kinds</option><option>Food</option><option>Non-Food</option></select>
     <select class="filter-select" id="ing-filter-price" onchange="filterIngredients()" title="Filter by whether the ingredient has a price"><option>All Prices</option><option>Price / kg</option><option>Price / unit</option><option>No price</option></select>
     <select class="filter-select" id="ing-filter-status" onchange="filterIngredients()" title="Active / Inactive flag from Oracle items_master"><option>All Statuses</option><option selected>Active</option><option>Inactive</option></select>
   </div>
@@ -8254,6 +8255,13 @@ function buildIngTable() {
     var _hasAnyPrice = _ppk || _ppkFromEbs || (displayCost && displayCost !== '—' && displayCost !== 'SAR 0.00');
     var _priceTag = (!_hasAnyPrice) ? 'none' : ((_ppk || _ppkFromEbs || displayUOM === 'kg') ? 'kg' : 'unit');
     tr.dataset.priceTag = _priceTag;
+    // Food vs Non-Food classification by Oracle code prefix.
+    // RM* = raw materials, SF* = semi-finished — both Food.
+    // PM* = packaging, CO* = consumables, SC* = service — Non-Food.
+    var _codePrefix2 = String(code || '').slice(0, 2).toUpperCase();
+    tr.dataset.kind = (_codePrefix2 === 'PM' || _codePrefix2 === 'CO' || _codePrefix2 === 'SC')
+      ? 'non-food'
+      : ((_codePrefix2 === 'RM' || _codePrefix2 === 'SF') ? 'food' : '');
     // Backfill missing displayUOM when the price clearly resolved to /kg via EBS cache
     // or manual override — so the KG/UOM cell shows "/ kg" consistently with Cost/kg.
     if ((!displayUOM || displayUOM === '—') && (_ppk || _ppkFromEbs)) {
@@ -13964,6 +13972,8 @@ function filterIngredients() {
   const supplier = supplierEl ? supplierEl.value : 'All Sources';
   const priceEl = document.getElementById('ing-filter-price');
   const price = priceEl ? priceEl.value : 'All Prices';
+  const kindEl = document.getElementById('ing-filter-kind');
+  const kind = kindEl ? kindEl.value : 'All Kinds';
   const statusEl = document.getElementById('ing-filter-status');
   const status = statusEl ? statusEl.value : 'All Statuses';
   const rows = document.getElementById('ing-db-tbody').querySelectorAll('tr');
@@ -13973,6 +13983,7 @@ function filterIngredients() {
     const rowCat = catTag ? catTag.textContent.trim() : '';
     const tag = row.dataset.priceTag || '';
     const rowStatus = row.dataset.status || '';
+    const rowKind = row.dataset.kind || '';
     const matchQ = !q || text.includes(q);
     const matchCat = cat === 'All Categories' || rowCat === cat;
     const matchSup = supplier === 'All Sources' || text.includes(supplier.toLowerCase());
@@ -13982,12 +13993,17 @@ function filterIngredients() {
     else if (price === 'Price / unit') matchPrice = tag === 'unit';
     else if (price === 'No price')     matchPrice = tag === 'none';
     else                                matchPrice = true;
+    let matchKind;
+    if      (kind === 'All Kinds') matchKind = true;
+    else if (kind === 'Food')      matchKind = rowKind === 'food' || rowKind === '';  // unknown defaults to food
+    else if (kind === 'Non-Food')  matchKind = rowKind === 'non-food';
+    else                            matchKind = true;
     let matchStatus;
     if      (status === 'All Statuses') matchStatus = true;
     else if (status === 'Active')       matchStatus = rowStatus === 'Active' || rowStatus === ''; // Unknown treated as Active
     else if (status === 'Inactive')     matchStatus = rowStatus === 'Inactive';
     else                                 matchStatus = true;
-    row.style.display = (matchQ && matchCat && matchSup && matchPrice && matchStatus) ? '' : 'none';
+    row.style.display = (matchQ && matchCat && matchSup && matchPrice && matchKind && matchStatus) ? '' : 'none';
   });
 }
 
