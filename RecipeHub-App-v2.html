@@ -22932,7 +22932,14 @@ function confirmDeleteBranchSOP(id) {
   buildBranchSOPTable();
   var detail = document.getElementById('bsop-detail');
   if (detail) detail.style.display = 'none';
-  saveAllData();
+  // Use the dedicated DELETE endpoint — /api/data path no longer honors kills
+  // from the body, so a stale tab can't replay an old kill list. saveAllData()
+  // still runs for any other state changes but the delete itself is explicit.
+  fetch(API_BASE + '/api/branchsop/' + encodeURIComponent(id), {
+    method: 'DELETE',
+    headers: { 'Authorization': 'Bearer ' + API_KEY },
+  }).then(function(r){ if (!r.ok) console.warn('Branch SOP delete returned', r.status); })
+    .catch(function(err){ console.warn('Branch SOP delete failed:', err); });
   showSaveToast('SOP deleted');
 }
 

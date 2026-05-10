@@ -350,6 +350,28 @@ app.post('/api/data', requireAuth, (req, res) => {
       const _ingDeletedComposite = { has: k => { if (typeof k !== 'string') return false; const code = k.split('|')[0]; return _ingDeleted.has(code); } };
       guardArray('ingredients', _ingKey, _ingDeletedComposite);
       guardArray('builds', 'id');
+      // Branch SOPs: ALWAYS merge alive entries by id regardless of total length.
+      // Many tenants have <4 SOPs and guardArray's length>=4 threshold disables
+      // protection at exactly the moment we need it (a single dropped SOP gets
+      // through). Any SOP on the server that isn't in the body — and isn't in
+      // the authoritative deletedSOPIds — is re-added.
+      {
+        const oldSOPs = Array.isArray(old.branchSOPs) ? old.branchSOPs : [];
+        const newSOPs = Array.isArray(body.branchSOPs) ? body.branchSOPs.slice() : oldSOPs.slice();
+        const killSet = new Set([
+          ...((Array.isArray(old.deletedSOPIds)) ? old.deletedSOPIds : []),
+        ]);
+        const seen = new Set(newSOPs.map(s => s && s.id).filter(Boolean));
+        let reAdded = 0;
+        oldSOPs.forEach(s => {
+          if (!s || !s.id) return;
+          if (seen.has(s.id) || killSet.has(s.id)) return;
+          newSOPs.push(s);
+          reAdded++;
+        });
+        if (reAdded) console.warn('[mergeBranchSOPs] re-added ' + reAdded + ' server-only SOP(s) absent from client post');
+        body.branchSOPs = newSOPs;
+      }
       guardArray('branchSOPs', 'id');
       guardArray('brands', 'id');
       guardArray('productionRuns', 'id');
@@ -480,11 +502,20 @@ app.post('/api/data', requireAuth, (req, res) => {
       body.productionRuns = body.productionRuns.filter(r => !r.npd || (validRecipes.has(r.npd) && !deletedRecipes.has(r.npd)));
     }
     // Auto-clean: remove deleted Branch SOPs.
-    // Merge server-side deletedSOPIds with incoming so server-recorded deletions persist
-    // even when a stale client pushes data without them. Without this merge, a browser
-    // with an old cache can resurrect deleted entries every time it syncs.
+    //
+    // /api/data is the bulk-sync path; it MUST NOT be allowed to kill a SOP
+    // that is currently alive on the server, because stale tabs would replay
+    // their old local kill lists indefinitely. Dedicated kill endpoint
+    // (DELETE /api/branchsop/:id) is the only way to retire a SOP.
+    //
+    // Rule: server's existing.deletedSOPIds is authoritative. Body's
+    // deletedSOPIds is ignored for kill-list mutation. Stripping uses the
+    // server-authoritative list so dead entries can't get resurrected by a
+    // stale client that still has them in branchSOPs.
     if (existing && existing.data && Array.isArray(existing.data.deletedSOPIds)) {
-      body.deletedSOPIds = Array.from(new Set([...(body.deletedSOPIds || []), ...existing.data.deletedSOPIds]));
+      body.deletedSOPIds = existing.data.deletedSOPIds.slice();
+    } else {
+      body.deletedSOPIds = [];
     }
     if (body.branchSOPs && body.deletedSOPIds && body.deletedSOPIds.length) {
       const deletedSOPs = new Set(body.deletedSOPIds);
@@ -759,6 +790,29 @@ app.post('/api/build/:id', requireAuth, (req, res) => {
   }
 });
 
+// Explicit Branch SOP delete — adds the ID to the server's authoritative kill
+// list and removes the SOP from branchSOPs. /api/data ignores the body's
+// deletedSOPIds, so this endpoint is the only path that can retire a SOP.
+app.delete('/api/branchsop/:id', requireAuth, (req, res) => {
+  try {
+    const { id } = req.params;
+    const state = db.getState();
+    if (!state || !state.data) return res.status(500).json({ error: 'No data on server' });
+    const data = state.data;
+    if (!Array.isArray(data.deletedSOPIds)) data.deletedSOPIds = [];
+    if (!data.deletedSOPIds.includes(id)) data.deletedSOPIds.push(id);
+    if (Array.isArray(data.branchSOPs)) {
+      data.branchSOPs = data.branchSOPs.filter(s => s && s.id !== id);
+    }
+    data.savedAt = new Date().toISOString();
+    const savedAt = db.setState(JSON.stringify(data), data.dataVersion || 0);
+    res.json({ ok: true, savedAt, killed: id });
+  } catch (err) {
+    console.error('DELETE /api/branchsop error:', err);
+    res.status(500).json({ error: 'Failed to delete branch SOP: ' + err.message });
+  }
+});
+
 app.post('/api/branchsop/:id', requireAuth, (req, res) => {
   try {
     const { id } = req.params;
@@ -773,6 +827,12 @@ app.post('/api/branchsop/:id', requireAuth, (req, res) => {
       data.branchSOPs[idx] = mergeBranchSOP(data.branchSOPs[idx], incoming);
     } else {
       data.branchSOPs.push(incoming);
+    }
+    // Explicit save of a SOP is a "this is alive" signal — lift it out of the
+    // delete kill list so a stale tab can't immediately re-kill it on the next
+    // /api/data full-blob sync.
+    if (Array.isArray(data.deletedSOPIds) && data.deletedSOPIds.includes(id)) {
+      data.deletedSOPIds = data.deletedSOPIds.filter(x => x !== id);
     }
     data.savedAt = new Date().toISOString();
     const savedAt = db.setState(JSON.stringify(data), data.dataVersion || 0);
