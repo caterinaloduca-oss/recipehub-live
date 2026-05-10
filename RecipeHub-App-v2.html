@@ -22764,7 +22764,11 @@ function editBranchSOP(id) {
   var sop = BRANCH_SOPS.find(s => s.id === id);
   if (!sop) return;
 
-  var stepRows = sop.steps.map(function(step, i) {
+  var _esc = function(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
+  var stepsArr = Array.isArray(sop.steps) ? sop.steps : [];
+  var stepRows = stepsArr.map(function(step, i) {
+    var stepText = (step && step.text) || '';
+    var stepPortions = (step && step.portions) || '';
     return '<div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:10px;padding:10px;background:var(--g1);border-radius:var(--r-sm)" class="bsop-edit-row">' +
       '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0">' +
         '<div class="bsop-step-num" style="width:28px;height:28px;border-radius:50%;background:var(--navy);color:white;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600">'+(i+1)+'</div>' +
@@ -22772,8 +22776,8 @@ function editBranchSOP(id) {
         '<button style="background:none;border:none;cursor:pointer;color:var(--g3);font-size:11px;padding:0;line-height:1" onclick="moveBSOPDown(this)">▼</button>' +
       '</div>' +
       '<div style="flex:1">' +
-        '<input class="form-input" value="'+step.text.replace(/"/g,'&quot;')+'" style="margin-bottom:6px;font-size:12px" placeholder="Step instruction" data-field="text" />' +
-        '<input class="form-input" value="'+(step.portions||'')+'" style="font-size:11px;color:var(--sage)" placeholder="Portions — e.g. S-1, M-2, L-3" data-field="portions" />' +
+        '<input class="form-input" value="'+_esc(stepText)+'" style="margin-bottom:6px;font-size:12px" placeholder="Step instruction" data-field="text" />' +
+        '<input class="form-input" value="'+_esc(stepPortions)+'" style="font-size:11px;color:var(--sage)" placeholder="Portions — e.g. S-1, M-2, L-3" data-field="portions" />' +
       '</div>' +
       '<button style="background:none;border:none;cursor:pointer;color:var(--red);font-size:14px;flex-shrink:0" onclick="this.closest(\'.bsop-edit-row\').remove();renumberBSOPSteps()">✕</button>' +
     '</div>';
@@ -22836,28 +22840,39 @@ function renumberBSOPSteps() {
 }
 
 function saveBranchSOPEdit(id) {
-  var sop = BRANCH_SOPS.find(s => s.id === id);
-  if (!sop) return;
-  sop.name = document.getElementById('eb-sop-name').value;
-  sop.version = document.getElementById('eb-sop-version').value;
-  sop.status = document.getElementById('eb-sop-status').value;
-  // Rebuild steps from rows (preserve existing photos)
-  var oldSteps = sop.steps.slice();
-  sop.steps = [];
-  document.querySelectorAll('.bsop-edit-row').forEach(function(row, i) {
-    var text = row.querySelector('[data-field="text"]').value;
-    var portions = row.querySelector('[data-field="portions"]').value;
-    sop.steps.push({
-      img: (oldSteps[i] && oldSteps[i].img) || null,
-      text: text,
-      portions: portions,
+  try {
+    var sop = BRANCH_SOPS.find(function(s){ return s.id === id; });
+    if (!sop) { showSaveToast('Branch SOP not found — refresh and try again', true); return; }
+    var _v = function(elId){ var el = document.getElementById(elId); return el ? (el.value || '') : ''; };
+    var nameVal = _v('eb-sop-name');
+    var versionVal = _v('eb-sop-version');
+    var statusVal = _v('eb-sop-status');
+    if (nameVal) sop.name = nameVal;
+    if (versionVal) sop.version = versionVal;
+    if (statusVal) sop.status = statusVal;
+    // Rebuild steps from rows (preserve existing photos)
+    var oldSteps = Array.isArray(sop.steps) ? sop.steps.slice() : [];
+    var newSteps = [];
+    document.querySelectorAll('.bsop-edit-row').forEach(function(row, i) {
+      var tEl = row.querySelector('[data-field="text"]');
+      var pEl = row.querySelector('[data-field="portions"]');
+      newSteps.push({
+        img: (oldSteps[i] && oldSteps[i].img) || null,
+        text: tEl ? (tEl.value || '') : '',
+        portions: pEl ? (pEl.value || '') : '',
+      });
     });
-  });
-  closeModal();
-  buildBranchSOPTable();
-  viewBranchSOP(id);
-  saveBranchSOPToServer(id);
-  showSaveToast('Branch SOP updated');
+    sop.steps = newSteps;
+    sop.updatedAt = new Date().toISOString();
+    closeModal();
+    buildBranchSOPTable();
+    viewBranchSOP(id);
+    saveBranchSOPToServer(id);
+    showSaveToast('Branch SOP updated');
+  } catch (err) {
+    console.error('saveBranchSOPEdit failed:', err);
+    showSaveToast('Save failed: ' + (err && err.message ? err.message : 'unknown error'), true);
+  }
 }
 
 // Confirm a Branch SOP deletion — called from the modal's Delete button.
@@ -22918,59 +22933,82 @@ function downloadBranchSOPPDF(id) {
   if (!sop) return;
   auditEvent('branch_sop.pdf', 'branch_sop', id, sop.name + ' — ' + (sop.brand || ''));
   var bc = BSOP_BRAND_COLORS[sop.brand] || '#1B2A4A';
+  // Layout sized in fixed pixels — html2canvas struggles with aspect-ratio and
+  // grid-template-columns:1fr in some Chrome versions, producing blank PDFs.
+  // Hard-coded 270px column / 240px image cell renders reliably.
+  var COL = 270, IMG_H = 240;
   var stepsHTML = sop.steps.map(function(step) {
-    return '<div style="border:2px solid '+bc+';background:white;overflow:hidden;break-inside:avoid">' +
-      '<div style="width:100%;aspect-ratio:1;background:#f0f0f0;display:flex;align-items:center;justify-content:center;overflow:hidden">' +
-        (step.img ? '<img src="'+step.img+'" style="width:100%;height:100%;object-fit:cover" />' : '<div style="color:#ccc;font-size:24px">📷</div>') +
+    return '<div style="display:inline-block;vertical-align:top;width:'+COL+'px;border:2px solid '+bc+';background:white;overflow:hidden;box-sizing:border-box">' +
+      '<div style="width:'+COL+'px;height:'+IMG_H+'px;background:#f0f0f0;display:flex;align-items:center;justify-content:center;overflow:hidden">' +
+        (step.img ? '<img crossorigin="anonymous" src="'+step.img+'" style="width:'+COL+'px;height:'+IMG_H+'px;object-fit:cover" />' : '<div style="color:#ccc;font-size:24px">📷</div>') +
       '</div>' +
-      '<div style="padding:8px 10px;border-top:2px solid '+bc+';font-size:11px;line-height:1.4">' +
-        '<strong>'+step.text+'</strong>' +
+      '<div style="padding:8px 10px;border-top:2px solid '+bc+';font-size:11px;line-height:1.4;min-height:80px;box-sizing:border-box">' +
+        '<strong>'+(step.text||'')+'</strong>' +
         (step.portions ? '<div style="color:'+bc+';font-weight:600;font-size:10px;margin-top:3px">'+step.portions+'</div>' : '') +
       '</div>' +
     '</div>';
   }).join('');
 
-  // Build the full printable HTML once, used by both the html2pdf path and the fallback.
+  // Build the full printable HTML. Width = 4 columns × 270px = 1080px.
   var brandTag = sop.brand ? sop.brand.replace(/[^A-Za-z0-9]/g,'_') + '_' : '';
   var nameTag  = (sop.name || 'BranchSOP').replace(/[^A-Za-z0-9 _-]/g,'').replace(/\s+/g,'_');
   var filename = brandTag + nameTag + '_BranchSOP.pdf';
+  var TOTAL_W = COL * 4;
   var html =
-    '<div id="bsop-pdf-root" style="font-family:sans-serif;color:#1a1a1a">' +
-      '<div style="background:'+bc+';padding:16px 24px;display:flex;align-items:center;gap:16px">' +
+    '<div id="bsop-pdf-root" style="font-family:Arial,sans-serif;color:#1a1a1a;width:'+TOTAL_W+'px;background:white">' +
+      '<div style="background:'+bc+';padding:16px 24px;display:flex;align-items:center;gap:16px;width:'+TOTAL_W+'px;box-sizing:border-box">' +
         '<div style="background:white;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;color:'+bc+'">'+sop.brand+'</div>' +
         '<div style="font-size:28px;font-weight:700;color:white;text-transform:uppercase;letter-spacing:0.02em">'+sop.name+'</div>' +
       '</div>' +
-      '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0;border:2px solid '+bc+'">'+stepsHTML+'</div>' +
+      '<div style="border:2px solid '+bc+';width:'+TOTAL_W+'px;font-size:0;box-sizing:border-box">'+stepsHTML+'</div>' +
       getBranchSOPAllergenNutritionPrintHTML(sop) +
       '<div style="text-align:right;padding:8px 16px;font-size:10px;color:#999">'+sop.id+' '+sop.version+' dt '+sop.date+'</div>' +
     '</div>';
 
   showSaveToast('Generating PDF…');
   _loadHtml2Pdf().then(function(html2pdf) {
-    // Render in an offscreen container so layout works, then convert.
+    // Mount visibly off-screen but at real position so layout computes properly.
+    // (Chrome quirk: deeply-negative left + display interactions can confuse
+    // html2canvas. visibility:hidden + offscreen-via-margin works better.)
     var holder = document.createElement('div');
-    holder.style.cssText = 'position:fixed;left:-9999px;top:0;width:1100px;background:white';
+    holder.style.cssText = 'position:absolute;left:0;top:0;z-index:-1;visibility:hidden;background:white';
     holder.innerHTML = html;
     document.body.appendChild(holder);
-    var opts = {
-      margin: 8,                                       // mm
-      filename: filename,
-      image: { type: 'jpeg', quality: 0.92 },
-      html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
-      pagebreak: { mode: ['avoid-all', 'css'] },
-    };
-    html2pdf().from(holder).set(opts).save().then(function() {
-      document.body.removeChild(holder);
+
+    // Wait for any <img> tags to finish loading before snapshotting,
+    // otherwise html2canvas captures empty placeholders.
+    var imgs = holder.querySelectorAll('img');
+    var pending = Array.prototype.map.call(imgs, function(im) {
+      if (im.complete && im.naturalHeight > 0) return Promise.resolve();
+      return new Promise(function(resolve) {
+        im.addEventListener('load',  resolve);
+        im.addEventListener('error', resolve);   // resolve on error too — don't block on broken images
+        // Safety timeout per image
+        setTimeout(resolve, 4000);
+      });
+    });
+
+    Promise.all(pending).then(function() {
+      var opts = {
+        margin: 6,
+        filename: filename,
+        image: { type: 'jpeg', quality: 0.92 },
+        html2canvas: { scale: 2, useCORS: true, allowTaint: true, backgroundColor: '#ffffff', logging: false },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape', compress: true },
+        pagebreak: { mode: ['css', 'legacy'] },
+      };
+      return html2pdf().from(holder.querySelector('#bsop-pdf-root')).set(opts).save();
+    }).then(function() {
+      try { document.body.removeChild(holder); } catch (e) {}
       showSaveToast('Downloaded ' + filename);
     }).catch(function(err) {
       console.error('html2pdf failed:', err);
-      document.body.removeChild(holder);
-      showSaveToast('PDF generation failed — falling back to print dialog', true);
+      try { document.body.removeChild(holder); } catch (e) {}
+      showSaveToast('PDF generation failed — opening print dialog instead', true);
       _branchSOPPrintFallback(sop, html, bc);
     });
   }).catch(function(err) {
-    console.warn('html2pdf CDN load failed, using print dialog:', err.message);
+    console.warn('html2pdf CDN load failed, using print dialog:', err && err.message);
     showSaveToast('Offline — using print dialog (Save as PDF)', true);
     _branchSOPPrintFallback(sop, html, bc);
   });
