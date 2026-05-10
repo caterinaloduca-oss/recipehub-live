@@ -799,6 +799,111 @@ app.post('/api/recipe/:npd', requireAuth, (req, res) => {
   }
 });
 
+// Per-ingredient upsert. ING_DATA rows are flat arrays where row[1] is the
+// display name and row[3] is the Oracle code; (code, name) is the composite
+// key used everywhere else (matches guardArray + memory feedback_ingredients_composite_merge_key).
+//
+// Body: { row: [...], opts?: { liftAlias?: bool, liftCode?: bool } }
+//   - liftAlias: removes row[1] from deletedIngredientAliases (use after a
+//                Reconcile add, where the alias name was previously killed)
+//   - liftCode:  removes row[3] from deletedIngredientCodes (rare — only used
+//                when intentionally bringing back a code that was killed)
+//
+// On a row collision (same code + name), the existing row is replaced. New
+// rows append. Saves and returns the canonical stored row.
+app.post('/api/ingredient', requireAuth, (req, res) => {
+  try {
+    const incoming = req.body.row;
+    const opts = req.body.opts || {};
+    if (!Array.isArray(incoming) || incoming.length < 4) {
+      return res.status(400).json({ error: 'row required as flat array (length >= 4)' });
+    }
+    const state = db.getState();
+    if (!state || !state.data) return res.status(500).json({ error: 'No data on server' });
+    const data = state.data;
+    if (!Array.isArray(data.ingredients)) data.ingredients = [];
+
+    const code = String(incoming[3] || '').trim();
+    const name = String(incoming[1] || '').trim();
+    if (!code || !name) return res.status(400).json({ error: 'row[1] (name) and row[3] (code) are both required' });
+
+    // Lift kill-list entries if requested
+    if (opts.liftAlias && Array.isArray(data.deletedIngredientAliases)) {
+      const before = data.deletedIngredientAliases.length;
+      data.deletedIngredientAliases = data.deletedIngredientAliases.filter(
+        a => String(a || '').trim().toLowerCase() !== name.toLowerCase()
+      );
+      if (data.deletedIngredientAliases.length !== before) {
+        console.log('[ingredient.upsert] lifted alias from kill list:', name);
+      }
+    }
+    if (opts.liftCode && Array.isArray(data.deletedIngredientCodes)) {
+      const before = data.deletedIngredientCodes.length;
+      data.deletedIngredientCodes = data.deletedIngredientCodes.filter(c => c !== code);
+      if (data.deletedIngredientCodes.length !== before) {
+        console.log('[ingredient.upsert] lifted code from kill list:', code);
+      }
+    }
+
+    // Find existing row by (code, name) composite key
+    const idx = data.ingredients.findIndex(r =>
+      Array.isArray(r) && r.length > 3
+      && String(r[3] || '').trim() === code
+      && String(r[1] || '').trim().toLowerCase() === name.toLowerCase()
+    );
+    let stored;
+    if (idx >= 0) {
+      stored = incoming.slice();
+      data.ingredients[idx] = stored;
+    } else {
+      stored = incoming.slice();
+      data.ingredients.push(stored);
+    }
+    data.savedAt = new Date().toISOString();
+    const savedAt = db.setState(JSON.stringify(data), data.dataVersion || 0);
+    res.json({ ok: true, savedAt, row: stored, mode: idx >= 0 ? 'updated' : 'created' });
+  } catch (err) {
+    console.error('POST /api/ingredient error:', err);
+    res.status(500).json({ error: 'Failed to save ingredient: ' + err.message });
+  }
+});
+
+// Delete one ingredient row, identified by (code, name). Adds the alias name
+// to deletedIngredientAliases so /api/data can't resurrect it on a stale-tab
+// post. Use opts.killCode = true to also add the code to deletedIngredientCodes
+// (use sparingly — it kills ALL rows for that code, not just this alias).
+app.delete('/api/ingredient', requireAuth, (req, res) => {
+  try {
+    // DELETE doesn't always have a body — accept query strings too
+    const code = String((req.body && req.body.code) || req.query.code || '').trim();
+    const name = String((req.body && req.body.name) || req.query.name || '').trim();
+    const killCode = (req.body && req.body.killCode) || req.query.killCode === 'true';
+    if (!code || !name) return res.status(400).json({ error: 'code and name required' });
+    const state = db.getState();
+    if (!state || !state.data) return res.status(500).json({ error: 'No data on server' });
+    const data = state.data;
+    if (!Array.isArray(data.ingredients)) data.ingredients = [];
+    const before = data.ingredients.length;
+    data.ingredients = data.ingredients.filter(r =>
+      !(Array.isArray(r) && r.length > 3
+        && String(r[3] || '').trim() === code
+        && String(r[1] || '').trim().toLowerCase() === name.toLowerCase())
+    );
+    if (!Array.isArray(data.deletedIngredientAliases)) data.deletedIngredientAliases = [];
+    if (!data.deletedIngredientAliases.includes(name)) data.deletedIngredientAliases.push(name);
+    if (killCode) {
+      if (!Array.isArray(data.deletedIngredientCodes)) data.deletedIngredientCodes = [];
+      if (!data.deletedIngredientCodes.includes(code)) data.deletedIngredientCodes.push(code);
+    }
+    data.savedAt = new Date().toISOString();
+    const savedAt = db.setState(JSON.stringify(data), data.dataVersion || 0);
+    res.json({ ok: true, savedAt, removed: before - data.ingredients.length });
+  } catch (err) {
+    console.error('DELETE /api/ingredient error:', err);
+    res.status(500).json({ error: 'Failed to delete ingredient: ' + err.message });
+  }
+});
+
 app.post('/api/build/:id', requireAuth, (req, res) => {
   try {
     const { id } = req.params;

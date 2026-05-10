@@ -6712,6 +6712,34 @@ function saveBuildToServer(id) {
   });
 }
 
+// Per-ingredient save — narrowest conflict surface for ingredient rows.
+// Routes through POST /api/ingredient instead of /api/data, so a stale tab
+// elsewhere can't clobber the row by reposting an old ingredients blob.
+//
+// rowOrIdx: either the row array directly, or an index into ING_DATA.
+// opts.liftAlias: if true, server lifts row[1] from deletedIngredientAliases
+//   (use this for Reconcile-style aliases that were previously killed).
+function saveIngredientRowToServer(rowOrIdx, opts) {
+  var row = (typeof rowOrIdx === 'number') ? ING_DATA[rowOrIdx] : rowOrIdx;
+  if (!Array.isArray(row) || row.length < 4) return Promise.reject(new Error('invalid row'));
+  _persistLocal(_buildDataBlob());
+  return fetch(API_BASE + '/api/ingredient', {
+    method: 'POST',
+    headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+API_KEY },
+    body: JSON.stringify({ row: row, opts: opts || {} }),
+  }).then(function(resp){
+    if (!resp.ok) throw new Error('Server '+resp.status);
+    return resp.json();
+  }).then(function(result){
+    _localDirty = false;
+    return result;
+  }).catch(function(err){
+    console.warn('Per-ingredient save failed, falling back:', err.message);
+    _saveToServer(_buildDataBlob());
+    throw err;
+  });
+}
+
 // Per-run save — same conflict-narrowing pattern as saveRecipeToServer.
 // Use this instead of saveAllData() whenever a single production run was
 // edited (status change, scheduled date, RM flag, comment). Stops a stale
@@ -24649,21 +24677,19 @@ function _ingResAddAlias(recipeName, item, inputEl) {
     showSaveToast('Alias already exists for ' + recipeName);
     return;
   }
-  // Tell the server to lift the deletedIngredientAliases filter for THIS name.
-  // Without this, the server's strip filter kills the alias on save (reconcile
-  // work disappears). Patched into the POST body via window._reconcileLift, picked
-  // up by saveAllData → _saveToServer.
-  if (typeof window !== 'undefined') {
-    window._reconcileLift = window._reconcileLift || [];
-    if (window._reconcileLift.indexOf(recipeName) === -1) window._reconcileLift.push(recipeName);
-  }
   var today = new Date().toISOString().slice(0,10);
-  ING_DATA.push([
+  var newRow = [
     nextId, recipeName, 'Oracle EBS', item.code, cat, priceStr,
     'Ambient', '—', 'EBS Sync', 'alias_' + today,
     uom, ppk, '', '', costNum, '', org
-  ]);
-  saveAllData();
+  ];
+  ING_DATA.push(newRow);
+  // Per-ingredient endpoint — writes JUST this row to the server and lifts
+  // the alias name from deletedIngredientAliases atomically. Stale tabs
+  // elsewhere posting their old ingredients blob can no longer wipe the row,
+  // because /api/data merges by composite key and the lift is server-side.
+  saveIngredientRowToServer(newRow, { liftAlias: true })
+    .catch(function(){ /* fallback already invoked inside the helper */ });
   // Visual feedback — fade the row
   var row = inputEl.closest('.ing-rec-row');
   if (row) {
