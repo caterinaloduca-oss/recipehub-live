@@ -11573,13 +11573,14 @@ function viewRecipe(npd) {
 
 // ──────────── RECIPE STATUS WORKFLOW ────────────
 // Recipe ID (Factory-assigned code, e.g. "211_BCS v1") — NPD code stays as historical tracker.
-// Factory assigns it once Factory Trial QA has signed off, BEFORE R&D moves the
-// recipe to Prod Trial. Admin can assign at ANY stage (gate added 2026-05-11
-// while Factory is still onboarding to the software; Cate handles assignment
-// in the interim — Factory keeps the proper workflow gate once they're using it).
+// Originally Factory could only assign once Factory Trial QA had signed off,
+// but during the onboarding phase (Factory just starting to use the software)
+// Admin + Factory can both assign at any stage so existing approved/in-flight
+// recipes can be back-populated with their codes. Re-tighten once the team
+// has caught up.
 function canAssignRecipeIdNow(r, role) {
   if (!r) return false;
-  if (role === 'admin') return true;                                          // admin bypass
+  if (role === 'admin' || role === 'factory') return true;                    // bootstrap bypass
   if (r.status === 'prod-trial' || r.status === 'approved') return true;
   if (r.status === 'trial' && r.trialQA && r.trialQA.signed) return true;
   return false;
