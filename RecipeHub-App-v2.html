@@ -983,6 +983,16 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
       <div class="stat-value" style="color:var(--red)" id="dash-discontinued">—</div>
       <div class="stat-sub">Paused, may return</div>
     </div>
+    <div class="stat-card" style="cursor:pointer" onclick="nav('sop')">
+      <div class="stat-label">Factory SOPs</div>
+      <div class="stat-value" style="color:var(--navy)" id="dash-sop-active">—</div>
+      <div class="stat-sub" id="dash-sop-active-sub">Click to view</div>
+    </div>
+    <div class="stat-card" style="cursor:pointer" onclick="nav('sop');setTimeout(function(){var cb=document.getElementById('fsop-show-archived');if(cb&&!cb.checked){cb.checked=true;buildFactorySOPTable();}},150)">
+      <div class="stat-label">Archived SOPs</div>
+      <div class="stat-value" style="color:var(--g3)" id="dash-sop-archived">—</div>
+      <div class="stat-sub" id="dash-sop-archived-sub">Click to view</div>
+    </div>
   </div>
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
@@ -19498,6 +19508,38 @@ function updateDashboardStats() {
   if (el('dash-archived-sub')) el('dash-archived-sub').textContent = archivedCount ? 'Click to view' : 'None';
   var discontinuedCount = recipes.filter(function(r){ return r.discontinued; }).length;
   if (el('dash-discontinued')) el('dash-discontinued').textContent = discontinuedCount;
+
+  // ── Factory SOPs (active + archived) ──
+  // "Has SOP" = recipe has either authored sopSteps OR a Legacy SOP attached
+  var _hasSOP = function(r){
+    return (r.sopSteps && r.sopSteps.length > 0) || (Array.isArray(r.factorySopArchive) && r.factorySopArchive.length > 0);
+  };
+  var sopRecipes = recipes.filter(_hasSOP);
+  var sopActive = sopRecipes.filter(function(r){ return !r.archived; });
+  var sopArchived = sopRecipes.filter(function(r){ return r.archived; });
+  var sopApproved = sopActive.filter(function(r){ return (r.sopStatus || '').toLowerCase() === 'approved'; }).length;
+  var sopPending = sopActive.filter(function(r){
+    var s = (r.sopStatus || '').toLowerCase();
+    return s === 'pending-review' || s === 'pending-approval' || s === 'pending';
+  }).length;
+  var sopDraft = sopActive.length - sopApproved - sopPending;
+  var sopLegacy = sopRecipes.filter(function(r){ return Array.isArray(r.factorySopArchive) && r.factorySopArchive.length > 0; }).length;
+  if (el('dash-sop-active')) el('dash-sop-active').textContent = sopActive.length;
+  if (el('dash-sop-active-sub')) {
+    var subBits = [];
+    if (sopApproved) subBits.push(sopApproved + ' approved');
+    if (sopPending) subBits.push(sopPending + ' pending');
+    if (sopDraft > 0) subBits.push(sopDraft + ' draft');
+    el('dash-sop-active-sub').textContent = subBits.join(' · ') || 'Click to view';
+  }
+  if (el('dash-sop-archived')) el('dash-sop-archived').textContent = sopArchived.length;
+  if (el('dash-sop-archived-sub')) {
+    var archLegacy = sopArchived.filter(function(r){ return Array.isArray(r.factorySopArchive) && r.factorySopArchive.length > 0; }).length;
+    el('dash-sop-archived-sub').textContent = archLegacy
+      ? (archLegacy + ' with Legacy SOP')
+      : (sopArchived.length ? 'Click to view' : 'None');
+  }
+
   if (el('dash-ingredients')) el('dash-ingredients').textContent = ING_DATA.length;
   if (el('dash-users')) el('dash-users').textContent = USERS_DATA.length;
   if (el('dash-users-sub')) el('dash-users-sub').textContent = PENDING_DATA.length + ' pending approval';
