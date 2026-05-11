@@ -7767,18 +7767,6 @@ function showPage(id) {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   const navBtn = document.querySelector('.nav-item[data-page="'+id+'"]');
   if (navBtn) navBtn.classList.add('active');
-  // exportToSOP() mutates PAGES.sop.{title,actions} for the detail view. When
-  // we navigate back to the SOP page from elsewhere, reset to the list defaults
-  // so the import button reappears + the title is right. Also hides any open
-  // sop-content (defensive — backToSOPList does this too).
-  if (id === 'sop') {
-    PAGES.sop.title = 'Factory SOPs';
-    PAGES.sop.actions = '<button class="btn btn-outline btn-sm" onclick="openLegacySOPImport()" title="Attach Legacy SOP PDFs (DFC-MP) to their matching recipes">📄 Import Legacy SOP</button>';
-    var sopLanding = document.getElementById('sop-landing');
-    var sopContent = document.getElementById('sop-content');
-    if (sopLanding) sopLanding.style.display = 'block';
-    if (sopContent) sopContent.style.display = 'none';
-  }
   const cfg = PAGES[id];
   if (cfg) {
     document.getElementById('topbar-title').textContent = cfg.title;
@@ -13015,15 +13003,15 @@ function backToSOPList() {
   document.getElementById('sop-content').style.display = 'none';
   buildFactorySOPTable();
   applyWatermark();
-  // exportToSOP() mutates PAGES.sop.title/actions to a recipe-specific title +
-  // empty actions. Restore the list defaults so the import button + the
-  // page title come back.
-  PAGES.sop.title = 'Factory SOPs';
-  PAGES.sop.actions = '<button class="btn btn-outline btn-sm" onclick="openLegacySOPImport()" title="Attach Legacy SOP PDFs (DFC-MP) to their matching recipes">📄 Import Legacy SOP</button>';
-  var tbTitle = document.getElementById('topbar-title');
-  var tbActions = document.getElementById('topbar-actions');
-  if (tbTitle)   tbTitle.textContent = PAGES.sop.title;
-  if (tbActions) tbActions.innerHTML = PAGES.sop.actions;
+  // Restore list defaults (exportToSOP mutates these for the detail view)
+  if (PAGES && PAGES.sop) {
+    PAGES.sop.title = 'Factory SOPs';
+    PAGES.sop.actions = '<button class="btn btn-outline btn-sm" onclick="openLegacySOPImport()" title="Attach Legacy SOP PDFs (DFC-MP) to their matching recipes">📄 Import Legacy SOP</button>';
+    var tbTitle = document.getElementById('topbar-title');
+    var tbActions = document.getElementById('topbar-actions');
+    if (tbTitle)   tbTitle.textContent = PAGES.sop.title;
+    if (tbActions) tbActions.innerHTML = PAGES.sop.actions;
+  }
 }
 
 // ── SOP Standard Blocks (shared preamble / closing) ──
