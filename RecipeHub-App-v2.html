@@ -11383,15 +11383,19 @@ function viewRecipe(npd) {
 
 // ──────────── RECIPE STATUS WORKFLOW ────────────
 // Recipe ID (Factory-assigned code, e.g. "211_BCS v1") — NPD code stays as historical tracker.
-// Factory assigns it once Factory Trial QA has signed off, BEFORE R&D moves the recipe to Prod Trial.
-function canAssignRecipeIdNow(r) {
+// Factory assigns it once Factory Trial QA has signed off, BEFORE R&D moves the
+// recipe to Prod Trial. Admin can assign at ANY stage (gate added 2026-05-11
+// while Factory is still onboarding to the software; Cate handles assignment
+// in the interim — Factory keeps the proper workflow gate once they're using it).
+function canAssignRecipeIdNow(r, role) {
   if (!r) return false;
+  if (role === 'admin') return true;                                          // admin bypass
   if (r.status === 'prod-trial' || r.status === 'approved') return true;
   if (r.status === 'trial' && r.trialQA && r.trialQA.signed) return true;
   return false;
 }
 function renderRecipeIdSlot(r, role) {
-  var canAssignStage = canAssignRecipeIdNow(r);
+  var canAssignStage = canAssignRecipeIdNow(r, role);
   var canAssign = (role === 'factory' || role === 'admin') && canAssignStage;
   var label = '<span style="font-size:9px;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:0.1em;font-weight:600">Factory Recipe ID</span>';
   var chip;
@@ -11459,7 +11463,7 @@ async function assignRecipeId(npd) {
     showSaveToast('Only Factory or Admin can assign Recipe ID', true);
     return;
   }
-  if (!canAssignRecipeIdNow(r)) {
+  if (!canAssignRecipeIdNow(r, role)) {
     showSaveToast('Recipe must have passed Factory Trial (QA signed off)', true);
     return;
   }
