@@ -1107,6 +1107,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
     <select class="filter-select" id="ing-filter-price" onchange="filterIngredients()" title="Filter by whether the ingredient has a price"><option>All Prices</option><option>Price / kg</option><option>Price / unit</option><option>No price</option></select>
     <select class="filter-select" id="ing-filter-status" onchange="filterIngredients()" title="Active / Inactive flag from Oracle items_master"><option>All Statuses</option><option selected>Active</option><option>Inactive</option></select>
   </div>
+  <div id="ing-filter-chips" style="display:none;flex-wrap:wrap;gap:6px;align-items:center;margin:-6px 0 12px 0;font-size:12px"></div>
 
   <div class="card">
     <div class="card-body" style="padding:0">
@@ -8962,6 +8963,9 @@ function buildIngTable() {
     var _ingStatus = _override || _oracleStatus;
     tr.dataset.status = _ingStatus;
     tr.dataset.statusSource = _override ? 'manual' : (_oracleStatus ? 'oracle' : '');
+    // Unified search haystack — name, primary code, alt codes, category, supplier/vendor.
+    tr.dataset.search = [name, code, row[12] || '', cat, displayVendor, supplier]
+      .join(' ').toLowerCase();
     tr.innerHTML = `
       <td style="color:var(--g3);font-size:12px;text-align:center">${num}</td>
       <td><strong>${name}</strong></td>
@@ -8977,6 +8981,10 @@ function buildIngTable() {
   });
   // Fetch EBS prices for ingredients missing costs
   _syncIngEBSPrices();
+  // Restore persisted filter selections (cat / supplier / price / kind / status / search)
+  // so navigating away or a background rebuild doesn't wipe what the user set.
+  // Falls back to the HTML default (Status=Active) when no saved state exists.
+  if (typeof _loadIngFilters === 'function') _loadIngFilters();
   // Re-apply the active filter dropdown values so the default Active-only view
   // sticks across rebuilds (status-map fetch, edits, etc.)
   if (typeof filterIngredients === 'function') filterIngredients();
@@ -14855,7 +14863,8 @@ function filterIngredients() {
   // Drop the "missing-only" override banner when any other filter runs
   var banner = document.getElementById('ing-missing-banner');
   if (banner) banner.remove();
-  const q = (document.getElementById('ing-search').value || '').toLowerCase();
+  const q = (document.getElementById('ing-search').value || '').trim().toLowerCase();
+  const tokens = q ? q.split(/\s+/).filter(Boolean) : [];
   const cat = document.getElementById('ing-filter-cat').value;
   const supplierEl = document.getElementById('ing-filter-supplier');
   const supplier = supplierEl ? supplierEl.value : 'All Sources';
@@ -14867,15 +14876,15 @@ function filterIngredients() {
   const status = statusEl ? statusEl.value : 'All Statuses';
   const rows = document.getElementById('ing-db-tbody').querySelectorAll('tr');
   rows.forEach(row => {
-    const text = row.textContent.toLowerCase();
+    const hay = row.dataset.search || row.textContent.toLowerCase();
     const catTag = row.querySelector('.cat-tag');
     const rowCat = catTag ? catTag.textContent.trim() : '';
     const tag = row.dataset.priceTag || '';
     const rowStatus = row.dataset.status || '';
     const rowKind = row.dataset.kind || '';
-    const matchQ = !q || text.includes(q);
+    const matchQ = !tokens.length || tokens.every(function(t){ return hay.indexOf(t) !== -1; });
     const matchCat = cat === 'All Categories' || rowCat === cat;
-    const matchSup = supplier === 'All Sources' || text.includes(supplier.toLowerCase());
+    const matchSup = supplier === 'All Sources' || hay.indexOf(supplier.toLowerCase()) !== -1;
     let matchPrice;
     if      (price === 'All Prices')   matchPrice = true;
     else if (price === 'Price / kg')   matchPrice = tag === 'kg';
@@ -14894,6 +14903,94 @@ function filterIngredients() {
     else                                 matchStatus = true;
     row.style.display = (matchQ && matchCat && matchSup && matchPrice && matchKind && matchStatus) ? '' : 'none';
   });
+  if (typeof _renderIngFilterChips === 'function') _renderIngFilterChips();
+  if (typeof _saveIngFilters === 'function') _saveIngFilters();
+}
+
+// ──── Ingredients filter persistence + chip row + clear-all ────
+var _ING_FILTERS_KEY = 'rh_ing_filters_v1';
+function _saveIngFilters() {
+  try {
+    var s = document.getElementById('ing-search');
+    var c = document.getElementById('ing-filter-cat');
+    var sup = document.getElementById('ing-filter-supplier');
+    var p = document.getElementById('ing-filter-price');
+    var k = document.getElementById('ing-filter-kind');
+    var st = document.getElementById('ing-filter-status');
+    localStorage.setItem(_ING_FILTERS_KEY, JSON.stringify({
+      q:        s   ? s.value   : '',
+      cat:      c   ? c.value   : 'All Categories',
+      supplier: sup ? sup.value : 'All Sources',
+      price:    p   ? p.value   : 'All Prices',
+      kind:     k   ? k.value   : 'All Kinds',
+      status:   st  ? st.value  : 'All Statuses'
+    }));
+  } catch (e) {}
+}
+function _loadIngFilters() {
+  try {
+    var raw = localStorage.getItem(_ING_FILTERS_KEY);
+    if (!raw) return false;
+    var v = JSON.parse(raw);
+    function _setIfOption(sel, val) {
+      if (!sel || !val) return;
+      for (var i = 0; i < sel.options.length; i++) {
+        if (sel.options[i].value === val || sel.options[i].textContent === val) { sel.value = sel.options[i].value; return; }
+      }
+    }
+    var s = document.getElementById('ing-search'); if (s) s.value = v.q || '';
+    _setIfOption(document.getElementById('ing-filter-cat'),      v.cat);
+    _setIfOption(document.getElementById('ing-filter-supplier'), v.supplier);
+    _setIfOption(document.getElementById('ing-filter-price'),    v.price);
+    _setIfOption(document.getElementById('ing-filter-kind'),     v.kind);
+    _setIfOption(document.getElementById('ing-filter-status'),   v.status);
+    return true;
+  } catch (e) { return false; }
+}
+function _clearIngFilter(which) {
+  if (which === 'search') { var s = document.getElementById('ing-search'); if (s) s.value = ''; }
+  else { var sel = document.getElementById('ing-filter-' + which); if (sel) sel.selectedIndex = 0; }
+  filterIngredients();
+}
+function _clearAllIngFilters() {
+  var s = document.getElementById('ing-search'); if (s) s.value = '';
+  ['cat','supplier','price','kind','status'].forEach(function(k){
+    var el = document.getElementById('ing-filter-' + k);
+    if (el) el.selectedIndex = 0;
+  });
+  filterIngredients();
+}
+function _renderIngFilterChips() {
+  var host = document.getElementById('ing-filter-chips');
+  if (!host) return;
+  var chips = [];
+  function _chip(label, value, onClear) {
+    chips.push('<span style="display:inline-flex;align-items:center;gap:6px;background:var(--g1);color:var(--navy);padding:3px 8px 3px 10px;border-radius:14px;border:1px solid var(--g2)">'
+      + '<span style="color:var(--g4);font-weight:500">' + label + ':</span> '
+      + '<strong>' + value + '</strong>'
+      + '<button onclick="' + onClear + '" style="background:transparent;border:0;cursor:pointer;color:var(--g3);font-size:14px;line-height:1;padding:0 2px" title="Remove">✕</button>'
+      + '</span>');
+  }
+  var s = document.getElementById('ing-search');
+  var c = document.getElementById('ing-filter-cat');
+  var sup = document.getElementById('ing-filter-supplier');
+  var p = document.getElementById('ing-filter-price');
+  var k = document.getElementById('ing-filter-kind');
+  var st = document.getElementById('ing-filter-status');
+  if (s && s.value) _chip('Search', s.value.replace(/</g,'&lt;'), "_clearIngFilter('search')");
+  if (c && c.value && c.value !== 'All Categories') _chip('Category', c.value, "_clearIngFilter('cat')");
+  if (sup && sup.value && sup.value !== 'All Sources') _chip('Source', sup.value, "_clearIngFilter('supplier')");
+  if (p && p.value && p.value !== 'All Prices') _chip('Price', p.value, "_clearIngFilter('price')");
+  if (k && k.value && k.value !== 'All Kinds') _chip('Kind', k.value, "_clearIngFilter('kind')");
+  if (st && st.value && st.value !== 'All Statuses') _chip('Status', st.value, "_clearIngFilter('status')");
+  if (chips.length) {
+    host.style.display = 'flex';
+    host.innerHTML = chips.join('') +
+      '<button onclick="_clearAllIngFilters()" style="background:transparent;border:0;color:var(--navy);text-decoration:underline;cursor:pointer;font-size:12px;margin-left:4px">Clear all</button>';
+  } else {
+    host.style.display = 'none';
+    host.innerHTML = '';
+  }
 }
 
 // ──────────── FILTER: USERS ────────────
