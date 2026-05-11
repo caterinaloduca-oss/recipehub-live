@@ -6688,14 +6688,21 @@ function _legacySOPFilesPicked(files) {
 
 // Filename parser: 'DFC-MP-135 Pulled Chicken Manufacturing Document.pdf' →
 //   { dfcCode: 'DFC-MP-135', productName: 'Pulled Chicken', npd: matched-or-null }
+// Also handles: 'DFC-MP-025, Rademaker Dough …', 'DFC-MP-F088 Manufacturing
+// process …', '.docx.pdf', extra spaces, Rev/Issue suffixes.
 function _legacySOPParseFilename(fn) {
-  var base = fn.replace(/\.pdf$/i, '');
-  var m = base.match(/^(DFC-?MP-?\d+)\s*[-_ ]\s*(.*?)\s*(?:Manufacturing\s+Document|Process|Spec|Procedure)?$/i);
-  var dfc = m ? m[1].toUpperCase().replace(/^DFCMP/, 'DFC-MP-').replace(/^DFC-?MP/, 'DFC-MP') : '';
-  // Normalise DFC code shape
-  if (dfc) dfc = dfc.replace(/^DFC-?MP-?/, 'DFC-MP-');
-  var product = (m ? m[2] : base).trim();
-  // Try to find best recipe match
+  var base = fn.replace(/\.docx\.pdf$/i, '').replace(/\.pdf$/i, '');
+  // Extract DFC code first (allow F-prefix variants like DFC-MP-F088)
+  var codeMatch = base.match(/DFC[\s\-]?MP[\s\-]?F?\s*0*(\d+)/i);
+  var dfc = codeMatch ? 'DFC-MP-' + codeMatch[1] : '';
+  // Strip the code from the base, then strip leading separators (- , _ . space)
+  var rest = codeMatch ? base.slice(codeMatch.index + codeMatch[0].length).replace(/^[\s,\-_.]+/, '') : base;
+  // Drop trailing 'Manufacturing Document / Process / Procedure / Rev X / Issue …'
+  rest = rest.replace(/\s*(?:Manufacturing\s+(?:Document|Process)|Process|Procedure|Spec)\s*.*$/i, '');
+  rest = rest.replace(/\s*Rev\.?\s*\d+.*$/i, '');
+  rest = rest.replace(/\s*Issue.*$/i, '');
+  rest = rest.replace(/[\s,\-_.]+$/, '');
+  var product = rest.trim();
   var match = _legacySOPMatchRecipe(product);
   return { dfcCode: dfc, productName: product, npd: match };
 }
@@ -6739,18 +6746,15 @@ function _legacySOPRenderRows() {
     if (attachBtn) attachBtn.disabled = true;
     return;
   }
-  var recOpts = '<option value="">— skip this file —</option>' +
-    Object.keys(RECIPE_DB).filter(function(npd){ return !RECIPE_DB[npd].archived; })
-      .map(function(npd){ var r = RECIPE_DB[npd]; return '<option value="'+npd+'">'+(r.name||npd)+' ('+npd+')</option>'; })
-      .sort().join('');
   box.innerHTML = queue.map(function(item, i) {
     var matched = item.npd ? RECIPE_DB[item.npd] : null;
     var status = matched
-      ? '<span style="color:var(--sage);font-weight:600;font-size:12px">✓ auto-matched</span>'
-      : '<span style="color:var(--amber);font-weight:600;font-size:12px">⚠ no match — pick below</span>';
-    var optsWithSelected = recOpts.replace('value="'+item.npd+'"', 'value="'+item.npd+'" selected');
+      ? '<span style="color:var(--sage);font-weight:600;font-size:12px;white-space:nowrap">✓ matched</span>'
+      : '<span style="color:var(--amber);font-weight:600;font-size:12px;white-space:nowrap">⚠ no match — type to search</span>';
     var sizeKB = (item.sizeBytes / 1024).toFixed(0);
-    return '<div style="padding:12px 14px;border:1px solid var(--g2);border-radius:8px;margin-bottom:10px;background:white">' +
+    var displayName = matched ? ((matched.name || item.npd) + ' (' + item.npd + ')') : '';
+    var escapeAttr = function(s){ return String(s||'').replace(/"/g,'&quot;'); };
+    return '<div class="lsi-row" data-row-idx="' + i + '" style="padding:12px 14px;border:1px solid var(--g2);border-radius:8px;margin-bottom:10px;background:white">' +
       '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px">' +
         '<div style="flex:1;min-width:0">' +
           '<div style="font-size:13px;font-weight:600;color:var(--navy)">' + (item.dfcCode || '(no DFC code)') + ' · <span style="color:var(--g4);font-weight:400">' + item.productName + '</span></div>' +
@@ -6758,14 +6762,60 @@ function _legacySOPRenderRows() {
         '</div>' +
         '<button type="button" onclick="_legacySOPRemoveRow(' + i + ')" title="Remove from queue" style="background:none;border:none;color:#C0392B;font-size:14px;cursor:pointer;padding:4px 8px">✕</button>' +
       '</div>' +
-      '<div style="display:flex;gap:8px;align-items:center">' +
+      '<div style="display:flex;gap:8px;align-items:center;position:relative">' +
         '<span style="font-size:11px;color:var(--g4);white-space:nowrap">Attach to recipe:</span>' +
-        '<select onchange="_legacySOPPickRecipe(' + i + ',this.value)" style="flex:1;font-size:12px;padding:5px 8px;border:1px solid var(--g2);border-radius:6px">' + optsWithSelected + '</select>' +
+        '<input type="text" autocomplete="off"' +
+          ' id="lsi-search-' + i + '"' +
+          ' placeholder="Type name, NPD, or Recipe ID — e.g. \'pasta\' or \'212_\'..."' +
+          ' value="' + escapeAttr(displayName) + '"' +
+          ' oninput="_legacySOPSearchInput(' + i + ',this)"' +
+          ' onfocus="_legacySOPSearchInput(' + i + ',this)"' +
+          ' onblur="setTimeout(function(){var e=document.getElementById(\'lsi-results-' + i + '\');if(e)e.style.display=\'none\'},180)"' +
+          ' style="flex:1;font-size:12px;padding:6px 10px;border:1px solid var(--g2);border-radius:6px" />' +
         status +
+        '<div id="lsi-results-' + i + '" style="display:none;position:absolute;left:120px;right:140px;top:calc(100% + 4px);background:white;border:1px solid var(--g2);border-radius:6px;max-height:240px;overflow-y:auto;z-index:50;box-shadow:0 6px 18px rgba(0,0,0,0.12)"></div>' +
       '</div>' +
     '</div>';
   }).join('');
   if (attachBtn) attachBtn.disabled = !queue.some(function(q){ return q.npd; });
+}
+
+// Typeahead search — filters RECIPE_DB by name / npd / recipeId, shows results below
+function _legacySOPSearchInput(idx, input) {
+  var q = (input.value || '').trim().toLowerCase();
+  var box = document.getElementById('lsi-results-' + idx);
+  if (!box) return;
+  var matches = [];
+  Object.keys(RECIPE_DB).forEach(function(npd) {
+    var r = RECIPE_DB[npd];
+    if (!r) return;
+    var hay = (r.name || '') + ' ' + npd + ' ' + (r.recipeId || '') + ' ' + (r.brand || '');
+    if (!q || hay.toLowerCase().indexOf(q) >= 0) matches.push({ npd: npd, r: r });
+  });
+  // Sort: exact name start first, then alpha
+  matches.sort(function(a, b) {
+    var an = (a.r.name||'').toLowerCase(), bn = (b.r.name||'').toLowerCase();
+    var aStarts = an.startsWith(q), bStarts = bn.startsWith(q);
+    if (aStarts && !bStarts) return -1;
+    if (!aStarts && bStarts) return 1;
+    return an.localeCompare(bn);
+  });
+  matches = matches.slice(0, 30);
+  if (!matches.length) {
+    box.innerHTML = '<div style="padding:10px 12px;font-size:12px;color:var(--g3);font-style:italic">No recipes match — try a shorter term</div>';
+  } else {
+    box.innerHTML = matches.map(function(m) {
+      var brand = m.r.brand ? ' · ' + m.r.brand : '';
+      var arch = m.r.archived ? ' <span style="font-size:10px;color:var(--g3);font-style:italic">(archived)</span>' : '';
+      return '<div onmousedown="event.preventDefault();_legacySOPPickRecipe(' + idx + ',\'' + m.npd.replace(/'/g,"\\'") + '\')" ' +
+        'style="padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--g1)" ' +
+        'onmouseover="this.style.background=\'#F0F4FF\'" onmouseout="this.style.background=\'\'">' +
+        '<strong style="color:var(--navy)">' + (m.r.name || m.npd) + '</strong>' + arch +
+        '<div style="font-size:11px;color:var(--g3);font-family:var(--font-m)">' + m.npd + brand + '</div>' +
+      '</div>';
+    }).join('');
+  }
+  box.style.display = 'block';
 }
 
 function _legacySOPRemoveRow(idx) {
