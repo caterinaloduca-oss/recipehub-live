@@ -769,7 +769,14 @@ function mergeRecipe(existing, incoming) {
       }
       if (!result.sopVersion) result.sopVersion = '1.0';
     }
-    if (result.status === 'draft' && !result.archived) {
+    // Status auto-bump from draft → approved only fires when this is the
+    // FIRST time a status is set on the recipe (e.g. importing a Legacy SOP
+    // PDF and the recipe has no prior status). If the existing record
+    // already had a status, the user is explicitly transitioning — most
+    // commonly a version-bump on an approved recipe (Nuha's "bounce out"
+    // bug 2026-05-11: editing an approved Onion Topping with a Legacy SOP
+    // attached kept reverting status='draft' back to 'approved' on save).
+    if (result.status === 'draft' && !result.archived && (!existing || !existing.status)) {
       result.status = 'approved';
     }
   }
