@@ -943,32 +943,32 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
 ══════════════════════════════════════════ -->
 <div id="page-dashboard" class="page-hidden">
   <div class="stats-row" id="dash-stats-row">
-    <div class="stat-card">
+    <div class="stat-card" style="cursor:pointer" onclick="_dashGoToRecipes()">
       <div class="stat-label">Total Recipes</div>
       <div class="stat-value" id="dash-total-recipes">—</div>
       <div class="stat-sub" id="dash-total-recipes-sub"></div>
     </div>
-    <div class="stat-card">
+    <div class="stat-card" style="cursor:pointer" onclick="_dashGoToRecipes()">
       <div class="stat-label">In Development</div>
       <div class="stat-value" style="color:var(--amber)" id="dash-in-dev">—</div>
       <div class="stat-sub" id="dash-in-dev-sub"></div>
     </div>
-    <div class="stat-card">
+    <div class="stat-card" style="cursor:pointer" onclick="_dashGoToRecipes('Approved')">
       <div class="stat-label">Approved</div>
       <div class="stat-value" style="color:var(--sage)" id="dash-approved">—</div>
       <div class="stat-sub">Production ready</div>
     </div>
-    <div class="stat-card">
+    <div class="stat-card" style="cursor:pointer" onclick="nav('ingredients')">
       <div class="stat-label">Ingredients DB</div>
       <div class="stat-value" id="dash-ingredients">—</div>
       <div class="stat-sub">Raw materials indexed</div>
     </div>
-    <div class="stat-card">
+    <div class="stat-card" style="cursor:pointer" onclick="nav('users')">
       <div class="stat-label">Team</div>
       <div class="stat-value" id="dash-users">—</div>
       <div class="stat-sub" id="dash-users-sub"></div>
     </div>
-    <div class="stat-card">
+    <div class="stat-card" style="cursor:pointer" onclick="nav('qa')">
       <div class="stat-label">Pending QA</div>
       <div class="stat-value" style="color:var(--red)" id="dash-pending-qa">—</div>
       <div class="stat-sub">Awaiting sign-off</div>
@@ -978,7 +978,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
       <div class="stat-value" style="color:var(--g3)" id="dash-archived">—</div>
       <div class="stat-sub" id="dash-archived-sub">Click to view</div>
     </div>
-    <div class="stat-card">
+    <div class="stat-card" style="cursor:pointer" onclick="_dashGoToRecipes(null, 'Discontinued')">
       <div class="stat-label">Discontinued</div>
       <div class="stat-value" style="color:var(--red)" id="dash-discontinued">—</div>
       <div class="stat-sub">Paused, may return</div>
@@ -14649,6 +14649,18 @@ function approveSOPRelease(npd) {
   if (!a.prepared) signSOPStage(npd, 'prepared');
   else if (!a.reviewed) signSOPStage(npd, 'reviewed');
   else if (!a.approved) signSOPStage(npd, 'approved');
+}
+
+// Dashboard-tile → Recipes page shortcut: nav, then (optionally) set status/tag filters.
+function _dashGoToRecipes(status, tag) {
+  nav('recipes');
+  setTimeout(function() {
+    var s = document.getElementById('recipe-filter-status');
+    var t = document.getElementById('recipe-filter-tag');
+    if (s) s.value = status || 'All Statuses';
+    if (t) t.value = tag || 'All Tags';
+    if (typeof filterRecipes === 'function') filterRecipes();
+  }, 100);
 }
 
 // ──────────── FILTER: RECIPES ────────────
