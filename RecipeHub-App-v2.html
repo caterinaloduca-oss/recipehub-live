@@ -14013,7 +14013,12 @@ function deleteStandardBlock(i) {
 }
 
 function exportToSOP(npd) {
-  if (!_requireRole(['npd'], 'R&D')) return;
+  // Viewing the SOP detail is open to everyone with page access; editing
+  // controls inside the detail (Edit Steps, Generate SOP, sign-offs, etc.)
+  // remain gated individually. Removing the top-level R&D-only block fixes
+  // the 'click on a SOP row does nothing' silent failure for Factory / QA /
+  // Purchasing / Viewer + Cate's case where role detection wasn't returning
+  // 'admin' (2026-05-11).
   const r = RECIPE_DB[npd];
   if (!r) return;
 
