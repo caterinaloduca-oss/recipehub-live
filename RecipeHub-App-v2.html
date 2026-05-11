@@ -6680,7 +6680,10 @@ function _notifyFlagMentions(entity, subjectThing, flagText, link) {
 }
 
 async function openRecipeFlagModal(npd) {
-  if (!_requireRole(['npd'], 'R&D')) return;
+  // Open to every team that touches the recipe end-to-end. Purchasing was
+  // added 2026-05-11 so they can flag a supply / discontinuation issue without
+  // having to send a side-channel email.
+  if (!_requireRole(['npd','factory','qa','purchasing'], 'R&D / Factory / QA / Purchasing')) return;
   var r = RECIPE_DB[npd];
   if (!r) return;
   var current = (r.flag && r.flag.question) || '';
@@ -6706,7 +6709,8 @@ async function openRecipeFlagModal(npd) {
 }
 
 function clearRecipeFlag(npd) {
-  if (!_requireRole(['npd'], 'R&D')) return;
+  // Whoever can flag can also clear — same gate as openRecipeFlagModal.
+  if (!_requireRole(['npd','factory','qa','purchasing'], 'R&D / Factory / QA / Purchasing')) return;
   var r = RECIPE_DB[npd];
   if (!r) return;
   r.flag = null;
@@ -6722,8 +6726,8 @@ function clearRecipeFlag(npd) {
 // at different gates and might raise a query for the others.
 async function openSOPFlagModal(npd) {
   var role = (typeof getCurrentUserRole === 'function') ? getCurrentUserRole() : 'viewer';
-  if (['admin','npd','factory','qa'].indexOf(role) === -1) {
-    showSaveToast('Only R&D / Factory / QA can flag SOPs', true); return;
+  if (['admin','npd','factory','qa','purchasing'].indexOf(role) === -1) {
+    showSaveToast('Only R&D / Factory / QA / Purchasing can flag SOPs', true); return;
   }
   var r = RECIPE_DB[npd];
   if (!r) return;
@@ -6752,8 +6756,8 @@ async function openSOPFlagModal(npd) {
 
 function clearSOPFlag(npd) {
   var role = (typeof getCurrentUserRole === 'function') ? getCurrentUserRole() : 'viewer';
-  if (['admin','npd','factory','qa'].indexOf(role) === -1) {
-    showSaveToast('Only R&D / Factory / QA can clear SOP flags', true); return;
+  if (['admin','npd','factory','qa','purchasing'].indexOf(role) === -1) {
+    showSaveToast('Only R&D / Factory / QA / Purchasing can clear SOP flags', true); return;
   }
   var r = RECIPE_DB[npd];
   if (!r) return;
@@ -10818,6 +10822,9 @@ function viewRecipe(npd) {
   var _vrIsRD = (_vrRole === 'admin' || _vrRole === 'npd');
   var _vrIsQA = (_vrRole === 'admin' || _vrRole === 'qa');
   var _vrIsFactory = (_vrRole === 'admin' || _vrRole === 'factory');
+  // Flag rights are wider than R&D — Purchasing / Factory / QA all touch the
+  // recipe at some gate and may need to raise a query (supply, spec, code).
+  var _vrCanFlag = (_vrRole === 'admin' || _vrRole === 'npd' || _vrRole === 'factory' || _vrRole === 'qa' || _vrRole === 'purchasing');
   var _vrIsRDorQA = (_vrRole === 'admin' || _vrRole === 'npd' || _vrRole === 'qa');
   var _vrIsRDorFactory = (_vrRole === 'admin' || _vrRole === 'npd' || _vrRole === 'factory');
   if (r.status === 'draft' && !_vrIsRD) { showSaveToast('Draft not available', true); return; }
@@ -10851,7 +10858,7 @@ function viewRecipe(npd) {
             : '<button class="btn btn-sm" style="background:#6B2FA0;color:white;border:none" onclick="convertToComposite(\''+r.npd+'\')" title="Turn into a multi-stage recipe with linked sub-recipes">🧩 Composite</button>') : ''}
           ${_vrIsRD ? `<button class="btn btn-sm" style="background:var(--gold);color:white;border:none" onclick="editRecipe('${r.npd}')">✏️ Edit</button>` : ''}
           ${_vrIsRD ? `<button class="btn btn-sm" style="background:var(--sage);color:white;border:none" onclick="saveRecipeToServer('${r.npd}');showSaveToast('Recipe saved')">Save</button>` : ''}
-          ${_vrIsRD ? (r.flag && r.flag.question
+          ${_vrCanFlag ? (r.flag && r.flag.question
             ? `<button class="btn btn-sm" style="background:#D4700A;color:white;border:none" onclick="clearRecipeFlag('${r.npd}')" title="Note: &quot;${(r.flag.question||'').replace(/"/g,'&quot;')}&quot; — click to clear">🚩 Clear flag</button>`
             : `<button class="btn btn-sm" style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.85);border:none" onclick="openRecipeFlagModal('${r.npd}')" title="Flag this recipe with a quick note">🚩 Flag</button>`
           ) : ''}
@@ -13696,7 +13703,7 @@ function exportToSOP(npd) {
             <button class="btn btn-sm" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15)" onclick="saveRecipeToServer(npd);showSaveToast('SOP saved')">💾 Save</button>
             ${(function(){
               var role = (typeof getCurrentUserRole === 'function') ? getCurrentUserRole() : 'viewer';
-              var canFlag = ['admin','npd','factory','qa'].indexOf(role) !== -1;
+              var canFlag = ['admin','npd','factory','qa','purchasing'].indexOf(role) !== -1;
               if (!canFlag) return '';
               return (r.sopFlag && r.sopFlag.question)
                 ? '<button class="btn btn-sm" style="background:#D4700A;color:white;border:none" onclick="clearSOPFlag(\'' + r.npd + '\')" title="Note: &quot;' + (r.sopFlag.question||'').replace(/"/g,'&quot;') + '&quot; — click to clear">🚩 Clear flag</button>'
