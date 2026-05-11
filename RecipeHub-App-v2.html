@@ -6624,6 +6624,231 @@ function saveRecipeToServer(npd) {
   });
 }
 
+// ───────────────────── Legacy SOP bulk-import ─────────────────────
+// Picks 1+ DFC-MP PDFs from the local disk, fuzzy-matches each to a recipe
+// by name (extracted from the filename — e.g. 'DFC-MP-135 Pulled Chicken
+// Manufacturing Document.pdf' → match the recipe whose name is closest to
+// 'Pulled Chicken'). User reviews + can override the auto-pick before upload.
+// On confirm, uploads each PDF via /api/library/upload + saves the recipe
+// with the new factorySopArchive entry — server invariant flips sopStatus
+// to 'approved' on the way through.
+async function openLegacySOPImport() {
+  var role = (typeof getCurrentUserRole === 'function') ? getCurrentUserRole() : '';
+  if (role !== 'admin' && role !== 'npd') {
+    showSaveToast('Only Admin / R&D can import Legacy SOPs', true);
+    return;
+  }
+  openModal(
+    '<div class="card-head" style="background:var(--navy);border-radius:16px 16px 0 0">' +
+      '<span class="card-title" style="color:white">📄 Import Legacy SOPs</span>' +
+      '<button class="btn btn-sm" style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:none" onclick="closeModal()">✕</button>' +
+    '</div>' +
+    '<div class="card-body" style="padding:24px;max-height:75vh;overflow-y:auto" id="lsi-body">' +
+      '<div style="font-size:13px;color:var(--g4);margin-bottom:14px">Pick one or more DFC-MP PDFs. The system extracts each file\'s product name and matches it to a recipe — review the picks below, override any if needed, then click <strong>Attach all</strong>. Each PDF is saved to the recipe\'s Legacy SOP archive and the SOP is auto-approved.</div>' +
+      '<div style="display:flex;gap:10px;align-items:center;margin-bottom:18px;padding:14px;border:2px dashed var(--g2);border-radius:8px;background:#FAFAF8" ' +
+           'ondragover="event.preventDefault();this.style.background=\'#F0F4FF\'" ondragleave="this.style.background=\'#FAFAF8\'" ondrop="_legacySOPDrop(event)">' +
+        '<input type="file" id="lsi-files" accept="application/pdf" multiple style="flex:1" onchange="_legacySOPFilesPicked(this.files)" />' +
+        '<span style="font-size:11px;color:var(--g3)">…or drag-drop</span>' +
+      '</div>' +
+      '<div id="lsi-rows"></div>' +
+      '<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px">' +
+        '<button class="btn btn-outline" onclick="closeModal()">Cancel</button>' +
+        '<button class="btn btn-gold" id="lsi-attach-btn" disabled onclick="_legacySOPAttachAll()">Attach all</button>' +
+      '</div>' +
+    '</div>',
+    '720px'
+  );
+  window._lsiQueue = [];
+}
+
+function _legacySOPDrop(ev) {
+  ev.preventDefault();
+  ev.currentTarget.style.background = '#FAFAF8';
+  var files = ev.dataTransfer && ev.dataTransfer.files;
+  if (files && files.length) _legacySOPFilesPicked(files);
+}
+
+function _legacySOPFilesPicked(files) {
+  if (!files || !files.length) return;
+  var queue = window._lsiQueue = window._lsiQueue || [];
+  Array.from(files).forEach(function(f) {
+    if (f.type !== 'application/pdf' && !/\.pdf$/i.test(f.name)) return;
+    var meta = _legacySOPParseFilename(f.name);
+    queue.push({
+      file: f,
+      filename: f.name,
+      sizeBytes: f.size,
+      dfcCode: meta.dfcCode,
+      productName: meta.productName,
+      npd: meta.npd,
+    });
+  });
+  _legacySOPRenderRows();
+}
+
+// Filename parser: 'DFC-MP-135 Pulled Chicken Manufacturing Document.pdf' →
+//   { dfcCode: 'DFC-MP-135', productName: 'Pulled Chicken', npd: matched-or-null }
+function _legacySOPParseFilename(fn) {
+  var base = fn.replace(/\.pdf$/i, '');
+  var m = base.match(/^(DFC-?MP-?\d+)\s*[-_ ]\s*(.*?)\s*(?:Manufacturing\s+Document|Process|Spec|Procedure)?$/i);
+  var dfc = m ? m[1].toUpperCase().replace(/^DFCMP/, 'DFC-MP-').replace(/^DFC-?MP/, 'DFC-MP') : '';
+  // Normalise DFC code shape
+  if (dfc) dfc = dfc.replace(/^DFC-?MP-?/, 'DFC-MP-');
+  var product = (m ? m[2] : base).trim();
+  // Try to find best recipe match
+  var match = _legacySOPMatchRecipe(product);
+  return { dfcCode: dfc, productName: product, npd: match };
+}
+
+function _legacySOPMatchRecipe(productName) {
+  if (!productName) return null;
+  var target = productName.toLowerCase().replace(/[^a-z0-9 ]/g,'').replace(/\s+/g,' ').trim();
+  if (!target) return null;
+  var best = null;
+  var bestScore = 0;
+  Object.keys(RECIPE_DB).forEach(function(npd) {
+    var r = RECIPE_DB[npd];
+    if (!r || r.archived) return;
+    var nm = (r.name || '').toLowerCase().replace(/[^a-z0-9 ]/g,'').replace(/\s+/g,' ').trim();
+    if (!nm) return;
+    // Score: exact match = 100, substring = 70+matchPct, token overlap = jaccard*60
+    var score = 0;
+    if (nm === target) score = 100;
+    else if (nm.indexOf(target) >= 0 || target.indexOf(nm) >= 0) score = 75;
+    else {
+      var ta = new Set(target.split(' ').filter(t => t.length > 2));
+      var tb = new Set(nm.split(' ').filter(t => t.length > 2));
+      if (ta.size && tb.size) {
+        var inter = 0; ta.forEach(t => { if (tb.has(t)) inter++; });
+        var union = new Set([...ta, ...tb]).size;
+        score = (inter / union) * 60;
+      }
+    }
+    if (score > bestScore) { bestScore = score; best = npd; }
+  });
+  return bestScore >= 40 ? best : null;
+}
+
+function _legacySOPRenderRows() {
+  var box = document.getElementById('lsi-rows');
+  var attachBtn = document.getElementById('lsi-attach-btn');
+  if (!box) return;
+  var queue = window._lsiQueue || [];
+  if (!queue.length) {
+    box.innerHTML = '<div style="text-align:center;color:var(--g3);font-style:italic;padding:20px;font-size:12px">No PDFs picked yet.</div>';
+    if (attachBtn) attachBtn.disabled = true;
+    return;
+  }
+  var recOpts = '<option value="">— skip this file —</option>' +
+    Object.keys(RECIPE_DB).filter(function(npd){ return !RECIPE_DB[npd].archived; })
+      .map(function(npd){ var r = RECIPE_DB[npd]; return '<option value="'+npd+'">'+(r.name||npd)+' ('+npd+')</option>'; })
+      .sort().join('');
+  box.innerHTML = queue.map(function(item, i) {
+    var matched = item.npd ? RECIPE_DB[item.npd] : null;
+    var status = matched
+      ? '<span style="color:var(--sage);font-weight:600;font-size:12px">✓ auto-matched</span>'
+      : '<span style="color:var(--amber);font-weight:600;font-size:12px">⚠ no match — pick below</span>';
+    var optsWithSelected = recOpts.replace('value="'+item.npd+'"', 'value="'+item.npd+'" selected');
+    var sizeKB = (item.sizeBytes / 1024).toFixed(0);
+    return '<div style="padding:12px 14px;border:1px solid var(--g2);border-radius:8px;margin-bottom:10px;background:white">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px">' +
+        '<div style="flex:1;min-width:0">' +
+          '<div style="font-size:13px;font-weight:600;color:var(--navy)">' + (item.dfcCode || '(no DFC code)') + ' · <span style="color:var(--g4);font-weight:400">' + item.productName + '</span></div>' +
+          '<div style="font-size:10px;color:var(--g3);margin-top:2px">' + item.filename + ' · ' + sizeKB + ' KB</div>' +
+        '</div>' +
+        '<button type="button" onclick="_legacySOPRemoveRow(' + i + ')" title="Remove from queue" style="background:none;border:none;color:#C0392B;font-size:14px;cursor:pointer;padding:4px 8px">✕</button>' +
+      '</div>' +
+      '<div style="display:flex;gap:8px;align-items:center">' +
+        '<span style="font-size:11px;color:var(--g4);white-space:nowrap">Attach to recipe:</span>' +
+        '<select onchange="_legacySOPPickRecipe(' + i + ',this.value)" style="flex:1;font-size:12px;padding:5px 8px;border:1px solid var(--g2);border-radius:6px">' + optsWithSelected + '</select>' +
+        status +
+      '</div>' +
+    '</div>';
+  }).join('');
+  if (attachBtn) attachBtn.disabled = !queue.some(function(q){ return q.npd; });
+}
+
+function _legacySOPRemoveRow(idx) {
+  if (!window._lsiQueue) return;
+  window._lsiQueue.splice(idx, 1);
+  _legacySOPRenderRows();
+}
+function _legacySOPPickRecipe(idx, npd) {
+  if (!window._lsiQueue || !window._lsiQueue[idx]) return;
+  window._lsiQueue[idx].npd = npd || null;
+  _legacySOPRenderRows();
+}
+
+async function _legacySOPAttachAll() {
+  var queue = (window._lsiQueue || []).filter(function(q){ return q.npd; });
+  if (!queue.length) return;
+  var btn = document.getElementById('lsi-attach-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Uploading 0/' + queue.length + '…'; }
+  var done = 0, errors = 0;
+  for (var i = 0; i < queue.length; i++) {
+    var q = queue[i];
+    try {
+      // 1. read file → data URL
+      var dataUrl = await new Promise(function(resolve, reject){
+        var fr = new FileReader();
+        fr.onload = function(){ resolve(fr.result); };
+        fr.onerror = function(){ reject(fr.error); };
+        fr.readAsDataURL(q.file);
+      });
+      // 2. upload to library
+      var uploadId = (q.dfcCode || 'DFC-MP-' + Date.now()) + '-' + q.npd;
+      var safeName = (q.dfcCode || 'legacy') + '-' + (q.npd || 'recipe') + '.pdf';
+      var up = await fetch(API_BASE + '/api/library/upload', {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+API_KEY },
+        body: JSON.stringify({ id: uploadId, fileName: safeName, data: dataUrl }),
+      }).then(function(r){ return r.json(); });
+      if (!up || !up.url) throw new Error(up && up.error || 'upload failed');
+      // 3. append to recipe.factorySopArchive + per-entity save
+      var r = RECIPE_DB[q.npd];
+      if (!r) throw new Error('recipe ' + q.npd + ' missing locally');
+      if (!Array.isArray(r.factorySopArchive)) r.factorySopArchive = [];
+      // Idempotent: skip if this DFC code is already attached
+      if (q.dfcCode && r.factorySopArchive.some(function(a){ return a.dfcCode === q.dfcCode; })) {
+        done++;
+        if (btn) btn.textContent = 'Uploading ' + done + '/' + queue.length + '… (skipped duplicate)';
+        continue;
+      }
+      r.factorySopArchive.push({
+        dfcCode: q.dfcCode || '',
+        filename: safeName,
+        url: up.url,
+        attachedAt: new Date().toISOString(),
+        attachedBy: getCurrentUserName(),
+        sizeBytes: q.sizeBytes,
+      });
+      r.updatedAt = new Date().toISOString();
+      if (!r.changeLog) r.changeLog = [];
+      r.changeLog.push({ date: r.updatedAt, by: getCurrentUserName(), changes: 'Attached Legacy SOP ' + (q.dfcCode || safeName) });
+      // saveRecipeToServer is fire-and-forget; await its promise so we batch sequentially
+      await new Promise(function(resolve){
+        var origLocalDirty = _localDirty;
+        saveRecipeToServer(q.npd);
+        // saveRecipeToServer doesn't return a promise — wait a tick for the fetch to fire
+        setTimeout(resolve, 400);
+      });
+      done++;
+      if (btn) btn.textContent = 'Uploading ' + done + '/' + queue.length + '…';
+    } catch (err) {
+      console.error('Legacy SOP attach failed for', q.filename, err);
+      errors++;
+    }
+  }
+  closeModal();
+  showSaveToast(
+    (done - errors) + ' Legacy SOP' + ((done - errors) === 1 ? '' : 's') + ' attached' +
+    (errors ? ' (' + errors + ' failed — see console)' : '')
+  );
+  if (typeof buildFactorySOPTable === 'function') buildFactorySOPTable();
+  if (typeof buildRecipesTable === 'function') buildRecipesTable();
+  window._lsiQueue = [];
+}
+
 function deleteFactorySopArchive(npd, idx) {
   if (getCurrentUserRole() !== 'admin') { showSaveToast('Admins only', true); return; }
   var r = RECIPE_DB[npd];
@@ -7523,7 +7748,7 @@ const PAGES = {
   reports:        { title:'Recipe Analytics', actions:`<button class="btn btn-outline btn-sm" onclick="refreshReports()">↻ Refresh</button>` },
   'builds-costing': { title:'Build Analytics', actions:`<button class="btn btn-outline btn-sm" onclick="refreshReports()">↻ Refresh</button>` },
   'cost-control': { title:'KPI & Goals', actions:`<button class="btn btn-outline btn-sm" onclick="refreshReports()">↻ Refresh</button>` },
-  sop:            { title:'Factory SOPs', actions:'' },
+  sop:            { title:'Factory SOPs', actions:`<button class="btn btn-outline btn-sm" onclick="openLegacySOPImport()" title="Attach Legacy SOP PDFs (DFC-MP) to their matching recipes">📄 Import Legacy SOP</button>` },
   brands:         { title:'Brands',                actions:`<button class="btn btn-primary btn-sm" onclick="openBrandForm()">+ New Brand</button>` },
   workflow:       { title:'Workflow',             actions:'' },
   training:       { title:'Training',             actions:'' },
