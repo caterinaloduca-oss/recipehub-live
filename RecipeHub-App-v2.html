@@ -1310,6 +1310,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
         <input type="checkbox" id="fsop-show-archived" onchange="buildFactorySOPTable()" /> Show Archived
       </label>
     </div>
+    <div id="fsop-filter-chips" style="display:none;flex-wrap:wrap;gap:6px;align-items:center;margin:-6px 0 12px 0;font-size:12px"></div>
     <div class="card" id="fsop-card">
       <div class="card-head" style="cursor:pointer;user-select:none" onclick="toggleFsopCollapsed()">
         <span style="display:flex;align-items:center;gap:10px">
@@ -1521,10 +1522,12 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
         <input class="search-input" placeholder="Search branch SOPs…" id="bsop-search" oninput="filterBranchSOPs()" />
       </div>
       <select class="filter-select" id="bsop-filter-brand" onchange="filterBranchSOPs()"><option>All Brands</option></select>
+      <select class="filter-select" id="bsop-filter-status" onchange="filterBranchSOPs()"><option>All Statuses</option><option>Draft</option><option>In Review</option><option>Approved</option></select>
       <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--g4);cursor:pointer;margin-left:auto">
         <input type="checkbox" id="bsop-show-archived" onchange="buildBranchSOPTable()" /> Show Archived
       </label>
     </div>
+    <div id="bsop-filter-chips" style="display:none;flex-wrap:wrap;gap:6px;align-items:center;margin:-6px 0 12px 0;font-size:12px"></div>
 
     <div class="card">
       <div class="card-head">
@@ -12534,6 +12537,19 @@ function buildFactorySOPTable() {
     tr.dataset.hasLiveSop = (r.sopSteps && r.sopSteps.length) ? '1' : '0';
     tr.dataset.recipeStage = recipeStageLabel[recipeStage] || recipeStage;
     tr.dataset.sopStatus = (r.sopSteps && r.sopSteps.length) ? (statusLabel[r.sopStatus || 'draft'] || 'Draft') : '';
+    tr.dataset.brand = (typeof getRecipeBrands === 'function' ? getRecipeBrands(r) : (r.brand ? [r.brand] : []))
+      .map(function(b){ return String(b||'').toLowerCase(); }).join('|');
+    // Unified search haystack — recipe name, NPD, Recipe ID, SOP code, brand(s), DFC codes in archive.
+    var _archCodes = (Array.isArray(r.factorySopArchive) ? r.factorySopArchive : [])
+      .map(function(a){ return (a && a.dfcCode) || ''; }).join(' ');
+    tr.dataset.search = [
+      (r.name || ''),
+      (r.npd || ''),
+      (r.recipeId || ''),
+      'sop-' + (r.npd || ''),
+      (typeof getRecipeBrands === 'function' ? getRecipeBrands(r).join(' ') : (r.brand || '')),
+      _archCodes
+    ].join(' ').toLowerCase();
     const _actionBtn = hasSOP
       ? `<button class="btn btn-outline btn-sm" onclick="event.stopPropagation();exportToSOP('${r.npd}')">View</button>`
       : (_fsopIsRD ? `<button class="btn btn-outline btn-sm" onclick="event.stopPropagation();exportToSOP('${r.npd}')">Generate</button>` : '');
@@ -12590,23 +12606,30 @@ function buildFactorySOPTable() {
   }
   const countEl = document.getElementById('fsop-count-label');
   if (countEl) countEl.textContent = sopRecipes.length + ' SOPs generated / ' + allRecipes.length + ' recipes';
+  // Restore persisted filter selections from localStorage so navigating away or
+  // a background rebuild keeps the user's view.
+  if (typeof _loadFsopFilters === 'function') _loadFsopFilters();
   // Re-apply active filters so rebuilds (archive, delete, sync) don't reset the view.
   filterFactorySOPs();
 }
 
 function filterFactorySOPs() {
-  const q = (document.getElementById('fsop-search').value || '').toLowerCase();
+  const q = (document.getElementById('fsop-search').value || '').trim().toLowerCase();
+  const tokens = q ? q.split(/\s+/).filter(Boolean) : [];
   const brand = document.getElementById('fsop-filter-brand').value;
   const stageEl  = document.getElementById('fsop-filter-stage');
   const stage    = stageEl ? stageEl.value : 'All Stages';
   const status   = document.getElementById('fsop-filter-status').value;
   const sourceEl = document.getElementById('fsop-filter-source');
   const source   = sourceEl ? sourceEl.value : 'All SOPs';
+  const wantBrand = (brand && brand !== 'All Brands') ? brand.toLowerCase() : '';
   const rows = document.getElementById('fsop-tbody').querySelectorAll('tr');
   rows.forEach(row => {
-    const text = row.textContent.toLowerCase();
+    const hay = row.dataset.search || row.textContent.toLowerCase();
     const hasLegacy = row.dataset.hasLegacy === '1';
     const hasLive   = row.dataset.hasLiveSop === '1';
+    const matchQ   = !tokens.length || tokens.every(function(t){ return hay.indexOf(t) !== -1; });
+    const matchBrand = !wantBrand || (('|' + (row.dataset.brand || '') + '|').indexOf('|' + wantBrand + '|') !== -1);
     const stageOK  = (stage === 'All Stages')      || (row.dataset.recipeStage === stage);
     const statusOK = (status === 'All SOP Status') || (row.dataset.sopStatus === status);
     let sourceOK;
@@ -12615,8 +12638,95 @@ function filterFactorySOPs() {
     else if (source === 'Has Live SOP')    sourceOK = hasLive;
     else if (source === 'No SOP')          sourceOK = !hasLegacy && !hasLive;
     else                                   sourceOK = true;
-    row.style.display = (!q || text.includes(q)) && (brand === 'All Brands' || text.includes(brand.toLowerCase())) && stageOK && statusOK && sourceOK ? '' : 'none';
+    row.style.display = (matchQ && matchBrand && stageOK && statusOK && sourceOK) ? '' : 'none';
   });
+  if (typeof _renderFsopFilterChips === 'function') _renderFsopFilterChips();
+  if (typeof _saveFsopFilters === 'function') _saveFsopFilters();
+}
+
+// ──── Factory SOP filter persistence + chip row + clear-all ────
+var _FSOP_FILTERS_KEY = 'rh_fsop_filters_v1';
+function _saveFsopFilters() {
+  try {
+    var s = document.getElementById('fsop-search');
+    var b = document.getElementById('fsop-filter-brand');
+    var stg = document.getElementById('fsop-filter-stage');
+    var st = document.getElementById('fsop-filter-status');
+    var src = document.getElementById('fsop-filter-source');
+    var sa = document.getElementById('fsop-show-archived');
+    localStorage.setItem(_FSOP_FILTERS_KEY, JSON.stringify({
+      q:      s   ? s.value   : '',
+      brand:  b   ? b.value   : 'All Brands',
+      stage:  stg ? stg.value : 'All Stages',
+      status: st  ? st.value  : 'All SOP Status',
+      source: src ? src.value : 'All SOPs',
+      showArchived: !!(sa && sa.checked)
+    }));
+  } catch (e) {}
+}
+function _loadFsopFilters() {
+  try {
+    var raw = localStorage.getItem(_FSOP_FILTERS_KEY);
+    if (!raw) return false;
+    var v = JSON.parse(raw);
+    function _setIfOption(sel, val) {
+      if (!sel || !val) return;
+      for (var i = 0; i < sel.options.length; i++) {
+        if (sel.options[i].value === val || sel.options[i].textContent === val) { sel.value = sel.options[i].value; return; }
+      }
+    }
+    var s = document.getElementById('fsop-search'); if (s) s.value = v.q || '';
+    _setIfOption(document.getElementById('fsop-filter-brand'),   v.brand);
+    _setIfOption(document.getElementById('fsop-filter-stage'),   v.stage);
+    _setIfOption(document.getElementById('fsop-filter-status'),  v.status);
+    _setIfOption(document.getElementById('fsop-filter-source'),  v.source);
+    var sa = document.getElementById('fsop-show-archived');
+    if (sa && typeof v.showArchived === 'boolean') sa.checked = v.showArchived;
+    return true;
+  } catch (e) { return false; }
+}
+function _clearFsopFilter(which) {
+  if (which === 'search') { var s = document.getElementById('fsop-search'); if (s) s.value = ''; }
+  else { var sel = document.getElementById('fsop-filter-' + which); if (sel) sel.selectedIndex = 0; }
+  filterFactorySOPs();
+}
+function _clearAllFsopFilters() {
+  var s = document.getElementById('fsop-search'); if (s) s.value = '';
+  ['brand','stage','status','source'].forEach(function(k){
+    var el = document.getElementById('fsop-filter-' + k);
+    if (el) el.selectedIndex = 0;
+  });
+  filterFactorySOPs();
+}
+function _renderFsopFilterChips() {
+  var host = document.getElementById('fsop-filter-chips');
+  if (!host) return;
+  var chips = [];
+  function _chip(label, value, onClear) {
+    chips.push('<span style="display:inline-flex;align-items:center;gap:6px;background:var(--g1);color:var(--navy);padding:3px 8px 3px 10px;border-radius:14px;border:1px solid var(--g2)">'
+      + '<span style="color:var(--g4);font-weight:500">' + label + ':</span> '
+      + '<strong>' + value + '</strong>'
+      + '<button onclick="' + onClear + '" style="background:transparent;border:0;cursor:pointer;color:var(--g3);font-size:14px;line-height:1;padding:0 2px" title="Remove">✕</button>'
+      + '</span>');
+  }
+  var s = document.getElementById('fsop-search');
+  var b = document.getElementById('fsop-filter-brand');
+  var stg = document.getElementById('fsop-filter-stage');
+  var st = document.getElementById('fsop-filter-status');
+  var src = document.getElementById('fsop-filter-source');
+  if (s && s.value) _chip('Search', s.value.replace(/</g,'&lt;'), "_clearFsopFilter('search')");
+  if (b && b.value && b.value !== 'All Brands') _chip('Brand', b.value, "_clearFsopFilter('brand')");
+  if (stg && stg.value && stg.value !== 'All Stages') _chip('Stage', stg.value, "_clearFsopFilter('stage')");
+  if (st && st.value && st.value !== 'All SOP Status') _chip('SOP Status', st.value, "_clearFsopFilter('status')");
+  if (src && src.value && src.value !== 'All SOPs') _chip('Source', src.value, "_clearFsopFilter('source')");
+  if (chips.length) {
+    host.style.display = 'flex';
+    host.innerHTML = chips.join('') +
+      '<button onclick="_clearAllFsopFilters()" style="background:transparent;border:0;color:var(--navy);text-decoration:underline;cursor:pointer;font-size:12px;margin-left:4px">Clear all</button>';
+  } else {
+    host.style.display = 'none';
+    host.innerHTML = '';
+  }
 }
 
 function viewFactorySOP(npd) {
@@ -23569,6 +23679,10 @@ function buildBranchSOPTable() {
     tr.style.cursor = 'pointer';
     if (buildDiscontinued || sop.archived) tr.style.opacity = '0.5';
     tr.onclick = function(){ viewBranchSOP(sop.id); };
+    tr.dataset.brand = String(sop.brand || '').toLowerCase();
+    tr.dataset.status = sop.archived ? 'archived' : (sop.status || 'draft');
+    tr.dataset.search = [sop.name, sop.id, sop.brand, (sop.version || '')]
+      .join(' ').toLowerCase();
     tr.innerHTML = `
       <td><strong>${sop.name}</strong>${buildDiscontinued ? ' <span style="font-size:10px;color:var(--red);font-weight:500">DISCONTINUED</span>' : ''}${sop.archived ? ' <span style="font-size:10px;color:var(--g3);font-weight:500">ARCHIVED</span>' : ''}</td>
       <td style="font-family:var(--font-m);font-size:12px;color:var(--g3)">${sop.id}</td>
@@ -23594,6 +23708,8 @@ function buildBranchSOPTable() {
   if (countEl) countEl.textContent = visibleCount + ' SOPs';
   const archivedLabel = document.getElementById('bsop-archived-label');
   if (archivedLabel) archivedLabel.textContent = archivedCount ? '(' + archivedCount + ' archived)' : '';
+  // Restore persisted filter selections (search + brand + status + showArchived).
+  if (typeof _loadBsopFilters === 'function') _loadBsopFilters();
   // Reapply active search/brand filter after rebuild — otherwise the dropdown shows e.g. "Maestro" but Mad rows appear.
   if (typeof filterBranchSOPs === 'function') filterBranchSOPs();
 }
@@ -23610,14 +23726,103 @@ function archiveBranchSOP(id) {
   logActivity('sop', '📋', (sop.archived ? 'Archived' : 'Unarchived') + ' branch SOP: ' + sop.name, sop.id);
 }
 
+// Status-label → underlying status key on dataset.status.
+var _BSOP_STATUS_LABEL_TO_KEY = {
+  'Draft':'draft', 'In Review':'review', 'Approved':'approved'
+};
 function filterBranchSOPs() {
-  const q = (document.getElementById('bsop-search').value || '').toLowerCase();
+  const q = (document.getElementById('bsop-search').value || '').trim().toLowerCase();
+  const tokens = q ? q.split(/\s+/).filter(Boolean) : [];
   const brand = document.getElementById('bsop-filter-brand').value;
+  const statusEl = document.getElementById('bsop-filter-status');
+  const status = statusEl ? statusEl.value : 'All Statuses';
+  const wantBrand = (brand && brand !== 'All Brands') ? brand.toLowerCase() : '';
+  const wantStatus = _BSOP_STATUS_LABEL_TO_KEY[status] || '';
   const rows = document.getElementById('bsop-tbody').querySelectorAll('tr');
   rows.forEach(row => {
-    const text = row.textContent.toLowerCase();
-    row.style.display = (!q || text.includes(q)) && (brand === 'All Brands' || text.includes(brand.toLowerCase())) ? '' : 'none';
+    const hay = row.dataset.search || row.textContent.toLowerCase();
+    const matchQ = !tokens.length || tokens.every(function(t){ return hay.indexOf(t) !== -1; });
+    const matchBrand = !wantBrand || (row.dataset.brand === wantBrand);
+    const matchStatus = !wantStatus || row.dataset.status === wantStatus;
+    row.style.display = (matchQ && matchBrand && matchStatus) ? '' : 'none';
   });
+  if (typeof _renderBsopFilterChips === 'function') _renderBsopFilterChips();
+  if (typeof _saveBsopFilters === 'function') _saveBsopFilters();
+}
+
+// ──── Branch SOP filter persistence + chip row + clear-all ────
+var _BSOP_FILTERS_KEY = 'rh_bsop_filters_v1';
+function _saveBsopFilters() {
+  try {
+    var s = document.getElementById('bsop-search');
+    var b = document.getElementById('bsop-filter-brand');
+    var st = document.getElementById('bsop-filter-status');
+    var sa = document.getElementById('bsop-show-archived');
+    localStorage.setItem(_BSOP_FILTERS_KEY, JSON.stringify({
+      q:      s  ? s.value  : '',
+      brand:  b  ? b.value  : 'All Brands',
+      status: st ? st.value : 'All Statuses',
+      showArchived: !!(sa && sa.checked)
+    }));
+  } catch (e) {}
+}
+function _loadBsopFilters() {
+  try {
+    var raw = localStorage.getItem(_BSOP_FILTERS_KEY);
+    if (!raw) return false;
+    var v = JSON.parse(raw);
+    function _setIfOption(sel, val) {
+      if (!sel || !val) return;
+      for (var i = 0; i < sel.options.length; i++) {
+        if (sel.options[i].value === val || sel.options[i].textContent === val) { sel.value = sel.options[i].value; return; }
+      }
+    }
+    var s = document.getElementById('bsop-search'); if (s) s.value = v.q || '';
+    _setIfOption(document.getElementById('bsop-filter-brand'),  v.brand);
+    _setIfOption(document.getElementById('bsop-filter-status'), v.status);
+    var sa = document.getElementById('bsop-show-archived');
+    if (sa && typeof v.showArchived === 'boolean') sa.checked = v.showArchived;
+    return true;
+  } catch (e) { return false; }
+}
+function _clearBsopFilter(which) {
+  if (which === 'search') { var s = document.getElementById('bsop-search'); if (s) s.value = ''; }
+  else { var sel = document.getElementById('bsop-filter-' + which); if (sel) sel.selectedIndex = 0; }
+  filterBranchSOPs();
+}
+function _clearAllBsopFilters() {
+  var s = document.getElementById('bsop-search'); if (s) s.value = '';
+  ['brand','status'].forEach(function(k){
+    var el = document.getElementById('bsop-filter-' + k);
+    if (el) el.selectedIndex = 0;
+  });
+  filterBranchSOPs();
+}
+function _renderBsopFilterChips() {
+  var host = document.getElementById('bsop-filter-chips');
+  if (!host) return;
+  var chips = [];
+  function _chip(label, value, onClear) {
+    chips.push('<span style="display:inline-flex;align-items:center;gap:6px;background:var(--g1);color:var(--navy);padding:3px 8px 3px 10px;border-radius:14px;border:1px solid var(--g2)">'
+      + '<span style="color:var(--g4);font-weight:500">' + label + ':</span> '
+      + '<strong>' + value + '</strong>'
+      + '<button onclick="' + onClear + '" style="background:transparent;border:0;cursor:pointer;color:var(--g3);font-size:14px;line-height:1;padding:0 2px" title="Remove">✕</button>'
+      + '</span>');
+  }
+  var s = document.getElementById('bsop-search');
+  var b = document.getElementById('bsop-filter-brand');
+  var st = document.getElementById('bsop-filter-status');
+  if (s && s.value) _chip('Search', s.value.replace(/</g,'&lt;'), "_clearBsopFilter('search')");
+  if (b && b.value && b.value !== 'All Brands') _chip('Brand', b.value, "_clearBsopFilter('brand')");
+  if (st && st.value && st.value !== 'All Statuses') _chip('Status', st.value, "_clearBsopFilter('status')");
+  if (chips.length) {
+    host.style.display = 'flex';
+    host.innerHTML = chips.join('') +
+      '<button onclick="_clearAllBsopFilters()" style="background:transparent;border:0;color:var(--navy);text-decoration:underline;cursor:pointer;font-size:12px;margin-left:4px">Clear all</button>';
+  } else {
+    host.style.display = 'none';
+    host.innerHTML = '';
+  }
 }
 
 // ──────────── BRANCH SOP 3-STAGE APPROVAL ────────────
