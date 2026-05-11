@@ -1134,9 +1134,11 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
         </div>
       </div>
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
+        <button class="btn btn-outline btn-sm" id="qa-flag-btn" style="border:1px solid #F5D5A0;color:#8A4500;background:#FFF6E5" onclick="openQAFlagModalCurrent()">🚩 Flag</button>
         <button class="btn btn-outline btn-sm" id="qa-bypass-btn" style="border-color:var(--amber);color:var(--amber)" onclick="openBypassQAModal()">⚡ Bypass QA</button>
         <button class="btn btn-gold btn-sm" onclick="saveQABatchInfo()">💾 Save Batch Info</button>
       </div>
+      <div id="qa-flag-banner" style="display:none;margin-top:14px;background:#FFF6E5;border:1px solid #F0D8A8;border-radius:8px;padding:12px 16px"></div>
       <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--g1);position:relative">
         <label class="form-label" style="font-size:11px;color:var(--g3);text-transform:uppercase;letter-spacing:0.08em">Or look up a past recipe</label>
         <input class="form-input" id="qa-recipe-search" placeholder="Type name, NPD code, or Recipe ID — search any recipe" oninput="qaRecipeSearch(this.value)" onfocus="qaRecipeSearch(this.value)" onblur="setTimeout(function(){var e=document.getElementById('qa-search-results');if(e)e.style.display='none'},200)" autocomplete="off" />
@@ -6752,6 +6754,86 @@ async function openSOPFlagModal(npd) {
       if (out.sent) showSaveToast('SOP flagged — emailed ' + out.sent + ' teammate' + (out.sent>1?'s':''));
       else showSaveToast('SOP flagged');
     });
+}
+
+// QA flag — stored on r.qaFlag, visible on the QA Lab Results page header.
+// Same gate as the other flags (Admin / R&D / Factory / QA / Purchasing) so
+// any team can raise a QA-related query.
+async function openQAFlagModal(npd) {
+  var role = (typeof getCurrentUserRole === 'function') ? getCurrentUserRole() : 'viewer';
+  if (['admin','npd','factory','qa','purchasing'].indexOf(role) === -1) {
+    showSaveToast('Only Admin / R&D / Factory / QA / Purchasing can flag QA', true); return;
+  }
+  var r = RECIPE_DB[npd];
+  if (!r) return;
+  var current = (r.qaFlag && r.qaFlag.question) || '';
+  var q = await customPromptAsync('Flag this QA review with a quick note. Tag teammates with @email@dailyfoodsa.com (or just @firstname) — they get an email.', current);
+  if (q === null) return;
+  var trimmed = String(q || '').trim();
+  if (!trimmed) return;
+  r.qaFlag = {
+    question: trimmed,
+    askedBy: getCurrentUserName(),
+    askedAt: new Date().toISOString(),
+  };
+  r.updatedAt = new Date().toISOString();
+  saveRecipeToServer(npd);
+  _renderQAFlagBanner(r);
+  _notifyFlagMentions('qa', (r.name || npd) + ' QA (' + npd + ')', trimmed,
+    'https://recipehub.dailyfoodsa.com/#qa')
+    .then(function(out){
+      if (out.sent) showSaveToast('QA flagged — emailed ' + out.sent + ' teammate' + (out.sent>1?'s':''));
+      else showSaveToast('QA flagged');
+    });
+}
+
+function clearQAFlag(npd) {
+  var role = (typeof getCurrentUserRole === 'function') ? getCurrentUserRole() : 'viewer';
+  if (['admin','npd','factory','qa','purchasing'].indexOf(role) === -1) {
+    showSaveToast('Only Admin / R&D / Factory / QA / Purchasing can clear QA flags', true); return;
+  }
+  var r = RECIPE_DB[npd];
+  if (!r) return;
+  r.qaFlag = null;
+  r.updatedAt = new Date().toISOString();
+  saveRecipeToServer(npd);
+  _renderQAFlagBanner(r);
+  showSaveToast('QA flag cleared');
+}
+
+// Convenience wrapper for the button in the QA header (needs to know which
+// recipe is currently in view).
+function openQAFlagModalCurrent() {
+  if (!_qaCurrentNPD) { showSaveToast('Pick a recipe first', true); return; }
+  openQAFlagModal(_qaCurrentNPD);
+}
+
+// Yellow banner that displays the flag note + clear button under the QA header.
+// Called whenever the QA recipe changes or the flag is set/cleared.
+function _renderQAFlagBanner(r) {
+  var el = document.getElementById('qa-flag-banner');
+  var btn = document.getElementById('qa-flag-btn');
+  if (!el) return;
+  var flag = r && r.qaFlag && r.qaFlag.question ? r.qaFlag : null;
+  if (!flag) {
+    el.style.display = 'none';
+    if (btn) { btn.textContent = '🚩 Flag'; btn.style.background = '#FFF6E5'; }
+    return;
+  }
+  var esc = function(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
+  var d = '';
+  try { d = ' on ' + new Date(flag.askedAt).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}); } catch(e) {}
+  el.innerHTML =
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px">' +
+      '<div style="flex:1">' +
+        '<div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:#8A4500;font-weight:700;margin-bottom:4px">🚩 Flagged</div>' +
+        '<div style="font-size:13px;color:var(--navy);line-height:1.5;white-space:pre-wrap">' + esc(flag.question) + '</div>' +
+        '<div style="font-size:11px;color:var(--g4);margin-top:6px">By ' + esc(flag.askedBy || 'QA') + esc(d) + '</div>' +
+      '</div>' +
+      '<button class="btn btn-sm" style="background:#D4700A;color:white;border:none;flex-shrink:0" onclick="clearQAFlag(\'' + (r.npd||'') + '\')">Clear flag</button>' +
+    '</div>';
+  el.style.display = 'block';
+  if (btn) { btn.textContent = '🚩 Edit flag'; btn.style.background = '#FFE3B3'; }
 }
 
 function clearSOPFlag(npd) {
@@ -17806,6 +17888,7 @@ function updateQARecipe(npd) {
   var r = npd ? RECIPE_DB[npd] : null;
   if (batchEl) batchEl.value = (r && r.qaBatch) || '';
   if (dateEl)  dateEl.value  = (r && r.qaDate)  || '';
+  if (typeof _renderQAFlagBanner === 'function') _renderQAFlagBanner(r);
   // Toggle the Bypass QA button: only admin/qa see it. Per-stage state — Factory Trial and
   // Production Trial each get their own bypass, so the button reflects the *current* stage only.
   var bypassBtn = document.getElementById('qa-bypass-btn');
