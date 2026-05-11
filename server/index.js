@@ -1061,6 +1061,11 @@ app.post('/api/user/:email', requireAuth, (req, res) => {
       if (existing.access || incoming.access) {
         merged.access = { ...(existing.access || {}), ...(incoming.access || {}) };
       }
+      // Preserve-when-undefined for admin-granted flags (fullRights). Stops a
+      // stale client that doesn't know about the flag from clearing it.
+      if (merged.fullRights === undefined && existing.fullRights !== undefined) {
+        merged.fullRights = existing.fullRights;
+      }
       data.users[idx] = merged;
     } else {
       merged = incoming;

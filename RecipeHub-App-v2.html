@@ -11573,17 +11573,32 @@ function viewRecipe(npd) {
 
 // ──────────── RECIPE STATUS WORKFLOW ────────────
 // Recipe ID (Factory-assigned code, e.g. "211_BCS v1") — NPD code stays as historical tracker.
-// Originally Factory could only assign once Factory Trial QA had signed off,
-// but during the onboarding phase (Factory just starting to use the software)
-// Admin + Factory can both assign at any stage so existing approved/in-flight
-// recipes can be back-populated with their codes. Re-tighten once the team
-// has caught up.
+// Standard workflow: Factory assigns once Factory Trial QA has signed off.
+// Bypass paths:
+//   - Admin always bypasses (Cate handles assignment during Factory onboarding)
+//   - A Factory user with u.fullRights = true bypasses the stage gate too
+//     (granted per-person via Edit User → "Full rights" — used for the lead
+//     Factory user back-populating codes on existing recipes)
 function canAssignRecipeIdNow(r, role) {
   if (!r) return false;
-  if (role === 'admin' || role === 'factory') return true;                    // bootstrap bypass
+  if (role === 'admin') return true;
+  if (role === 'factory' && _hasFullFactoryRights()) return true;
   if (r.status === 'prod-trial' || r.status === 'approved') return true;
   if (r.status === 'trial' && r.trialQA && r.trialQA.signed) return true;
   return false;
+}
+
+// Lookup helper — returns true if the current logged-in user record has the
+// admin-granted full-rights flag. Defaults false. Set per-user via Edit User.
+function _hasFullFactoryRights() {
+  try {
+    var em = (typeof _currentUserEmail === 'function') ? _currentUserEmail() : '';
+    if (!em) return false;
+    var u = (typeof USERS_DATA !== 'undefined' && Array.isArray(USERS_DATA))
+      ? USERS_DATA.find(function(x){ return x && String(x.email||'').toLowerCase() === em.toLowerCase(); })
+      : null;
+    return !!(u && u.fullRights);
+  } catch (e) { return false; }
 }
 function renderRecipeIdSlot(r, role) {
   var canAssignStage = canAssignRecipeIdNow(r, role);
@@ -16639,6 +16654,12 @@ function editUser(btn) {
         </div>
         <div style="font-size:10px;color:var(--g3);margin-top:8px">Off → that module is hidden or values are masked for this user.</div>
       </div>
+      <div class="form-group" style="margin-bottom:16px;padding:12px 14px;background:#FFF8E6;border:1px solid #E8C875;border-radius:8px">
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:12.5px;color:var(--navy);font-weight:500">
+          <input type="checkbox" id="eu-fullrights" ${u.fullRights ? 'checked' : ''} style="width:16px;height:16px;cursor:pointer" />
+          <span>Grant <strong>Full Rights</strong> — bypass stage gates (e.g. assign Recipe ID before QA sign-off). Use sparingly.</span>
+        </label>
+      </div>
       <div style="display:flex;gap:10px;justify-content:flex-end">
         <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
         <button class="btn btn-gold" onclick="saveEditUser('${u.email.replace(/'/g,"\\'")}')">Save Changes</button>
@@ -16663,6 +16684,9 @@ function saveEditUser(email) {
     var el = document.getElementById('eu-access-'+k);
     if (el) u.access[k] = !!el.checked;
   });
+  // Full-rights bypass for stage-gated actions (Recipe ID at any stage, etc.)
+  var frEl = document.getElementById('eu-fullrights');
+  if (frEl) u.fullRights = !!frEl.checked;
   // Mirror legacy field for back-compat
   u.canViewRecipes = u.access.recipes !== false;
   // Bump updatedAt so the server's "keep newer" merge accepts our changes.
