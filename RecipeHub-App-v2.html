@@ -1077,6 +1077,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
     <select class="filter-select" id="recipe-filter-type" onchange="filterRecipes()"><option>All Types</option><option>Marinade</option><option>Dip</option><option>Sauce</option><option>Blend</option><option>Seasoning</option><option>Spread</option><option>Dessert</option><option>Meat</option><option>Dough</option><option>Coating</option><option>Brine</option><option>Garnish</option><option>Semi-Finished</option></select>
     <select class="filter-select" id="recipe-filter-tag" onchange="filterRecipes()"><option>All Tags</option><option>Imported</option><option>LTO</option><option>Vegetarian</option><option>Gluten Free</option><option>Discontinued</option><option>Best Seller</option></select>
   </div>
+  <div id="recipe-filter-chips" style="display:none;flex-wrap:wrap;gap:6px;align-items:center;margin:-6px 0 12px 0;font-size:12px"></div>
 
   <div class="card">
     <div class="card-body" style="padding:0">
@@ -9530,6 +9531,25 @@ function buildRecipesTable() {
       return nm + (code ? ' ' + code : '');
     }).join(' ');
     tr.dataset.ingredients = _ingHaystack;
+    // Structured filter dimensions — used by filterRecipes(). All lowercase.
+    tr.dataset.status = r.archived ? 'archived' : (r.status || '');
+    tr.dataset.brand = (typeof getRecipeBrands === 'function' ? getRecipeBrands(r) : (r.brand ? [r.brand] : []))
+      .map(function(b){ return String(b||'').toLowerCase(); }).join('|');
+    tr.dataset.type = String(r.type || '').toLowerCase();
+    var _tagSet = (r.tags || []).map(function(t){ return String(t||'').toLowerCase(); });
+    if (r.discontinued) _tagSet.push('discontinued');
+    if ((r.source && String(r.source).indexOf('bulk_import') === 0) || (r.name && r.name.indexOf('[IMPORT]') === 0)) _tagSet.push('imported');
+    tr.dataset.tags = _tagSet.join('|');
+    // Unified search haystack — name, codes, brands, type, tags, ingredients.
+    tr.dataset.search = [
+      (r.name || ''),
+      (r.npd || ''),
+      (r.recipeId || ''),
+      (typeof getRecipeBrands === 'function' ? getRecipeBrands(r).join(' ') : (r.brand || '')),
+      (r.type || ''),
+      _tagSet.join(' '),
+      _ingHaystack
+    ].join(' ').toLowerCase();
     var statusBadge = r.archived ? '<span class="badge badge-draft">Archived</span>' : `<span class="badge badge-${r.status==='approved'?'approved':r.status==='prod-trial'?'prod-trial':r.status==='trial'?'trial':r.status==='review'?'review':'draft'}">${r.status==='approved'?'Approved':r.status==='prod-trial'?'Production Trial':r.status==='trial'?'Factory Trial':r.status==='review'?'In Review':'Draft'}</span>`;
     var _flagPin = (r.flag && r.flag.question) ? ' <span style="font-size:13px;margin-left:4px;cursor:help" title="Flagged: '+(r.flag.question||'').replace(/"/g,'&quot;').replace(/</g,'&lt;')+'">🚩</span>' : '';
     tr.innerHTML = `
@@ -9571,6 +9591,13 @@ function buildRecipesTable() {
   });
   var archBtn = document.getElementById('recipe-archive-toggle');
   if (archBtn) archBtn.textContent = (_showArchivedRecipes ? 'Hide Archived' : 'Show Archived') + (archivedCount ? ' (' + archivedCount + ')' : '');
+  // Restore persisted filters + reapply, so navigating away or a background sync rebuild
+  // doesn't wipe what the user had selected.
+  if (typeof _loadRecipeFilters === 'function') {
+    var _hadSaved = _loadRecipeFilters();
+    if (_hadSaved) filterRecipes();
+    else if (typeof _renderRecipeFilterChips === 'function') _renderRecipeFilterChips();
+  }
 }
 
 function toggleDD(id) {
@@ -14664,26 +14691,127 @@ function _dashGoToRecipes(status, tag) {
 }
 
 // ──────────── FILTER: RECIPES ────────────
+// Status-filter label → underlying r.status key (row.dataset.status holds the key).
+var _RECIPE_STATUS_LABEL_TO_KEY = {
+  'Draft':'draft', 'In Review':'review', 'Factory Trial':'trial',
+  'Production Trial':'prod-trial', 'Approved':'approved', 'Archived':'archived'
+};
 function filterRecipes() {
-  const q = (document.getElementById('recipe-search').value || '').toLowerCase();
+  const q = (document.getElementById('recipe-search').value || '').trim().toLowerCase();
   const brand = document.getElementById('recipe-filter-brand').value;
   const status = document.getElementById('recipe-filter-status').value;
   const type = document.getElementById('recipe-filter-type').value;
   const tag = document.getElementById('recipe-filter-tag').value;
   // Auto-show archived when "Archived" filter is selected
   if (status === 'Archived' && !_showArchivedRecipes) { _showArchivedRecipes = true; buildRecipesTable(); }
+  // Multi-token search — every space-separated word must match somewhere in the row haystack.
+  const tokens = q ? q.split(/\s+/).filter(Boolean) : [];
+  const wantStatus = _RECIPE_STATUS_LABEL_TO_KEY[status] || '';
+  const wantBrand = (brand && brand !== 'All Brands') ? brand.toLowerCase() : '';
+  const wantType = (type && type !== 'All Types') ? type.toLowerCase() : '';
+  const wantTag = (tag && tag !== 'All Tags') ? tag.toLowerCase() : '';
   const rows = document.getElementById('recipes-tbody').querySelectorAll('tr');
   rows.forEach(row => {
-    const text = row.textContent.toLowerCase();
-    const ingredients = row.dataset.ingredients || '';
-    // The placeholder advertises ingredient search — include the stashed ingredient haystack.
-    const matchQ = !q || text.includes(q) || ingredients.includes(q);
-    const matchBrand = brand === 'All Brands' || text.includes(brand.toLowerCase());
-    const matchStatus = status === 'All Statuses' || text.includes(status.toLowerCase());
-    const matchType = type === 'All Types' || text.includes(type.toLowerCase());
-    const matchTag = tag === 'All Tags' || text.includes(tag.toLowerCase());
-    row.style.display = (matchQ && matchBrand && matchStatus && matchType && matchTag) ? '' : 'none';
+    const hay = row.dataset.search || '';
+    const matchQ = !tokens.length || tokens.every(function(t){ return hay.indexOf(t) !== -1; });
+    const matchStatus = !wantStatus || row.dataset.status === wantStatus;
+    const matchBrand = !wantBrand || (('|' + (row.dataset.brand || '') + '|').indexOf('|' + wantBrand + '|') !== -1);
+    const matchType = !wantType || row.dataset.type === wantType;
+    const matchTag = !wantTag || (('|' + (row.dataset.tags || '') + '|').indexOf('|' + wantTag + '|') !== -1);
+    row.style.display = (matchQ && matchStatus && matchBrand && matchType && matchTag) ? '' : 'none';
   });
+  if (typeof _renderRecipeFilterChips === 'function') _renderRecipeFilterChips();
+  if (typeof _saveRecipeFilters === 'function') _saveRecipeFilters();
+}
+
+// ──── Recipes filter persistence + chip row + clear-all ────
+var _RECIPE_FILTERS_KEY = 'rh_recipes_filters_v1';
+function _saveRecipeFilters() {
+  try {
+    var s = document.getElementById('recipe-search');
+    var b = document.getElementById('recipe-filter-brand');
+    var st = document.getElementById('recipe-filter-status');
+    var tp = document.getElementById('recipe-filter-type');
+    var tg = document.getElementById('recipe-filter-tag');
+    localStorage.setItem(_RECIPE_FILTERS_KEY, JSON.stringify({
+      q:  s  ? s.value  : '',
+      brand:  b  ? b.value  : 'All Brands',
+      status: st ? st.value : 'All Statuses',
+      type:   tp ? tp.value : 'All Types',
+      tag:    tg ? tg.value : 'All Tags',
+      showArchived: !!_showArchivedRecipes
+    }));
+  } catch (e) {}
+}
+function _loadRecipeFilters() {
+  try {
+    var raw = localStorage.getItem(_RECIPE_FILTERS_KEY);
+    if (!raw) return false;
+    var v = JSON.parse(raw);
+    var s = document.getElementById('recipe-search');
+    var b = document.getElementById('recipe-filter-brand');
+    var st = document.getElementById('recipe-filter-status');
+    var tp = document.getElementById('recipe-filter-type');
+    var tg = document.getElementById('recipe-filter-tag');
+    if (s)  s.value  = v.q || '';
+    // Only set dropdown if the value still exists as an option (brand may have been deleted).
+    function _setIfOption(sel, val) {
+      if (!sel || !val) return;
+      for (var i = 0; i < sel.options.length; i++) {
+        if (sel.options[i].value === val || sel.options[i].textContent === val) { sel.value = sel.options[i].value; return; }
+      }
+    }
+    _setIfOption(b, v.brand);
+    _setIfOption(st, v.status);
+    _setIfOption(tp, v.type);
+    _setIfOption(tg, v.tag);
+    if (v.showArchived && !_showArchivedRecipes) _showArchivedRecipes = true;
+    return true;
+  } catch (e) { return false; }
+}
+function _clearRecipeFilter(which) {
+  var sel = document.getElementById('recipe-filter-' + which);
+  if (sel) sel.selectedIndex = 0;
+  if (which === 'search') { var s = document.getElementById('recipe-search'); if (s) s.value = ''; }
+  filterRecipes();
+}
+function _clearAllRecipeFilters() {
+  var s = document.getElementById('recipe-search'); if (s) s.value = '';
+  ['brand','status','type','tag'].forEach(function(k){
+    var el = document.getElementById('recipe-filter-' + k);
+    if (el) el.selectedIndex = 0;
+  });
+  filterRecipes();
+}
+function _renderRecipeFilterChips() {
+  var host = document.getElementById('recipe-filter-chips');
+  if (!host) return;
+  var s = document.getElementById('recipe-search');
+  var b = document.getElementById('recipe-filter-brand');
+  var st = document.getElementById('recipe-filter-status');
+  var tp = document.getElementById('recipe-filter-type');
+  var tg = document.getElementById('recipe-filter-tag');
+  var chips = [];
+  function _chip(label, value, onClear) {
+    chips.push('<span style="display:inline-flex;align-items:center;gap:6px;background:var(--g1);color:var(--navy);padding:3px 8px 3px 10px;border-radius:14px;border:1px solid var(--g2)">'
+      + '<span style="color:var(--g4);font-weight:500">' + label + ':</span> '
+      + '<strong>' + value + '</strong>'
+      + '<button onclick="' + onClear + '" style="background:transparent;border:0;cursor:pointer;color:var(--g3);font-size:14px;line-height:1;padding:0 2px" title="Remove">✕</button>'
+      + '</span>');
+  }
+  if (s && s.value) _chip('Search', s.value.replace(/</g,'&lt;'), "_clearRecipeFilter('search')");
+  if (b && b.value && b.value !== 'All Brands') _chip('Brand', b.value, "_clearRecipeFilter('brand')");
+  if (st && st.value && st.value !== 'All Statuses') _chip('Status', st.value, "_clearRecipeFilter('status')");
+  if (tp && tp.value && tp.value !== 'All Types') _chip('Type', tp.value, "_clearRecipeFilter('type')");
+  if (tg && tg.value && tg.value !== 'All Tags') _chip('Tag', tg.value, "_clearRecipeFilter('tag')");
+  if (chips.length) {
+    host.style.display = 'flex';
+    host.innerHTML = chips.join('') +
+      '<button onclick="_clearAllRecipeFilters()" style="background:transparent;border:0;color:var(--navy);text-decoration:underline;cursor:pointer;font-size:12px;margin-left:4px">Clear all</button>';
+  } else {
+    host.style.display = 'none';
+    host.innerHTML = '';
+  }
 }
 
 // ──────────── FILTER: INGREDIENTS ────────────
