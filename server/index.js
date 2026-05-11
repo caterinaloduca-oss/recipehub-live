@@ -2206,6 +2206,32 @@ app.post('/api/notify', requireAuth, (req, res) => {
         break;
       }
 
+      case 'flag-mention': {
+        // A user @-mentioned others in a flag note. req.body fields:
+        //   mentions: [email, …]     — addresses parsed out of the flag text
+        //   flagText:  string         — the full note
+        //   entity:   'recipe' | 'factory-sop' | 'branch-sop'
+        //   subject:  string          — what was flagged (recipe name / SOP id / …)
+        //   link:     URL fragment    — where to land the user in the app
+        //   askedBy:  display name
+        const mentions = Array.isArray(req.body.mentions) ? req.body.mentions : [];
+        if (!mentions.length) return res.json({ ok: true, sent: false, reason: 'No @mentions' });
+        recipients = mentions.filter(e => typeof e === 'string' && e.includes('@'));
+        const flagText = String(req.body.flagText || '');
+        const subjectThing = String(req.body.subject || '(no subject)');
+        const entityLabel = ({recipe:'Recipe', 'factory-sop':'Factory SOP', 'branch-sop':'Branch SOP'})[req.body.entity] || 'Item';
+        const link = String(req.body.link || 'https://recipehub.dailyfoodsa.com');
+        const askedBy = String(req.body.askedBy || userName);
+        const escape = (s) => String(s||'').replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+        subject = `🚩 ${askedBy} mentioned you on ${entityLabel}: ${subjectThing}`;
+        html = `<h2 style="color:#D4700A;margin:0 0 12px">🚩 You were mentioned in a flag</h2>
+          <p><strong>${escape(askedBy)}</strong> flagged <strong>${escape(entityLabel)}: ${escape(subjectThing)}</strong> and mentioned you.</p>
+          <div style="margin:12px 0;padding:14px 16px;background:#FFF6E5;border-left:4px solid #D4700A;border-radius:4px;font-size:14px;color:#1B2A4A;white-space:pre-wrap">${escape(flagText)}</div>
+          <p style="margin-top:16px"><a href="${escape(link)}" style="background:#D4700A;color:white;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:600">Open in RecipeHub</a></p>
+          <p style="font-size:11px;color:#888;margin-top:18px">You're getting this because <code>@${escape((mentions[0]||'').split('@')[0])}</code> appeared in the flag text. Reply directly to the sender to discuss.</p>`;
+        break;
+      }
+
       case 'sub-implemented': {
         recipients = getEmailsByRole(['purchasing', 'qa', 'factory']);
         const sub = req.body.sub || {};

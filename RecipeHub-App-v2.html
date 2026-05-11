@@ -6619,12 +6619,72 @@ function deleteFactorySopArchive(npd, idx) {
   viewRecipe(npd);
 }
 
+// Parse @email mentions out of a flag note and fire one /api/notify per save.
+// Matches `@anything@dailyfoodsa.com` (and any @<dom> the system uses); also
+// accepts bare `@firstname` if it maps unambiguously to one active user.
+// Returns the list of email addresses notified.
+function _parseFlagMentions(text) {
+  if (!text || typeof text !== 'string') return [];
+  var out = [];
+  var seen = {};
+  // Pattern 1: full email — @local@domain
+  var emailRe = /@([A-Za-z0-9._+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})/g;
+  var m;
+  while ((m = emailRe.exec(text))) {
+    var e = m[1].toLowerCase();
+    if (!seen[e]) { seen[e] = 1; out.push(e); }
+  }
+  // Pattern 2: bare handle — @firstname (no @-domain after). Match against
+  // active users by name's first token or by email's local part. Skip if it
+  // resolves to >1 active user (ambiguous).
+  if (typeof USERS_DATA !== 'undefined' && Array.isArray(USERS_DATA)) {
+    var handleRe = /@([A-Za-z][A-Za-z.\-_]*)\b/g;
+    while ((m = handleRe.exec(text))) {
+      // Skip if this match is actually part of an email (followed by @)
+      var afterIdx = m.index + m[0].length;
+      if (text[afterIdx] === '@') continue;
+      var h = m[1].toLowerCase();
+      var matches = USERS_DATA.filter(function(u){
+        if (!u || !u.active || !u.email) return false;
+        var first = (u.name || '').split(/\s+/)[0].toLowerCase();
+        var local = u.email.split('@')[0].toLowerCase();
+        return first === h || local === h;
+      });
+      if (matches.length === 1) {
+        var e2 = matches[0].email.toLowerCase();
+        if (!seen[e2]) { seen[e2] = 1; out.push(e2); }
+      }
+    }
+  }
+  return out;
+}
+
+function _notifyFlagMentions(entity, subjectThing, flagText, link) {
+  var mentions = _parseFlagMentions(flagText);
+  if (!mentions.length) return Promise.resolve({ sent: 0 });
+  return fetch(API_BASE + '/api/notify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + API_KEY },
+    body: JSON.stringify({
+      event: 'flag-mention',
+      mentions: mentions,
+      flagText: flagText,
+      entity: entity,
+      subject: subjectThing,
+      link: link || 'https://recipehub.dailyfoodsa.com',
+      askedBy: getCurrentUserName(),
+    }),
+  }).then(function(r){ return r.json(); }).then(function(res){
+    return { sent: mentions.length, ok: !!res.ok, mentions: mentions };
+  }).catch(function(){ return { sent: 0 }; });
+}
+
 async function openRecipeFlagModal(npd) {
   if (!_requireRole(['npd'], 'R&D')) return;
   var r = RECIPE_DB[npd];
   if (!r) return;
   var current = (r.flag && r.flag.question) || '';
-  var q = await customPromptAsync('Flag this recipe with a quick note (visible to everyone, no email sent):', current);
+  var q = await customPromptAsync('Flag this recipe with a quick note. Tag teammates with @email@dailyfoodsa.com (or just @firstname) — they get an email.', current);
   if (q === null) return;
   var trimmed = String(q || '').trim();
   if (!trimmed) return;
@@ -6636,7 +6696,13 @@ async function openRecipeFlagModal(npd) {
   r.updatedAt = new Date().toISOString();
   saveRecipeToServer(npd);
   viewRecipe(npd);
-  showSaveToast('Recipe flagged');
+  // Parse @mentions and notify each tagged person
+  _notifyFlagMentions('recipe', (r.name || npd) + ' (' + npd + ')', trimmed,
+    'https://recipehub.dailyfoodsa.com/#recipes')
+    .then(function(out){
+      if (out.sent) showSaveToast('Recipe flagged — emailed ' + out.sent + ' teammate' + (out.sent>1?'s':''));
+      else showSaveToast('Recipe flagged');
+    });
 }
 
 function clearRecipeFlag(npd) {
@@ -6662,7 +6728,7 @@ async function openSOPFlagModal(npd) {
   var r = RECIPE_DB[npd];
   if (!r) return;
   var current = (r.sopFlag && r.sopFlag.question) || '';
-  var q = await customPromptAsync('Flag this Factory SOP with a quick note (visible to everyone, no email sent):', current);
+  var q = await customPromptAsync('Flag this Factory SOP with a quick note. Tag teammates with @email@dailyfoodsa.com (or just @firstname) — they get an email.', current);
   if (q === null) return;
   var trimmed = String(q || '').trim();
   if (!trimmed) return;
@@ -6676,7 +6742,12 @@ async function openSOPFlagModal(npd) {
   // Re-open the SOP detail so the yellow strip + button state refresh.
   if (typeof exportToSOP === 'function') exportToSOP(npd);
   if (typeof buildFactorySOPTable === 'function') buildFactorySOPTable();
-  showSaveToast('SOP flagged');
+  _notifyFlagMentions('factory-sop', (r.name || npd) + ' SOP (' + npd + ')', trimmed,
+    'https://recipehub.dailyfoodsa.com/#factory-sop')
+    .then(function(out){
+      if (out.sent) showSaveToast('SOP flagged — emailed ' + out.sent + ' teammate' + (out.sent>1?'s':''));
+      else showSaveToast('SOP flagged');
+    });
 }
 
 function clearSOPFlag(npd) {
