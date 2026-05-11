@@ -6516,6 +6516,7 @@ function _saveToServer(data) {
   }).then(function(r) {
     if (!r.ok) throw new Error('Server returned ' + r.status);
     _savingToServer = false;
+    _markSelfPostedSavedAt(typeof result !== "undefined" ? result.savedAt : null);
     _localDirty = false;
     var syncEl = document.getElementById('sync-status');
     if (syncEl) { syncEl.textContent = 'Synced'; syncEl.style.color = 'var(--sage)'; }
@@ -6573,6 +6574,19 @@ function saveAllData() {
   _saveToServer(data);
 }
 
+// Tracks the most recent server savedAt that THIS tab caused via a per-entity
+// POST. syncFromServer compares against it before triggering a full rebuild —
+// if the server's savedAt is ≤ this highwater, the only changes were our own
+// (already in our local state), so we skip the redraw and avoid the page-flicker
+// Cate noticed when toggling between pages after a save.
+window._lastSelfPostedSavedAt = '';
+function _markSelfPostedSavedAt(serverSavedAt) {
+  if (!serverSavedAt) return;
+  if (serverSavedAt > window._lastSelfPostedSavedAt) {
+    window._lastSelfPostedSavedAt = serverSavedAt;
+  }
+}
+
 // ── Per-item saves (reduced conflict surface) ──
 function saveRecipeToServer(npd) {
   var r = RECIPE_DB[npd];
@@ -6599,6 +6613,8 @@ function saveRecipeToServer(npd) {
     return resp.json();
   }).then(function(result) {
     if (result.recipe) RECIPE_DB[npd] = result.recipe;
+    _markSelfPostedSavedAt(result.savedAt);
+    _markSelfPostedSavedAt(typeof result !== "undefined" ? result.savedAt : null);
     _localDirty = false;
     var syncEl = document.getElementById('sync-status');
     if (syncEl) { syncEl.textContent = 'Synced'; syncEl.style.color = 'var(--sage)'; }
@@ -6865,6 +6881,7 @@ function saveBuildToServer(id) {
     return resp.json();
   }).then(function(result) {
     if (result.build) { var idx = BUILDS_DATA.findIndex(function(x){return x.id===id}); if (idx>=0) BUILDS_DATA[idx] = result.build; }
+    _markSelfPostedSavedAt(typeof result !== "undefined" ? result.savedAt : null);
     _localDirty = false;
   }).catch(function(err) {
     console.warn('Per-build save failed, falling back:', err.message);
@@ -6885,6 +6902,7 @@ function saveBrandToServer(id) {
   }).then(function(r){ if (!r.ok) throw new Error('Server '+r.status); return r.json(); })
     .then(function(result){
       if (result.brand) { var idx = BRANDS.findIndex(function(x){return x&&x.id===id}); if (idx>=0) BRANDS[idx] = result.brand; }
+      _markSelfPostedSavedAt(typeof result !== "undefined" ? result.savedAt : null);
       _localDirty = false;
     })
     .catch(function(err){ console.warn('Per-brand save failed, falling back:', err && err.message); _saveToServer(_buildDataBlob()); });
@@ -6903,6 +6921,7 @@ function saveUserToServer(email) {
   }).then(function(r){ if (!r.ok) throw new Error('Server '+r.status); return r.json(); })
     .then(function(result){
       if (result.user) { var idx = USERS_DATA.findIndex(function(x){return x && String((x.email||'')).toLowerCase() === String(u.email).toLowerCase()}); if (idx>=0) USERS_DATA[idx] = result.user; }
+      _markSelfPostedSavedAt(typeof result !== "undefined" ? result.savedAt : null);
       _localDirty = false;
     })
     .catch(function(err){ console.warn('Per-user save failed, falling back:', err && err.message); _saveToServer(_buildDataBlob()); });
@@ -6940,6 +6959,7 @@ function saveSubRequestToServer(id) {
     return r.json();
   }).then(function(result){
     if (result.request) { var idx = SUB_REQUESTS.findIndex(function(s){return s&&s.id===id}); if (idx>=0) SUB_REQUESTS[idx] = result.request; }
+    _markSelfPostedSavedAt(typeof result !== "undefined" ? result.savedAt : null);
     _localDirty = false;
   }).catch(function(err){
     console.warn('Per-substitution save failed, falling back:', err && err.message);
@@ -6966,6 +6986,8 @@ function saveIngredientRowToServer(rowOrIdx, opts) {
     if (!resp.ok) throw new Error('Server '+resp.status);
     return resp.json();
   }).then(function(result){
+    _markSelfPostedSavedAt(result.savedAt);
+    _markSelfPostedSavedAt(typeof result !== "undefined" ? result.savedAt : null);
     _localDirty = false;
     return result;
   }).catch(function(err){
@@ -6993,6 +7015,7 @@ function saveProductionRunToServer(id) {
     return resp.json();
   }).then(function(result) {
     if (result.run) { var idx = PRODUCTION_RUNS.findIndex(function(r){return r && r.id===id}); if (idx>=0) PRODUCTION_RUNS[idx] = result.run; }
+    _markSelfPostedSavedAt(typeof result !== "undefined" ? result.savedAt : null);
     _localDirty = false;
   }).catch(function(err) {
     console.warn('Per-run save failed, falling back:', err.message);
@@ -7014,6 +7037,7 @@ function saveBranchSOPToServer(id) {
     return resp.json();
   }).then(function(result) {
     if (result.sop) { var idx = BRANCH_SOPS.findIndex(function(x){return x.id===id}); if (idx>=0) BRANCH_SOPS[idx] = result.sop; }
+    _markSelfPostedSavedAt(typeof result !== "undefined" ? result.savedAt : null);
     _localDirty = false;
   }).catch(function(err) {
     console.warn('Per-SOP save failed, falling back:', err.message);
@@ -7366,8 +7390,14 @@ function syncFromServer() {
       }
     }
 
+    // If the server's savedAt only advanced because of OUR own per-entity POSTs
+    // (tracked in window._lastSelfPostedSavedAt), skip the full hydrate — our
+    // local state already reflects everything we sent. Avoids the page-flicker
+    // from a full table rebuild after every save (Cate 2026-05-11).
+    var selfHighwater = window._lastSelfPostedSavedAt || '';
+    var onlyOwnChanges = selfHighwater && serverSavedAt <= selfHighwater;
     // If server is newer AND no local edits happened during fetch, hydrate
-    if (serverSavedAt > localSavedAt && !_localDirty && !_savingToServer) {
+    if (serverSavedAt > localSavedAt && !_localDirty && !_savingToServer && !onlyOwnChanges) {
       _hydrateFromData(serverData);
       _stripBlobUrls();
       // Save light version to localStorage (no images — they stay on server)
@@ -12543,6 +12573,7 @@ function saveAllDataNow() {
   }).then(function(r) {
     if (!r.ok) throw new Error('Server returned ' + r.status);
     _savingToServer = false;
+    _markSelfPostedSavedAt(typeof result !== "undefined" ? result.savedAt : null);
     _localDirty = false;
     showSaveToast('Photo saved');
   }).catch(function(err) {
