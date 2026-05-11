@@ -1738,12 +1738,18 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
   <div class="card" style="margin-bottom:20px">
     <div class="card-head">
       <span class="card-title">Production Schedule</span>
-      <div style="display:flex;gap:8px;align-items:center">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <div class="search-wrap" style="margin:0">
+          <span class="search-icon">⌕</span>
+          <input class="search-input" placeholder="Search recipe, brand, operator, batch…" id="prod-search" oninput="filterProductionRuns()" style="font-size:12px;padding:5px 10px 5px 28px;width:220px" />
+        </div>
         <select class="filter-select" id="prod-filter-brand" onchange="filterProductionRuns()"><option>All Brands</option></select>
-        <select class="filter-select" id="prod-filter-status" onchange="filterProductionRuns()"><option>All</option><option>Pending</option><option>Scheduled</option><option>Completed</option><option>On Hold</option></select>
+        <select class="filter-select" id="prod-filter-status" onchange="filterProductionRuns()"><option>All</option><option>Pending</option><option>Scheduled</option><option>Completed</option><option>On Hold</option><option>Needs RM</option></select>
+        <select class="filter-select" id="prod-filter-runtype" onchange="filterProductionRuns()" title="Run type"><option>All Runs</option><option>Production</option><option>Factory Trial</option><option>Production Trial</option></select>
         <button class="btn btn-outline btn-sm" id="prod-archive-toggle" onclick="toggleArchivedRuns()" style="white-space:nowrap">Show Archived</button>
       </div>
     </div>
+    <div id="prod-filter-chips" style="display:none;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 16px 0;font-size:12px"></div>
     <div class="card-body" style="padding:0;overflow-x:auto">
       <table class="data-table" style="min-width:1200px;table-layout:fixed">
         <colgroup><col style="width:70px"><col style="width:280px"><col style="width:60px"><col style="width:110px"><col style="width:110px"><col style="width:90px"><col style="width:110px"><col style="width:140px"><col style="width:210px"></colgroup>
@@ -2917,6 +2923,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
           </div>
           <select class="filter-select" id="user-filter-role" onchange="filterUsers()"><option>All Roles</option><option>Admin</option><option>NPD</option><option>QA</option><option>OPS</option><option>Factory</option><option>Purchasing</option><option>Viewer</option><option>IT</option></select>
         </div>
+        <div id="user-filter-chips" style="display:none;flex-wrap:wrap;gap:6px;align-items:center;margin:-6px 0 12px 0;font-size:12px"></div>
       </div>
       <div class="card-body" style="padding:0">
         <table class="data-table">
@@ -3292,7 +3299,12 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
       <option>Compliance</option>
       <option>Other</option>
     </select>
+    <select class="filter-select" id="lib-filter-type" onchange="filterLibrary()">
+      <option>All Types</option>
+      <option>PDF</option><option>XLSX</option><option>XLS</option><option>CSV</option><option>DOC</option><option>DOCX</option><option>PNG</option><option>JPG</option>
+    </select>
   </div>
+  <div id="lib-filter-chips" style="display:none;flex-wrap:wrap;gap:6px;align-items:center;margin:-6px 0 12px 0;font-size:12px"></div>
 
   <div class="card">
     <div class="card-head">
@@ -8110,6 +8122,12 @@ function auditRefresh() {
   var user = document.getElementById('audit-user').value.trim();
   var action = document.getElementById('audit-action').value;
   var prefix = _auditTab === 'user' ? 'user.' : null;
+  // Persist filter selections so they survive navigation away/back.
+  try {
+    localStorage.setItem('rh_audit_filters_v1', JSON.stringify({
+      from: from, to: to, user: user, action: action, tab: _auditTab
+    }));
+  } catch (e) {}
   var qs = new URLSearchParams();
   if (from)   qs.set('from', from + 'T00:00:00');
   if (to)     qs.set('to',   to   + 'T23:59:59');
@@ -8396,9 +8414,22 @@ function nav(id) {
     else if (id === 'library') { renderLibrary(); }
     else if (id === 'training') { _renderTrainingGrid(); }
     else if (id === 'audit-log') {
-      // Default to last 30 days when first opened
+      // Restore persisted filter selections, otherwise default to last 30 days.
       var fromEl = document.getElementById('audit-from');
       var toEl   = document.getElementById('audit-to');
+      var userEl = document.getElementById('audit-user');
+      var actEl  = document.getElementById('audit-action');
+      try {
+        var raw = localStorage.getItem('rh_audit_filters_v1');
+        if (raw) {
+          var v = JSON.parse(raw);
+          if (fromEl && v.from) fromEl.value = v.from;
+          if (toEl && v.to)     toEl.value   = v.to;
+          if (userEl && v.user) userEl.value = v.user;
+          if (actEl && v.action) actEl.value = v.action;
+          if (v.tab) _auditTab = v.tab;
+        }
+      } catch (e) {}
       if (fromEl && !fromEl.value) {
         var d30 = new Date(); d30.setDate(d30.getDate() - 30);
         fromEl.value = d30.toISOString().slice(0,10);
@@ -13693,13 +13724,45 @@ function renderQasLanding() {
     });
   }
 
-  var search = (document.getElementById('qas-search').value || '').toLowerCase();
+  // Restore persisted filter selections on first render (when fields are at defaults).
+  try {
+    if (!body.dataset.filtersRestored) {
+      var savedRaw = localStorage.getItem('rh_qas_filters_v1');
+      if (savedRaw) {
+        var saved = JSON.parse(savedRaw);
+        var sEl = document.getElementById('qas-search');
+        var stEl = document.getElementById('qas-status-filter');
+        var bEl = document.getElementById('qas-brand-filter');
+        if (sEl && saved.q) sEl.value = saved.q;
+        if (stEl && saved.status) stEl.value = saved.status;
+        if (bEl && saved.brand) {
+          for (var i = 0; i < bEl.options.length; i++) {
+            if (bEl.options[i].value === saved.brand) { bEl.value = saved.brand; break; }
+          }
+        }
+      }
+      body.dataset.filtersRestored = '1';
+    }
+  } catch (e) {}
+
+  var search = (document.getElementById('qas-search').value || '').trim().toLowerCase();
+  var tokens = search ? search.split(/\s+/).filter(Boolean) : [];
   var statusF = document.getElementById('qas-status-filter').value;
   var brandF  = document.getElementById('qas-brand-filter').value;
 
+  // Persist current selections.
+  try {
+    localStorage.setItem('rh_qas_filters_v1', JSON.stringify({
+      q: search, status: statusF, brand: brandF
+    }));
+  } catch (e) {}
+
   var rows = Object.values(RECIPE_DB).filter(function(r){
     if (r.archived) return false;
-    if (search && !((r.name||'').toLowerCase().includes(search) || (r.npd||'').toLowerCase().includes(search))) return false;
+    if (tokens.length) {
+      var hay = ((r.name||'') + ' ' + (r.npd||'') + ' ' + (r.recipeId||'') + ' ' + (r.brand||'')).toLowerCase();
+      if (!tokens.every(function(t){ return hay.indexOf(t) !== -1; })) return false;
+    }
     if (brandF && r.brand !== brandF) return false;
     var s = qasGetEffectiveStatus(r);
     if (statusF && s !== statusF) return false;
@@ -15105,16 +15168,87 @@ function _renderIngFilterChips() {
 }
 
 // ──────────── FILTER: USERS ────────────
+// Role-filter label → underlying user.role key.
+var _USER_ROLE_LABEL_TO_KEY = {
+  'Admin':'admin','NPD':'npd','QA':'qa','OPS':'ops','Factory':'factory',
+  'Purchasing':'purchasing','Viewer':'viewer','IT':'it'
+};
 function filterUsers() {
-  const q = (document.getElementById('user-search').value || '').toLowerCase();
+  const q = (document.getElementById('user-search').value || '').trim().toLowerCase();
+  const tokens = q ? q.split(/\s+/).filter(Boolean) : [];
   const role = document.getElementById('user-filter-role').value;
+  const wantRole = _USER_ROLE_LABEL_TO_KEY[role] || '';
   const rows = document.getElementById('users-tbody').querySelectorAll('tr');
   rows.forEach(row => {
-    const text = row.textContent.toLowerCase();
-    const matchQ = !q || text.includes(q);
-    const matchRole = role === 'All Roles' || text.includes(role.toLowerCase());
+    const hay = row.dataset.search || row.textContent.toLowerCase();
+    const matchQ = !tokens.length || tokens.every(function(t){ return hay.indexOf(t) !== -1; });
+    const matchRole = !wantRole || row.dataset.role === wantRole;
     row.style.display = (matchQ && matchRole) ? '' : 'none';
   });
+  if (typeof _renderUserFilterChips === 'function') _renderUserFilterChips();
+  if (typeof _saveUserFilters === 'function') _saveUserFilters();
+}
+
+// ──── Users filter persistence + chip row + clear-all ────
+var _USER_FILTERS_KEY = 'rh_users_filters_v1';
+function _saveUserFilters() {
+  try {
+    var s = document.getElementById('user-search');
+    var r = document.getElementById('user-filter-role');
+    localStorage.setItem(_USER_FILTERS_KEY, JSON.stringify({
+      q:    s ? s.value : '',
+      role: r ? r.value : 'All Roles'
+    }));
+  } catch (e) {}
+}
+function _loadUserFilters() {
+  try {
+    var raw = localStorage.getItem(_USER_FILTERS_KEY);
+    if (!raw) return false;
+    var v = JSON.parse(raw);
+    var s = document.getElementById('user-search'); if (s) s.value = v.q || '';
+    var r = document.getElementById('user-filter-role');
+    if (r && v.role) {
+      for (var i = 0; i < r.options.length; i++) {
+        if (r.options[i].value === v.role || r.options[i].textContent === v.role) { r.value = r.options[i].value; break; }
+      }
+    }
+    return true;
+  } catch (e) { return false; }
+}
+function _clearUserFilter(which) {
+  if (which === 'search') { var s = document.getElementById('user-search'); if (s) s.value = ''; }
+  else if (which === 'role') { var r = document.getElementById('user-filter-role'); if (r) r.selectedIndex = 0; }
+  filterUsers();
+}
+function _clearAllUserFilters() {
+  var s = document.getElementById('user-search'); if (s) s.value = '';
+  var r = document.getElementById('user-filter-role'); if (r) r.selectedIndex = 0;
+  filterUsers();
+}
+function _renderUserFilterChips() {
+  var host = document.getElementById('user-filter-chips');
+  if (!host) return;
+  var chips = [];
+  function _chip(label, value, onClear) {
+    chips.push('<span style="display:inline-flex;align-items:center;gap:6px;background:var(--g1);color:var(--navy);padding:3px 8px 3px 10px;border-radius:14px;border:1px solid var(--g2)">'
+      + '<span style="color:var(--g4);font-weight:500">' + label + ':</span> '
+      + '<strong>' + value + '</strong>'
+      + '<button onclick="' + onClear + '" style="background:transparent;border:0;cursor:pointer;color:var(--g3);font-size:14px;line-height:1;padding:0 2px" title="Remove">✕</button>'
+      + '</span>');
+  }
+  var s = document.getElementById('user-search');
+  var r = document.getElementById('user-filter-role');
+  if (s && s.value) _chip('Search', s.value.replace(/</g,'&lt;'), "_clearUserFilter('search')");
+  if (r && r.value && r.value !== 'All Roles') _chip('Role', r.value, "_clearUserFilter('role')");
+  if (chips.length) {
+    host.style.display = 'flex';
+    host.innerHTML = chips.join('') +
+      '<button onclick="_clearAllUserFilters()" style="background:transparent;border:0;color:var(--navy);text-decoration:underline;cursor:pointer;font-size:12px;margin-left:4px">Clear all</button>';
+  } else {
+    host.style.display = 'none';
+    host.innerHTML = '';
+  }
 }
 
 // ──────────── MODAL SYSTEM ────────────
@@ -18042,6 +18176,9 @@ function buildUsersTable() {
     const rm = ROLE_META[u.role] || {label:'Unassigned', bg:'var(--g1)', color:'var(--g4)', border:'var(--g2)'};
     const isMe = u.role === 'admin';
     const tr = document.createElement('tr');
+    tr.dataset.role = String(u.role || '').toLowerCase();
+    tr.dataset.search = [u.name, u.email, u.phone, u.dept, u.title, u.role, u.brands, (rm.label || '')]
+      .filter(Boolean).join(' ').toLowerCase();
     tr.innerHTML = `
       <td>
         <div style="display:flex;align-items:center;gap:10px">
@@ -18074,6 +18211,8 @@ function buildUsersTable() {
     `;
     tbody.appendChild(tr);
   });
+  if (typeof _loadUserFilters === 'function') _loadUserFilters();
+  if (typeof filterUsers === 'function') filterUsers();
 }
 
 function buildPendingTable() {
@@ -21532,6 +21671,14 @@ function buildProductionTable() {
     var isArchived = run.archived;
     var tr = document.createElement('tr');
     if (isArchived) tr.style.opacity = '0.5';
+    tr.dataset.brand = String(run.brand || '').toLowerCase();
+    tr.dataset.status = isArchived ? 'archived' : (run.status || '');
+    tr.dataset.runtype = String(run.runType || 'Production').toLowerCase();
+    tr.dataset.search = [
+      run.recipe || '', run.brand || '', run.operator || '',
+      run.batchSize || '', run.id || '', run.runType || '',
+      (run.notes || '')
+    ].join(' ').toLowerCase();
     var _role = getCurrentUserRole();
     var _canEdit = (_role === 'factory' || _role === 'ops' || _role === 'admin');
     var actions = '';
@@ -21631,6 +21778,9 @@ function buildProductionTable() {
   var archBtn = document.getElementById('prod-archive-toggle');
   if (archBtn && archivedRuns.length) archBtn.textContent = (_showArchived ? 'Hide Archived' : 'Show Archived') + ' (' + archivedRuns.length + ')';
   else if (archBtn) archBtn.textContent = _showArchived ? 'Hide Archived' : 'Show Archived';
+  // Restore persisted filter selections + reapply.
+  if (typeof _loadProdFilters === 'function') _loadProdFilters();
+  if (typeof filterProductionRuns === 'function') filterProductionRuns();
 }
 
 // ──────────── Block / Unblock production trial runs (missing raw materials) ────────────
@@ -21921,15 +22071,110 @@ function _finalizePartial(run, arrivedItems, stillMissing, note) {
   // No email on partial — too noisy. Activity / audit log carries the trace.
 }
 
+// Status-label → underlying run.status key.
+var _PROD_STATUS_LABEL_TO_KEY = {
+  'Pending':'pending', 'Scheduled':'scheduled', 'Completed':'completed',
+  'On Hold':'on-hold', 'Needs RM':'blocked-materials'
+};
 function filterProductionRuns() {
+  var searchEl = document.getElementById('prod-search');
+  var q = (searchEl ? searchEl.value : '').trim().toLowerCase();
+  var tokens = q ? q.split(/\s+/).filter(Boolean) : [];
   var status = document.getElementById('prod-filter-status').value;
   var brand = document.getElementById('prod-filter-brand').value;
+  var rtEl = document.getElementById('prod-filter-runtype');
+  var runtype = rtEl ? rtEl.value : 'All Runs';
+  var wantStatus = _PROD_STATUS_LABEL_TO_KEY[status] || '';
+  var wantBrand = (brand && brand !== 'All Brands') ? brand.toLowerCase() : '';
+  var wantRuntype = (runtype && runtype !== 'All Runs') ? runtype.toLowerCase() : '';
   document.getElementById('prod-tbody').querySelectorAll('tr').forEach(function(row) {
-    var text = row.textContent.toLowerCase();
-    var showStatus = status === 'All' || text.includes(status.toLowerCase());
-    var showBrand = brand === 'All Brands' || text.includes(brand.toLowerCase());
-    row.style.display = (showStatus && showBrand) ? '' : 'none';
+    var hay = row.dataset.search || row.textContent.toLowerCase();
+    var matchQ = !tokens.length || tokens.every(function(t){ return hay.indexOf(t) !== -1; });
+    var matchStatus = !wantStatus || row.dataset.status === wantStatus;
+    var matchBrand = !wantBrand || row.dataset.brand === wantBrand;
+    var matchRT = !wantRuntype || row.dataset.runtype === wantRuntype;
+    row.style.display = (matchQ && matchStatus && matchBrand && matchRT) ? '' : 'none';
   });
+  if (typeof _renderProdFilterChips === 'function') _renderProdFilterChips();
+  if (typeof _saveProdFilters === 'function') _saveProdFilters();
+}
+
+// ──── Production Runs filter persistence + chip row + clear-all ────
+var _PROD_FILTERS_KEY = 'rh_prod_filters_v1';
+function _saveProdFilters() {
+  try {
+    var s = document.getElementById('prod-search');
+    var b = document.getElementById('prod-filter-brand');
+    var st = document.getElementById('prod-filter-status');
+    var rt = document.getElementById('prod-filter-runtype');
+    localStorage.setItem(_PROD_FILTERS_KEY, JSON.stringify({
+      q:       s  ? s.value  : '',
+      brand:   b  ? b.value  : 'All Brands',
+      status:  st ? st.value : 'All',
+      runtype: rt ? rt.value : 'All Runs',
+      showArchived: !!_showArchived
+    }));
+  } catch (e) {}
+}
+function _loadProdFilters() {
+  try {
+    var raw = localStorage.getItem(_PROD_FILTERS_KEY);
+    if (!raw) return false;
+    var v = JSON.parse(raw);
+    function _setIfOption(sel, val) {
+      if (!sel || !val) return;
+      for (var i = 0; i < sel.options.length; i++) {
+        if (sel.options[i].value === val || sel.options[i].textContent === val) { sel.value = sel.options[i].value; return; }
+      }
+    }
+    var s = document.getElementById('prod-search'); if (s) s.value = v.q || '';
+    _setIfOption(document.getElementById('prod-filter-brand'),   v.brand);
+    _setIfOption(document.getElementById('prod-filter-status'),  v.status);
+    _setIfOption(document.getElementById('prod-filter-runtype'), v.runtype);
+    if (v.showArchived && !_showArchived) _showArchived = true;
+    return true;
+  } catch (e) { return false; }
+}
+function _clearProdFilter(which) {
+  if (which === 'search') { var s = document.getElementById('prod-search'); if (s) s.value = ''; }
+  else { var sel = document.getElementById('prod-filter-' + which); if (sel) sel.selectedIndex = 0; }
+  filterProductionRuns();
+}
+function _clearAllProdFilters() {
+  var s = document.getElementById('prod-search'); if (s) s.value = '';
+  ['brand','status','runtype'].forEach(function(k){
+    var el = document.getElementById('prod-filter-' + k);
+    if (el) el.selectedIndex = 0;
+  });
+  filterProductionRuns();
+}
+function _renderProdFilterChips() {
+  var host = document.getElementById('prod-filter-chips');
+  if (!host) return;
+  var chips = [];
+  function _chip(label, value, onClear) {
+    chips.push('<span style="display:inline-flex;align-items:center;gap:6px;background:var(--g1);color:var(--navy);padding:3px 8px 3px 10px;border-radius:14px;border:1px solid var(--g2)">'
+      + '<span style="color:var(--g4);font-weight:500">' + label + ':</span> '
+      + '<strong>' + value + '</strong>'
+      + '<button onclick="' + onClear + '" style="background:transparent;border:0;cursor:pointer;color:var(--g3);font-size:14px;line-height:1;padding:0 2px" title="Remove">✕</button>'
+      + '</span>');
+  }
+  var s = document.getElementById('prod-search');
+  var b = document.getElementById('prod-filter-brand');
+  var st = document.getElementById('prod-filter-status');
+  var rt = document.getElementById('prod-filter-runtype');
+  if (s && s.value) _chip('Search', s.value.replace(/</g,'&lt;'), "_clearProdFilter('search')");
+  if (b && b.value && b.value !== 'All Brands') _chip('Brand', b.value, "_clearProdFilter('brand')");
+  if (st && st.value && st.value !== 'All') _chip('Status', st.value, "_clearProdFilter('status')");
+  if (rt && rt.value && rt.value !== 'All Runs') _chip('Run type', rt.value, "_clearProdFilter('runtype')");
+  if (chips.length) {
+    host.style.display = 'flex';
+    host.innerHTML = chips.join('') +
+      '<button onclick="_clearAllProdFilters()" style="background:transparent;border:0;color:var(--navy);text-decoration:underline;cursor:pointer;font-size:12px;margin-left:4px">Clear all</button>';
+  } else {
+    host.style.display = 'none';
+    host.innerHTML = '';
+  }
 }
 
 function openProductionRun() {
@@ -25382,6 +25627,10 @@ function renderLibrary() {
     var sizeStr = doc.fileSize > 1048576 ? (doc.fileSize / 1048576).toFixed(1) + ' MB' : Math.round(doc.fileSize / 1024) + ' KB';
     var typeIcon = doc.fileType === 'PDF' ? '📄' : doc.fileType === 'XLSX' || doc.fileType === 'XLS' ? '📊' : doc.fileType === 'CSV' ? '📋' : '📎';
     var tr = document.createElement('tr');
+    tr.dataset.cat = String(doc.category || '').toLowerCase();
+    tr.dataset.type = String(doc.fileType || '').toLowerCase();
+    tr.dataset.search = [doc.title, doc.notes, doc.category, doc.fileType, doc.uploadedBy]
+      .filter(Boolean).join(' ').toLowerCase();
     tr.innerHTML =
       '<td><strong>' + typeIcon + ' ' + doc.title + '</strong>' + (doc.notes ? '<div style="font-size:11px;color:var(--g3);margin-top:2px">' + doc.notes + '</div>' : '') + '</td>' +
       '<td><span class="badge badge-navy" style="font-size:10px">' + doc.category + '</span></td>' +
@@ -25395,6 +25644,8 @@ function renderLibrary() {
       '</td>';
     tbody.appendChild(tr);
   });
+  if (typeof _loadLibFilters === 'function') _loadLibFilters();
+  if (typeof filterLibrary === 'function') filterLibrary();
 }
 
 function deleteLibDoc(idx) {
@@ -25408,13 +25659,94 @@ function deleteLibDoc(idx) {
 }
 
 function filterLibrary() {
-  var q = (document.getElementById('lib-search').value || '').toLowerCase();
+  var q = (document.getElementById('lib-search').value || '').trim().toLowerCase();
+  var tokens = q ? q.split(/\s+/).filter(Boolean) : [];
   var cat = document.getElementById('lib-filter-cat').value;
+  var tpEl = document.getElementById('lib-filter-type');
+  var tp = tpEl ? tpEl.value : 'All Types';
+  var wantCat  = (cat && cat !== 'All Categories') ? cat.toLowerCase() : '';
+  var wantType = (tp  && tp  !== 'All Types')     ? tp.toLowerCase()  : '';
   var rows = document.getElementById('lib-tbody').querySelectorAll('tr');
   rows.forEach(function(row) {
-    var text = row.textContent.toLowerCase();
-    row.style.display = (!q || text.includes(q)) && (cat === 'All Categories' || text.includes(cat.toLowerCase())) ? '' : 'none';
+    var hay = row.dataset.search || row.textContent.toLowerCase();
+    var matchQ = !tokens.length || tokens.every(function(t){ return hay.indexOf(t) !== -1; });
+    var matchCat = !wantCat  || row.dataset.cat  === wantCat;
+    var matchTp  = !wantType || row.dataset.type === wantType;
+    row.style.display = (matchQ && matchCat && matchTp) ? '' : 'none';
   });
+  if (typeof _renderLibFilterChips === 'function') _renderLibFilterChips();
+  if (typeof _saveLibFilters === 'function') _saveLibFilters();
+}
+
+// ──── Library filter persistence + chip row + clear-all ────
+var _LIB_FILTERS_KEY = 'rh_lib_filters_v1';
+function _saveLibFilters() {
+  try {
+    var s = document.getElementById('lib-search');
+    var c = document.getElementById('lib-filter-cat');
+    var t = document.getElementById('lib-filter-type');
+    localStorage.setItem(_LIB_FILTERS_KEY, JSON.stringify({
+      q:    s ? s.value : '',
+      cat:  c ? c.value : 'All Categories',
+      type: t ? t.value : 'All Types'
+    }));
+  } catch (e) {}
+}
+function _loadLibFilters() {
+  try {
+    var raw = localStorage.getItem(_LIB_FILTERS_KEY);
+    if (!raw) return false;
+    var v = JSON.parse(raw);
+    function _setIfOption(sel, val) {
+      if (!sel || !val) return;
+      for (var i = 0; i < sel.options.length; i++) {
+        if (sel.options[i].value === val || sel.options[i].textContent === val) { sel.value = sel.options[i].value; return; }
+      }
+    }
+    var s = document.getElementById('lib-search'); if (s) s.value = v.q || '';
+    _setIfOption(document.getElementById('lib-filter-cat'),  v.cat);
+    _setIfOption(document.getElementById('lib-filter-type'), v.type);
+    return true;
+  } catch (e) { return false; }
+}
+function _clearLibFilter(which) {
+  if (which === 'search') { var s = document.getElementById('lib-search'); if (s) s.value = ''; }
+  else { var sel = document.getElementById('lib-filter-' + which); if (sel) sel.selectedIndex = 0; }
+  filterLibrary();
+}
+function _clearAllLibFilters() {
+  var s = document.getElementById('lib-search'); if (s) s.value = '';
+  ['cat','type'].forEach(function(k){
+    var el = document.getElementById('lib-filter-' + k);
+    if (el) el.selectedIndex = 0;
+  });
+  filterLibrary();
+}
+function _renderLibFilterChips() {
+  var host = document.getElementById('lib-filter-chips');
+  if (!host) return;
+  var chips = [];
+  function _chip(label, value, onClear) {
+    chips.push('<span style="display:inline-flex;align-items:center;gap:6px;background:var(--g1);color:var(--navy);padding:3px 8px 3px 10px;border-radius:14px;border:1px solid var(--g2)">'
+      + '<span style="color:var(--g4);font-weight:500">' + label + ':</span> '
+      + '<strong>' + value + '</strong>'
+      + '<button onclick="' + onClear + '" style="background:transparent;border:0;cursor:pointer;color:var(--g3);font-size:14px;line-height:1;padding:0 2px" title="Remove">✕</button>'
+      + '</span>');
+  }
+  var s = document.getElementById('lib-search');
+  var c = document.getElementById('lib-filter-cat');
+  var t = document.getElementById('lib-filter-type');
+  if (s && s.value) _chip('Search', s.value.replace(/</g,'&lt;'), "_clearLibFilter('search')");
+  if (c && c.value && c.value !== 'All Categories') _chip('Category', c.value, "_clearLibFilter('cat')");
+  if (t && t.value && t.value !== 'All Types') _chip('Type', t.value, "_clearLibFilter('type')");
+  if (chips.length) {
+    host.style.display = 'flex';
+    host.innerHTML = chips.join('') +
+      '<button onclick="_clearAllLibFilters()" style="background:transparent;border:0;color:var(--navy);text-decoration:underline;cursor:pointer;font-size:12px;margin-left:4px">Clear all</button>';
+  } else {
+    host.style.display = 'none';
+    host.innerHTML = '';
+  }
 }
 
 // ──────────── BUILD IMPORT / EXPORT ────────────
@@ -26203,7 +26535,18 @@ function saveSubRequest() {
 function buildSubRequestList() {
   var box = document.getElementById('sub-request-list');
   if (!box) return;
-  var filterStatus = (document.getElementById('sub-filter-status') || {}).value || '';
+  var statusEl = document.getElementById('sub-filter-status');
+  // Restore persisted status filter on first build (when select is at default).
+  try {
+    if (statusEl && !statusEl.dataset.restored) {
+      var raw = localStorage.getItem('rh_sub_filter_v1');
+      if (raw) statusEl.value = raw;
+      statusEl.dataset.restored = '1';
+    }
+  } catch (e) {}
+  var filterStatus = (statusEl || {}).value || '';
+  // Persist current selection.
+  try { if (statusEl) localStorage.setItem('rh_sub_filter_v1', statusEl.value || ''); } catch (e) {}
   var rows = SUB_REQUESTS.slice();
   if (filterStatus) rows = rows.filter(function(r){ return r.status === filterStatus; });
 
