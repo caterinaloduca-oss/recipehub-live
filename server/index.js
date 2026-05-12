@@ -371,6 +371,40 @@ app.post('/api/data', requireAuth, (req, res) => {
       // 13 → 12 doesn't trigger the 50% drop guard). Now any server user that
       // isn't in the posted list AND isn't in deletedUserEmails is re-added.
       // Diagnosed 2026-05-03 after Alvin Vega kept disappearing.
+      //
+      // Per-user last-writer-wins (added 2026-05-12): before the absent-user
+      // re-add pass, walk the incoming users and reject any whose updatedAt is
+      // OLDER than the server's existing record for that email. Without this,
+      // a stale tab can demote a recently-edited user (access flips, role
+      // changes) just by including their old record in its /api/data POST.
+      // Hit by the QA team Branch-SOP access reverting to OFF on 2026-05-12.
+      {
+        const oldByEmail = new Map();
+        (Array.isArray(old.users) ? old.users : []).forEach(u => {
+          const em = String((u && u.email) || '').toLowerCase();
+          if (em) oldByEmail.set(em, u);
+        });
+        let prevented = 0;
+        if (Array.isArray(body.users)) {
+          body.users = body.users.map(u => {
+            const em = String((u && u.email) || '').toLowerCase();
+            if (!em) return u;
+            const o = oldByEmail.get(em);
+            if (!o) return u;
+            const oldTs = String(o.updatedAt || '');
+            const newTs = String(u.updatedAt || '');
+            // Server's record is strictly newer — keep it, drop the stale
+            // incoming. Equal timestamps + missing timestamps fall through to
+            // the incoming version (no regression on legit fresh writes).
+            if (oldTs && oldTs > newTs) {
+              prevented++;
+              return o;
+            }
+            return u;
+          });
+        }
+        if (prevented) console.warn('[mergeUsers] kept ' + prevented + ' server record(s) whose updatedAt was newer than the incoming post');
+      }
       {
         const oldUsers = Array.isArray(old.users) ? old.users : [];
         const newUsers = Array.isArray(body.users) ? body.users.slice() : oldUsers.slice();
