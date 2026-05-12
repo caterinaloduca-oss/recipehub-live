@@ -7610,7 +7610,13 @@ function _checkAppVersion() {
         _showStaleBanner(serverVer);
         return;
       }
-      if (serverVer > window._appLoadedVersion) {
+      // Tolerate small skew between the timestamp the hook stamped into the
+      // HTML's meta tag and the file's actual mtime on the server (the SCP
+      // upload itself adds a few seconds). Only fire the banner if the
+      // server is meaningfully newer — 2 minutes is well outside upload
+      // skew but well inside a typical deploy cadence.
+      var SKEW_MS = 2 * 60 * 1000;
+      if (serverVer - window._appLoadedVersion > SKEW_MS) {
         _showStaleBanner(serverVer);
       }
     })
