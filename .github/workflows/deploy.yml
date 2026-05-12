@@ -19,5 +19,8 @@ jobs:
           echo "$SSH_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H $HOST >> ~/.ssh/known_hosts 2>/dev/null
-          scp RecipeHub-App-v2.html root@$HOST:/var/www/recipehub/RecipeHub-App-v2.html
+          TS=$(date +%s)000   # ms since epoch — stamped into <meta name="rh-build">
+          sed "s/__RH_BUILD__/$TS/" RecipeHub-App-v2.html > /tmp/rh-deploy.html
+          scp /tmp/rh-deploy.html root@$HOST:/var/www/recipehub/RecipeHub-App-v2.html
           ssh root@$HOST "cp /var/www/recipehub/RecipeHub-App-v2.html /var/www/recipehub/index.html"
+          echo "Deployed build $TS"

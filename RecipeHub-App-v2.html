@@ -8,6 +8,9 @@
 <meta http-equiv="Expires" content="0">
 <title>Recipe Hub</title>
 <meta name="app-version" content="20260416-1200">
+<!-- Build version — replaced at deploy time by the post-commit hook with $(date +%s%3N).
+     Used by the stale-version banner to compare what THIS HTML is vs what the server is now serving. -->
+<meta name="rh-build" content="__RH_BUILD__">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -7548,11 +7551,28 @@ function reloadAppHard() {
 
 // ─── Stale-version detector ───────────────────────────────────────────────
 // Tabs left open across a deploy used to silently run old code (Cristina's
-// "wrong version" issue 2026-05-10). We now poll /api/version every minute;
+// "wrong version" issue 2026-05-10). We poll /api/version every minute;
 // if the server's deployed HTML mtime is newer than the one this tab loaded,
 // a reload banner appears. User can dismiss for a single session, but it
 // re-shows after another deploy.
-window._appLoadedVersion = null;       // captured on first /api/version call
+//
+// THIS HTML's version is stamped into the <meta name="rh-build"> tag at
+// deploy time. Reading from the meta tag (not from /api/version's first
+// response) is critical — otherwise the first poll captures whatever the
+// server is serving RIGHT NOW (which may already be newer than what this
+// tab loaded), anchors us at that, and the banner never fires. Bug found
+// 2026-05-12 after Cate kept seeing stale UI even though the version
+// check claimed everything was fine.
+(function() {
+  var meta = document.querySelector('meta[name="rh-build"]');
+  var raw = meta ? meta.getAttribute('content') : '';
+  // Placeholder __RH_BUILD__ means deploy hook didn't run (dev / local).
+  if (raw && raw !== '__RH_BUILD__' && /^\d+$/.test(raw)) {
+    window._appLoadedVersion = Number(raw);
+  } else {
+    window._appLoadedVersion = null;
+  }
+})();
 var _stalePollTimer = null;
 var _staleBannerShown = false;
 var _staleDismissedFor = null;          // version we dismissed; banner skips for that one
@@ -7584,8 +7604,10 @@ function _checkAppVersion() {
     .then(function(j){
       var serverVer = j && j.htmlVersion;
       if (!serverVer) return;
+      // No baked-in version means this HTML pre-dates the deploy-stamp change
+      // — that ITSELF is staleness, force-show the banner.
       if (window._appLoadedVersion == null) {
-        window._appLoadedVersion = serverVer;   // first call — this IS our version
+        _showStaleBanner(serverVer);
         return;
       }
       if (serverVer > window._appLoadedVersion) {

@@ -204,10 +204,25 @@ const HTML_PATHS = [
 app.get('/api/version', (req, res) => {
   try {
     let latest = 0;
+    // Primary source: the <meta name="rh-build" content="MS_TIMESTAMP"> tag
+    // stamped into the HTML at deploy time. Reading the meta (not the file
+    // mtime) is what lets a tab compare "the version *I* loaded" vs "the
+    // version on disk now" correctly — see the matching JS in the client.
     for (const p of HTML_PATHS) {
       try {
-        const st = fs.statSync(p);
-        if (st.mtimeMs > latest) latest = st.mtimeMs;
+        const buf = fs.readFileSync(p, { encoding: 'utf8' });
+        // Only scan the first 2KB — the meta tag is in <head>.
+        const head = buf.slice(0, 2000);
+        const m = head.match(/<meta\s+name=["']rh-build["']\s+content=["'](\d+)["']/);
+        if (m) {
+          const v = Number(m[1]);
+          if (v > latest) latest = v;
+        } else {
+          // No meta yet (file from before the change) — fall back to mtime
+          // so old clients with the previous detector still get *something*.
+          const st = fs.statSync(p);
+          if (st.mtimeMs > latest) latest = st.mtimeMs;
+        }
       } catch (e) { /* file may not exist on dev — ignore */ }
     }
     // Falls back to process start time if we can't read either file
