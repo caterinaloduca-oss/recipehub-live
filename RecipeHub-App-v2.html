@@ -890,9 +890,10 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
   <div class="sidebar-footer">
     <div class="user-pill" style="margin-bottom:8px;cursor:pointer" onclick="openProfileModal()">
       <div class="user-avatar" id="sidebar-avatar">CL</div>
-      <div>
+      <div style="flex:1;min-width:0">
         <div class="user-name" id="sidebar-name">Caterina Loduca</div>
         <div class="user-role" id="sidebar-role">Admin — Full Access</div>
+        <div id="sidebar-diag" style="font-size:9px;color:rgba(255,255,255,0.4);margin-top:2px;font-family:var(--font-m);letter-spacing:0.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
       </div>
     </div>
     <div style="margin-bottom:6px">
@@ -6110,6 +6111,37 @@ function setAuthUser(user) {
   el = document.getElementById('sidebar-name'); if (el) el.textContent = user.name;
   el = document.getElementById('sidebar-role'); if (el) el.textContent = user.role || 'Team Member';
   el = document.getElementById('sidebar-avatar'); if (el) el.textContent = initials;
+  if (typeof _updateSidebarDiag === 'function') _updateSidebarDiag();
+}
+
+// Sidebar identity diagnostic — shows the COMPUTED role + fullRights flag,
+// drawn directly from getCurrentUserRole() + USERS_DATA lookup. If this disagrees
+// with the sidebar role label, the user's USERS_DATA cache is stale or missing.
+// Drives the Recipe ID Assign button gate, so it's the single source of truth
+// for "what does the app think I can do?"
+function _updateSidebarDiag() {
+  var el = document.getElementById('sidebar-diag');
+  if (!el) return;
+  try {
+    var em = '';
+    try {
+      var raw = sessionStorage.getItem(AUTH_KEY);
+      if (raw) em = (JSON.parse(raw).email || '').toLowerCase();
+    } catch (e) {}
+    if (!em) { el.textContent = ''; return; }
+    var role = (typeof getCurrentUserRole === 'function') ? getCurrentUserRole() : '?';
+    var u = (typeof USERS_DATA !== 'undefined' && Array.isArray(USERS_DATA))
+      ? USERS_DATA.find(function(x){ return (x.email || '').toLowerCase() === em; })
+      : null;
+    var fr = u && u.fullRights;
+    var marker = u ? '✓' : '⚠ not in users';
+    el.textContent = 'role: ' + role + (fr ? ' · full rights' : '') + ' · ' + marker;
+    el.style.color = (u && (role === 'admin' || role === 'factory' || role === 'npd' || role === 'qa' || role === 'ops' || role === 'purchasing' || role === 'it'))
+      ? 'rgba(255,255,255,0.45)'
+      : 'rgba(255,180,77,0.85)'; // amber if the lookup looks broken
+  } catch (e) {
+    el.textContent = 'diag: err';
+  }
 }
 
 function googleSignIn() {
@@ -25992,6 +26024,7 @@ function updateSidebarBadges() {
   setBadge('nav-badge-qa', pendingQA);
   setBadge('nav-badge-users', pendingUsers);
   if (typeof updateSubBadge === 'function') updateSubBadge();
+  if (typeof _updateSidebarDiag === 'function') _updateSidebarDiag();
 
   // Update users page stat cards
   var statTotal = document.getElementById('stat-total-users');
