@@ -14933,22 +14933,27 @@ function _dashGoToRecipes(status, tag) {
 }
 
 // ──────────── FILTER: RECIPES ────────────
-// Status-filter label → underlying r.status key (row.dataset.status holds the key).
-var _RECIPE_STATUS_LABEL_TO_KEY = {
-  'Draft':'draft', 'In Review':'review', 'Factory Trial':'trial',
-  'Production Trial':'prod-trial', 'Approved':'approved', 'Archived':'archived'
-};
 function filterRecipes() {
-  const q = (document.getElementById('recipe-search').value || '').trim().toLowerCase();
-  const brand = document.getElementById('recipe-filter-brand').value;
-  const status = document.getElementById('recipe-filter-status').value;
-  const type = document.getElementById('recipe-filter-type').value;
-  const tag = document.getElementById('recipe-filter-tag').value;
+  // Local const — avoids the hoisting trap (see filterBranchSOPs).
+  const STATUS_LABEL_TO_KEY = {
+    'Draft':'draft', 'In Review':'review', 'Factory Trial':'trial',
+    'Production Trial':'prod-trial', 'Approved':'approved', 'Archived':'archived'
+  };
+  const sEl = document.getElementById('recipe-search');
+  const q = (sEl ? sEl.value : '').trim().toLowerCase();
+  const brandEl = document.getElementById('recipe-filter-brand');
+  const brand = brandEl ? brandEl.value : 'All Brands';
+  const statusEl = document.getElementById('recipe-filter-status');
+  const status = statusEl ? statusEl.value : 'All Statuses';
+  const typeEl = document.getElementById('recipe-filter-type');
+  const type = typeEl ? typeEl.value : 'All Types';
+  const tagEl = document.getElementById('recipe-filter-tag');
+  const tag = tagEl ? tagEl.value : 'All Tags';
   // Auto-show archived when "Archived" filter is selected
   if (status === 'Archived' && !_showArchivedRecipes) { _showArchivedRecipes = true; buildRecipesTable(); }
   // Multi-token search — every space-separated word must match somewhere in the row haystack.
   const tokens = q ? q.split(/\s+/).filter(Boolean) : [];
-  const wantStatus = _RECIPE_STATUS_LABEL_TO_KEY[status] || '';
+  const wantStatus = STATUS_LABEL_TO_KEY[status] || '';
   const wantBrand = (brand && brand !== 'All Brands') ? brand.toLowerCase() : '';
   const wantType = (type && type !== 'All Types') ? type.toLowerCase() : '';
   const wantTag = (tag && tag !== 'All Tags') ? tag.toLowerCase() : '';
@@ -15228,16 +15233,18 @@ function _renderIngFilterChips() {
 }
 
 // ──────────── FILTER: USERS ────────────
-// Role-filter label → underlying user.role key.
-var _USER_ROLE_LABEL_TO_KEY = {
-  'Admin':'admin','NPD':'npd','QA':'qa','OPS':'ops','Factory':'factory',
-  'Purchasing':'purchasing','Viewer':'viewer','IT':'it'
-};
 function filterUsers() {
-  const q = (document.getElementById('user-search').value || '').trim().toLowerCase();
+  // Local const — avoids the hoisting trap (see filterBranchSOPs).
+  const ROLE_LABEL_TO_KEY = {
+    'Admin':'admin','NPD':'npd','QA':'qa','OPS':'ops','Factory':'factory',
+    'Purchasing':'purchasing','Viewer':'viewer','IT':'it'
+  };
+  const sEl = document.getElementById('user-search');
+  const q = (sEl ? sEl.value : '').trim().toLowerCase();
   const tokens = q ? q.split(/\s+/).filter(Boolean) : [];
-  const role = document.getElementById('user-filter-role').value;
-  const wantRole = _USER_ROLE_LABEL_TO_KEY[role] || '';
+  const roleEl = document.getElementById('user-filter-role');
+  const role = roleEl ? roleEl.value : 'All Roles';
+  const wantRole = ROLE_LABEL_TO_KEY[role] || '';
   const rows = document.getElementById('users-tbody').querySelectorAll('tr');
   rows.forEach(row => {
     const hay = row.dataset.search || row.textContent.toLowerCase();
@@ -22131,20 +22138,22 @@ function _finalizePartial(run, arrivedItems, stillMissing, note) {
   // No email on partial — too noisy. Activity / audit log carries the trace.
 }
 
-// Status-label → underlying run.status key.
-var _PROD_STATUS_LABEL_TO_KEY = {
-  'Pending':'pending', 'Scheduled':'scheduled', 'Completed':'completed',
-  'On Hold':'on-hold', 'Needs RM':'blocked-materials'
-};
 function filterProductionRuns() {
+  // Local const — avoids the hoisting trap (see filterBranchSOPs).
+  var STATUS_LABEL_TO_KEY = {
+    'Pending':'pending', 'Scheduled':'scheduled', 'Completed':'completed',
+    'On Hold':'on-hold', 'Needs RM':'blocked-materials'
+  };
   var searchEl = document.getElementById('prod-search');
   var q = (searchEl ? searchEl.value : '').trim().toLowerCase();
   var tokens = q ? q.split(/\s+/).filter(Boolean) : [];
-  var status = document.getElementById('prod-filter-status').value;
-  var brand = document.getElementById('prod-filter-brand').value;
+  var statusEl = document.getElementById('prod-filter-status');
+  var status = statusEl ? statusEl.value : 'All';
+  var brandEl = document.getElementById('prod-filter-brand');
+  var brand = brandEl ? brandEl.value : 'All Brands';
   var rtEl = document.getElementById('prod-filter-runtype');
   var runtype = rtEl ? rtEl.value : 'All Runs';
-  var wantStatus = _PROD_STATUS_LABEL_TO_KEY[status] || '';
+  var wantStatus = STATUS_LABEL_TO_KEY[status] || '';
   var wantBrand = (brand && brand !== 'All Brands') ? brand.toLowerCase() : '';
   var wantRuntype = (runtype && runtype !== 'All Runs') ? runtype.toLowerCase() : '';
   document.getElementById('prod-tbody').querySelectorAll('tr').forEach(function(row) {
@@ -24131,18 +24140,22 @@ function archiveBranchSOP(id) {
   logActivity('sop', '📋', (sop.archived ? 'Archived' : 'Unarchived') + ' branch SOP: ' + sop.name, sop.id);
 }
 
-// Status-label → underlying status key on dataset.status.
-var _BSOP_STATUS_LABEL_TO_KEY = {
-  'Draft':'draft', 'In Review':'review', 'Approved':'approved'
-};
 function filterBranchSOPs() {
-  const q = (document.getElementById('bsop-search').value || '').trim().toLowerCase();
+  // Local const — avoids the hoisting trap where this filter runs at boot
+  // (via the top-level buildBranchSOPTable() call) before any module-level
+  // var assignment has executed.
+  const STATUS_LABEL_TO_KEY = {
+    'Draft':'draft', 'In Review':'review', 'Approved':'approved'
+  };
+  const searchEl = document.getElementById('bsop-search');
+  const q = (searchEl ? searchEl.value : '').trim().toLowerCase();
   const tokens = q ? q.split(/\s+/).filter(Boolean) : [];
-  const brand = document.getElementById('bsop-filter-brand').value;
+  const brandEl = document.getElementById('bsop-filter-brand');
+  const brand = brandEl ? brandEl.value : 'All Brands';
   const statusEl = document.getElementById('bsop-filter-status');
   const status = statusEl ? statusEl.value : 'All Statuses';
   const wantBrand = (brand && brand !== 'All Brands') ? brand.toLowerCase() : '';
-  const wantStatus = _BSOP_STATUS_LABEL_TO_KEY[status] || '';
+  const wantStatus = STATUS_LABEL_TO_KEY[status] || '';
   const rows = document.getElementById('bsop-tbody').querySelectorAll('tr');
   rows.forEach(row => {
     const hay = row.dataset.search || row.textContent.toLowerCase();
