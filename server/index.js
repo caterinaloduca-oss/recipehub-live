@@ -710,6 +710,30 @@ app.post('/api/data', requireAuth, (req, res) => {
       const deletedBuilds = new Set(body.deletedBuildIds);
       body.builds = body.builds.filter(b => !deletedBuilds.has(b.id));
     }
+    // Same protection for brands, substitutionRequests and libraryDocs —
+    // added 2026-05-13 along with their DELETE endpoints so a stale tab can
+    // no longer resurrect a deleted entity through the /api/data full-blob path.
+    if (existing && existing.data && Array.isArray(existing.data.deletedBrandIds)) {
+      body.deletedBrandIds = Array.from(new Set([...(body.deletedBrandIds || []), ...existing.data.deletedBrandIds]));
+    }
+    if (body.brands && body.deletedBrandIds && body.deletedBrandIds.length) {
+      const deletedBrands = new Set(body.deletedBrandIds);
+      body.brands = body.brands.filter(b => b && !deletedBrands.has(b.id));
+    }
+    if (existing && existing.data && Array.isArray(existing.data.deletedSubstitutionIds)) {
+      body.deletedSubstitutionIds = Array.from(new Set([...(body.deletedSubstitutionIds || []), ...existing.data.deletedSubstitutionIds]));
+    }
+    if (body.substitutionRequests && body.deletedSubstitutionIds && body.deletedSubstitutionIds.length) {
+      const deletedSubs = new Set(body.deletedSubstitutionIds);
+      body.substitutionRequests = body.substitutionRequests.filter(r => r && !deletedSubs.has(r.id));
+    }
+    if (existing && existing.data && Array.isArray(existing.data.deletedLibraryDocIds)) {
+      body.deletedLibraryDocIds = Array.from(new Set([...(body.deletedLibraryDocIds || []), ...existing.data.deletedLibraryDocIds]));
+    }
+    if (body.libraryDocs && body.deletedLibraryDocIds && body.deletedLibraryDocIds.length) {
+      const deletedDocs = new Set(body.deletedLibraryDocIds);
+      body.libraryDocs = body.libraryDocs.filter(d => d && !deletedDocs.has(d.id));
+    }
     const savedAt = db.setState(JSON.stringify(body), body.dataVersion || 0);
     res.json({ ok: true, savedAt });
   } catch (err) {
@@ -1076,12 +1100,37 @@ app.post('/api/brand/:id', requireAuth, (req, res) => {
       merged = incoming;
       data.brands.push(merged);
     }
+    // Aliveness wins: explicit save lifts the id out of deletedBrandIds.
+    if (Array.isArray(data.deletedBrandIds) && data.deletedBrandIds.includes(id)) {
+      data.deletedBrandIds = data.deletedBrandIds.filter(x => x !== id);
+    }
     data.savedAt = new Date().toISOString();
     const savedAt = db.setState(JSON.stringify(data), data.dataVersion || 0);
     res.json({ ok: true, savedAt, brand: merged });
   } catch (err) {
     console.error('POST /api/brand error:', err);
     res.status(500).json({ error: 'Failed to save brand: ' + err.message });
+  }
+});
+
+app.delete('/api/brand/:id', requireAuth, (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ error: 'id required' });
+    const state = db.getState();
+    if (!state || !state.data) return res.status(500).json({ error: 'No data on server' });
+    const data = state.data;
+    if (!Array.isArray(data.deletedBrandIds)) data.deletedBrandIds = [];
+    if (!data.deletedBrandIds.includes(id)) data.deletedBrandIds.push(id);
+    if (Array.isArray(data.brands)) {
+      data.brands = data.brands.filter(b => b && b.id !== id);
+    }
+    data.savedAt = new Date().toISOString();
+    const savedAt = db.setState(JSON.stringify(data), data.dataVersion || 0);
+    res.json({ ok: true, savedAt, killed: id });
+  } catch (err) {
+    console.error('DELETE /api/brand error:', err);
+    res.status(500).json({ error: 'Failed to delete brand: ' + err.message });
   }
 });
 
@@ -1244,12 +1293,61 @@ app.post('/api/substitution/:id', requireAuth, (req, res) => {
       merged = incoming;
       data.substitutionRequests.unshift(merged);
     }
+    // Aliveness wins: explicit save lifts the id out of deletedSubstitutionIds.
+    if (Array.isArray(data.deletedSubstitutionIds) && data.deletedSubstitutionIds.includes(id)) {
+      data.deletedSubstitutionIds = data.deletedSubstitutionIds.filter(x => x !== id);
+    }
     data.savedAt = new Date().toISOString();
     const savedAt = db.setState(JSON.stringify(data), data.dataVersion || 0);
     res.json({ ok: true, savedAt, request: merged });
   } catch (err) {
     console.error('POST /api/substitution error:', err);
     res.status(500).json({ error: 'Failed to save substitution: ' + err.message });
+  }
+});
+
+app.delete('/api/substitution/:id', requireAuth, (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ error: 'id required' });
+    const state = db.getState();
+    if (!state || !state.data) return res.status(500).json({ error: 'No data on server' });
+    const data = state.data;
+    if (!Array.isArray(data.deletedSubstitutionIds)) data.deletedSubstitutionIds = [];
+    if (!data.deletedSubstitutionIds.includes(id)) data.deletedSubstitutionIds.push(id);
+    if (Array.isArray(data.substitutionRequests)) {
+      data.substitutionRequests = data.substitutionRequests.filter(r => r && r.id !== id);
+    }
+    data.savedAt = new Date().toISOString();
+    const savedAt = db.setState(JSON.stringify(data), data.dataVersion || 0);
+    res.json({ ok: true, savedAt, killed: id });
+  } catch (err) {
+    console.error('DELETE /api/substitution error:', err);
+    res.status(500).json({ error: 'Failed to delete substitution: ' + err.message });
+  }
+});
+
+// DELETE /api/library/:id — kills a library document. The on-disk file
+// uploaded via /api/library/upload stays (cheap to keep, not exposed in UI
+// once the entry is gone). Same kill-list pattern as everywhere else.
+app.delete('/api/library/:id', requireAuth, (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ error: 'id required' });
+    const state = db.getState();
+    if (!state || !state.data) return res.status(500).json({ error: 'No data on server' });
+    const data = state.data;
+    if (!Array.isArray(data.deletedLibraryDocIds)) data.deletedLibraryDocIds = [];
+    if (!data.deletedLibraryDocIds.includes(id)) data.deletedLibraryDocIds.push(id);
+    if (Array.isArray(data.libraryDocs)) {
+      data.libraryDocs = data.libraryDocs.filter(d => d && d.id !== id);
+    }
+    data.savedAt = new Date().toISOString();
+    const savedAt = db.setState(JSON.stringify(data), data.dataVersion || 0);
+    res.json({ ok: true, savedAt, killed: id });
+  } catch (err) {
+    console.error('DELETE /api/library error:', err);
+    res.status(500).json({ error: 'Failed to delete library doc: ' + err.message });
   }
 });
 

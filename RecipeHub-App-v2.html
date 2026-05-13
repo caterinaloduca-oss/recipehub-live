@@ -19708,7 +19708,20 @@ function confirmDeleteBrand(id) {
   document.getElementById('brand-detail-panel').innerHTML = '<div style="padding:50px;text-align:center;color:var(--g3);font-size:13px">Select a brand above</div>';
   closeModal();
   showSaveToast('Brand deleted');
-  saveAllData();
+  // Per-entity DELETE — appends to deletedBrandIds server-side so stale
+  // tabs can't resurrect. Blob fallback persists the local splice on failure.
+  fetch(API_BASE + '/api/brand/' + encodeURIComponent(id), {
+    method: 'DELETE',
+    headers: { 'Authorization':'Bearer ' + API_KEY },
+  }).then(function(r){
+    if (!r.ok) throw new Error('Server ' + r.status);
+    return r.json();
+  }).then(function(result){
+    _markSelfPostedSavedAt(result && result.savedAt);
+  }).catch(function(err){
+    console.warn('Per-brand DELETE failed, falling back:', err && err.message);
+    _saveToServer(_buildDataBlob());
+  });
 }
 
 // ──────────── DELETE RECIPE ────────────
@@ -25858,7 +25871,19 @@ function deleteLibDoc(idx) {
   if (!confirm('Delete "' + doc.title + '"?')) return;
   LIBRARY_DOCS.splice(idx, 1);
   renderLibrary();
-  saveAllData();
+  // Per-entity DELETE — appends to deletedLibraryDocIds server-side.
+  fetch(API_BASE + '/api/library/' + encodeURIComponent(doc.id), {
+    method: 'DELETE',
+    headers: { 'Authorization':'Bearer ' + API_KEY },
+  }).then(function(r){
+    if (!r.ok) throw new Error('Server ' + r.status);
+    return r.json();
+  }).then(function(result){
+    _markSelfPostedSavedAt(result && result.savedAt);
+  }).catch(function(err){
+    console.warn('Per-library DELETE failed, falling back:', err && err.message);
+    _saveToServer(_buildDataBlob());
+  });
   showSaveToast('Document deleted');
 }
 
@@ -26960,7 +26985,19 @@ function deleteSubRequest(id) {
   var idx = SUB_REQUESTS.indexOf(r);
   if (idx >= 0) SUB_REQUESTS.splice(idx, 1);
   if (typeof auditEvent === 'function') auditEvent('sub.delete', 'substitution', id, r.currentName + ' → ' + r.proposedName, {});
-  saveAllData();
+  // Per-entity DELETE — appends to deletedSubstitutionIds server-side.
+  fetch(API_BASE + '/api/substitution/' + encodeURIComponent(id), {
+    method: 'DELETE',
+    headers: { 'Authorization':'Bearer ' + API_KEY },
+  }).then(function(rr){
+    if (!rr.ok) throw new Error('Server ' + rr.status);
+    return rr.json();
+  }).then(function(result){
+    _markSelfPostedSavedAt(result && result.savedAt);
+  }).catch(function(err){
+    console.warn('Per-sub DELETE failed, falling back:', err && err.message);
+    _saveToServer(_buildDataBlob());
+  });
   var d = document.getElementById('sub-request-detail'); if (d) d.style.display = 'none';
   buildSubRequestList();
   updateSubBadge();
