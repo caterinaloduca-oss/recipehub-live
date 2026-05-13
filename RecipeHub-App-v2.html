@@ -13179,6 +13179,11 @@ function uploadVisualSOPImg(npd, stepIdx, input) {
 // uploadFn(arg1, arg2, ..., inputLikeObject) so each upload handler stays
 // untouched — the {files: dataTransfer.files} shim keeps the same shape.
 function _dropZoneOver(ev) {
+  // Let internal Branch SOP swap drags bubble through to the outer .bsop-step
+  // handler — don't claim them as file drops. (Bug 2026-05-13: the inner
+  // .bsop-step-img drop zone was stealing the swap event.)
+  var types = (ev.dataTransfer && ev.dataTransfer.types) || [];
+  if (Array.prototype.indexOf.call(types, 'application/x-rh-bsop-swap') !== -1) return;
   ev.preventDefault();
   if (ev.dataTransfer) ev.dataTransfer.dropEffect = 'copy';
   ev.currentTarget.classList.add('drop-zone-active');
@@ -13187,6 +13192,12 @@ function _dropZoneLeave(ev) {
   ev.currentTarget.classList.remove('drop-zone-active');
 }
 function _dropZoneDrop(ev, uploadFnName) {
+  // Swap drags bubble up — don't intercept them as a file upload.
+  var types = (ev.dataTransfer && ev.dataTransfer.types) || [];
+  if (Array.prototype.indexOf.call(types, 'application/x-rh-bsop-swap') !== -1) {
+    ev.currentTarget.classList.remove('drop-zone-active');
+    return; // outer .bsop-step's ondrop will handle the swap
+  }
   ev.preventDefault();
   ev.stopPropagation();
   ev.currentTarget.classList.remove('drop-zone-active');
