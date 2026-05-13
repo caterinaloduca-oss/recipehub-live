@@ -6299,9 +6299,10 @@ function saveProfile() {
     ud.dept = dept;
     ud.title = title;
     ud.updatedAt = new Date().toISOString(); // server keeps newer copy — bump so the edit lands.
+    saveUserToServer(ud.email);
+  } else {
+    saveAllData(); // no USERS_DATA row (e.g. admin Cate herself), keep blob fallback
   }
-
-  saveAllData();
   // Rebuild the users table if it's visible — otherwise the list still shows stale name/title/dept/phone.
   var _ut = document.getElementById('users-tbody');
   if (_ut) { _ut.innerHTML = ''; buildUsersTable(); }
@@ -18574,10 +18575,11 @@ function quickAddUser() {
   if (USERS_DATA.find(function(u){ return u.email.toLowerCase() === email.toLowerCase(); })) {
     showSaveToast('User already exists', true); return;
   }
-  USERS_DATA.push({ name: name.trim(), email: email.trim().toLowerCase(), role: role, active: true, title: role });
+  var _newEmail = email.trim().toLowerCase();
+  USERS_DATA.push({ name: name.trim(), email: _newEmail, role: role, active: true, title: role, updatedAt: new Date().toISOString() });
   buildUsersTable();
   toggleInviteForm();
-  saveAllData();
+  saveUserToServer(_newEmail);
   showSaveToast(name.trim() + ' added as ' + role);
   logActivity('user', '👤', 'Added user: ' + name.trim(), email + ' — ' + role);
 }
@@ -18640,7 +18642,11 @@ function sendInvite() {
   buildUsersTable();
   buildRoleCards();
   buildPendingTable();
-  saveAllData();
+  // Save the (new or merged) user per-entity. The PENDING_DATA splice above
+  // is local-only — it'll be reconciled on the next /api/data GET. Acceptable
+  // since pending users are rarely written and any stale-tab re-add gets
+  // filtered by the active-users check.
+  saveUserToServer(newUser.email);
   showSaveToast('User added — ' + displayName);
   // Close the invite card
   var inviteCard = document.getElementById('invite-form');
