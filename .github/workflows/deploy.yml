@@ -5,7 +5,21 @@ on:
     branches: [main]
 
 jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run smoke tests
+        run: node tests/smoke.js
+
   deploy:
+    needs: smoke      # do not deploy if smoke failed
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
