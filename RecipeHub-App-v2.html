@@ -7623,13 +7623,11 @@ function _checkAppVersion() {
     .catch(function(){ /* offline / transient — ignore */ });
 }
 
-// Kick off on load + poll every 60 seconds. Also re-check on tab visibility
-// (waking from background) so a tab parked overnight catches up immediately.
-setTimeout(_checkAppVersion, 2000);   // initial probe
-setInterval(_checkAppVersion, 60 * 1000);
-document.addEventListener('visibilitychange', function(){
-  if (!document.hidden) _checkAppVersion();
-});
+// Auto-poll DISABLED 2026-05-13 — it was nagging Cate every minute and the
+// edge cases (skew, multiple deploys per session) made it more annoying than
+// useful. The manual ⟳ Reload button at the bottom of the sidebar is the
+// one-click way to grab the latest HTML. _checkAppVersion remains defined so
+// other code (or a future re-enable) can still call it on demand.
 
 function forceRefreshFromServer() {
   showSaveToast('Pulling data from server...');
