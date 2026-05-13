@@ -17606,11 +17606,26 @@ function confirmRemoveUser() {
         auditEvent('user.remove', 'user', email, removed.name, { role: removed.role });
         USERS_DATA.splice(idx, 1);
       }
+      // Authoritative delete via per-entity DELETE — the server appends the
+      // email to deletedUserEmails so the mergeUsers re-add pass can't
+      // resurrect them from a stale tab. Falls back to the blob if the
+      // request fails so the local splice still persists.
+      fetch(API_BASE + '/api/user/' + encodeURIComponent(email), {
+        method: 'DELETE',
+        headers: { 'Authorization':'Bearer ' + API_KEY },
+      }).then(function(r){
+        if (!r.ok) throw new Error('Server ' + r.status);
+        return r.json();
+      }).then(function(result){
+        _markSelfPostedSavedAt(result && result.savedAt);
+      }).catch(function(err){
+        console.warn('Per-user DELETE failed, falling back:', err && err.message);
+        _saveToServer(_buildDataBlob());
+      });
     }
     row.style.transition = 'opacity 0.3s';
     row.style.opacity = '0';
     setTimeout(() => row.remove(), 300);
-    saveAllData();
     logActivity('user', '🗑️', 'Removed user: ' + email);
   }
   closeModal();

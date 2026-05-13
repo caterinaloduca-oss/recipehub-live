@@ -1127,12 +1127,46 @@ app.post('/api/user/:email', requireAuth, (req, res) => {
       merged = incoming;
       data.users.push(merged);
     }
+    // Explicit save is an "alive" signal — lift this email out of the
+    // deletedUserEmails kill list so a stale tab can't immediately re-kill
+    // them via the next /api/data merge.
+    if (Array.isArray(data.deletedUserEmails) && data.deletedUserEmails.length) {
+      data.deletedUserEmails = data.deletedUserEmails.filter(e => String(e || '').toLowerCase() !== email);
+    }
     data.savedAt = new Date().toISOString();
     const savedAt = db.setState(JSON.stringify(data), data.dataVersion || 0);
     res.json({ ok: true, savedAt, user: merged });
   } catch (err) {
     console.error('POST /api/user error:', err);
     res.status(500).json({ error: 'Failed to save user: ' + err.message });
+  }
+});
+
+// DELETE /api/user/:email — removes a user from the active list AND appends
+// the email to deletedUserEmails so the merge in POST /api/data can't re-add
+// them. Same "aliveness wins" pattern used for SOPs and production runs:
+// the kill list is the source of truth, and a subsequent POST /api/user/:email
+// for the same email lifts it back out of the list.
+app.delete('/api/user/:email', requireAuth, (req, res) => {
+  try {
+    const email = String(req.params.email || '').toLowerCase();
+    if (!email) return res.status(400).json({ error: 'email required' });
+    const state = db.getState();
+    if (!state || !state.data) return res.status(500).json({ error: 'No data on server' });
+    const data = state.data;
+    if (!Array.isArray(data.deletedUserEmails)) data.deletedUserEmails = [];
+    if (!data.deletedUserEmails.map(e => String(e || '').toLowerCase()).includes(email)) {
+      data.deletedUserEmails.push(email);
+    }
+    if (Array.isArray(data.users)) {
+      data.users = data.users.filter(u => u && String((u.email || '')).toLowerCase() !== email);
+    }
+    data.savedAt = new Date().toISOString();
+    const savedAt = db.setState(JSON.stringify(data), data.dataVersion || 0);
+    res.json({ ok: true, savedAt, killed: email });
+  } catch (err) {
+    console.error('DELETE /api/user error:', err);
+    res.status(500).json({ error: 'Failed to delete user: ' + err.message });
   }
 });
 
