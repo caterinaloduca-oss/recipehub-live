@@ -1294,12 +1294,42 @@ app.post('/api/build/:id', requireAuth, (req, res) => {
     } else {
       data.builds.push(incoming);
     }
+    // Aliveness wins: explicit save lifts the id out of the kill list, so a
+    // stale tab can't immediately re-kill the build on the next /api/data merge.
+    if (Array.isArray(data.deletedBuildIds) && data.deletedBuildIds.includes(id)) {
+      data.deletedBuildIds = data.deletedBuildIds.filter(x => x !== id);
+    }
     data.savedAt = new Date().toISOString();
     const savedAt = db.setState(JSON.stringify(data), data.dataVersion || 0);
     res.json({ ok: true, savedAt, build: idx >= 0 ? data.builds[idx] : incoming });
   } catch (err) {
     console.error('POST /api/build error:', err);
     res.status(500).json({ error: 'Failed to save build: ' + err.message });
+  }
+});
+
+// DELETE /api/build/:id — remove from builds[] AND append to deletedBuildIds.
+// Note: does NOT cascade-delete linked Branch SOPs — the client should call
+// DELETE /api/branchsop/:id for each linked SOP itself, so each killed entity
+// gets its own audit trail.
+app.delete('/api/build/:id', requireAuth, (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ error: 'id required' });
+    const state = db.getState();
+    if (!state || !state.data) return res.status(500).json({ error: 'No data on server' });
+    const data = state.data;
+    if (!Array.isArray(data.deletedBuildIds)) data.deletedBuildIds = [];
+    if (!data.deletedBuildIds.includes(id)) data.deletedBuildIds.push(id);
+    if (Array.isArray(data.builds)) {
+      data.builds = data.builds.filter(b => b && b.id !== id);
+    }
+    data.savedAt = new Date().toISOString();
+    const savedAt = db.setState(JSON.stringify(data), data.dataVersion || 0);
+    res.json({ ok: true, savedAt, killed: id });
+  } catch (err) {
+    console.error('DELETE /api/build error:', err);
+    res.status(500).json({ error: 'Failed to delete build: ' + err.message });
   }
 });
 

@@ -21528,12 +21528,19 @@ function closeBuildDetail() {
 function confirmDeleteBuild(id) {
   var b = BUILDS_DATA.find(x => x.id === id);
   var buildName = b ? b.name : id;
-  // Cascade: drop any Branch SOPs linked to this build and record their IDs so
-  // the server-side deletedSOPIds guard keeps them gone even if a stale client syncs.
+  // Cascade: drop any Branch SOPs linked to this build. Each gets its own
+  // authoritative DELETE so the server-side deletedSOPIds kill list is
+  // updated per SOP — no stale tab can re-create them.
   var orphanIds = BRANCH_SOPS.filter(function(s){ return s.buildRef === id; }).map(function(s){ return s.id; });
   if (orphanIds.length) {
     BRANCH_SOPS = BRANCH_SOPS.filter(function(s){ return s.buildRef !== id; });
-    orphanIds.forEach(function(sid){ if (_deletedSOPIds.indexOf(sid) === -1) _deletedSOPIds.push(sid); });
+    orphanIds.forEach(function(sid){
+      if (_deletedSOPIds.indexOf(sid) === -1) _deletedSOPIds.push(sid);
+      fetch(API_BASE + '/api/branchsop/' + encodeURIComponent(sid), {
+        method: 'DELETE',
+        headers: { 'Authorization':'Bearer ' + API_KEY },
+      }).catch(function(err){ console.warn('Cascade SOP DELETE failed:', sid, err && err.message); });
+    });
     buildBranchSOPTable();
     logActivity('sop', '🗑️', 'Cascade: deleted '+orphanIds.length+' Branch SOP'+(orphanIds.length===1?'':'s')+' linked to build "'+buildName+'"');
   }
@@ -21543,7 +21550,21 @@ function confirmDeleteBuild(id) {
   buildBuildsTable();
   closeBuildDetail();
   showSaveToast('Build deleted' + (orphanIds.length ? ' + '+orphanIds.length+' linked SOP'+(orphanIds.length===1?'':'s') : ''));
-  saveAllData();
+  // Authoritative build delete — appends to deletedBuildIds server-side so
+  // stale tabs can't resurrect. Blob fallback persists the local splice if
+  // the API call fails (rare).
+  fetch(API_BASE + '/api/build/' + encodeURIComponent(id), {
+    method: 'DELETE',
+    headers: { 'Authorization':'Bearer ' + API_KEY },
+  }).then(function(r){
+    if (!r.ok) throw new Error('Server ' + r.status);
+    return r.json();
+  }).then(function(result){
+    _markSelfPostedSavedAt(result && result.savedAt);
+  }).catch(function(err){
+    console.warn('Per-build DELETE failed, falling back:', err && err.message);
+    _saveToServer(_buildDataBlob());
+  });
 }
 
 function printBuild(id) {
