@@ -24432,8 +24432,10 @@ function viewBranchSOP(id) {
         `).join('')}
       </div>
 
-      <!-- Allergens & Nutrition -->
-      ${getBranchSOPAllergenNutritionHTML(sop)}
+      <!-- Components / Allergens / Nutrition removed from the SOP view 2026-05-13
+           per Cate — the SOP keeps just the step photos + their descriptions +
+           the code in the header. The data still lives on the underlying Build
+           and Recipe, just isn't rendered here. -->
 
       <!-- 3-stage approval: Prepared (NPD/QA) → Reviewed (OPS) → Approved (QA) -->
       ${renderBSOPApprovalUI(sop)}
