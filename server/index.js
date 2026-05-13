@@ -263,6 +263,34 @@ app.post('/api/data', requireAuth, (req, res) => {
     if (!body || typeof body !== 'object') {
       return res.status(400).json({ error: 'Invalid data' });
     }
+    // Observability for the blob-write path. Every per-entity-coverable
+    // field that lands in this body — when posted by a non-admin — is a
+    // candidate for migration to its own POST /api/x/:id endpoint. We log
+    // (don't reject) so existing flows keep working while we collect data
+    // on which paths still need migration. After zero warnings for a few
+    // days, flip this to a hard reject.
+    try {
+      const writerEmail = (req.headers['x-rh-user'] || '').toString().toLowerCase();
+      const writerRole = writerEmail ? _roleForEmail(writerEmail) : '(anonymous)';
+      if (writerRole !== 'admin') {
+        const PROTECTED = ['recipes','users','builds','brands','substitutionRequests','branchSOPs','productionRuns','ingredients','savingsProjects'];
+        const touched = PROTECTED.filter(f => body[f] !== undefined);
+        if (touched.length) {
+          console.warn('[blob-write-warn] ' + (writerEmail || '?') + ' (' + writerRole + ') posted /api/data with protected fields: ' + touched.join(','));
+          try {
+            db.auditAppend({
+              user_email: writerEmail || '(anonymous)',
+              action: 'system.blob_write_warning',
+              target_type: 'data',
+              target_id: '/api/data',
+              target_label: 'fields: ' + touched.join(','),
+              ip: req.ip || '',
+              meta: { fields: touched, role: writerRole },
+            });
+          } catch (auditErr) { /* audit shouldn't block the write */ }
+        }
+      }
+    } catch (warnErr) { /* observability code must never break the write */ }
     // Server-side deduplication — prevent duplicate IDs AND duplicate names from persisting
     if (body.branchSOPs) {
       body.branchSOPs = dedupeById(body.branchSOPs, 'id');

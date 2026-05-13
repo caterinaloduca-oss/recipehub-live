@@ -6620,9 +6620,20 @@ function _saveToServer(data) {
   }
   _lastServerSave = now;
   _savingToServer = true;
+  // X-RH-User lets the server log who's still blob-writing so we can hunt
+  // down the last paths that haven't been migrated to per-entity endpoints.
+  var _xUser = '';
+  try {
+    var _raw = sessionStorage.getItem(AUTH_KEY);
+    if (_raw) _xUser = (JSON.parse(_raw).email || '').toLowerCase();
+  } catch (e) {}
   fetch(API_BASE + '/api/data', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + API_KEY },
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + API_KEY,
+      'X-RH-User': _xUser,
+    },
     body: JSON.stringify(data),
   }).then(function(r) {
     if (!r.ok) throw new Error('Server returned ' + r.status);
