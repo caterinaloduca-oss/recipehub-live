@@ -22362,7 +22362,7 @@ function changeRunStatus(id) {
   var icons  = {pending:'⏳', scheduled:'📋', completed:'✅', 'on-hold':'⏸'};
   var hints = {pending:'', scheduled:'Requires a date', completed:'Records completion date', 'on-hold':''};
   // Migrate any legacy status before showing options
-  if (run.status === 'in-progress') { run.status = run.date ? 'scheduled' : 'pending'; saveAllData(); }
+  if (run.status === 'in-progress') { run.status = run.date ? 'scheduled' : 'pending'; saveProductionRunToServer(run.id); }
   // Determine which statuses are available from current state
   var allowed = {};
   if (run.status === 'pending') { allowed = {scheduled:true, 'on-hold':true}; }
@@ -22493,7 +22493,7 @@ function deleteProdComment(idx) {
   if (!confirm('Delete this comment?')) return;
   run.comments.splice(idx, 1);
   run.updatedAt = new Date().toISOString();
-  saveAllData();
+  saveProductionRunToServer(run.id);
   selectProdRun(_selectedRunId);   // re-render the comment panel
   buildProductionTable();           // re-render the row count
 }
@@ -22507,7 +22507,8 @@ function postProdComment() {
   if (!run.comments) run.comments = [];
   run.comments.push({by:getCurrentUserName(), date:new Date().toISOString(), text:input.value.trim()});
   input.value = '';
-  saveAllData();
+  run.updatedAt = new Date().toISOString();
+  saveProductionRunToServer(run.id);
   buildProductionTable();
   selectProdRun(_selectedRunId);
 }
@@ -22554,7 +22555,8 @@ function addRunComment(id) {
   if (!input || !input.value.trim()) return;
   if (!run.comments) run.comments = [];
   run.comments.push({by:getCurrentUserName(), date:new Date().toISOString(), text:input.value.trim()});
-  saveAllData();
+  run.updatedAt = new Date().toISOString();
+  saveProductionRunToServer(run.id);
   viewProductionRun(id);
 }
 
@@ -24141,7 +24143,8 @@ function archiveBranchSOP(id) {
   buildBranchSOPTable();
   document.getElementById('bsop-detail').style.display = 'none';
   var _lv = document.getElementById('bsop-list-view'); if (_lv) _lv.style.display = '';
-  saveAllData();
+  sop.updatedAt = new Date().toISOString();
+  saveBranchSOPToServer(sop.id);
   showSaveToast(sop.name + (sop.archived ? ' archived' : ' restored'));
   logActivity('sop', '📋', (sop.archived ? 'Archived' : 'Unarchived') + ' branch SOP: ' + sop.name, sop.id);
 }
@@ -24473,7 +24476,8 @@ async function setComponentShelfLife(sopId, itemName, selectEl, type) {
     delete sop[storageKey][itemName];
     selectEl.style.color = 'var(--g3)';
   }
-  saveAllData();
+  sop.updatedAt = new Date().toISOString();
+  saveBranchSOPToServer(sopId);
 }
 
 // Inline edit on a Branch SOP step text/portions — saves on blur.
@@ -24682,7 +24686,7 @@ function deleteBranchSOPPhoto(sopId, stepIdx) {
   sop.steps[stepIdx].img = null;
   sop.updatedAt = new Date().toISOString();
   viewBranchSOP(sopId);
-  saveAllData();
+  saveBranchSOPToServer(sopId);
   showSaveToast('Photo deleted');
 }
 
@@ -24847,11 +24851,12 @@ function createBranchSOP() {
     buildRef: buildRef,
     steps: steps,
   };
+  sop.updatedAt = new Date().toISOString();
   BRANCH_SOPS.push(sop);
   closeModal();
   buildBranchSOPTable();
   viewBranchSOP(sop.id);
-  saveAllData();
+  saveBranchSOPToServer(sop.id);
   logActivity('sop', '📋', 'New branch SOP created: ' + name, sop.id);
   showSaveToast('Branch SOP created — upload photos for each step');
 }
