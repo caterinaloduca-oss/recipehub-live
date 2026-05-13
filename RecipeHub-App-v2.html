@@ -887,7 +887,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
     <span class="nav-icon">📋</span> Audit Log
   </button>
   <button class="nav-item" data-page="inspector" onclick="nav('inspector')">
-    <span class="nav-icon">🕵️</span> Inspector <span class="nav-badge" id="nav-badge-inspector"></span>
+    <span class="nav-icon">🕵️</span> Inspector Columbo <span class="nav-badge" id="nav-badge-inspector"></span>
   </button>
   </div><!-- end nav scroll -->
 
@@ -3108,7 +3108,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
   <div class="card" style="margin-bottom:18px">
     <div class="card-head">
       <div>
-        <span class="card-title">🕵️ Inspector</span>
+        <span class="card-title">🕵️ Inspector Columbo</span>
         <div style="font-size:11px;color:var(--g4);margin-top:2px">Passive sweep — finds data anomalies before users do. Admin only.</div>
       </div>
       <div style="display:flex;gap:8px;align-items:center">
@@ -7949,7 +7949,7 @@ const PAGES = {
   training:       { title:'Training',             actions:'' },
   users:          { title:'Users & Access',      actions:'' },
   'audit-log':    { title:'Audit Log',           actions:'' },
-  inspector:      { title:'Inspector',           actions:'' },
+  inspector:      { title:'Inspector Columbo',  actions:'' },
   comms:          { title:'Communications',     actions:'' },
   library:        { title:'Library',            actions:'<button class="btn btn-gold btn-sm" onclick="toggleLibUpload()">+ Upload Document</button>' },
 };
@@ -8353,7 +8353,7 @@ function _inspectorRender(report) {
   if (bySev.high)   parts.push('<span style="color:var(--red);font-weight:500">' + bySev.high + ' high</span>');
   if (bySev.medium) parts.push('<span style="color:var(--amber);font-weight:500">' + bySev.medium + ' medium</span>');
   if (bySev.low)    parts.push('<span style="color:var(--g4);font-weight:500">' + bySev.low + ' low</span>');
-  if (summary) summary.innerHTML = '<strong>' + total + '</strong> anomaly' + (total===1?'':'ies') + ' — ' + parts.join(' · ');
+  if (summary) summary.innerHTML = '<strong>' + total + '</strong> ' + (total===1?'anomaly':'anomalies') + ' — ' + parts.join(' · ');
 
   // Badge in sidebar
   var badge = document.getElementById('nav-badge-inspector');
