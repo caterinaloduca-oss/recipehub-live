@@ -9205,7 +9205,7 @@ async function editIngCostPerKg(idx) {
     row[11] = val;
   }
   buildIngTable();
-  saveAllData();
+  saveIngredientRowToServer(row).catch(function(){});
   showSaveToast('Cost/kg updated for ' + name);
 }
 
