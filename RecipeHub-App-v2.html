@@ -24439,11 +24439,6 @@ function viewBranchSOP(id) {
 
       <!-- 3-stage approval: Prepared (NPD/QA) → Reviewed (OPS) → Approved (QA) -->
       ${renderBSOPApprovalUI(sop)}
-
-      <!-- Footer -->
-      <div style="padding:10px 20px;text-align:right;font-size:11px;color:var(--g3);font-family:var(--font-m)">
-        ${sop.id} ${sop.version} dt ${sop.date}
-      </div>
     </div>
 
     <!-- bottom actions removed — all at top -->
@@ -25189,6 +25184,11 @@ function _buildBranchSOPPrintBody(sop, opts) {
     bannerParts.join('<span style="opacity:0.6;margin:0 6px">·</span>') +
   '</div>';
 
+  // Stripped 2026-05-13: print mirrors the on-screen view — just the brand
+  // banner (which carries the SOP code) + the step photo grid. The Components /
+  // Allergens / Nutrition tables that used to sit below the grid are gone, and
+  // the redundant id-version-date footer is dropped (the code is already
+  // top-right in the banner).
   return '<div id="bsop-print-root">' +
     '<div style="background:'+bc+';padding:16px 24px;display:flex;align-items:center;gap:16px">' +
       '<div style="background:white;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;color:'+bc+'">'+sop.brand+'</div>' +
@@ -25196,8 +25196,6 @@ function _buildBranchSOPPrintBody(sop, opts) {
       bannerMeta +
     '</div>' +
     '<div style="border:2px solid '+bc+';border-top:0">'+rowsHTML+'</div>' +
-    getBranchSOPAllergenNutritionPrintHTML(sop) +
-    '<div style="text-align:right;padding:8px 16px;font-size:10px;color:#999">'+sop.id+' '+(sop.version||'')+' dt '+(sop.date||'')+'</div>' +
   '</div>';
 }
 
