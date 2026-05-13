@@ -2831,6 +2831,163 @@ app.get('/api/audit/events', requireAuth, (req, res) => {
   }
 });
 
+// ─── Columbo the inspector — passive anomaly sweep ───
+// GET /api/inspector/sweep — admin only. Reads the current data blob and
+// returns a list of suspicious things (percentages that don't sum, broken
+// references, kill-list zombies, etc.) so we catch data drift before users
+// trip over it. Cate's idea — named for the squinting detective.
+//
+// The check list is deliberately conservative: only flag things that are
+// almost certainly wrong, never opinionated style issues. Each anomaly has
+// a `link` describing where the user should go to fix it.
+app.get('/api/inspector/sweep', requireAuth, (req, res) => {
+  try {
+    const requesterEmail = (req.query.as || '').toString();
+    if (_roleForEmail(requesterEmail) !== 'admin') {
+      return res.status(403).json({ error: 'admin only' });
+    }
+    const state = db.getState();
+    if (!state || !state.data) return res.status(500).json({ error: 'No data on server' });
+    const data = state.data;
+    const anomalies = [];
+    const push = (kind, severity, entityType, entityId, message, link) => {
+      anomalies.push({ kind, severity, entityType, entityId, message, link });
+    };
+
+    const recipes = data.recipes || {};
+    const recipeIds = new Set(Object.keys(recipes));
+    const builds = Array.isArray(data.builds) ? data.builds : [];
+    const branchSOPs = Array.isArray(data.branchSOPs) ? data.branchSOPs : [];
+    const users = Array.isArray(data.users) ? data.users : [];
+    const productionRuns = Array.isArray(data.productionRuns) ? data.productionRuns : [];
+
+    // ── A. Recipe percentages don't sum to ~100 ──
+    // Allow 99–101 (rounding). Only check recipes with ≥2 ingredients and
+    // at least one non-zero pct — empty drafts are exempt.
+    Object.entries(recipes).forEach(([npd, r]) => {
+      if (!r || r.archived) return;
+      const ings = Array.isArray(r.ingredients) ? r.ingredients : [];
+      if (ings.length < 2) return;
+      const sum = ings.reduce((s, i) => s + (parseFloat(i && i.pct) || 0), 0);
+      if (sum > 0 && (sum < 99 || sum > 101)) {
+        push('recipe.pct_sum', 'high', 'recipe', npd,
+          `${r.name || npd}: ingredient percentages sum to ${sum.toFixed(2)}% (expected ~100)`,
+          'recipes/' + npd);
+      }
+    });
+
+    // ── B. Recipe ingredients missing an Oracle code ──
+    // Only count rows where the name is non-empty. Items the user is still
+    // typing are not flagged.
+    Object.entries(recipes).forEach(([npd, r]) => {
+      if (!r || r.archived || r.status === 'draft') return;
+      const ings = Array.isArray(r.ingredients) ? r.ingredients : [];
+      const missing = ings.filter(i => i && i.name && !i.itemCode);
+      if (missing.length > 0) {
+        push('recipe.missing_codes', 'medium', 'recipe', npd,
+          `${r.name || npd}: ${missing.length} ingredient${missing.length===1?'':'s'} have no Oracle code — cost lookup will be blank`,
+          'recipes/' + npd);
+      }
+    });
+
+    // ── C. Builds with components referencing non-existent recipes ──
+    builds.forEach(b => {
+      if (!b || b.archived) return;
+      (b.components || []).forEach(c => {
+        if (c && c.ref && !recipeIds.has(c.ref)) {
+          push('build.broken_ref', 'high', 'build', b.id,
+            `${b.name || b.id}: component "${c.item || c.name || '(unnamed)'}" references recipe ${c.ref} which no longer exists`,
+            'builds/' + b.id);
+        }
+      });
+    });
+
+    // ── D. Branch SOPs whose linked build is gone ──
+    const buildIds = new Set(builds.map(b => b && b.id).filter(Boolean));
+    branchSOPs.forEach(s => {
+      if (!s || s.archived) return;
+      if (s.buildRef && !buildIds.has(s.buildRef)) {
+        push('sop.orphaned', 'medium', 'branch_sop', s.id,
+          `${s.name || s.id}: linked build ${s.buildRef} doesn't exist anymore`,
+          'branch-sop/' + s.id);
+      }
+    });
+
+    // ── E. Users with no role or no email ──
+    users.forEach(u => {
+      if (!u) return;
+      if (!u.email) {
+        push('user.no_email', 'high', 'user', u.name || '(unnamed)',
+          `User "${u.name || '(unnamed)'}" has no email — cannot sign in`,
+          'users');
+      } else if (!u.role) {
+        push('user.no_role', 'medium', 'user', u.email,
+          `${u.name || u.email}: no role set — defaults to viewer`,
+          'users');
+      }
+    });
+
+    // ── F. Kill-list zombies — id is in deletedXIds AND in the active array ──
+    // This means a previous delete didn't fully clean up. Server merge should
+    // filter on every read, but a stale tab could have re-added.
+    const checkZombie = (killArr, activeArr, idField, kind, kindLabel) => {
+      const kill = new Set(killArr || []);
+      if (!kill.size) return;
+      (activeArr || []).forEach(item => {
+        if (!item) return;
+        const id = idField === 'email' ? String((item.email || '')).toLowerCase()
+                                       : item[idField];
+        if (id && kill.has(id)) {
+          push(kind, 'high', kindLabel.toLowerCase(), id,
+            `${kindLabel} "${id}" is in the kill list AND still in the active list — zombie`,
+            kindLabel.toLowerCase() + 's');
+        }
+      });
+    };
+    checkZombie(data.deletedRecipeIds,         Object.values(recipes),     'npd',     'zombie.recipe',      'Recipe');
+    checkZombie(data.deletedBuildIds,          builds,                     'id',      'zombie.build',       'Build');
+    checkZombie(data.deletedUserEmails,        users,                      'email',   'zombie.user',        'User');
+    checkZombie(data.deletedBrandIds,          data.brands || [],          'id',      'zombie.brand',       'Brand');
+    checkZombie(data.deletedSOPIds,            branchSOPs,                 'id',      'zombie.branchsop',   'BranchSOP');
+    checkZombie(data.deletedProductionRunIds,  productionRuns,             'id',      'zombie.run',         'ProductionRun');
+    checkZombie(data.deletedSubstitutionIds,   data.substitutionRequests || [], 'id', 'zombie.substitution','Substitution');
+    checkZombie(data.deletedLibraryDocIds,     data.libraryDocs || [],     'id',      'zombie.library',     'Library');
+
+    // ── G. Production runs pointing at non-existent recipes ──
+    productionRuns.forEach(run => {
+      if (!run || run.archived) return;
+      // run.recipe is the display name; we don't have a back-reference to the
+      // NPD, so this check is best-effort. Skip for now to avoid false
+      // positives. If we add run.recipeNpd later, re-enable here.
+    });
+
+    // ── H. Duplicate recipe NPDs (case-insensitive) ──
+    const seenNpd = new Map();
+    Object.keys(recipes).forEach(npd => {
+      const lc = String(npd || '').toLowerCase();
+      if (seenNpd.has(lc) && seenNpd.get(lc) !== npd) {
+        push('recipe.duplicate_npd', 'high', 'recipe', npd,
+          `Two recipes share the same NPD when compared case-insensitively: "${seenNpd.get(lc)}" vs "${npd}"`,
+          'recipes/' + npd);
+      } else {
+        seenNpd.set(lc, npd);
+      }
+    });
+
+    // Group by kind for the count summary
+    const counts = anomalies.reduce((acc, a) => { acc[a.kind] = (acc[a.kind] || 0) + 1; return acc; }, {});
+    res.json({
+      ranAt: new Date().toISOString(),
+      total: anomalies.length,
+      counts,
+      anomalies,
+    });
+  } catch (err) {
+    console.error('inspector sweep failed:', err.message);
+    res.status(500).json({ error: 'inspector sweep failed: ' + err.message });
+  }
+});
+
 // 180-day retention purge — runs at startup and every 24h
 function _runAuditPurge() {
   try {

@@ -886,6 +886,9 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
   <button class="nav-item" data-page="audit-log" onclick="nav('audit-log')">
     <span class="nav-icon">📋</span> Audit Log
   </button>
+  <button class="nav-item" data-page="inspector" onclick="nav('inspector')">
+    <span class="nav-icon">🕵️</span> Inspector <span class="nav-badge" id="nav-badge-inspector"></span>
+  </button>
   </div><!-- end nav scroll -->
 
   <div style="padding:10px 20px;border-top:1px solid rgba(255,255,255,0.08)">
@@ -3097,6 +3100,43 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
     </div>
   </div>
 </div>
+
+<!-- ══════════════════════════════════════════
+     PAGE: INSPECTOR — Columbo, the anomaly sweep (admin only)
+══════════════════════════════════════════ -->
+<div id="page-inspector" class="page-hidden">
+  <div class="card" style="margin-bottom:18px">
+    <div class="card-head">
+      <div>
+        <span class="card-title">🕵️ Inspector</span>
+        <div style="font-size:11px;color:var(--g4);margin-top:2px">Passive sweep — finds data anomalies before users do. Admin only.</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span id="inspector-meta" style="font-size:11px;color:var(--g3);font-family:var(--font-m)">—</span>
+        <button class="btn btn-gold btn-sm" onclick="inspectorRunSweep()">🔍 Run Sweep</button>
+      </div>
+    </div>
+    <div class="card-body" style="padding:0">
+      <div id="inspector-summary" style="padding:14px 20px;background:var(--g1);border-bottom:1px solid var(--g2);font-size:12px;color:var(--g4)">
+        Click <strong>Run Sweep</strong> to scan the current state for anomalies.
+      </div>
+      <div id="inspector-list" style="padding:6px"></div>
+    </div>
+  </div>
+</div>
+
+<style>
+.insp-row { display:flex; align-items:flex-start; gap:12px; padding:10px 14px; border-bottom:1px solid var(--g1); font-size:12.5px; }
+.insp-row:last-child { border-bottom:0; }
+.insp-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; margin-top:4px; }
+.insp-dot-high   { background:var(--red); }
+.insp-dot-medium { background:var(--amber); }
+.insp-dot-low    { background:var(--g4); }
+.insp-kind { font-family:var(--font-m); font-size:10.5px; color:var(--g3); white-space:nowrap; padding-top:2px; }
+.insp-msg  { flex:1; color:var(--navy); line-height:1.5; }
+.insp-msg a { color:var(--navy); text-decoration:underline; }
+.insp-empty { padding:30px;text-align:center;color:var(--sage);font-size:13px;font-weight:500; }
+</style>
 
 <style>
 .audit-tab {
@@ -7898,6 +7938,7 @@ const PAGES = {
   training:       { title:'Training',             actions:'' },
   users:          { title:'Users & Access',      actions:'' },
   'audit-log':    { title:'Audit Log',           actions:'' },
+  inspector:      { title:'Inspector',           actions:'' },
   comms:          { title:'Communications',     actions:'' },
   library:        { title:'Library',            actions:'<button class="btn btn-gold btn-sm" onclick="toggleLibUpload()">+ Upload Document</button>' },
 };
@@ -7933,7 +7974,7 @@ var _HASH_ROUTABLE = new Set([
   'dashboard','recipes','ingredients','qa','qas','sop','branch-sop',
   'production','substitutions','builds','brands','builds-costing',
   'cost-control','reports','comms','library','training','audit-log',
-  'users','workflow'
+  'users','workflow','inspector'
 ]);
 
 function _syncHashWithPage(id) {
@@ -8009,7 +8050,7 @@ function applyRoleRestrictions() {
 
   // Strip action buttons from pages this role CANNOT edit
   stripPageActions('page-users');
-  var allPages = ['page-dashboard','page-recipes','page-recipe-detail','page-ingredients','page-qa','page-qas','page-sop','page-branch-sop','page-production','page-substitutions','page-builds','page-brands','page-builds-costing','page-cost-control','page-reports','page-comms','page-library','page-training','page-audit-log'];
+  var allPages = ['page-dashboard','page-recipes','page-recipe-detail','page-ingredients','page-qa','page-qas','page-sop','page-branch-sop','page-production','page-substitutions','page-builds','page-brands','page-builds-costing','page-cost-control','page-reports','page-comms','page-library','page-training','page-audit-log','page-inspector'];
   allPages.forEach(function(pid) {
     var pageId = pid.replace('page-','');
     if (allowed.indexOf(pageId) === -1) stripPageActions(pid);
@@ -8254,6 +8295,91 @@ function auditRender(data) {
 }
 function _auditEsc(s) { return String(s||'').replace(/[<>&"]/g, function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]; }); }
 
+// ─── Columbo the inspector — passive anomaly sweep ───
+// Calls /api/inspector/sweep and renders the result on the Inspector page.
+// Clicking an anomaly tries to deep-link to the offending entity (recipe
+// detail, build detail, etc.) so the user can fix it on the spot.
+function inspectorRunSweep() {
+  var meta = document.getElementById('inspector-meta');
+  var summary = document.getElementById('inspector-summary');
+  var list = document.getElementById('inspector-list');
+  if (summary) summary.textContent = 'Running sweep…';
+  if (list) list.innerHTML = '';
+  if (meta) meta.textContent = '…';
+  var qs = new URLSearchParams({ as: _currentUserEmail() });
+  fetch(API_BASE + '/api/inspector/sweep?' + qs.toString(), {
+    headers: { 'Authorization': 'Bearer ' + API_KEY },
+  }).then(function(r) {
+    if (r.status === 403) throw new Error('admin only');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  }).then(function(report) {
+    _inspectorRender(report);
+  }).catch(function(err) {
+    if (summary) summary.textContent = 'Failed: ' + err.message;
+    if (meta) meta.textContent = '—';
+  });
+}
+
+function _inspectorRender(report) {
+  var summary = document.getElementById('inspector-summary');
+  var list = document.getElementById('inspector-list');
+  var meta = document.getElementById('inspector-meta');
+  var total = (report && report.total) || 0;
+  var ts = (report && report.ranAt) ? new Date(report.ranAt).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : '—';
+  if (meta) meta.textContent = 'Ran ' + ts;
+  if (!total) {
+    if (summary) summary.innerHTML = '<span style="color:var(--sage);font-weight:500">✓ Clean.</span> No anomalies in the current state.';
+    if (list) list.innerHTML = '';
+    var badge = document.getElementById('nav-badge-inspector');
+    if (badge) badge.classList.remove('visible');
+    return;
+  }
+  // Summary: count by severity
+  var bySev = { high:0, medium:0, low:0 };
+  (report.anomalies || []).forEach(function(a){ bySev[a.severity] = (bySev[a.severity] || 0) + 1; });
+  var parts = [];
+  if (bySev.high)   parts.push('<span style="color:var(--red);font-weight:500">' + bySev.high + ' high</span>');
+  if (bySev.medium) parts.push('<span style="color:var(--amber);font-weight:500">' + bySev.medium + ' medium</span>');
+  if (bySev.low)    parts.push('<span style="color:var(--g4);font-weight:500">' + bySev.low + ' low</span>');
+  if (summary) summary.innerHTML = '<strong>' + total + '</strong> anomaly' + (total===1?'':'ies') + ' — ' + parts.join(' · ');
+
+  // Badge in sidebar
+  var badge = document.getElementById('nav-badge-inspector');
+  if (badge) {
+    if (bySev.high > 0) { badge.textContent = bySev.high; badge.classList.add('visible'); }
+    else badge.classList.remove('visible');
+  }
+
+  // List rows — group by kind for readability
+  var byKind = {};
+  (report.anomalies || []).forEach(function(a){ (byKind[a.kind] = byKind[a.kind] || []).push(a); });
+  var html = '';
+  Object.keys(byKind).sort().forEach(function(kind){
+    byKind[kind].forEach(function(a){
+      var link = '';
+      if (a.link && a.link.indexOf('recipes/') === 0) {
+        var npd = a.link.slice('recipes/'.length);
+        link = ' <a href="javascript:void(0)" onclick="nav(\'recipes\');setTimeout(function(){viewRecipe(\'' + npd.replace(/'/g, '\\\'') + '\')},150)">→ Open</a>';
+      } else if (a.link && a.link.indexOf('builds/') === 0) {
+        var bid = a.link.slice('builds/'.length);
+        link = ' <a href="javascript:void(0)" onclick="nav(\'builds\');setTimeout(function(){viewBuild(\'' + bid.replace(/'/g, '\\\'') + '\')},150)">→ Open</a>';
+      } else if (a.link && a.link.indexOf('branch-sop/') === 0) {
+        var sid = a.link.slice('branch-sop/'.length);
+        link = ' <a href="javascript:void(0)" onclick="nav(\'branch-sop\');setTimeout(function(){viewBranchSOP(\'' + sid.replace(/'/g, '\\\'') + '\')},150)">→ Open</a>';
+      } else if (a.link === 'users') {
+        link = ' <a href="javascript:void(0)" onclick="nav(\'users\')">→ Open</a>';
+      }
+      html += '<div class="insp-row">' +
+                '<span class="insp-dot insp-dot-' + a.severity + '" title="' + a.severity + '"></span>' +
+                '<span class="insp-kind">' + a.kind + '</span>' +
+                '<span class="insp-msg">' + _auditEsc(a.message) + link + '</span>' +
+              '</div>';
+    });
+  });
+  if (list) list.innerHTML = html;
+}
+
 function auditExportCSV() {
   if (!_auditLastEvents.length) { showSaveToast('Nothing to export', true); return; }
   var rows = [['Timestamp','User','Action','Target Type','Target ID','Target Label','IP','User Agent','Meta']];
@@ -8281,6 +8407,7 @@ function canAccessPage(pageId) {
   // Admin-only pages stay admin-only even with preview-access overrides.
   if (pageId === 'users') return role === 'admin' && !_previewAccess;
   if (pageId === 'audit-log') return role === 'admin' && !_previewAccess;
+  if (pageId === 'inspector') return role === 'admin' && !_previewAccess;
   // Per-user access toggles can hide pages even from admins (so preview works).
   if (pageId === 'builds'      && !currentUserHasAccess('builds'))      return false;
   if (pageId === 'branch-sop'  && !currentUserHasAccess('branchSop'))   return false;
@@ -8479,6 +8606,11 @@ function nav(id) {
     else if (id === 'comms') { initCommsPage(); }
     else if (id === 'library') { renderLibrary(); }
     else if (id === 'training') { _renderTrainingGrid(); }
+    else if (id === 'inspector') {
+      // Auto-run the sweep on page open so the user sees current state
+      // without having to click. Manual button still works.
+      setTimeout(function(){ if (typeof inspectorRunSweep === 'function') inspectorRunSweep(); }, 50);
+    }
     else if (id === 'audit-log') {
       // Restore persisted filter selections, otherwise default to last 30 days.
       var fromEl = document.getElementById('audit-from');
