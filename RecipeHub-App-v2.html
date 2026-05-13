@@ -20560,7 +20560,7 @@ function archiveBuild(id) {
   if (!b) return;
   b.archived = !b.archived;
   buildBuildsTable();
-  saveAllData();
+  saveBuildToServer(id);
   showSaveToast(b.name + (b.archived ? ' archived' : ' restored'));
   logActivity('recipe', '🍕', (b.archived ? 'Archived' : 'Unarchived') + ' build: ' + b.name, b.id);
 }
@@ -20930,7 +20930,7 @@ function setBuildLaunch(id, value) {
   buildBuildsTable();
   viewBuild(id);
   showSaveToast(b.name + ' → ' + getBuildLaunchLabel(value));
-  saveAllData();
+  saveBuildToServer(id);
 }
 // Legacy callers — still flip between active and inactive.
 function toggleBuildActive(id) {
@@ -21024,7 +21024,7 @@ function saveBuildNutrition(id) {
   toggleBuildNutritionEdit(id);
   showSaveToast('Nutrition saved');
   logActivity('builds', '🥗', 'Nutrition updated for ' + b.name);
-  saveAllData();
+  saveBuildToServer(id);
 }
 
 function editBuildTags(id) {
@@ -21051,7 +21051,7 @@ function saveBuildTags(id) {
   buildBuildsTable();
   viewBuild(id);
   showSaveToast('Tags updated');
-  saveAllData();
+  saveBuildToServer(id);
 }
 
 function uploadBuildPhoto(id, input) {
@@ -21062,7 +21062,7 @@ function uploadBuildPhoto(id, input) {
     b.photo = url;
     b.updatedAt = new Date().toISOString();
     viewBuild(id);
-    saveAllData();
+    saveBuildToServer(id);
     showSaveToast('Photo saved');
   });
 }
@@ -21075,7 +21075,7 @@ async function editBuildSellingPrice(id) {
   b.sellingPrice = parseFloat(val) || null;
   b.updatedAt = new Date().toISOString();
   viewBuild(id);
-  saveAllData();
+  saveBuildToServer(id);
 }
 
 function removeBuildPhoto(id) {
@@ -21084,7 +21084,7 @@ function removeBuildPhoto(id) {
   b.photo = null;
   b.updatedAt = new Date().toISOString();
   viewBuild(id);
-  saveAllData();
+  saveBuildToServer(id);
 }
 
 function createSOPFromBuild(buildId) {
@@ -21130,7 +21130,9 @@ function createSOPFromBuild(buildId) {
   setTimeout(function(){ viewBranchSOP(sop.id); }, 100);
   logActivity('sop', '📋', 'Branch SOP created from build: ' + b.name);
   showSaveToast('Branch SOP created — upload photos for each step');
-  saveAllData();
+  // Only the new Branch SOP changed (the build itself isn't modified — it
+  // just gets back-referenced via sop.buildRef). Save the SOP per-entity.
+  if (typeof saveBranchSOPToServer === 'function') saveBranchSOPToServer(sop.id);
 }
 
 function openBuildForm() {
@@ -21193,7 +21195,7 @@ function saveBuild() {
   logActivity('recipe', '🍕', 'New product build created: ' + name, build.brand + ' · ' + build.size);
   showSaveToast('Build created');
   viewBuild(build.id);
-  saveAllData();
+  saveBuildToServer(build.id);
 }
 
 function editBuild(id) {
@@ -21695,7 +21697,7 @@ function duplicateBuild(id) {
   viewBuild(copy.id);
   logActivity('recipe', '🍕', 'Duplicated product build: ' + b.name, 'New code: ' + copy.id);
   showSaveToast('Build duplicated');
-  saveAllData();
+  saveBuildToServer(copy.id);
 }
 
 // buildBuildsTable() moved to after loadAllData()
