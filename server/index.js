@@ -2889,19 +2889,40 @@ app.get('/api/inspector/sweep', requireAuth, (req, res) => {
     const users = Array.isArray(data.users) ? data.users : [];
     const productionRuns = Array.isArray(data.productionRuns) ? data.productionRuns : [];
 
-    // ── A. Recipe percentages don't sum to ~100 ──
-    // Allow 99–101 (rounding). Only check recipes with ≥2 ingredients and
-    // at least one non-zero pct — empty drafts are exempt.
+    // ── A. Recipe quantities don't round to a valid total ──
+    // Accept either of three conventions (Cate 2026-05-14):
+    //   100 (percent),  1000 (grams, i.e. 1kg),  1 (decimal fraction)
+    // If the sum is within tolerance of any of those, the recipe is fine.
+    // Otherwise flag, severity scales with how far off it is from the
+    // CLOSEST valid total. Empty drafts and archived recipes are exempt.
+    const VALID_TOTALS = [
+      { target: 100,  tol: 0.5, label: '100%' },
+      { target: 1000, tol: 5,   label: '1kg (1000g)' },
+      { target: 1,    tol: 0.005, label: '1.0 (decimal)' },
+    ];
     Object.entries(recipes).forEach(([npd, r]) => {
       if (!r || r.archived) return;
       const ings = Array.isArray(r.ingredients) ? r.ingredients : [];
       if (ings.length < 2) return;
       const sum = ings.reduce((s, i) => s + (parseFloat(i && i.pct) || 0), 0);
-      if (sum > 0 && (sum < 99 || sum > 101)) {
-        push('recipe.pct_sum', 'high', 'recipe', npd,
-          `${r.name || npd}: ingredient percentages sum to ${sum.toFixed(2)}% (expected ~100)`,
-          'recipes/' + npd);
+      if (sum === 0) return;
+      // Pass if within tolerance of ANY valid total.
+      let nearest = VALID_TOTALS[0];
+      let nearestRelDiff = Infinity;
+      let passes = false;
+      for (const t of VALID_TOTALS) {
+        const absDiff = Math.abs(sum - t.target);
+        if (absDiff <= t.tol) { passes = true; break; }
+        const relDiff = absDiff / t.target;  // for "closest" reporting
+        if (relDiff < nearestRelDiff) { nearestRelDiff = relDiff; nearest = t; }
       }
+      if (passes) return;
+      // How far off, as a percentage of the nearest target.
+      const offPct = (Math.abs(sum - nearest.target) / nearest.target) * 100;
+      const severity = offPct >= 1.0 ? 'high' : 'medium';
+      push('recipe.pct_sum', severity, 'recipe', npd,
+        `${r.name || npd}: quantities sum to ${sum.toFixed(2)} — closest valid total is ${nearest.label}, off by ${offPct.toFixed(2)}%`,
+        'recipes/' + npd);
     });
 
     // ── B. Recipe ingredients missing an Oracle code ──
