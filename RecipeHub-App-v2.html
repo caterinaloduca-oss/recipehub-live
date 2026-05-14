@@ -1090,6 +1090,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
     <button class="btn btn-outline btn-sm" id="recipe-archive-toggle" onclick="toggleArchivedRecipes()" style="white-space:nowrap">Show Archived</button>
     <select class="filter-select" id="recipe-filter-type" onchange="filterRecipes()"><option>All Types</option><option>Marinade</option><option>Dip</option><option>Sauce</option><option>Blend</option><option>Seasoning</option><option>Spread</option><option>Dessert</option><option>Meat</option><option>Dough</option><option>Coating</option><option>Brine</option><option>Garnish</option><option>Semi-Finished</option></select>
     <select class="filter-select" id="recipe-filter-tag" onchange="filterRecipes()"><option>All Tags</option><option>Imported</option><option>LTO</option><option>Vegetarian</option><option>Gluten Free</option><option>Discontinued</option><option>Best Seller</option></select>
+    <select class="filter-select" id="recipe-filter-flag" onchange="filterRecipes()" title="Filter by flag state"><option>All Flags</option><option>🚩 Flagged</option><option>Unflagged</option></select>
   </div>
   <div id="recipe-filter-chips" style="display:none;flex-wrap:wrap;gap:6px;align-items:center;margin:-6px 0 12px 0;font-size:12px"></div>
 
@@ -1320,6 +1321,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
       <select class="filter-select" id="fsop-filter-stage" onchange="filterFactorySOPs()" title="Recipe lifecycle stage"><option>All Stages</option><option>Draft</option><option>In Review</option><option>Factory Trial</option><option>Production Trial</option><option>Approved</option><option>Discontinued</option></select>
       <select class="filter-select" id="fsop-filter-status" onchange="filterFactorySOPs()" title="SOP document status (separate from recipe stage)"><option>All SOP Status</option><option>Draft</option><option>Pending Review</option><option>Pending Approval</option><option>Approved</option></select>
       <select class="filter-select" id="fsop-filter-source" onchange="filterFactorySOPs()" title="What kind of SOP the recipe has"><option>All SOPs</option><option>Has Legacy SOP</option><option>Has Live SOP</option><option>No SOP</option></select>
+      <select class="filter-select" id="fsop-filter-flag" onchange="filterFactorySOPs()" title="Filter by SOP flag state"><option>All Flags</option><option>🚩 Flagged</option><option>Unflagged</option></select>
       <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--g4);cursor:pointer;margin-left:auto">
         <input type="checkbox" id="fsop-show-archived" onchange="buildFactorySOPTable()" /> Show Archived
       </label>
@@ -9878,6 +9880,9 @@ function buildRecipesTable() {
     if (r.discontinued) _tagSet.push('discontinued');
     if ((r.source && String(r.source).indexOf('bulk_import') === 0) || (r.name && r.name.indexOf('[IMPORT]') === 0)) _tagSet.push('imported');
     tr.dataset.tags = _tagSet.join('|');
+    // Recipe + SOP + QA flags all roll up to one indicator for the Recipes
+    // page flag filter — if ANY of them has text, the row counts as flagged.
+    tr.dataset.flag = ((r.flag && r.flag.question) || (r.sopFlag && r.sopFlag.question) || (r.qaFlag && r.qaFlag.question)) ? '1' : '0';
     // Unified search haystack — name, codes, brands, type, tags, ingredients.
     tr.dataset.search = [
       (r.name || ''),
@@ -10708,7 +10713,6 @@ function renderFactoryFull(r, batchKg, noImages) {
     '</div>' +
     '<div class="ps-section" style="margin-top:12px;page-break-before:always"><div class="ps-section-title">3. Process Description</div></div>' +
     _printStandardBlocksHTML(r, 'pre', '3a. Pre-Production — Standard Blocks', noImages) +
-    _printBatchTicketHTML(r, batchKg) +
     '<div class="ps-section" style="margin-top:12px"><div class="ps-section-title">3b. Production Steps (Recipe-Specific)</div>' + _printRecipeStepsHTML(r, noImages) + '</div>' +
     _printStandardBlocksHTML(r, 'post', '3c. Post-Production — Standard Blocks', noImages) +
     _printAnnexureHTML(r) +
@@ -12864,6 +12868,7 @@ function buildFactorySOPTable() {
     tr.dataset.hasLiveSop = (r.sopSteps && r.sopSteps.length) ? '1' : '0';
     tr.dataset.recipeStage = recipeStageLabel[recipeStage] || recipeStage;
     tr.dataset.sopStatus = (r.sopSteps && r.sopSteps.length) ? (statusLabel[r.sopStatus || 'draft'] || 'Draft') : '';
+    tr.dataset.flag = (r.sopFlag && r.sopFlag.question) ? '1' : '0';
     tr.dataset.brand = (typeof getRecipeBrands === 'function' ? getRecipeBrands(r) : (r.brand ? [r.brand] : []))
       .map(function(b){ return String(b||'').toLowerCase(); }).join('|');
     // Unified search haystack — recipe name, NPD, Recipe ID, SOP code, brand(s), DFC codes in archive.
@@ -12949,7 +12954,10 @@ function filterFactorySOPs() {
   const status   = document.getElementById('fsop-filter-status').value;
   const sourceEl = document.getElementById('fsop-filter-source');
   const source   = sourceEl ? sourceEl.value : 'All SOPs';
+  const flagEl   = document.getElementById('fsop-filter-flag');
+  const flag     = flagEl ? flagEl.value : 'All Flags';
   const wantBrand = (brand && brand !== 'All Brands') ? brand.toLowerCase() : '';
+  const wantFlag  = (flag === '🚩 Flagged') ? '1' : (flag === 'Unflagged') ? '0' : '';
   const rows = document.getElementById('fsop-tbody').querySelectorAll('tr');
   rows.forEach(row => {
     const hay = row.dataset.search || row.textContent.toLowerCase();
@@ -12959,13 +12967,14 @@ function filterFactorySOPs() {
     const matchBrand = !wantBrand || (('|' + (row.dataset.brand || '') + '|').indexOf('|' + wantBrand + '|') !== -1);
     const stageOK  = (stage === 'All Stages')      || (row.dataset.recipeStage === stage);
     const statusOK = (status === 'All SOP Status') || (row.dataset.sopStatus === status);
+    const matchFlag = !wantFlag || row.dataset.flag === wantFlag;
     let sourceOK;
     if      (source === 'All SOPs')        sourceOK = true;
     else if (source === 'Has Legacy SOP')  sourceOK = hasLegacy;
     else if (source === 'Has Live SOP')    sourceOK = hasLive;
     else if (source === 'No SOP')          sourceOK = !hasLegacy && !hasLive;
     else                                   sourceOK = true;
-    row.style.display = (matchQ && matchBrand && stageOK && statusOK && sourceOK) ? '' : 'none';
+    row.style.display = (matchQ && matchBrand && stageOK && statusOK && sourceOK && matchFlag) ? '' : 'none';
   });
   if (typeof _renderFsopFilterChips === 'function') _renderFsopFilterChips();
   if (typeof _saveFsopFilters === 'function') _saveFsopFilters();
@@ -12980,6 +12989,7 @@ function _saveFsopFilters() {
     var stg = document.getElementById('fsop-filter-stage');
     var st = document.getElementById('fsop-filter-status');
     var src = document.getElementById('fsop-filter-source');
+    var fl = document.getElementById('fsop-filter-flag');
     var sa = document.getElementById('fsop-show-archived');
     localStorage.setItem(_FSOP_FILTERS_KEY, JSON.stringify({
       q:      s   ? s.value   : '',
@@ -12987,6 +12997,7 @@ function _saveFsopFilters() {
       stage:  stg ? stg.value : 'All Stages',
       status: st  ? st.value  : 'All SOP Status',
       source: src ? src.value : 'All SOPs',
+      flag:   fl  ? fl.value  : 'All Flags',
       showArchived: !!(sa && sa.checked)
     }));
   } catch (e) {}
@@ -13007,6 +13018,7 @@ function _loadFsopFilters() {
     _setIfOption(document.getElementById('fsop-filter-stage'),   v.stage);
     _setIfOption(document.getElementById('fsop-filter-status'),  v.status);
     _setIfOption(document.getElementById('fsop-filter-source'),  v.source);
+    _setIfOption(document.getElementById('fsop-filter-flag'),    v.flag);
     var sa = document.getElementById('fsop-show-archived');
     if (sa && typeof v.showArchived === 'boolean') sa.checked = v.showArchived;
     return true;
@@ -13019,7 +13031,7 @@ function _clearFsopFilter(which) {
 }
 function _clearAllFsopFilters() {
   var s = document.getElementById('fsop-search'); if (s) s.value = '';
-  ['brand','stage','status','source'].forEach(function(k){
+  ['brand','stage','status','source','flag'].forEach(function(k){
     var el = document.getElementById('fsop-filter-' + k);
     if (el) el.selectedIndex = 0;
   });
@@ -13046,6 +13058,8 @@ function _renderFsopFilterChips() {
   if (stg && stg.value && stg.value !== 'All Stages') _chip('Stage', stg.value, "_clearFsopFilter('stage')");
   if (st && st.value && st.value !== 'All SOP Status') _chip('SOP Status', st.value, "_clearFsopFilter('status')");
   if (src && src.value && src.value !== 'All SOPs') _chip('Source', src.value, "_clearFsopFilter('source')");
+  var fl = document.getElementById('fsop-filter-flag');
+  if (fl && fl.value && fl.value !== 'All Flags') _chip('Flag', fl.value, "_clearFsopFilter('flag')");
   if (chips.length) {
     host.style.display = 'flex';
     host.innerHTML = chips.join('') +
@@ -15195,6 +15209,8 @@ function filterRecipes() {
   const type = typeEl ? typeEl.value : 'All Types';
   const tagEl = document.getElementById('recipe-filter-tag');
   const tag = tagEl ? tagEl.value : 'All Tags';
+  const flagEl = document.getElementById('recipe-filter-flag');
+  const flag = flagEl ? flagEl.value : 'All Flags';
   // Auto-show archived when "Archived" filter is selected
   if (status === 'Archived' && !_showArchivedRecipes) { _showArchivedRecipes = true; buildRecipesTable(); }
   // Multi-token search — every space-separated word must match somewhere in the row haystack.
@@ -15203,6 +15219,7 @@ function filterRecipes() {
   const wantBrand = (brand && brand !== 'All Brands') ? brand.toLowerCase() : '';
   const wantType = (type && type !== 'All Types') ? type.toLowerCase() : '';
   const wantTag = (tag && tag !== 'All Tags') ? tag.toLowerCase() : '';
+  const wantFlag = (flag === '🚩 Flagged') ? '1' : (flag === 'Unflagged') ? '0' : '';
   const rows = document.getElementById('recipes-tbody').querySelectorAll('tr');
   rows.forEach(row => {
     const hay = row.dataset.search || '';
@@ -15211,7 +15228,8 @@ function filterRecipes() {
     const matchBrand = !wantBrand || (('|' + (row.dataset.brand || '') + '|').indexOf('|' + wantBrand + '|') !== -1);
     const matchType = !wantType || row.dataset.type === wantType;
     const matchTag = !wantTag || (('|' + (row.dataset.tags || '') + '|').indexOf('|' + wantTag + '|') !== -1);
-    row.style.display = (matchQ && matchStatus && matchBrand && matchType && matchTag) ? '' : 'none';
+    const matchFlag = !wantFlag || row.dataset.flag === wantFlag;
+    row.style.display = (matchQ && matchStatus && matchBrand && matchType && matchTag && matchFlag) ? '' : 'none';
   });
   if (typeof _renderRecipeFilterChips === 'function') _renderRecipeFilterChips();
   if (typeof _saveRecipeFilters === 'function') _saveRecipeFilters();
@@ -15226,12 +15244,14 @@ function _saveRecipeFilters() {
     var st = document.getElementById('recipe-filter-status');
     var tp = document.getElementById('recipe-filter-type');
     var tg = document.getElementById('recipe-filter-tag');
+    var fl = document.getElementById('recipe-filter-flag');
     localStorage.setItem(_RECIPE_FILTERS_KEY, JSON.stringify({
       q:  s  ? s.value  : '',
       brand:  b  ? b.value  : 'All Brands',
       status: st ? st.value : 'All Statuses',
       type:   tp ? tp.value : 'All Types',
       tag:    tg ? tg.value : 'All Tags',
+      flag:   fl ? fl.value : 'All Flags',
       showArchived: !!_showArchivedRecipes
     }));
   } catch (e) {}
@@ -15258,6 +15278,7 @@ function _loadRecipeFilters() {
     _setIfOption(st, v.status);
     _setIfOption(tp, v.type);
     _setIfOption(tg, v.tag);
+    _setIfOption(document.getElementById('recipe-filter-flag'), v.flag);
     if (v.showArchived && !_showArchivedRecipes) _showArchivedRecipes = true;
     return true;
   } catch (e) { return false; }
@@ -15270,7 +15291,7 @@ function _clearRecipeFilter(which) {
 }
 function _clearAllRecipeFilters() {
   var s = document.getElementById('recipe-search'); if (s) s.value = '';
-  ['brand','status','type','tag'].forEach(function(k){
+  ['brand','status','type','tag','flag'].forEach(function(k){
     var el = document.getElementById('recipe-filter-' + k);
     if (el) el.selectedIndex = 0;
   });
@@ -15297,6 +15318,8 @@ function _renderRecipeFilterChips() {
   if (st && st.value && st.value !== 'All Statuses') _chip('Status', st.value, "_clearRecipeFilter('status')");
   if (tp && tp.value && tp.value !== 'All Types') _chip('Type', tp.value, "_clearRecipeFilter('type')");
   if (tg && tg.value && tg.value !== 'All Tags') _chip('Tag', tg.value, "_clearRecipeFilter('tag')");
+  var fl = document.getElementById('recipe-filter-flag');
+  if (fl && fl.value && fl.value !== 'All Flags') _chip('Flag', fl.value, "_clearRecipeFilter('flag')");
   if (chips.length) {
     host.style.display = 'flex';
     host.innerHTML = chips.join('') +
