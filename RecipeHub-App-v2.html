@@ -6265,17 +6265,54 @@ function emailSignIn() {
     return;
   }
 
-  var found = USERS_DATA.find(function(u){ return u.email.toLowerCase() === email.toLowerCase() && u.active; });
-  if (!found) {
-    errEl.textContent = 'Email not recognised — contact your admin for access';
-    errEl.style.display = 'block';
-    auditEvent('user.signin_blocked', 'user', email.toLowerCase(), null, { reason: 'unknown_email' });
+  // Fast path: client already has USERS_DATA loaded.
+  var emailLc = email.toLowerCase();
+  var found = USERS_DATA.find(function(u){ return u.email && u.email.toLowerCase() === emailLc && u.active; });
+  if (found) {
+    _emailSignInSuccess(email, found);
     return;
   }
 
+  // Race-safe fallback: USERS_DATA hadn't loaded yet OR a fresh admin
+  // just added this user from another tab. Fetch the server's current
+  // user list and check there before blocking. Bahawath + Khalaf hit
+  // this on 2026-05-13 — both existed server-side but their browser's
+  // USERS_DATA hadn't finished syncing.
   errEl.style.display = 'none';
+  errEl.textContent = 'Checking…';
+  errEl.style.display = 'block';
+  errEl.style.color = 'var(--g4)';
+  fetch(API_BASE + '/api/data', {
+    headers: { 'Authorization': 'Bearer ' + API_KEY },
+    cache: 'no-store',
+  }).then(function(r){ if (!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+    .then(function(result){
+      var users = (result && result.data && result.data.users) || [];
+      var srvFound = users.find(function(u){ return u && u.email && u.email.toLowerCase() === emailLc && u.active; });
+      if (srvFound) {
+        // Hydrate USERS_DATA so the rest of the app sees the new record
+        // without a separate sync round-trip.
+        if (Array.isArray(users)) { USERS_DATA.length = 0; users.forEach(function(u){ USERS_DATA.push(u); }); }
+        _emailSignInSuccess(email, srvFound);
+      } else {
+        errEl.style.color = '';
+        errEl.textContent = 'Email not recognised — contact your admin for access';
+        auditEvent('user.signin_blocked', 'user', emailLc, null, { reason: 'unknown_email' });
+      }
+    })
+    .catch(function(err){
+      errEl.style.color = '';
+      errEl.textContent = 'Sign-in check failed — check your connection and try again';
+      console.warn('emailSignIn server check failed:', err && err.message);
+    });
+}
+
+// Shared success path for both the fast and slow branches above.
+function _emailSignInSuccess(email, found) {
+  var errEl = document.getElementById('signin-error');
+  if (errEl) { errEl.style.display = 'none'; errEl.style.color = ''; }
   var rm = ROLE_META[found.role];
-  var user = { name:found.name, email:email, role: rm ? rm.label : found.title, method:'email' };
+  var user = { name: found.name, email: email, role: rm ? rm.label : found.title, method: 'email' };
   setAuthUser(user);
   showApp();
   auditEvent('user.signin', 'user', email.toLowerCase(), found.name + ' (' + (found.role || '') + ')', { method: 'email' });
