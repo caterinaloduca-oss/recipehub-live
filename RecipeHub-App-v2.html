@@ -6145,6 +6145,10 @@ function showApp() {
   // Was previously implicit (dashboard visible by default), which combined with
   // navigations could leave more than one page visible and push content down.
   if (typeof showPage === 'function') showPage(_currentPage || 'dashboard');
+  // Honor any deep-link (#recipe=NPD / #sop=NPD / #qa=NPD) that survived
+  // the sign-in step — e.g. when a user clicked a flag email and had to
+  // sign in first. _executeDeepLink waits for RECIPE_DB to be populated.
+  setTimeout(function(){ if (typeof _executeDeepLink === 'function') _executeDeepLink(); }, 200);
 }
 
 function hideApp() {
@@ -7151,9 +7155,10 @@ async function openRecipeFlagModal(npd) {
   r.updatedAt = new Date().toISOString();
   saveRecipeToServer(npd);
   viewRecipe(npd);
-  // Parse @mentions and notify each tagged person
+  // Parse @mentions and notify each tagged person. Deep-link lands the
+  // recipient straight on the flagged recipe (see _executeDeepLink).
   _notifyFlagMentions('recipe', (r.name || npd) + ' (' + npd + ')', trimmed,
-    'https://recipehub.dailyfoodsa.com/#recipes')
+    'https://recipehub.dailyfoodsa.com/#recipe=' + encodeURIComponent(npd))
     .then(function(out){
       if (out.sent) showSaveToast('Recipe flagged — emailed ' + out.sent + ' teammate' + (out.sent>1?'s':''));
       else showSaveToast('Recipe flagged');
@@ -7199,7 +7204,7 @@ async function openSOPFlagModal(npd) {
   if (typeof exportToSOP === 'function') exportToSOP(npd);
   if (typeof buildFactorySOPTable === 'function') buildFactorySOPTable();
   _notifyFlagMentions('factory-sop', (r.name || npd) + ' SOP (' + npd + ')', trimmed,
-    'https://recipehub.dailyfoodsa.com/#factory-sop')
+    'https://recipehub.dailyfoodsa.com/#sop=' + encodeURIComponent(npd))
     .then(function(out){
       if (out.sent) showSaveToast('SOP flagged — emailed ' + out.sent + ' teammate' + (out.sent>1?'s':''));
       else showSaveToast('SOP flagged');
@@ -7230,7 +7235,7 @@ async function openQAFlagModal(npd) {
   saveRecipeToServer(npd);
   _renderQAFlagBanner(r);
   _notifyFlagMentions('qa', (r.name || npd) + ' QA (' + npd + ')', trimmed,
-    'https://recipehub.dailyfoodsa.com/#qa')
+    'https://recipehub.dailyfoodsa.com/#qa=' + encodeURIComponent(npd))
     .then(function(out){
       if (out.sent) showSaveToast('QA flagged — emailed ' + out.sent + ' teammate' + (out.sent>1?'s':''));
       else showSaveToast('QA flagged');
@@ -8042,7 +8047,49 @@ function _syncHashWithPage(id) {
   }
 }
 
+// Deep-link routing: hashes of the form #recipe=NPD / #sop=NPD / #qa=NPD
+// open the matching detail view directly. Used by the flag-mention emails
+// so the recipient lands on the flagged item with one click instead of
+// having to find it in a list.
+//
+// If the user isn't signed in yet when the URL is opened, the hash stays
+// in the address bar. After they sign in, showApp() calls
+// _executeDeepLink() which honors the deferred deep-link.
+function _executeDeepLink() {
+  var hash = (window.location.hash || '').replace(/^#/, '');
+  if (!hash) return false;
+  var m = hash.match(/^(recipe|sop|qa)=(.+)$/);
+  if (!m) return false;
+  var kind = m[1];
+  var id = decodeURIComponent(m[2]);
+  // Wait until USERS_DATA is loaded — otherwise role checks fail.
+  if (typeof RECIPE_DB === 'undefined' || !RECIPE_DB[id]) {
+    // Try again shortly in case data is still loading.
+    setTimeout(_executeDeepLink, 400);
+    return false;
+  }
+  try {
+    if (kind === 'recipe') {
+      nav('recipes');
+      setTimeout(function(){ if (typeof viewRecipe === 'function') viewRecipe(id); }, 80);
+    } else if (kind === 'sop') {
+      nav('sop');
+      setTimeout(function(){ if (typeof exportToSOP === 'function') exportToSOP(id); }, 80);
+    } else if (kind === 'qa') {
+      nav('qa');
+      setTimeout(function(){
+        // Drive the QA recipe selector if available.
+        var sel = document.getElementById('qa-recipe-select');
+        if (sel) { sel.value = id; if (typeof updateQARecipe === 'function') updateQARecipe(id); }
+      }, 80);
+    }
+  } catch (e) { console.warn('deep-link exec failed:', e); }
+  return true;
+}
+
 window.addEventListener('hashchange', function() {
+  // Deep-link hashes take priority over plain page navigation.
+  if (_executeDeepLink()) return;
   var id = (window.location.hash || '').replace(/^#/, '');
   if (!id || !_HASH_ROUTABLE.has(id) || id === _currentPage) return;
   if (typeof canAccessPage === 'function' && !canAccessPage(id)) {
@@ -8054,6 +8101,7 @@ window.addEventListener('hashchange', function() {
 });
 
 function _initHashFromURL() {
+  if (_executeDeepLink()) return;
   var id = (window.location.hash || '').replace(/^#/, '');
   if (!id || !_HASH_ROUTABLE.has(id) || id === _currentPage) return;
   if (typeof canAccessPage === 'function' && !canAccessPage(id)) {
