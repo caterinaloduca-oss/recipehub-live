@@ -13311,6 +13311,144 @@ function viewVisualSOP(npd) {
   showPage('sop');
 }
 
+// Upload a data URL (already-cropped image) straight to the server. Used by the
+// interactive crop modal: the cropper produces a JPEG data URL, we just need
+// to ship it. Falls back to the raw data URL if the server upload fails.
+function uploadDataUrlToServer(dataUrl, key, cb) {
+  fetch(API_BASE + '/api/img/upload', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + API_KEY },
+    body: JSON.stringify({ key: key, data: dataUrl }),
+  }).then(function(r) { return r.json(); })
+    .then(function(res) { if (res && res.ok && res.url) cb(res.url); else cb(dataUrl); })
+    .catch(function() { cb(dataUrl); });
+}
+
+// Interactive crop modal — fixed-aspect viewport, user drags to position and
+// uses the slider (or wheel) to zoom. On confirm, the visible portion is drawn
+// to a canvas at outSize px and returned as a JPEG data URL via cb.
+//   file: File object
+//   opts: { aspect: 1, outSize: 600, quality: 0.7 }
+//   cb(croppedDataUrl) — confirm only; cancel does NOT call cb
+function openImageCropModal(file, opts, cb) {
+  opts = opts || {};
+  var aspect = opts.aspect || 1;
+  var outSize = opts.outSize || 600;
+  var quality = opts.quality || 0.7;
+  var V = 360; // viewport width in px (height = V / aspect)
+  var VH = Math.round(V / aspect);
+
+  var reader = new FileReader();
+  reader.onerror = function() { showSaveToast('Could not read file', true); };
+  reader.onload = function(e) {
+    var img = new Image();
+    img.onerror = function() { showSaveToast('Could not read image', true); };
+    img.onload = function() {
+      var nW = img.naturalWidth, nH = img.naturalHeight;
+      // baseScale: smallest scale that fully covers the viewport
+      var baseScale = Math.max(V / nW, VH / nH);
+      var scale = baseScale;
+      var offsetX = (V  - nW * scale) / 2;
+      var offsetY = (VH - nH * scale) / 2;
+
+      openModal(
+        '<div class="card-head" style="background:var(--navy);border-radius:16px 16px 0 0">' +
+          '<span class="card-title" style="color:white">Crop photo</span>' +
+          '<button class="btn btn-sm" style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:none" onclick="closeModal()">✕</button>' +
+        '</div>' +
+        '<div class="card-body" style="padding:24px">' +
+          '<div style="font-size:11px;color:var(--g4);margin-bottom:12px;text-align:center">Drag to position · scroll or use the slider to zoom · everything outside the box is cropped out</div>' +
+          '<div id="rh-crop-viewport" style="width:'+V+'px;height:'+VH+'px;margin:0 auto;background:#222;overflow:hidden;position:relative;border-radius:8px;cursor:grab;touch-action:none;user-select:none;border:1px solid var(--g2)">' +
+            '<img id="rh-crop-source" draggable="false" style="position:absolute;left:0;top:0;transform-origin:0 0;pointer-events:none" />' +
+            '<div style="position:absolute;inset:0;pointer-events:none;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.15)"></div>' +
+          '</div>' +
+          '<div style="display:flex;gap:10px;align-items:center;margin-top:16px">' +
+            '<span style="font-size:11px;color:var(--g4);min-width:32px">Zoom</span>' +
+            '<input type="range" id="rh-crop-zoom" min="1" max="4" step="0.01" value="1" style="flex:1" />' +
+          '</div>' +
+          '<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px">' +
+            '<button class="btn btn-outline" onclick="closeModal()">Cancel</button>' +
+            '<button class="btn btn-gold" id="rh-crop-confirm">Use this crop</button>' +
+          '</div>' +
+        '</div>'
+      );
+
+      var srcEl = document.getElementById('rh-crop-source');
+      srcEl.src = img.src;
+      srcEl.style.width  = nW + 'px';
+      srcEl.style.height = nH + 'px';
+
+      function clampOffsets() {
+        var w = nW * scale, h = nH * scale;
+        var minX = V  - w, maxX = 0;
+        var minY = VH - h, maxY = 0;
+        if (offsetX > maxX) offsetX = maxX;
+        if (offsetX < minX) offsetX = minX;
+        if (offsetY > maxY) offsetY = maxY;
+        if (offsetY < minY) offsetY = minY;
+      }
+      function applyTransform() {
+        srcEl.style.transform = 'translate(' + offsetX + 'px,' + offsetY + 'px) scale(' + scale + ')';
+      }
+      clampOffsets();
+      applyTransform();
+
+      var vp = document.getElementById('rh-crop-viewport');
+      var dragging = false, lastX = 0, lastY = 0;
+      vp.addEventListener('pointerdown', function(ev) {
+        dragging = true; lastX = ev.clientX; lastY = ev.clientY;
+        vp.setPointerCapture(ev.pointerId);
+        vp.style.cursor = 'grabbing';
+      });
+      vp.addEventListener('pointermove', function(ev) {
+        if (!dragging) return;
+        offsetX += (ev.clientX - lastX);
+        offsetY += (ev.clientY - lastY);
+        lastX = ev.clientX; lastY = ev.clientY;
+        clampOffsets(); applyTransform();
+      });
+      vp.addEventListener('pointerup', function() {
+        dragging = false; vp.style.cursor = 'grab';
+      });
+      vp.addEventListener('wheel', function(ev) {
+        ev.preventDefault();
+        var slider = document.getElementById('rh-crop-zoom');
+        var v = parseFloat(slider.value) - ev.deltaY * 0.002;
+        v = Math.max(1, Math.min(4, v));
+        slider.value = v;
+        slider.dispatchEvent(new Event('input'));
+      }, { passive: false });
+
+      document.getElementById('rh-crop-zoom').addEventListener('input', function() {
+        var mul = parseFloat(this.value);
+        var prev = scale;
+        scale = baseScale * mul;
+        // Keep viewport center stable while zooming
+        var cx = V / 2, cy = VH / 2;
+        offsetX = cx - (cx - offsetX) * (scale / prev);
+        offsetY = cy - (cy - offsetY) * (scale / prev);
+        clampOffsets(); applyTransform();
+      });
+
+      document.getElementById('rh-crop-confirm').onclick = function() {
+        // Map the viewport rect (0,0,V,VH) into source coords:
+        var srcX = -offsetX / scale;
+        var srcY = -offsetY / scale;
+        var srcW = V  / scale;
+        var srcH = VH / scale;
+        var canvas = document.createElement('canvas');
+        canvas.width = outSize; canvas.height = Math.round(outSize / aspect);
+        canvas.getContext('2d').drawImage(img, srcX, srcY, srcW, srcH, 0, 0, canvas.width, canvas.height);
+        var dataUrl = canvas.toDataURL('image/jpeg', quality);
+        closeModal();
+        cb(dataUrl);
+      };
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
 function uploadImageToServer(file, key, cb, opts) {
   compressImage(file, 600, 0.6, function(dataUrl) {
     fetch(API_BASE + '/api/img/upload', {
@@ -25104,16 +25242,18 @@ function deleteBranchSOPPhoto(sopId, stepIdx) {
 function uploadBranchSOPPhoto(sopId, stepIdx, input) {
   const sop = BRANCH_SOPS.find(s => s.id === sopId);
   if (!sop || !input.files[0]) return;
-  // cropAspect:1 — every step photo is auto-cropped to a perfect square so
-  // the SOP grid stays visually uniform regardless of what shape phone
-  // photo the user uploads.
-  uploadImageToServer(input.files[0], 'bsop-'+sopId+'-step'+stepIdx, function(url) {
-    sop.steps[stepIdx].img = url;
-    sop.updatedAt = new Date().toISOString();  // so server merge treats this as newer
-    viewBranchSOP(sopId);
-    saveBranchSOPToServer(sopId);
-    showSaveToast('Step photo saved');
-  }, { cropAspect: 1 });
+  // Open the interactive crop modal — user drags + zooms to position the
+  // subject inside a 1:1 viewport, then we ship the result. Replaces the
+  // older auto-centre-crop (which often clipped the subject off-screen).
+  openImageCropModal(input.files[0], { aspect: 1, outSize: 600, quality: 0.7 }, function(croppedDataUrl) {
+    uploadDataUrlToServer(croppedDataUrl, 'bsop-'+sopId+'-step'+stepIdx, function(url) {
+      sop.steps[stepIdx].img = url;
+      sop.updatedAt = new Date().toISOString();  // so server merge treats this as newer
+      viewBranchSOP(sopId);
+      saveBranchSOPToServer(sopId);
+      showSaveToast('Step photo saved');
+    });
+  });
 }
 
 function openBranchSOPForm() {
