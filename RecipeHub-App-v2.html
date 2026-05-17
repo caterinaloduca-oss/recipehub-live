@@ -13345,8 +13345,13 @@ function openImageCropModal(file, opts, cb) {
     img.onerror = function() { showSaveToast('Could not read image', true); };
     img.onload = function() {
       var nW = img.naturalWidth, nH = img.naturalHeight;
-      // baseScale: smallest scale that fully covers the viewport
+      // baseScale: smallest scale that fully covers the viewport (slider 1.0)
+      // fitScale:  largest scale that fits entirely inside (left end of slider —
+      //            lets the user see the whole photo with white bars if they
+      //            want to keep edges instead of cropping)
       var baseScale = Math.max(V / nW, VH / nH);
+      var fitScale  = Math.min(V / nW, VH / nH);
+      var sliderMin = fitScale / baseScale; // typically ~0.75 for phone photos
       var scale = baseScale;
       var offsetX = (V  - nW * scale) / 2;
       var offsetY = (VH - nH * scale) / 2;
@@ -13358,13 +13363,13 @@ function openImageCropModal(file, opts, cb) {
         '</div>' +
         '<div class="card-body" style="padding:24px">' +
           '<div style="font-size:11px;color:var(--g4);margin-bottom:12px;text-align:center">Drag to position · scroll or use the slider to zoom · everything outside the box is cropped out</div>' +
-          '<div id="rh-crop-viewport" style="width:'+V+'px;height:'+VH+'px;margin:0 auto;background:#222;overflow:hidden;position:relative;border-radius:8px;cursor:grab;touch-action:none;user-select:none;border:1px solid var(--g2)">' +
+          '<div id="rh-crop-viewport" style="width:'+V+'px;height:'+VH+'px;margin:0 auto;background:#fff;overflow:hidden;position:relative;border-radius:8px;cursor:grab;touch-action:none;user-select:none;border:1px solid var(--g2)">' +
             '<img id="rh-crop-source" draggable="false" style="position:absolute;left:0;top:0;transform-origin:0 0;pointer-events:none" />' +
             '<div style="position:absolute;inset:0;pointer-events:none;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.15)"></div>' +
           '</div>' +
           '<div style="display:flex;gap:10px;align-items:center;margin-top:16px">' +
             '<span style="font-size:11px;color:var(--g4);min-width:32px">Zoom</span>' +
-            '<input type="range" id="rh-crop-zoom" min="1" max="4" step="0.01" value="1" style="flex:1" />' +
+            '<input type="range" id="rh-crop-zoom" min="'+sliderMin.toFixed(3)+'" max="4" step="0.01" value="1" style="flex:1" />' +
           '</div>' +
           '<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px">' +
             '<button class="btn btn-outline" onclick="closeModal()">Cancel</button>' +
@@ -13380,12 +13385,14 @@ function openImageCropModal(file, opts, cb) {
 
       function clampOffsets() {
         var w = nW * scale, h = nH * scale;
-        var minX = V  - w, maxX = 0;
-        var minY = VH - h, maxY = 0;
-        if (offsetX > maxX) offsetX = maxX;
-        if (offsetX < minX) offsetX = minX;
-        if (offsetY > maxY) offsetY = maxY;
-        if (offsetY < minY) offsetY = minY;
+        // When the image is bigger than the viewport, allow pan within bounds.
+        // When it's smaller (zoomed below cover), centre it so white bars sit
+        // symmetrically — the user gave up cropping in exchange for showing
+        // the whole photo, so centring is what they expect.
+        if (w >= V)  { if (offsetX > 0) offsetX = 0; if (offsetX < V  - w) offsetX = V  - w; }
+        else         { offsetX = (V  - w) / 2; }
+        if (h >= VH) { if (offsetY > 0) offsetY = 0; if (offsetY < VH - h) offsetY = VH - h; }
+        else         { offsetY = (VH - h) / 2; }
       }
       function applyTransform() {
         srcEl.style.transform = 'translate(' + offsetX + 'px,' + offsetY + 'px) scale(' + scale + ')';
@@ -13414,7 +13421,7 @@ function openImageCropModal(file, opts, cb) {
         ev.preventDefault();
         var slider = document.getElementById('rh-crop-zoom');
         var v = parseFloat(slider.value) - ev.deltaY * 0.002;
-        v = Math.max(1, Math.min(4, v));
+        v = Math.max(sliderMin, Math.min(4, v));
         slider.value = v;
         slider.dispatchEvent(new Event('input'));
       }, { passive: false });
@@ -13438,7 +13445,10 @@ function openImageCropModal(file, opts, cb) {
         var srcH = VH / scale;
         var canvas = document.createElement('canvas');
         canvas.width = outSize; canvas.height = Math.round(outSize / aspect);
-        canvas.getContext('2d').drawImage(img, srcX, srcY, srcW, srcH, 0, 0, canvas.width, canvas.height);
+        var ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#ffffff';  // white bars when the user zoomed below cover (JPEG can't store transparency)
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, canvas.width, canvas.height);
         var dataUrl = canvas.toDataURL('image/jpeg', quality);
         closeModal();
         cb(dataUrl);
