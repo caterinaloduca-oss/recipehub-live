@@ -810,6 +810,11 @@ function mergeRecipe(existing, incoming) {
   // omission is almost always wrong (stale tab posts that don't know about the
   // flag would silently clear it).
   ['flag','sopFlag','qaFlag','sopApproval','sopStatus','sopVersion','factorySopArchived','importFlags','source','importedAt','fgItemCode','fgDescription','recipeId','tags',
+   // Lifecycle flags — same shape as on mergeBuild. Without these, archiving a
+   // recipe and then navigating away (which can trigger a bulk save from a
+   // stale tab missing the flag) silently un-archives it on the server. Cate
+   // reported the bug 2026-05-17 ("archived keep on popping back out").
+   'archived','discontinued',
    // QA-owned fields — preserved when incoming lacks them so a non-QA user
    // saving the recipe can never wipe QA work. trialQA / prodQA / prod-trialQA
    // already have explicit signed/files protection above; these are the rest:
