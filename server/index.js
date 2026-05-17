@@ -786,10 +786,16 @@ function mergeRecipe(existing, incoming) {
   const eTime = existing.updatedAt || '2000-01-01';
   const iTime = incoming.updatedAt || '2000-01-01';
 
-  // If existing is newer for core fields, keep existing
+  // If existing is newer for core fields, keep existing.
+  // `status` is in here so a stale tab posting an old status string can't
+  // overwrite a newer one. Cate hit this 2026-05-17: Pizza Donut 2026-240
+  // was bounced trial → draft, then a stale tab silently flipped it back
+  // to trial because status wasn't protected. Legitimate transitions bump
+  // updatedAt and so go through the incoming-newer branch (this block is
+  // skipped), where incoming.status wins as expected.
   if (eTime > iTime) {
     ['name','version','brand','type','storage','yield','yieldNotes','batchSize','costKg',
-     'ingredients','method','packaging','sopSteps','sensoryGate1','sensoryGate2'].forEach(f => {
+     'ingredients','method','packaging','sopSteps','sensoryGate1','sensoryGate2','status'].forEach(f => {
       if (existing[f] !== undefined) result[f] = existing[f];
     });
     result.updatedAt = eTime;
