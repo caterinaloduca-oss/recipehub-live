@@ -6191,7 +6191,7 @@ function _updateSidebarDiag() {
       : null;
     var fr = u && u.fullRights;
     var marker = u ? '✓' : '⚠ not in users';
-    el.textContent = 'role: ' + role + (fr ? ' · full rights' : '') + ' · ' + marker;
+    el.textContent = marker + (fr ? ' · full rights' : '');
     el.style.color = (u && (role === 'admin' || role === 'factory' || role === 'npd' || role === 'qa' || role === 'ops' || role === 'purchasing' || role === 'it'))
       ? 'rgba(255,255,255,0.45)'
       : 'rgba(255,180,77,0.85)'; // amber if the lookup looks broken
