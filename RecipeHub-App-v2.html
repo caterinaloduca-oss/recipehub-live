@@ -13356,13 +13356,15 @@ function openImageCropModal(file, opts, cb) {
       var offsetX = (V  - nW * scale) / 2;
       var offsetY = (VH - nH * scale) / 2;
 
+      var outH = Math.round(outSize / aspect);
       openModal(
         '<div class="card-head" style="background:var(--navy);border-radius:16px 16px 0 0">' +
           '<span class="card-title" style="color:white">Crop photo</span>' +
           '<button class="btn btn-sm" style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:none" onclick="closeModal()">✕</button>' +
         '</div>' +
         '<div class="card-body" style="padding:24px">' +
-          '<div style="font-size:11px;color:var(--g4);margin-bottom:12px;text-align:center">Drag to position · scroll or use the slider to zoom · everything outside the box is cropped out</div>' +
+          '<div style="font-size:11px;color:var(--g4);margin-bottom:8px;text-align:center">Drag to position · scroll or use the slider to zoom · everything outside the box is cropped out</div>' +
+          '<div style="font-size:10px;color:var(--g3);margin-bottom:12px;text-align:center;font-family:var(--font-m);letter-spacing:0.04em">Target: ' + outSize + ' × ' + outH + ' px JPEG · ~60–120 KB</div>' +
           '<div id="rh-crop-viewport" style="width:'+V+'px;height:'+VH+'px;margin:0 auto;background:#fff;overflow:hidden;position:relative;border-radius:8px;cursor:grab;touch-action:none;user-select:none;border:1px solid var(--g2)">' +
             '<img id="rh-crop-source" draggable="false" style="position:absolute;left:0;top:0;transform-origin:0 0;pointer-events:none" />' +
             '<div style="position:absolute;inset:0;pointer-events:none;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.15)"></div>' +
@@ -13450,8 +13452,12 @@ function openImageCropModal(file, opts, cb) {
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, canvas.width, canvas.height);
         var dataUrl = canvas.toDataURL('image/jpeg', quality);
+        // Estimate size in KB so callers can surface it. Data URL is
+        // "data:image/jpeg;base64,…"; base64 is ~4/3 of binary bytes.
+        var b64 = dataUrl.length - dataUrl.indexOf(',') - 1;
+        var sizeKB = Math.round(b64 * 0.75 / 1024);
         closeModal();
-        cb(dataUrl);
+        cb(dataUrl, sizeKB);
       };
     };
     img.src = e.target.result;
@@ -25255,13 +25261,13 @@ function uploadBranchSOPPhoto(sopId, stepIdx, input) {
   // Open the interactive crop modal — user drags + zooms to position the
   // subject inside a 1:1 viewport, then we ship the result. Replaces the
   // older auto-centre-crop (which often clipped the subject off-screen).
-  openImageCropModal(input.files[0], { aspect: 1, outSize: 600, quality: 0.7 }, function(croppedDataUrl) {
+  openImageCropModal(input.files[0], { aspect: 1, outSize: 600, quality: 0.7 }, function(croppedDataUrl, sizeKB) {
     uploadDataUrlToServer(croppedDataUrl, 'bsop-'+sopId+'-step'+stepIdx, function(url) {
       sop.steps[stepIdx].img = url;
       sop.updatedAt = new Date().toISOString();  // so server merge treats this as newer
       viewBranchSOP(sopId);
       saveBranchSOPToServer(sopId);
-      showSaveToast('Step photo saved');
+      showSaveToast('Step photo saved · ' + sizeKB + ' KB');
     });
   });
 }
