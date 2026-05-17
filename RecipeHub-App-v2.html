@@ -924,10 +924,9 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
       </select>
     </div>
     <div style="display:flex;gap:6px">
-      <button onclick="forceRefreshFromServer()" title="Refresh data — re-pull from server" style="flex:1;padding:8px 0;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,0.1);background:none;color:rgba(255,255,255,0.55);font-family:var(--font-b);font-size:14px;line-height:1;cursor:pointer;transition:all 0.15s" onmouseover="this.style.background='rgba(255,255,255,0.08)';this.style.color='rgba(255,255,255,0.85)'" onmouseout="this.style.background='none';this.style.color='rgba(255,255,255,0.55)'">↻</button>
-      <button onclick="reloadAppHard()" title="Reload app — force-fetch the latest HTML (use if a deploy looks stale)" style="flex:1;padding:8px 0;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,0.1);background:none;color:rgba(255,255,255,0.55);font-family:var(--font-b);font-size:14px;line-height:1;cursor:pointer;transition:all 0.15s" onmouseover="this.style.background='rgba(255,255,255,0.08)';this.style.color='rgba(255,255,255,0.85)'" onmouseout="this.style.background='none';this.style.color='rgba(255,255,255,0.55)'">⟳</button>
-      <button id="sidebar-backup-btn" onclick="exportBackup()" title="Backup — download a JSON snapshot of all RecipeHub data" style="flex:1;padding:8px 0;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,0.1);background:none;color:rgba(255,255,255,0.55);font-family:var(--font-b);font-size:14px;line-height:1;cursor:pointer;transition:all 0.15s" onmouseover="this.style.background='rgba(255,255,255,0.08)';this.style.color='rgba(255,255,255,0.85)'" onmouseout="this.style.background='none';this.style.color='rgba(255,255,255,0.55)'">↓</button>
-      <button onclick="signOut()" title="Sign out" style="flex:1;padding:8px 0;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,0.1);background:none;color:rgba(255,255,255,0.55);font-family:var(--font-b);font-size:14px;line-height:1;cursor:pointer;transition:all 0.15s" onmouseover="this.style.background='rgba(255,255,255,0.08)';this.style.color='rgba(255,255,255,0.85)'" onmouseout="this.style.background='none';this.style.color='rgba(255,255,255,0.55)'">⎋</button>
+      <button onclick="forceRefreshFromServer()" title="Refresh data — re-pull from server (recipes, ingredients, users, etc.)" style="flex:1;padding:7px 0;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,0.1);background:none;color:rgba(255,255,255,0.6);font-family:var(--font-b);font-size:11px;font-weight:500;line-height:1;cursor:pointer;transition:all 0.15s;letter-spacing:0.02em" onmouseover="this.style.background='rgba(255,255,255,0.08)';this.style.color='rgba(255,255,255,0.9)'" onmouseout="this.style.background='none';this.style.color='rgba(255,255,255,0.6)'">↻&nbsp;Data</button>
+      <button onclick="reloadAppHard()" title="Reload app — force-fetch the latest HTML (use after a deploy)" style="flex:1;padding:7px 0;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,0.1);background:none;color:rgba(255,255,255,0.6);font-family:var(--font-b);font-size:11px;font-weight:500;line-height:1;cursor:pointer;transition:all 0.15s;letter-spacing:0.02em" onmouseover="this.style.background='rgba(255,255,255,0.08)';this.style.color='rgba(255,255,255,0.9)'" onmouseout="this.style.background='none';this.style.color='rgba(255,255,255,0.6)'">⟳&nbsp;App</button>
+      <button id="sidebar-backup-btn" onclick="exportBackup()" title="Backup — download a JSON snapshot of all RecipeHub data" style="flex:1;padding:7px 0;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,0.1);background:none;color:rgba(255,255,255,0.6);font-family:var(--font-b);font-size:11px;font-weight:500;line-height:1;cursor:pointer;transition:all 0.15s;letter-spacing:0.02em" onmouseover="this.style.background='rgba(255,255,255,0.08)';this.style.color='rgba(255,255,255,0.9)'" onmouseout="this.style.background='none';this.style.color='rgba(255,255,255,0.6)'">↓&nbsp;Backup</button>
     </div>
   </div>
 </aside>
@@ -6168,6 +6167,11 @@ function setAuthUser(user) {
   el = document.getElementById('sidebar-role'); if (el) el.textContent = user.role || 'Team Member';
   el = document.getElementById('sidebar-avatar'); if (el) el.textContent = initials;
   if (typeof _updateSidebarDiag === 'function') _updateSidebarDiag();
+  // Re-run sidebar gates: applySidebarPermissions runs once at module load,
+  // before sign-in completes, so admin-only widgets like the Backup button get
+  // hidden by default and never re-shown unless we kick them here. (Cate
+  // reported missing the Backup pill 2026-05-17 — same root cause.)
+  if (typeof applySidebarPermissions === 'function') applySidebarPermissions();
 }
 
 // Sidebar identity diagnostic — shows the COMPUTED role + fullRights flag,
@@ -6357,9 +6361,12 @@ function openProfileModal() {
     '<div class="form-group" style="margin-bottom:16px">' +
       '<label class="form-label">Job Title</label><input class="form-input" id="prof-title" value="' + esc(title) + '" placeholder="e.g. Senior Food Technologist" />' +
     '</div>' +
-    '<div style="display:flex;gap:10px;justify-content:flex-end">' +
-      '<button class="btn btn-outline" onclick="closeModal()">Cancel</button>' +
-      '<button class="btn btn-gold" onclick="saveProfile()">Save Profile</button>' +
+    '<div style="display:flex;gap:10px;justify-content:space-between;align-items:center">' +
+      '<button class="btn btn-outline" style="color:#C0392B;border-color:#C0392B" onclick="if(confirm(\'Sign out of RecipeHub?\')){closeModal();signOut();}">⎋ Sign Out</button>' +
+      '<div style="display:flex;gap:10px">' +
+        '<button class="btn btn-outline" onclick="closeModal()">Cancel</button>' +
+        '<button class="btn btn-gold" onclick="saveProfile()">Save Profile</button>' +
+      '</div>' +
     '</div>' +
   '</div>');
 }
