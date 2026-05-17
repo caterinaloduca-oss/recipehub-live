@@ -12670,6 +12670,7 @@ function archiveRecipe(npd) {
   if (!r) return;
   if (r.status !== 'approved' && !r.discontinued) { showSaveToast('Only approved or discontinued recipes can be archived', true); return; }
   r.archived = true;
+  r.updatedAt = new Date().toISOString();  // bump so the server merge knows this is the freshest write — stale tabs can't overwrite
   r.updated = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
   if (!r.changeLog) r.changeLog = [];
   r.changeLog.push({date:new Date().toISOString(), by:getCurrentUserName(), changes:'Recipe archived'});
@@ -12687,6 +12688,7 @@ function unarchiveRecipe(npd) {
   var r = RECIPE_DB[npd];
   if (!r) return;
   r.archived = false;
+  r.updatedAt = new Date().toISOString();  // bump so stale tabs can't revert the restore
   r.updated = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
   if (!r.changeLog) r.changeLog = [];
   r.changeLog.push({date:new Date().toISOString(), by:getCurrentUserName(), changes:'Recipe restored from archive'});
@@ -12711,6 +12713,7 @@ function discontinueRecipe(npd) {
   r.discontinued = true;
   r.discontinuedAt = new Date().toISOString();
   r.discontinuedBy = getCurrentUserName();
+  r.updatedAt = r.discontinuedAt;  // bump so stale tabs can't revert
   r.updated = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
   if (!r.changeLog) r.changeLog = [];
   r.changeLog.push({date:r.discontinuedAt, by:r.discontinuedBy, changes:'Recipe discontinued'});
@@ -12731,6 +12734,7 @@ function reactivateRecipe(npd) {
   r.discontinued = false;
   r.reactivatedAt = new Date().toISOString();
   r.reactivatedBy = getCurrentUserName();
+  r.updatedAt = r.reactivatedAt;  // bump so stale tabs can't revert
   r.updated = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
   if (!r.changeLog) r.changeLog = [];
   r.changeLog.push({date:r.reactivatedAt, by:r.reactivatedBy, changes:'Recipe reactivated from discontinued'});

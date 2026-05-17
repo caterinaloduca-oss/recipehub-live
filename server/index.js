@@ -795,7 +795,12 @@ function mergeRecipe(existing, incoming) {
   // skipped), where incoming.status wins as expected.
   if (eTime > iTime) {
     ['name','version','brand','type','storage','yield','yieldNotes','batchSize','costKg',
-     'ingredients','method','packaging','sopSteps','sensoryGate1','sensoryGate2','status'].forEach(f => {
+     'ingredients','method','packaging','sopSteps','sensoryGate1','sensoryGate2','status',
+     // 'archived'/'discontinued' are also in preserve-when-undefined below, but
+     // that path only fires when incoming omits the field. A stale tab that
+     // explicitly carries `archived:false` would otherwise still win. Adding
+     // them here closes the gap when existing is newer.
+     'archived','discontinued'].forEach(f => {
       if (existing[f] !== undefined) result[f] = existing[f];
     });
     result.updatedAt = eTime;
