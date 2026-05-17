@@ -7772,6 +7772,12 @@ function forceRefreshFromServer() {
         buildFactorySOPTable(); buildBuildsTable(); buildBranchSOPTable();
         buildProductionTable(); populateQARecipeDropdown(); updateDashboardStats();
         updateSidebarBadges(); addEmptyStates(); renderLibrary(); initCommsPage();
+        // If the user is sitting on a recipe detail page, re-render it — fresh
+        // USERS_DATA may have unlocked new buttons (e.g. fullRights flipped on
+        // for a factory user) that the cached HTML doesn't reflect.
+        if (_currentPage === 'recipe-detail' && _openRecipeNpd && RECIPE_DB[_openRecipeNpd]) {
+          try { viewRecipe(_openRecipeNpd); } catch (e) {}
+        }
       } catch(e) {}
       showSaveToast('Data refreshed — ' + Object.keys(RECIPE_DB).length + ' recipes loaded');
     })
@@ -8000,6 +8006,11 @@ const PAGES = {
 
 let _navHistory = [];
 let _currentPage = 'dashboard';
+// Tracks the npd currently rendered on the recipe-detail page. Read by
+// forceRefreshFromServer so a permission change (e.g. fullRights flipped on for
+// a factory user mid-session) re-renders the open detail instead of leaving
+// stale HTML behind.
+let _openRecipeNpd = null;
 
 function showPage(id) {
   document.querySelectorAll('[id^="page-"]').forEach(p => p.classList.add('page-hidden'));
@@ -11582,6 +11593,7 @@ function viewRecipe(npd) {
   if (!_wasOnDetail) _navHistory.push(_currentPage);
   const r = RECIPE_DB[npd];
   if (!r) return;
+  _openRecipeNpd = npd;  // for permission-aware re-renders from forceRefreshFromServer
   auditEvent('recipe.view', 'recipe', npd, r.name + ' — ' + (r.brand || ''));
   // Role gate: hide drafts from non-RD; viewers can only open approved recipes
   var _vrRole = getCurrentUserRole();
@@ -11593,7 +11605,11 @@ function viewRecipe(npd) {
   var _vrCanFlag = (_vrRole === 'admin' || _vrRole === 'npd' || _vrRole === 'factory' || _vrRole === 'qa' || _vrRole === 'purchasing');
   var _vrIsRDorQA = (_vrRole === 'admin' || _vrRole === 'npd' || _vrRole === 'qa');
   var _vrIsRDorFactory = (_vrRole === 'admin' || _vrRole === 'npd' || _vrRole === 'factory');
-  if (r.status === 'draft' && !_vrIsRD) { showSaveToast('Draft not available', true); return; }
+  // Drafts are normally R&D-only, but admin-granted full-rights factory users
+  // need to see them too — canAssignRecipeIdNow already lets them assign a code
+  // on any status, and that's moot if they can't open the recipe in the first place.
+  var _vrFactoryFull = (_vrRole === 'factory' && (typeof _hasFullFactoryRights === 'function') && _hasFullFactoryRights());
+  if (r.status === 'draft' && !_vrIsRD && !_vrFactoryFull) { showSaveToast('Draft not available', true); return; }
   if (_vrRole === 'viewer' && r.status !== 'approved') { showSaveToast('Recipe not yet approved', true); return; }
   // Prefetch EBS prices for ingredients without costs
   _prefetchRecipePrices(r);
