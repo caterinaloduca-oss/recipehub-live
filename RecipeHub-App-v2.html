@@ -3211,6 +3211,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
       <label style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--g4);cursor:pointer"><input type="checkbox" id="qas-show-archived" onchange="renderQasLanding()" style="margin:0" /> Include archived</label>
       <span style="flex:1"></span>
       <button class="btn btn-outline btn-sm" id="qas-bulk-bypass-btn" onclick="qasBulkBypassLegacy()" title="Tick rows to bypass just those, or click with nothing ticked to bypass every legacy approved recipe (no QAS started)" style="border-color:var(--gold);color:var(--gold)">⚡ Bypass selected / legacy</button>
+      <button class="btn btn-outline btn-sm" id="qas-bulk-archive-btn" onclick="qasArchiveSelected()" title="Archive the ticked recipes (must be Approved or Discontinued — same gate as the recipe detail Archive button)" style="border-color:var(--g3);color:var(--g4)">📦 Archive selected</button>
     </div>
     <div class="card" id="qas-card">
       <div class="card-head" style="cursor:pointer;user-select:none" onclick="toggleQasCollapsed()">
@@ -14275,6 +14276,8 @@ function renderQasLanding() {
   var _canBypass = (_role === 'admin' || _role === 'npd');
   var _bulkBtn = document.getElementById('qas-bulk-bypass-btn');
   if (_bulkBtn) _bulkBtn.style.display = _canBypass ? '' : 'none';
+  var _archBtn = document.getElementById('qas-bulk-archive-btn');
+  if (_archBtn) _archBtn.style.display = _canBypass ? '' : 'none';
   document.querySelectorAll('#qas-landing-table .qas-pick-col').forEach(function(el){
     el.style.display = _canBypass ? '' : 'none';
   });
@@ -14692,6 +14695,46 @@ function qasBypass(npd) {
 // search/status/brand filters).
 function qasPickAll(checked) {
   document.querySelectorAll('#qas-landing-body .qas-row-pick').forEach(function(cb){ cb.checked = !!checked; });
+}
+
+// Archive every ticked row from the QAS landing. Same role gate as the
+// per-recipe archive (R&D / Admin) and same status gate (must be Approved or
+// Discontinued). Skips rows that don't qualify and reports the split.
+function qasArchiveSelected() {
+  var role = getCurrentUserRole();
+  if (role !== 'admin' && role !== 'npd') { showSaveToast('Only R&D / Admin can archive', true); return; }
+  var picked = [];
+  document.querySelectorAll('#qas-landing-body .qas-row-pick:checked').forEach(function(cb){
+    var n = cb.getAttribute('data-npd');
+    if (n && RECIPE_DB[n]) picked.push(RECIPE_DB[n]);
+  });
+  if (!picked.length) { showSaveToast('Tick at least one row to archive', true); return; }
+  var eligible = picked.filter(function(r){ return r.status === 'approved' || r.discontinued; });
+  var skipped = picked.length - eligible.length;
+  if (!eligible.length) {
+    showSaveToast('None of the selected recipes are Approved/Discontinued — can\'t archive', true);
+    return;
+  }
+  var msg = 'Archive ' + eligible.length + ' selected recipe' + (eligible.length===1?'':'s') + '?';
+  if (skipped) msg += '\n\n(' + skipped + ' row' + (skipped===1?'':'s') + ' skipped — only Approved or Discontinued recipes can be archived.)';
+  if (!confirm(msg)) return;
+  var when = new Date().toISOString();
+  var by   = getCurrentUserName();
+  var ok = 0, fail = 0;
+  showSaveToast('Archiving ' + eligible.length + '…');
+  eligible.forEach(function(r) {
+    r.archived = true;
+    r.updatedAt = when;
+    r.updated = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+    if (!r.changeLog) r.changeLog = [];
+    r.changeLog.push({date: when, by: by, changes: 'Recipe archived (bulk from QAS landing)'});
+    auditEvent('recipe.archive', 'recipe', r.npd, r.name, { bulk: true, from: 'qas-landing' });
+    try { saveRecipeToServer(r.npd); ok++; } catch (e) { fail++; }
+  });
+  setTimeout(function(){
+    if (typeof renderQasLanding === 'function') renderQasLanding();
+    showSaveToast('Archived ' + ok + ' recipe' + (ok===1?'':'s') + (fail ? ' (' + fail + ' failed)' : '') + (skipped ? ' · ' + skipped + ' skipped' : ''));
+  }, 600);
 }
 
 // Bulk-bypass entry point. Two modes:
