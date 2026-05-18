@@ -3369,6 +3369,157 @@ app.get('/api/inspector/sweep', requireAuth, (req, res) => {
       }
     });
 
+    // ── Link / file-existence helper ──
+    // Read the image directory once so we can verify recipe media + Legacy
+    // SOP PDFs + library docs against actual files on disk. If the read
+    // fails (mounted read-only, dir doesn't exist) we skip file-existence
+    // checks rather than panic.
+    let _filesOnDisk = null;
+    try {
+      _filesOnDisk = new Set(fs.readdirSync(IMG_DIR));
+    } catch (e) {
+      _filesOnDisk = null;
+    }
+    const _referenced = new Set();   // filenames we've seen referenced — for orphan detection
+    function _urlToFilename(url) {
+      if (!url || typeof url !== 'string') return null;
+      if (url.indexOf('data:') === 0) return null; // inline base64, not a file
+      const m = url.match(/\/docs\/img\/([^?#]+)$/);
+      if (!m) return null;
+      try { return decodeURIComponent(m[1]); } catch (e) { return m[1]; }
+    }
+    function _fileExists(url) {
+      const fn = _urlToFilename(url);
+      if (fn == null) return true;            // external / inline — can't check, assume OK
+      if (_filesOnDisk == null) return true;  // dir not readable — skip
+      _referenced.add(fn);
+      return _filesOnDisk.has(fn);
+    }
+    function _trackRef(url) {
+      const fn = _urlToFilename(url);
+      if (fn) _referenced.add(fn);
+    }
+
+    // ── AD. Recipe media items pointing at files that aren't on disk ──
+    Object.entries(recipes).forEach(([npd, r]) => {
+      if (!r || r.archived) return;
+      const media = Array.isArray(r.media) ? r.media : [];
+      const broken = [];
+      media.forEach(m => { if (m && m.url && !_fileExists(m.url)) broken.push(m.name || m.url); });
+      if (broken.length) {
+        push('recipe.broken_image', 'medium', 'recipe', npd,
+          `${r.name || npd}: ${broken.length} media file(s) missing from /docs/img/: ${broken.slice(0,3).join(', ')}${broken.length>3?', …':''}`,
+          'recipes/' + npd);
+      }
+    });
+
+    // Same check on SOP step image references (sopSteps[].visualImg / .img)
+    Object.entries(recipes).forEach(([npd, r]) => {
+      if (!r || r.archived) return;
+      const steps = Array.isArray(r.sopSteps) ? r.sopSteps : [];
+      const broken = [];
+      steps.forEach((s, idx) => {
+        const url = (s && (s.visualImg || s.img)) || null;
+        if (url && !_fileExists(url)) broken.push('step ' + (idx + 1));
+      });
+      if (broken.length) {
+        push('recipe.broken_image', 'medium', 'recipe', npd,
+          `${r.name || npd}: ${broken.length} SOP step image(s) missing: ${broken.join(', ')}.`,
+          'recipes/' + npd);
+      }
+    });
+
+    // ── AE. Recipe factorySopArchive entries pointing at missing files ──
+    Object.entries(recipes).forEach(([npd, r]) => {
+      if (!r || r.archived) return;
+      const arch = Array.isArray(r.factorySopArchive) ? r.factorySopArchive : [];
+      const broken = [];
+      arch.forEach(a => {
+        const url = (a && (a.url || a.fileUrl)) || null;
+        if (url && !_fileExists(url)) broken.push(a.dfcCode || a.name || url);
+      });
+      if (broken.length) {
+        push('recipe.broken_legacy_sop', 'high', 'recipe', npd,
+          `${r.name || npd}: ${broken.length} Legacy SOP PDF(s) missing from disk: ${broken.join(', ')}.`,
+          'recipes/' + npd);
+      }
+    });
+    // Also track Branch SOP step images so orphan detection sees them.
+    branchSOPs.forEach(s => {
+      if (!s) return;
+      (Array.isArray(s.steps) ? s.steps : []).forEach(st => {
+        if (st && (st.img || st.url)) _trackRef(st.img || st.url);
+      });
+    });
+
+    // ── AF. Production runs pointing at recipes that no longer exist ──
+    productionRuns.forEach(pr => {
+      if (!pr || pr.archived) return;
+      if (!pr.npd) return;
+      if (pr.status === 'completed' || pr.status === 'cancelled') return; // historical, leave alone
+      if (!recipes[pr.npd]) {
+        push('run.broken_recipe_ref', 'high', 'production_run', pr.id,
+          `Run ${pr.id} (${pr.recipe || ''}) references recipe ${pr.npd} which no longer exists. Either delete the run or restore the recipe.`,
+          null);
+      }
+    });
+
+    // ── AG. Library docs with URLs that 404 ──
+    (Array.isArray(data.libraryDocs) ? data.libraryDocs : []).forEach(doc => {
+      if (!doc || !doc.url) return;
+      if (!_fileExists(doc.url)) {
+        push('library.broken_doc', 'medium', 'library', doc.id || doc.name || doc.url,
+          `Library doc "${doc.name || doc.url}" points at a file that's missing from /docs/img/.`,
+          null);
+      }
+    });
+
+    // ── AH. Branch SOP brand doesn't match its linked Build's brand ──
+    const _ahBuildById = {};
+    builds.forEach(b => { if (b && b.id) _ahBuildById[b.id] = b; });
+    branchSOPs.forEach(s => {
+      if (!s || s.archived || !s.buildRef) return;
+      const b = _ahBuildById[s.buildRef];
+      if (!b || b.archived) return;          // already covered by other checks
+      const sb = String(s.brand || '').trim().toLowerCase();
+      const bb = String(b.brand || '').trim().toLowerCase();
+      if (sb && bb && sb !== bb) {
+        push('bsop.brand_mismatch', 'low', 'branch_sop', s.id,
+          `${s.name || s.id}: SOP brand "${s.brand}" doesn't match linked Build "${b.name || b.id}" brand "${b.brand}". One of them is wrong.`,
+          'branch-sop/' + s.id);
+      }
+    });
+
+    // ── AI. commsLog deep-links to recipes that have been deleted ──
+    const _recipeNpds = new Set(Object.keys(recipes));
+    (Array.isArray(data.commsLog) ? data.commsLog : []).forEach(m => {
+      if (!m) return;
+      const body = String(m.body || '');
+      const matches = body.match(/#recipe[s]?=([A-Za-z0-9_\-]+)/g) || [];
+      const deadNpds = [];
+      matches.forEach(seg => {
+        const npd = seg.replace(/^#recipe[s]?=/, '');
+        if (npd && !_recipeNpds.has(npd) && !deadNpds.includes(npd)) deadNpds.push(npd);
+      });
+      if (deadNpds.length) {
+        push('comms.dead_link', 'low', 'comms_log', m.date || '(undated)',
+          `Comms log entry "${m.subject || m.date || ''}" links to deleted recipe(s): ${deadNpds.slice(0,3).join(', ')}.`,
+          null);
+      }
+    });
+
+    // ── AJ. Orphan image files — on disk but unreferenced ──
+    // Roll up to a single summary anomaly so the Inspector doesn't drown.
+    if (_filesOnDisk) {
+      const orphans = [];
+      _filesOnDisk.forEach(fn => { if (!_referenced.has(fn)) orphans.push(fn); });
+      if (orphans.length) {
+        push('files.orphan', 'low', 'storage', 'summary',
+          `${orphans.length} file(s) in /docs/img/ aren't referenced by any recipe / SOP / library doc. Housekeeping cleanup — not breaking anything.`,
+          null);
+      }
+    }
+
     // ── X. Branch SOP with no steps / components ──
     branchSOPs.forEach(s => {
       if (!s || s.archived) return;
