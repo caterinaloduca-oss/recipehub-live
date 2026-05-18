@@ -11871,7 +11871,7 @@ function viewRecipe(npd) {
 
       <!-- Method -->
       <div class="card">
-        <div class="card-head"><span class="card-title">Method</span><div style="display:flex;align-items:center;gap:8px"><span class="badge badge-navy">${r.method.length} Steps</span>${r.method.length ? `<button class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 10px" onclick="copyRecipeMethodToClipboard('${r.npd}')" title="Copy this method as Title: Body lines so you can paste into another recipe via ⬆ Import Steps, or share via Slack / email">📋 Copy</button>` : ''}${_vrIsRD ? `<button class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 10px" onclick="importStepsToRecipe('${r.npd}')">⬆ Import</button><button class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 10px" onclick="editRecipe('${r.npd}')">Edit</button>` : ''}</div></div>
+        <div class="card-head"><span class="card-title">Method</span><div style="display:flex;align-items:center;gap:8px"><span class="badge badge-navy">${r.method.length} Steps</span>${r.method.length ? `<button class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 10px" onclick="copyRecipeMethodToClipboard('${r.npd}')" title="Copy this method as Title: Body lines so you can paste into another recipe via ⬆ Import Steps, or share via Slack / email">📋 Copy</button>` : ''}${_vrIsRD ? `<button class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 10px" onclick="importStepsToRecipe('${r.npd}')">⬆ Import</button><button class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 10px" onclick="editRecipeMethod('${r.npd}')">Edit Method</button>` : ''}</div></div>
         <div class="card-body">
           ${r.method.map((s,i) => `
             <div class="sop-step" style="margin-bottom:14px">
@@ -17245,26 +17245,27 @@ function editRecipe(npd) {
 
       <div class="sec-divider"><span class="sec-divider-label">Ingredients</span><span class="sec-divider-line"></span></div>
       <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;background:var(--g1);padding:8px 12px;border-radius:var(--r-md)">
-        <span style="font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:0.1em;color:var(--g4)">Input as:</span>
-        <button class="btn btn-sm" id="er-mode-pct" style="padding:4px 12px;font-size:11px" onclick="setIngMode('pct')">%</button>
-        <button class="btn btn-outline btn-sm" id="er-mode-g" style="padding:4px 12px;font-size:11px" onclick="setIngMode('grams')">Grams</button>
-        <div id="er-batch-wrap" style="display:none;margin-left:auto;display:flex;align-items:center;gap:6px">
-          <span style="font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:0.1em;color:var(--g4)">Batch:</span>
-          <input class="form-input" type="number" id="er-batch-size" value="${(!r.batchSize || r.batchSize === 500) ? 1000 : r.batchSize}" min="1" step="100" style="width:80px;padding:4px 8px;text-align:right;font-size:12px;font-family:var(--font-m)" onchange="recalcIngFromGrams();_erUpdatePctTotal()" />
-          <span style="font-size:11px;color:var(--g3)">g</span>
-        </div>
+        <span style="font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:0.1em;color:var(--g4)">Batch size</span>
+        <input class="form-input" type="number" id="er-batch-size" value="${(!r.batchSize || r.batchSize === 500) ? 1000 : r.batchSize}" min="1" step="100" style="width:80px;padding:4px 8px;text-align:right;font-size:12px;font-family:var(--font-m)" oninput="_erRecalcGramsFromPct();_erUpdatePctTotal()" />
+        <span style="font-size:11px;color:var(--g3)">g</span>
+        <span style="margin-left:auto;font-size:10px;color:var(--g3);font-style:italic">Edit either column — the other updates live</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 100px 100px 32px;gap:8px;align-items:center;margin-bottom:4px;padding:0 4px">
+        <span style="font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--g3)">Ingredient</span>
+        <span style="font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--g3);text-align:right">%</span>
+        <span style="font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--g3);text-align:right">Grams</span>
+        <span></span>
       </div>
       <div id="er-ingredients">
         ${r.ingredients.map((ing, i) => {
-          const totalPct = r.ingredients.reduce((s,x) => s+x.pct, 0);
-          const grams = ((ing.pct / totalPct) * 1000).toFixed(1);
+          const totalPct = r.ingredients.reduce((s,x) => s+x.pct, 0) || 100;
+          const batchG  = (!r.batchSize || r.batchSize === 500) ? 1000 : r.batchSize;
+          const grams = ((ing.pct / totalPct) * batchG).toFixed(1);
           return `
-          <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px" class="er-ing-row">
-            <input class="form-input" value="${ing.name}" style="flex:2;padding:6px 10px" placeholder="Ingredient name" data-field="name" />
-            <input class="form-input er-ing-pct" value="${ing.pct}" type="number" step="0.1" min="0" style="width:80px;padding:6px 10px;text-align:right" placeholder="%" data-field="pct" oninput="_erUpdatePctTotal()" onchange="_erMaybeAutoBalance(this)" />
-            <span class="er-unit-label" style="font-size:12px;color:var(--g3);width:16px">%</span>
-            <input class="form-input er-ing-g" value="${grams}" type="number" step="0.1" min="0" style="width:80px;padding:6px 10px;text-align:right;display:none" placeholder="g" data-field="grams" />
-            <span class="er-unit-label-g" style="font-size:12px;color:var(--g3);display:none;width:16px">g</span>
+          <div style="display:grid;grid-template-columns:1fr 100px 100px 32px;gap:8px;align-items:center;margin-bottom:6px" class="er-ing-row">
+            <input class="form-input" value="${ing.name}" style="padding:6px 10px" placeholder="Ingredient name" data-field="name" />
+            <input class="form-input er-ing-pct" value="${ing.pct}" type="number" step="0.01" min="0" style="padding:6px 10px;text-align:right" placeholder="%" data-field="pct" oninput="_erRecalcGramsFromPct();_erUpdatePctTotal()" onchange="_erMaybeAutoBalance(this)" />
+            <input class="form-input er-ing-g" value="${grams}" type="number" step="0.1" min="0" style="padding:6px 10px;text-align:right" placeholder="g" data-field="grams" oninput="_erRecalcPctFromGrams();_erUpdatePctTotal()" />
             <button style="background:none;border:none;cursor:pointer;color:var(--red);font-size:16px" onclick="this.closest('.er-ing-row').remove();_erUpdatePctTotal()">✕</button>
           </div>`;
         }).join('')}
@@ -17282,28 +17283,9 @@ function editRecipe(npd) {
         <button class="btn btn-ghost-sm" onclick="openImportIngredientsFromRecipe('${r.npd}')" title="Copy the ingredient list from another recipe and overwrite this one's">📋 From another recipe…</button>
       </div>
 
-      <div class="sec-divider" style="margin-top:20px"><span class="sec-divider-label">Method Steps</span><span class="sec-divider-line"></span></div>
-      <div id="er-method">
-        ${r.method.map((step, i) => `
-          <div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:8px" class="er-method-row">
-            <div style="display:flex;flex-direction:column;align-items:center;gap:2px;margin-top:6px;flex-shrink:0">
-              <div style="width:28px;height:28px;border-radius:50%;background:var(--navy);color:white;display:flex;align-items:center;justify-content:center;font-size:11px" class="er-step-num">${i+1}</div>
-              <button style="background:none;border:none;cursor:pointer;color:var(--g3);font-size:11px;padding:0;line-height:1" onclick="moveStepUp(this)" title="Move up">▲</button>
-              <button style="background:none;border:none;cursor:pointer;color:var(--g3);font-size:11px;padding:0;line-height:1" onclick="moveStepDown(this)" title="Move down">▼</button>
-            </div>
-            <div style="flex:1">
-              <input class="form-input" value="${step.title}" style="padding:6px 10px;font-weight:500;margin-bottom:4px;width:100%" placeholder="Step title" />
-              <textarea class="form-textarea" style="min-height:40px;padding:6px 10px;font-size:12px;width:100%">${step.text}</textarea>
-            </div>
-            <button style="background:none;border:none;cursor:pointer;color:var(--red);font-size:16px;margin-top:6px" onclick="this.closest('.er-method-row').remove();renumberEditSteps()">✕</button>
-          </div>
-        `).join('')}
-      </div>
-      <div style="display:flex;gap:8px">
-        <button class="btn btn-ghost-sm" onclick="addEditMethodRow()">+ Add Step</button>
-        <button class="btn btn-ghost-sm" onclick="openImportSteps()">⬆ Import Steps</button>
-        <button class="btn btn-ghost-sm" onclick="openImportMethodFromRecipe('${r.npd}')" title="Copy the method from another recipe and overwrite this one's steps">📋 From another recipe…</button>
-      </div>
+      <!-- Method moved to its own dedicated modal (editRecipeMethod) to keep this
+           form focused on formulation. The Method card's Edit button on the
+           recipe detail page opens that modal. -->
 
       <div class="sec-divider" style="margin-top:20px"><span class="sec-divider-label">Packaging</span><span class="sec-divider-line"></span></div>
       <div id="er-packaging">
@@ -17333,7 +17315,7 @@ function editRecipe(npd) {
         <button class="btn btn-gold" onclick="saveEditRecipe('${r.npd}')">Save Changes</button>
       </div>
     </div>
-  `);
+  `, '880px');
   // Attach DB autocomplete to all existing ingredient name inputs
   document.querySelectorAll('#er-ingredients .er-ing-row input[data-field="name"]').forEach(function(inp) {
     ebsAutocomplete(inp);
@@ -17345,26 +17327,147 @@ function editRecipe(npd) {
   _markRecipeEditOpen(npd);
 }
 
+// Dedicated Edit Method modal — split out from editRecipe so the formulation
+// view stays focused on % / grams / cost and the method steps live in their
+// own simpler form.
+function editRecipeMethod(npd) {
+  var r = RECIPE_DB[npd];
+  if (!r) return;
+  var role = (typeof getCurrentUserRole === 'function') ? getCurrentUserRole() : '';
+  if (role !== 'admin' && role !== 'npd') { showSaveToast('Only Admin / R&D can edit method', true); return; }
+  var steps = Array.isArray(r.method) ? r.method : [];
+  openModal(
+    '<div class="card-head" style="background:var(--navy);border-radius:16px 16px 0 0">' +
+      '<span class="card-title" style="color:white">Edit Method — ' + (r.name || npd) + '</span>' +
+      '<button class="btn btn-sm" style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:none" onclick="closeModal()">✕</button>' +
+    '</div>' +
+    '<div class="card-body" style="padding:24px;max-height:80vh;overflow-y:auto">' +
+      '<div id="erm-steps">' +
+        steps.map(function(step, i){
+          return (
+            '<div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:8px" class="erm-step-row">' +
+              '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;margin-top:6px;flex-shrink:0">' +
+                '<div style="width:28px;height:28px;border-radius:50%;background:var(--navy);color:white;display:flex;align-items:center;justify-content:center;font-size:11px" class="erm-step-num">' + (i+1) + '</div>' +
+                '<button style="background:none;border:none;cursor:pointer;color:var(--g3);font-size:11px;padding:0;line-height:1" onclick="_ermMoveUp(this)" title="Move up">▲</button>' +
+                '<button style="background:none;border:none;cursor:pointer;color:var(--g3);font-size:11px;padding:0;line-height:1" onclick="_ermMoveDown(this)" title="Move down">▼</button>' +
+              '</div>' +
+              '<div style="flex:1">' +
+                '<input class="form-input" value="' + (step.title || '').replace(/"/g,'&quot;') + '" style="padding:6px 10px;font-weight:500;margin-bottom:4px;width:100%" placeholder="Step title" />' +
+                '<textarea class="form-textarea" style="min-height:48px;padding:6px 10px;font-size:12px;width:100%">' + (step.text || '').replace(/</g,'&lt;') + '</textarea>' +
+              '</div>' +
+              '<button style="background:none;border:none;cursor:pointer;color:var(--red);font-size:16px;margin-top:6px" onclick="this.closest(\'.erm-step-row\').remove();_ermRenumber()">✕</button>' +
+            '</div>'
+          );
+        }).join('') +
+      '</div>' +
+      '<div style="display:flex;gap:8px;margin-top:8px">' +
+        '<button class="btn btn-ghost-sm" onclick="_ermAddStep()">+ Add Step</button>' +
+      '</div>' +
+      '<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px">' +
+        '<button class="btn btn-outline" onclick="closeModal()">Cancel</button>' +
+        '<button class="btn btn-gold" onclick="saveEditRecipeMethod(\'' + npd + '\')">Save Method</button>' +
+      '</div>' +
+    '</div>',
+    '720px'
+  );
+}
+
+function _ermAddStep() {
+  var container = document.getElementById('erm-steps');
+  var n = container.querySelectorAll('.erm-step-row').length + 1;
+  var div = document.createElement('div');
+  div.className = 'erm-step-row';
+  div.style.cssText = 'display:flex;gap:8px;align-items:flex-start;margin-bottom:8px';
+  div.innerHTML =
+    '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;margin-top:6px;flex-shrink:0">' +
+      '<div style="width:28px;height:28px;border-radius:50%;background:var(--navy);color:white;display:flex;align-items:center;justify-content:center;font-size:11px" class="erm-step-num">' + n + '</div>' +
+      '<button style="background:none;border:none;cursor:pointer;color:var(--g3);font-size:11px;padding:0;line-height:1" onclick="_ermMoveUp(this)" title="Move up">▲</button>' +
+      '<button style="background:none;border:none;cursor:pointer;color:var(--g3);font-size:11px;padding:0;line-height:1" onclick="_ermMoveDown(this)" title="Move down">▼</button>' +
+    '</div>' +
+    '<div style="flex:1">' +
+      '<input class="form-input" value="" style="padding:6px 10px;font-weight:500;margin-bottom:4px;width:100%" placeholder="Step title" />' +
+      '<textarea class="form-textarea" style="min-height:48px;padding:6px 10px;font-size:12px;width:100%"></textarea>' +
+    '</div>' +
+    '<button style="background:none;border:none;cursor:pointer;color:var(--red);font-size:16px;margin-top:6px" onclick="this.closest(\'.erm-step-row\').remove();_ermRenumber()">✕</button>';
+  container.appendChild(div);
+  div.querySelector('input').focus();
+}
+
+function _ermRenumber() {
+  document.querySelectorAll('#erm-steps .erm-step-row .erm-step-num').forEach(function(el, i){ el.textContent = i + 1; });
+}
+
+function _ermMoveUp(btn) {
+  var row = btn.closest('.erm-step-row');
+  var prev = row && row.previousElementSibling;
+  if (prev && prev.classList.contains('erm-step-row')) { row.parentNode.insertBefore(row, prev); _ermRenumber(); }
+}
+
+function _ermMoveDown(btn) {
+  var row = btn.closest('.erm-step-row');
+  var next = row && row.nextElementSibling;
+  if (next && next.classList.contains('erm-step-row')) { row.parentNode.insertBefore(next, row); _ermRenumber(); }
+}
+
+function saveEditRecipeMethod(npd) {
+  var r = RECIPE_DB[npd];
+  if (!r) return;
+  var rows = document.querySelectorAll('#erm-steps .erm-step-row');
+  var newMethod = [];
+  rows.forEach(function(row){
+    var title = (row.querySelector('input').value || '').trim();
+    var text  = (row.querySelector('textarea').value || '').trim();
+    if (title) newMethod.push({ title: title, text: text });
+  });
+  r.method = newMethod;
+  r.updatedAt = new Date().toISOString();
+  if (!r.changeLog) r.changeLog = [];
+  r.changeLog.push({ date: r.updatedAt, by: getCurrentUserName(), changes: 'Method edited — ' + newMethod.length + ' step' + (newMethod.length === 1 ? '' : 's') });
+  saveRecipeToServer(npd);
+  closeModal();
+  if (typeof viewRecipe === 'function') viewRecipe(npd);
+  showSaveToast('Method saved');
+}
+
+// _erIngMode is no longer user-toggled — both columns are visible. Keep the
+// variable as 'pct' so save/cost paths that branch on it stay on the pct
+// branch (pct is the source of truth that gets saved).
 let _erIngMode = 'pct';
+function setIngMode(_) { /* no-op; both columns are always visible now */ }
 
-function setIngMode(mode) {
-  _erIngMode = mode;
-  const isPct = mode === 'pct';
-  // Toggle button styles
-  document.getElementById('er-mode-pct').className = isPct ? 'btn btn-sm' : 'btn btn-outline btn-sm';
-  document.getElementById('er-mode-pct').style.cssText = 'padding:4px 12px;font-size:11px' + (isPct ? ';background:#1B2A4A;color:white' : '');
-  document.getElementById('er-mode-g').className = isPct ? 'btn btn-outline btn-sm' : 'btn btn-sm';
-  document.getElementById('er-mode-g').style.cssText = 'padding:4px 12px;font-size:11px' + (!isPct ? ';background:#1B2A4A;color:white' : '');
-  // Show/hide batch size
-  document.getElementById('er-batch-wrap').style.display = isPct ? 'none' : 'flex';
-  // Toggle fields
-  document.querySelectorAll('.er-ing-pct').forEach(el => el.style.display = isPct ? '' : 'none');
-  document.querySelectorAll('.er-unit-label').forEach(el => el.style.display = isPct ? '' : 'none');
-  document.querySelectorAll('.er-ing-g').forEach(el => el.style.display = isPct ? 'none' : '');
-  document.querySelectorAll('.er-unit-label-g').forEach(el => el.style.display = isPct ? 'none' : '');
+// Edit % → grams update for every row (since totalPct may have changed and
+// grams depend on the current batch).
+function _erRecalcGramsFromPct() {
+  const batch = parseFloat(document.getElementById('er-batch-size')?.value) || 1000;
+  const rows = document.querySelectorAll('#er-ingredients .er-ing-row');
+  let totalPct = 0;
+  rows.forEach(row => { totalPct += parseFloat(row.querySelector('.er-ing-pct')?.value) || 0; });
+  if (totalPct <= 0) return;
+  rows.forEach(row => {
+    const pctI = row.querySelector('.er-ing-pct');
+    const gI   = row.querySelector('.er-ing-g');
+    if (pctI && gI && document.activeElement !== gI) {
+      const pct = parseFloat(pctI.value) || 0;
+      gI.value = ((pct / totalPct) * batch).toFixed(1);
+    }
+  });
+}
 
-  if (!isPct) recalcGramsFromPct();
-  if (typeof _erUpdatePctTotal === 'function') _erUpdatePctTotal();
+// Edit grams → percent update for every row. Reading sum-of-grams as the
+// 'effective batch' so 100% is whatever the grams currently add up to.
+function _erRecalcPctFromGrams() {
+  const rows = document.querySelectorAll('#er-ingredients .er-ing-row');
+  let totalG = 0;
+  rows.forEach(row => { totalG += parseFloat(row.querySelector('.er-ing-g')?.value) || 0; });
+  if (totalG <= 0) return;
+  rows.forEach(row => {
+    const pctI = row.querySelector('.er-ing-pct');
+    const gI   = row.querySelector('.er-ing-g');
+    if (pctI && gI && document.activeElement !== pctI) {
+      const g = parseFloat(gI.value) || 0;
+      pctI.value = ((g / totalG) * 100).toFixed(2);
+    }
+  });
 }
 
 function recalcGramsFromPct() {
@@ -17399,16 +17502,13 @@ function recalcIngFromGrams() {
 
 function addEditIngRow() {
   const container = document.getElementById('er-ingredients');
-  const isPct = _erIngMode === 'pct';
   const div = document.createElement('div');
   div.className = 'er-ing-row';
-  div.style.cssText = 'display:flex;gap:8px;align-items:center;margin-bottom:6px';
+  div.style.cssText = 'display:grid;grid-template-columns:1fr 100px 100px 32px;gap:8px;align-items:center;margin-bottom:6px';
   div.innerHTML = `
-    <input class="form-input" value="" style="flex:2;padding:6px 10px" placeholder="Ingredient name" data-field="name" />
-    <input class="form-input er-ing-pct" value="" type="number" step="0.1" min="0" style="width:80px;padding:6px 10px;text-align:right;${isPct?'':'display:none'}" placeholder="%" data-field="pct" oninput="_erUpdatePctTotal()" onchange="_erMaybeAutoBalance(this)" />
-    <span class="er-unit-label" style="font-size:12px;color:var(--g3);width:16px;${isPct?'':'display:none'}">%</span>
-    <input class="form-input er-ing-g" value="" type="number" step="0.1" min="0" style="width:80px;padding:6px 10px;text-align:right;${isPct?'display:none':''}" placeholder="g" data-field="grams" oninput="_erUpdatePctTotal()" onchange="_erMaybeAutoBalance(this)" />
-    <span class="er-unit-label-g" style="font-size:12px;color:var(--g3);${isPct?'display:none':''};width:16px">g</span>
+    <input class="form-input" value="" style="padding:6px 10px" placeholder="Ingredient name" data-field="name" />
+    <input class="form-input er-ing-pct" value="" type="number" step="0.01" min="0" style="padding:6px 10px;text-align:right" placeholder="%" data-field="pct" oninput="_erRecalcGramsFromPct();_erUpdatePctTotal()" onchange="_erMaybeAutoBalance(this)" />
+    <input class="form-input er-ing-g" value="" type="number" step="0.1" min="0" style="padding:6px 10px;text-align:right" placeholder="g" data-field="grams" oninput="_erRecalcPctFromGrams();_erUpdatePctTotal()" />
     <button style="background:none;border:none;cursor:pointer;color:var(--red);font-size:16px" onclick="this.closest('.er-ing-row').remove();_erUpdatePctTotal()">✕</button>
   `;
   container.appendChild(div);
@@ -18147,14 +18247,19 @@ function saveEditRecipe(npd) {
     }
   });
 
-  // Collect method
-  const methodRows = document.querySelectorAll('#er-method .er-method-row');
-  r.method = [];
-  methodRows.forEach(row => {
-    const title = row.querySelector('input').value.trim();
-    const text = row.querySelector('textarea').value.trim();
-    if (title) r.method.push({ title, text });
-  });
+  // Collect method — only if the method UI is actually in this modal.
+  // (Method now lives in its own dedicated editRecipeMethod modal; the main
+  // Edit Recipe modal no longer renders #er-method.)
+  const methodContainer = document.getElementById('er-method');
+  if (methodContainer) {
+    const methodRows = methodContainer.querySelectorAll('.er-method-row');
+    r.method = [];
+    methodRows.forEach(row => {
+      const title = row.querySelector('input').value.trim();
+      const text = row.querySelector('textarea').value.trim();
+      if (title) r.method.push({ title, text });
+    });
+  }
 
   // Collect packaging
   const pkgRows = document.querySelectorAll('#er-packaging .er-pkg-row');
