@@ -3208,6 +3208,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
       <select class="form-select" id="qas-brand-filter" style="width:180px" onchange="renderQasLanding()">
         <option value="">All brands</option>
       </select>
+      <label style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--g4);cursor:pointer"><input type="checkbox" id="qas-show-archived" onchange="renderQasLanding()" style="margin:0" /> Include archived</label>
       <span style="flex:1"></span>
       <button class="btn btn-outline btn-sm" id="qas-bulk-bypass-btn" onclick="qasBulkBypassLegacy()" title="Tick rows to bypass just those, or click with nothing ticked to bypass every legacy approved recipe (no QAS started)" style="border-color:var(--gold);color:var(--gold)">⚡ Bypass selected / legacy</button>
     </div>
@@ -14322,8 +14323,9 @@ function renderQasLanding() {
     }));
   } catch (e) {}
 
+  var showArchived = !!(document.getElementById('qas-show-archived') && document.getElementById('qas-show-archived').checked);
   var rows = Object.values(RECIPE_DB).filter(function(r){
-    if (r.archived) return false;
+    if (r.archived && !showArchived) return false;
     if (tokens.length) {
       var hay = ((r.name||'') + ' ' + (r.npd||'') + ' ' + (r.recipeId||'') + ' ' + (r.brand||'')).toLowerCase();
       if (!tokens.every(function(t){ return hay.indexOf(t) !== -1; })) return false;
@@ -14348,6 +14350,7 @@ function renderQasLanding() {
     var lastSign = (r.qasApproval && r.qasApproval.at) || (r.qasBypass && r.qasBypass.at) || null;
     var statusBadge = '<span class="badge ' + qasStatusClass(s) + '">' + qasStatusLabel(s) + '</span>';
     var recipeStatusLabel = ({approved:'Approved','prod-trial':'Prod Trial',trial:'Factory Trial',review:'In Review',draft:'Draft'}[r.status] || r.status || '—');
+    if (r.archived) recipeStatusLabel += ' <span style="display:inline-block;padding:0 6px;border-radius:40px;font-size:9px;font-weight:600;background:var(--g1);color:var(--g3);margin-left:2px">📦 Archived</span>';
     // Per-row checkbox: only enabled for rows that aren't already cleared
     // (no point picking an already-bypassed or already-approved one). The
     // column itself is hidden for non-admin/non-R&D up in renderQasLanding.
