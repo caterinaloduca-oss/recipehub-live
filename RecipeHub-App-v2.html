@@ -17417,7 +17417,7 @@ function _erMaybeAutoBalance(triggerInput) {
 }
 
 function _erAutoBalanceFromInput(triggerInput) {
-  if (!triggerInput || document.activeElement !== triggerInput) return; // user moved on — skip
+  if (!triggerInput) return;
   var rows = document.querySelectorAll('#er-ingredients .er-ing-row');
   if (rows.length < 2) return;
   var isPct = (typeof _erIngMode === 'undefined') || _erIngMode === 'pct';
