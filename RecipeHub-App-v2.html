@@ -17204,7 +17204,8 @@ function editRecipe(npd) {
       <div id="er-pct-total-wrap" style="margin-top:6px;padding:6px 10px;border-radius:6px;font-size:12px;display:flex;align-items:center;gap:8px;background:var(--g1);font-family:var(--font-m)">
         <span style="text-transform:uppercase;letter-spacing:0.08em;font-size:10px;color:var(--g4);font-family:var(--font-b)">Total</span>
         <span id="er-pct-total" style="font-weight:600">0.0%</span>
-        <span id="er-pct-total-hint" style="color:var(--g4);font-size:11px"></span>
+        <span id="er-pct-total-hint" style="color:var(--g4);font-size:11px;flex:1"></span>
+        <button id="er-pct-rebalance" type="button" onclick="_erRebalanceToTarget()" style="display:none;background:#8A4500;color:white;border:none;border-radius:4px;padding:3px 10px;font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font-b)" title="Pro-rata scale every ingredient so the total lands exactly at 100% (or 1 kg in grams mode)">↻ Recalc to 100%</button>
       </div>
       <div style="display:flex;gap:8px">
         <button class="btn btn-ghost-sm" onclick="addEditIngRow()">+ Add Ingredient</button>
@@ -17356,6 +17357,7 @@ function _erUpdatePctTotal() {
   var wrap = document.getElementById('er-pct-total-wrap');
   var totalEl = document.getElementById('er-pct-total');
   var hintEl = document.getElementById('er-pct-total-hint');
+  var rebalanceBtn = document.getElementById('er-pct-rebalance');
   if (!wrap || !totalEl || !hintEl) return;
   var rows = document.querySelectorAll('#er-ingredients .er-ing-row');
   var isPct = (typeof _erIngMode === 'undefined') || _erIngMode === 'pct';
@@ -17374,11 +17376,13 @@ function _erUpdatePctTotal() {
     wrap.style.background = 'var(--g1)';
     totalEl.style.color = 'var(--g3)';
     hintEl.textContent = '';
+    if (rebalanceBtn) rebalanceBtn.style.display = 'none';
   } else if (ok) {
     wrap.style.background = '#E8F5E9';
     totalEl.style.color = '#1E6B26';
     hintEl.textContent = '✓ matches ' + TARGETS[0].lbl;
     hintEl.style.color = '#1E6B26';
+    if (rebalanceBtn) rebalanceBtn.style.display = 'none';
   } else {
     var diff = sum - TARGETS[0].t;
     var pctOff = Math.abs(diff) / TARGETS[0].t * 100;
@@ -17387,7 +17391,42 @@ function _erUpdatePctTotal() {
     totalEl.style.color  = bad ? '#B81A1A' : '#8A4500';
     hintEl.textContent = (diff > 0 ? '+' : '') + diff.toFixed(2) + unit + ' vs ' + TARGETS[0].lbl;
     hintEl.style.color  = bad ? '#B81A1A' : '#8A4500';
+    if (rebalanceBtn) {
+      rebalanceBtn.style.display = '';
+      rebalanceBtn.textContent = '↻ Recalc to ' + TARGETS[0].lbl;
+    }
   }
+}
+
+// Pro-rata scale every ingredient row so the total lands exactly at the
+// target (100% in pct mode, 1000g in grams mode). Residual from rounding
+// goes on the largest row so the visible numbers add up to the target.
+function _erRebalanceToTarget() {
+  var rows = document.querySelectorAll('#er-ingredients .er-ing-row');
+  var isPct = (typeof _erIngMode === 'undefined') || _erIngMode === 'pct';
+  var sel = isPct ? '.er-ing-pct' : '.er-ing-g';
+  var target = isPct ? 100 : 1000;
+  var decimals = isPct ? 3 : 1;
+  var values = [];
+  rows.forEach(function(row){
+    var inp = row.querySelector(sel);
+    values.push({ inp: inp, v: parseFloat(inp && inp.value) || 0 });
+  });
+  var sum = values.reduce(function(s,x){ return s + x.v; }, 0);
+  if (sum <= 0) { showSaveToast('Nothing to rebalance — fill in values first', true); return; }
+  if (Math.abs(sum - target) < (isPct ? 0.005 : 0.05)) return; // already on target
+  var scale = target / sum;
+  var newVals = values.map(function(x){ return +(x.v * scale).toFixed(decimals); });
+  var newSum  = newVals.reduce(function(s,v){ return s+v; }, 0);
+  var diff    = +(target - newSum).toFixed(decimals);
+  if (Math.abs(diff) >= Math.pow(10, -decimals)) {
+    // Absorb the rounding residual onto the largest row so the visible sum is exact.
+    var bigIdx = newVals.reduce(function(best,v,i){ return v > newVals[best] ? i : best; }, 0);
+    newVals[bigIdx] = +(newVals[bigIdx] + diff).toFixed(decimals);
+  }
+  values.forEach(function(x, i){ if (x.inp) x.inp.value = newVals[i]; });
+  _erUpdatePctTotal();
+  showSaveToast('Rebalanced to ' + (isPct ? '100%' : '1 kg'));
 }
 
 function addEditMethodRow() {
