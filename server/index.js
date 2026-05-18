@@ -3532,6 +3532,137 @@ app.get('/api/inspector/sweep', requireAuth, (req, res) => {
       }
     }
 
+    // ── AK. QAS gate snuck around: approved recipe without QAS approval/bypass ──
+    // Per project_qas_visual_spec.md, the QAS visual spec is a hard gate at
+    // Prod Trial → Approved. Either qasStatus='approved' or qasBypass.by
+    // must be set. Anything else means someone progressed status='approved'
+    // without going through the gate.
+    Object.entries(recipes).forEach(([npd, r]) => {
+      if (!r || r.archived) return;
+      if (r.status !== 'approved') return;
+      const qaApproved = r.qasStatus === 'approved';
+      const bypassed = !!(r.qasBypass && r.qasBypass.by);
+      if (!qaApproved && !bypassed) {
+        push('recipe.qas_required', 'medium', 'recipe', npd,
+          `${r.name || npd}: status='approved' but QAS gate is neither approved nor bypassed. Approve the QAS or record a bypass with reason.`,
+          'recipes/' + npd);
+      }
+    });
+
+    // ── AL. Duplicate factory recipeId ──
+    // r.recipeId is the versioned factory code ('211_BCS v1') assigned by
+    // Factory at the Trial-Passed gate. Should be unique across non-
+    // archived recipes — two recipes with the same recipeId can't both ship.
+    const _seenRecipeId = new Map();
+    Object.entries(recipes).forEach(([npd, r]) => {
+      if (!r || r.archived || !r.recipeId) return;
+      const rid = String(r.recipeId).trim();
+      if (!rid) return;
+      if (_seenRecipeId.has(rid)) {
+        push('recipe.duplicate_recipe_id', 'high', 'recipe', npd,
+          `${r.name || npd}: recipeId "${rid}" is also used by ${_seenRecipeId.get(rid)}. Factory codes must be unique — rename one.`,
+          'recipes/' + npd);
+      } else {
+        _seenRecipeId.set(rid, npd);
+      }
+    });
+
+    // ── AM. Composite recipe cyclic reference ──
+    // If recipe A's components include recipe B (via subNpd), and B's
+    // components include A (directly or transitively), cost roll-up is
+    // a stack overflow waiting to happen. Walk each recipe's sub-graph
+    // with a visited set; if we revisit a node, that's a cycle.
+    Object.entries(recipes).forEach(([npd, r]) => {
+      if (!r || r.archived) return;
+      const components = Array.isArray(r.components) ? r.components : [];
+      if (!components.length) return;
+      const visited = new Set([npd]);
+      function walk(current, path) {
+        const cur = recipes[current];
+        if (!cur) return null;
+        const comps = Array.isArray(cur.components) ? cur.components : [];
+        for (const c of comps) {
+          if (!c || !c.subNpd) continue;
+          if (visited.has(c.subNpd)) return path.concat([c.subNpd]);
+          visited.add(c.subNpd);
+          const result = walk(c.subNpd, path.concat([c.subNpd]));
+          if (result) return result;
+        }
+        return null;
+      }
+      const cyclePath = walk(npd, [npd]);
+      if (cyclePath) {
+        push('composite.cyclic_reference', 'high', 'recipe', npd,
+          `${r.name || npd}: composite-component chain has a cycle — ${cyclePath.join(' → ')}. Cost roll-up will loop.`,
+          'recipes/' + npd);
+      }
+    });
+
+    // ── AN. Ingredient cost outliers — likely typos ──
+    // Roll up to a summary anomaly since the master DB can have a lot.
+    // Exempt chilled water (RMADT0006) which is intentionally priced at
+    // 0.0001 SAR/kg (Cate's call 2026-05-07).
+    const _outliers = [];
+    _ingData.forEach(row => {
+      if (!Array.isArray(row)) return;
+      const code = row[3];
+      const name = row[1] || '';
+      if (code === 'RMADT0006') return; // chilled water, intentional 0
+      const c14 = parseFloat(row[14]);
+      const c13 = parseFloat(row[13]);
+      const cost = !isNaN(c14) ? c14 : (!isNaN(c13) ? c13 : null);
+      if (cost == null) return;
+      if (cost > 1000) _outliers.push({ code, name, cost, why: '>1000 SAR/kg' });
+      // 0-cost rows for non-water non-packaging items are suspect
+      // Packaging codes (PM*) and a few SF aliases legitimately come through at 0
+      else if (cost === 0 && code && !code.startsWith('PM')) {
+        _outliers.push({ code, name, cost, why: '0 SAR/kg' });
+      }
+    });
+    if (_outliers.length) {
+      const sample = _outliers.slice(0, 5).map(o => `${o.code} "${o.name}" — ${o.why}`).join('; ');
+      push('ingredient.cost_outlier', 'low', 'ingredient_db', 'summary',
+        `${_outliers.length} ingredient(s) with suspicious cost values: ${sample}${_outliers.length>5?'; …':''}`,
+        null);
+    }
+
+    // ── AO. Date skew — updatedAt before createdAt, or createdAt in the future ──
+    const _nowMs = Date.now();
+    Object.entries(recipes).forEach(([npd, r]) => {
+      if (!r || r.archived) return;
+      const created = r.createdAt ? Date.parse(r.createdAt) : NaN;
+      const updated = r.updatedAt ? Date.parse(r.updatedAt) : NaN;
+      const issues = [];
+      if (!isNaN(created) && created > _nowMs + 60000) issues.push(`createdAt in the future (${r.createdAt})`);
+      if (!isNaN(created) && !isNaN(updated) && updated < created) issues.push(`updatedAt < createdAt (${r.updatedAt} vs ${r.createdAt})`);
+      if (issues.length) {
+        push('recipe.date_skew', 'low', 'recipe', npd,
+          `${r.name || npd}: ${issues.join(' / ')}. Probably a clock or paste error.`,
+          'recipes/' + npd);
+      }
+    });
+
+    // ── AP. Factory SOP approval state mismatch ──
+    // sopStatus='approved' but no sopApproval signoff → was forced via
+    // shortcut path. OR sopApproval.approved.at exists but sopStatus is
+    // not 'approved' → approval done, status field never caught up.
+    Object.entries(recipes).forEach(([npd, r]) => {
+      if (!r || r.archived) return;
+      const hasApproval = !!(r.sopApproval && r.sopApproval.approved && r.sopApproval.approved.at);
+      const statusApproved = r.sopStatus === 'approved';
+      // Legacy SOP path auto-creates sopApproval with 'Legacy SOP' signoff —
+      // that's expected, not a drift. Only flag when the two genuinely disagree.
+      if (statusApproved && !hasApproval) {
+        push('recipe.sop_approval_mismatch', 'medium', 'recipe', npd,
+          `${r.name || npd}: sopStatus='approved' but no approval signoff recorded in sopApproval. Either re-approve to populate the record or move status back to pending.`,
+          'recipes/' + npd);
+      } else if (!statusApproved && hasApproval) {
+        push('recipe.sop_approval_mismatch', 'medium', 'recipe', npd,
+          `${r.name || npd}: sopApproval shows approval at ${r.sopApproval.approved.at} but sopStatus='${r.sopStatus || 'draft'}'. Flip sopStatus to 'approved' or withdraw the signoff.`,
+          'recipes/' + npd);
+      }
+    });
+
     // ── X. Branch SOP with no steps / components ──
     branchSOPs.forEach(s => {
       if (!s || s.archived) return;
