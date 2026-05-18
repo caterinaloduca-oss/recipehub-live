@@ -9930,6 +9930,7 @@ function buildRecipesTable() {
     return (b.updatedAt || b.npd || '').localeCompare(a.updatedAt || a.npd || '');
   });
   _recipes.forEach(r => {
+   try {
     if (r.archived) archivedCount++;
     // Hide archived unless toggle is on
     if (r.archived && !_showArchivedRecipes) return;
@@ -10027,6 +10028,12 @@ function buildRecipesTable() {
       </td>
     `;
     tbody.appendChild(tr);
+   } catch (_rowErr) {
+    // One bad row (weird ingredients, missing field, bad cost data) was killing
+    // the whole forEach and dropping every later recipe — including all archived
+    // ones, since they sort to the top by recent updatedAt. Log and continue.
+    try { console.warn('buildRecipesTable: skipped row', r && r.npd, _rowErr && _rowErr.message); } catch(_){}
+   }
   });
   var archBtn = document.getElementById('recipe-archive-toggle');
   if (archBtn) archBtn.textContent = (_showArchivedRecipes ? 'Hide Archived' : 'Show Archived') + (archivedCount ? ' (' + archivedCount + ')' : '');
