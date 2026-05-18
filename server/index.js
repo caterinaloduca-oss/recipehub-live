@@ -3036,6 +3036,76 @@ app.get('/api/inspector/sweep', requireAuth, (req, res) => {
       }
     });
 
+    // ── I. Archived recipe still in mid-workflow status ──
+    // An archived recipe should normally be 'approved' (or 'discontinued',
+    // which is a separate flag). Anything else means it was archived
+    // mid-flow and will leak into dashboard counts that look at status
+    // alone. Surfaced 2026-05-18 — five Halloumi-Slice / Orange-Sauce style
+    // recipes were archived while status='review' and the Pending Actions
+    // widget was pulling them forward as if they still needed sign-off.
+    Object.entries(recipes).forEach(([npd, r]) => {
+      if (!r || !r.archived) return;
+      const s = r.status || 'draft';
+      if (s !== 'approved') {
+        push('recipe.archived_midflow', 'low', 'recipe', npd,
+          `${r.name || npd}: archived while status='${s}'. Either restore-and-approve, or leave as-is — but it'll keep being filtered out of the active stats.`,
+          'recipes/' + npd);
+      }
+    });
+
+    // ── J. Duplicate recipe NAMES among non-archived recipes ──
+    // Names should be unique among live recipes — caught the 2026-261 vs
+    // 2026-263 'Hasawi Lemon Marinade (25%)' mistake earlier today, where
+    // Cate created a new recipe under the same name without archiving the
+    // old one first. Archived dupes are exempt (intentional renames).
+    const seenName = new Map();
+    Object.entries(recipes).forEach(([npd, r]) => {
+      if (!r || r.archived) return;
+      const nm = String(r.name || '').trim().toLowerCase();
+      if (!nm) return;
+      if (seenName.has(nm)) {
+        const other = seenName.get(nm);
+        push('recipe.duplicate_name', 'medium', 'recipe', npd,
+          `${r.name}: another live recipe (${other}) shares this exact name. Pick one to archive or rename.`,
+          'recipes/' + npd);
+      } else {
+        seenName.set(nm, npd);
+      }
+    });
+
+    // ── K. Open production runs whose cached recipe name is stale ──
+    // The rename-cascade keeps pr.recipe in sync with recipes[pr.npd].name
+    // for open runs. If they drift, either the cascade failed or someone
+    // edited the run directly. Surface so we can re-sync.
+    productionRuns.forEach(pr => {
+      if (!pr || pr.archived) return;
+      if (pr.status === 'completed' || pr.status === 'cancelled') return; // frozen on purpose
+      const npd = pr.npd;
+      if (!npd || !recipes[npd]) return;
+      const live = recipes[npd].name || '';
+      const cached = pr.recipe || '';
+      if (cached && live && cached.trim() !== live.trim()) {
+        push('run.stale_name', 'low', 'production_run', pr.id,
+          `Run ${pr.id} caches recipe name "${cached}" but the live recipe is now "${live}". Edit the recipe and save to re-trigger the rename cascade.`,
+          'recipes/' + npd);
+      }
+    });
+
+    // ── L. Non-draft recipe with no ingredients ──
+    // A recipe that's passed Draft should have at least an ingredient list.
+    // Empty formulation past Draft means something was rushed through or
+    // the data got wiped.
+    Object.entries(recipes).forEach(([npd, r]) => {
+      if (!r || r.archived) return;
+      if (!r.status || r.status === 'draft') return;
+      const n = Array.isArray(r.ingredients) ? r.ingredients.length : 0;
+      if (n === 0) {
+        push('recipe.empty_ingredients', 'high', 'recipe', npd,
+          `${r.name || npd}: status='${r.status}' but has no ingredients. Either move back to Draft or fill in the formulation.`,
+          'recipes/' + npd);
+      }
+    });
+
     // Group by kind for the count summary
     const counts = anomalies.reduce((acc, a) => { acc[a.kind] = (acc[a.kind] || 0) + 1; return acc; }, {});
     res.json({
