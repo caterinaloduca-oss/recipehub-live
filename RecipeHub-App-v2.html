@@ -14372,12 +14372,12 @@ function renderQasLanding() {
     var statusBadge = '<span class="badge ' + qasStatusClass(s) + '">' + qasStatusLabel(s) + '</span>';
     var recipeStatusLabel = ({approved:'Approved','prod-trial':'Prod Trial',trial:'Factory Trial',review:'In Review',draft:'Draft'}[r.status] || r.status || '—');
     if (r.archived) recipeStatusLabel += ' <span style="display:inline-block;padding:0 6px;border-radius:40px;font-size:9px;font-weight:600;background:var(--g1);color:var(--g3);margin-left:2px">📦 Archived</span>';
-    // Per-row checkbox: only enabled for rows that aren't already cleared
-    // (no point picking an already-bypassed or already-approved one). The
-    // column itself is hidden for non-admin/non-R&D up in renderQasLanding.
-    var picked = (s !== 'bypassed' && s !== 'approved');
+    // Per-row checkbox: every row gets one. The bulk dropdown can do many
+    // things (archive, change status, clear bypass, etc.) so it's not safe
+    // to pre-exclude already-bypassed/approved rows. Each action has its
+    // own validator that skips-with-reason if a row doesn't qualify.
     var pickCell = '<td class="qas-pick-col" style="text-align:center;display:' + (_canBypass ? '' : 'none') + '" onclick="event.stopPropagation()">' +
-      (picked ? '<input type="checkbox" class="qas-row-pick" data-npd="' + r.npd + '" onclick="event.stopPropagation()" onchange="_qasUpdateBulkBar()" />' : '') +
+      '<input type="checkbox" class="qas-row-pick" data-npd="' + r.npd + '" onclick="event.stopPropagation()" onchange="_qasUpdateBulkBar()" />' +
     '</td>';
     return '<tr style="cursor:pointer" onclick="openQasDetail(\'' + r.npd + '\')">' +
       pickCell +
