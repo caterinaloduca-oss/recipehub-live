@@ -1084,7 +1084,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
       <input class="search-input" placeholder="Search recipes, NPD codes, Recipe IDs, ingredients…" id="recipe-search" oninput="filterRecipes()" />
     </div>
     <select class="filter-select" id="recipe-filter-brand" onchange="filterRecipes()"><option>All Brands</option></select>
-    <select class="filter-select" id="recipe-filter-status" onchange="filterRecipes()"><option>All Statuses</option><option>Draft</option><option>In Review</option><option>Factory Trial</option><option>Production Trial</option><option>Approved</option><option>Archived</option></select>
+    <select class="filter-select" id="recipe-filter-status" onchange="_onRecipeStatusFilterChange(this)"><option>All Statuses</option><option>Draft</option><option>In Review</option><option>Factory Trial</option><option>Production Trial</option><option>Approved</option><option>Archived</option></select>
     <button class="btn btn-outline btn-sm" id="recipe-archive-toggle" onclick="toggleArchivedRecipes()" style="white-space:nowrap">Show Archived</button>
     <select class="filter-select" id="recipe-filter-type" onchange="filterRecipes()"><option>All Types</option><option>Marinade</option><option>Dip</option><option>Sauce</option><option>Blend</option><option>Seasoning</option><option>Spread</option><option>Dessert</option><option>Meat</option><option>Dough</option><option>Coating</option><option>Brine</option><option>Garnish</option><option>Semi-Finished</option></select>
     <select class="filter-select" id="recipe-filter-tag" onchange="filterRecipes()"><option>All Tags</option><option>Imported</option><option>LTO</option><option>Vegetarian</option><option>Gluten Free</option><option>Discontinued</option><option>Best Seller</option></select>
@@ -15685,6 +15685,24 @@ function _dashGoToRecipes(status, tag) {
 }
 
 // ──────────── FILTER: RECIPES ────────────
+// Handler for the Recipes page status filter dropdown. Auto-flips
+// _showArchivedRecipes so that picking "Archived" actually surfaces archived
+// rows (otherwise filterRecipes would only filter against rows already in the
+// DOM, which won't include archived if the toggle is off). Then runs the
+// normal filterRecipes pass.
+function _onRecipeStatusFilterChange(sel) {
+  try {
+    var val = sel && sel.value;
+    if (val === 'Archived' && !_showArchivedRecipes) {
+      _showArchivedRecipes = true;
+      var _tbody = document.getElementById('recipes-tbody');
+      if (_tbody) _tbody.innerHTML = '';
+      buildRecipesTable();
+    }
+  } catch (e) {}
+  filterRecipes();
+}
+
 function filterRecipes() {
   // Local const — avoids the hoisting trap (see filterBranchSOPs).
   const STATUS_LABEL_TO_KEY = {
@@ -15703,8 +15721,11 @@ function filterRecipes() {
   const tag = tagEl ? tagEl.value : 'All Tags';
   const flagEl = document.getElementById('recipe-filter-flag');
   const flag = flagEl ? flagEl.value : 'All Flags';
-  // Auto-show archived when "Archived" filter is selected
-  if (status === 'Archived' && !_showArchivedRecipes) { _showArchivedRecipes = true; buildRecipesTable(); }
+  // Auto-flip used to live here, but it re-fired whenever filterRecipes ran
+  // internally (from buildRecipesTable's tail → _loadRecipeFilters → filterRecipes),
+  // which after a manual toggle caused the table to silently lose the archived
+  // rows. The flip now only happens on the dropdown's actual change event via
+  // _onRecipeStatusFilterChange.
   // Multi-token search — every space-separated word must match somewhere in the row haystack.
   const tokens = q ? q.split(/\s+/).filter(Boolean) : [];
   const wantStatus = STATUS_LABEL_TO_KEY[status] || '';
