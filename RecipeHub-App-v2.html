@@ -23205,7 +23205,10 @@ function _loadProdFilters() {
     _setIfOption(document.getElementById('prod-filter-brand'),   v.brand);
     _setIfOption(document.getElementById('prod-filter-status'),  v.status);
     _setIfOption(document.getElementById('prod-filter-runtype'), v.runtype);
-    if (v.showArchived && !_showArchived) _showArchived = true;
+    // Same trap as the Recipes Show Archived toggle (fixed earlier today):
+    // _loadProdFilters runs at the tail of every buildProductionTable, so
+    // restoring _showArchived from localStorage would silently re-flip any
+    // user toggle to OFF back to ON. Toggle resets to OFF on each page load.
     return true;
   } catch (e) { return false; }
 }
