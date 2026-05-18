@@ -12910,9 +12910,25 @@ function buildFactorySOPTable() {
   const recipes = Object.values(RECIPE_DB);
   const sopRecipes = recipes.filter(r => r.sopSteps && r.sopSteps.length);
   const showArchived = !!(document.getElementById('fsop-show-archived') && document.getElementById('fsop-show-archived').checked);
-  // Most-recent first: sort by updatedAt desc, fall back to approvedAt, then npd
+  // Sort: approved + pending flavours on top (real action), drafts and recipes
+  // with no SOP at all pushed to the bottom. Within each tier, most-recently
+  // updated first. NB: explicit `in` check on the weight map — `weight[k] || 99`
+  // would treat weight 0 as falsy (same bug shape that hit QAS earlier today).
   const _ts = (r) => r.updatedAt || r.approvedAt || r.created || '';
-  recipes.sort((a, b) => String(_ts(b)).localeCompare(String(_ts(a))));
+  const _fsopBucket = (r) => {
+    if (!(r.sopSteps && r.sopSteps.length)) return 'none';   // no SOP yet
+    const ss = r.sopStatus || 'draft';
+    if (ss === 'approved') return 'approved';
+    if (ss === 'pending-approval' || ss === 'pending-review' || ss === 'pending') return 'pending';
+    return 'draft';
+  };
+  const _fsopWeight = { approved: 0, pending: 1, draft: 2, none: 3 };
+  const _fw = (k) => (k in _fsopWeight) ? _fsopWeight[k] : 99;
+  recipes.sort((a, b) => {
+    const d = _fw(_fsopBucket(a)) - _fw(_fsopBucket(b));
+    if (d !== 0) return d;
+    return String(_ts(b)).localeCompare(String(_ts(a)));
+  });
   const statusMap = {
     approved:'badge-approved',
     'pending-approval':'badge-review',
