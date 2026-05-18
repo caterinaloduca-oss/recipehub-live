@@ -2905,16 +2905,13 @@ app.get('/api/inspector/sweep', requireAuth, (req, res) => {
     const users = Array.isArray(data.users) ? data.users : [];
     const productionRuns = Array.isArray(data.productionRuns) ? data.productionRuns : [];
 
-    // ── A. Recipe quantities don't round to a valid total ──
-    // Accept either of three conventions (Cate 2026-05-14):
-    //   100 (percent),  1000 (grams, i.e. 1kg),  1 (decimal fraction)
-    // If the sum is within tolerance of any of those, the recipe is fine.
-    // Otherwise flag, severity scales with how far off it is from the
-    // CLOSEST valid total. Empty drafts and archived recipes are exempt.
+    // ── A. Recipe quantities don't sum to 100% ──
+    // Only 100% is accepted now (Cate 2026-05-18). Previously also accepted
+    // 1000g and 1.0, but those conventions weren't being used in practice and
+    // were causing confusion.
+    // Empty drafts and archived recipes are exempt.
     const VALID_TOTALS = [
-      { target: 100,  tol: 0.5, label: '100%' },
-      { target: 1000, tol: 5,   label: '1kg (1000g)' },
-      { target: 1,    tol: 0.005, label: '1.0 (decimal)' },
+      { target: 100, tol: 0.5, label: '100%' },
     ];
     Object.entries(recipes).forEach(([npd, r]) => {
       if (!r || r.archived) return;
