@@ -15778,7 +15778,14 @@ function _loadRecipeFilters() {
     _setIfOption(tp, v.type);
     _setIfOption(tg, v.tag);
     _setIfOption(document.getElementById('recipe-filter-flag'), v.flag);
-    if (v.showArchived && !_showArchivedRecipes) _showArchivedRecipes = true;
+    // _showArchivedRecipes used to be restored from localStorage here, but
+    // _loadRecipeFilters runs at the END of every buildRecipesTable — which
+    // meant any user toggle to OFF was immediately reverted to ON because
+    // the previous-state-true was still in localStorage. The flag is now
+    // purely controlled by toggleArchivedRecipes (i.e. the button click),
+    // and resets to false on every page load. Worth it for the toggle to
+    // actually work; the user can re-click after a refresh if they want
+    // archived rows back.
     return true;
   } catch (e) { return false; }
 }
