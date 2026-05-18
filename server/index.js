@@ -3188,15 +3188,16 @@ app.get('/api/inspector/sweep', requireAuth, (req, res) => {
 
     // ── Q. Approved recipe missing required downstream metadata ──
     // Approval should mean the recipe is ready for production. Missing
-    // batchSize, yield, or shelfLife means downstream views (kitchen sheet,
-    // SOP, cost calc) won't display correctly.
+    // batchSize means downstream views (kitchen sheet, SOP, cost calc)
+    // won't display correctly.
+    // yield + shelfLife checks suppressed per Cate 2026-05-18 — they're
+    // valid concerns but not currently being maintained, so flagging
+    // them was just noise.
     Object.entries(recipes).forEach(([npd, r]) => {
       if (!r || r.archived) return;
       if (r.status !== 'approved') return;
       const missing = [];
       if (!r.batchSize) missing.push('batchSize');
-      if (r.yield == null || r.yield === '') missing.push('yield');
-      if (!r.shelfLife) missing.push('shelfLife');
       if (missing.length) {
         push('recipe.approved_missing_fields', 'medium', 'recipe', npd,
           `${r.name || npd}: approved but missing ${missing.join(', ')}. Downstream views (kitchen sheet, SOP, cost) won't render fully.`,
