@@ -14357,10 +14357,9 @@ function renderQasLanding() {
     return true;
   });
 
-  // Sort: action-needed first (Pending awaiting sign-off → Rejected needs rework →
-  // Draft in progress → Not started), then "done" states at the bottom. Within
-  // each status, sort by name.
-  var weight = {pending:0,rejected:1,draft:2,missing:3,bypassed:4,approved:5};
+  // Sort: cleared states (Approved, Bypassed) first, then in-flight
+  // (Pending → Rejected → Draft → Not started). Within each status, by name.
+  var weight = {approved:0,bypassed:1,pending:2,rejected:3,draft:4,missing:5};
   rows.sort(function(a, b){
     var sa = qasGetEffectiveStatus(a), sb = qasGetEffectiveStatus(b);
     var d = (weight[sa] || 99) - (weight[sb] || 99);
