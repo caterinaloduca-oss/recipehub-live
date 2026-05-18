@@ -3208,6 +3208,8 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
       <select class="form-select" id="qas-brand-filter" style="width:180px" onchange="renderQasLanding()">
         <option value="">All brands</option>
       </select>
+      <span style="flex:1"></span>
+      <button class="btn btn-outline btn-sm" id="qas-bulk-bypass-btn" onclick="qasBulkBypassLegacy()" title="Bypass the QAS gate for approved recipes that have no visual spec yet (legacy)" style="border-color:var(--gold);color:var(--gold)">⚡ Bulk-bypass legacy</button>
     </div>
     <div class="card" id="qas-card">
       <div class="card-head" style="cursor:pointer;user-select:none" onclick="toggleQasCollapsed()">
@@ -7269,6 +7271,58 @@ function clearQAFlag(npd) {
 function openQAFlagModalCurrent() {
   if (!_qaCurrentNPD) { showSaveToast('Pick a recipe first', true); return; }
   openQAFlagModal(_qaCurrentNPD);
+}
+
+// QAS flag — stored on r.qasFlag, visible on the QAS detail page header.
+// Same gate as the other flags (Admin / R&D / Factory / QA / Purchasing) so
+// any team can raise a QAS-related query (missing photo, ambiguous spec, etc.).
+async function openQASFlagModal(npd) {
+  var role = (typeof getCurrentUserRole === 'function') ? getCurrentUserRole() : 'viewer';
+  if (['admin','npd','factory','qa','purchasing'].indexOf(role) === -1) {
+    showSaveToast('Only Admin / R&D / Factory / QA / Purchasing can flag QAS', true); return;
+  }
+  var r = RECIPE_DB[npd];
+  if (!r) return;
+  var current = (r.qasFlag && r.qasFlag.question) || '';
+  var q = await customPromptAsync('Flag this QAS with a quick note. Tag teammates with @email@dailyfoodsa.com (or just @firstname) — they get an email.', current);
+  if (q === null) return;
+  var trimmed = String(q || '').trim();
+  if (!trimmed) return;
+  r.qasFlag = {
+    question: trimmed,
+    askedBy: getCurrentUserName(),
+    askedAt: new Date().toISOString(),
+  };
+  r.updatedAt = new Date().toISOString();
+  saveRecipeToServer(npd);
+  // Re-render the QAS detail so the banner shows immediately.
+  if (typeof _renderQasDetail === 'function') {
+    var det = document.getElementById('qas-detail');
+    if (det) det.innerHTML = _renderQasDetail(r);
+  }
+  _notifyFlagMentions('qas', (r.name || npd) + ' QAS (' + npd + ')', trimmed,
+    'https://recipehub.dailyfoodsa.com/#qas=' + encodeURIComponent(npd))
+    .then(function(out){
+      if (out.sent) showSaveToast('QAS flagged — emailed ' + out.sent + ' teammate' + (out.sent>1?'s':''));
+      else showSaveToast('QAS flagged');
+    });
+}
+
+function clearQASFlag(npd) {
+  var role = (typeof getCurrentUserRole === 'function') ? getCurrentUserRole() : 'viewer';
+  if (['admin','npd','factory','qa','purchasing'].indexOf(role) === -1) {
+    showSaveToast('Only Admin / R&D / Factory / QA / Purchasing can clear QAS flags', true); return;
+  }
+  var r = RECIPE_DB[npd];
+  if (!r) return;
+  r.qasFlag = null;
+  r.updatedAt = new Date().toISOString();
+  saveRecipeToServer(npd);
+  if (typeof _renderQasDetail === 'function') {
+    var det = document.getElementById('qas-detail');
+    if (det) det.innerHTML = _renderQasDetail(r);
+  }
+  showSaveToast('QAS flag cleared');
 }
 
 // Yellow banner that displays the flag note + clear button under the QA header.
@@ -14214,6 +14268,12 @@ function renderQasLanding() {
   var body = document.getElementById('qas-landing-body');
   if (!body) return;
   _populateQasStats();
+  // Bulk-bypass button: only admin / R&D
+  var _bulkBtn = document.getElementById('qas-bulk-bypass-btn');
+  if (_bulkBtn) {
+    var _role = (typeof getCurrentUserRole === 'function') ? getCurrentUserRole() : 'viewer';
+    _bulkBtn.style.display = (_role === 'admin' || _role === 'npd') ? '' : 'none';
+  }
   // Brand filter options (lazy)
   var brandFilter = document.getElementById('qas-brand-filter');
   if (brandFilter && brandFilter.options.length <= 1) {
@@ -14344,7 +14404,22 @@ function _renderQasDetail(r) {
   var signedBy = r.qasApproval ? (r.qasApproval.by + ' · ' + _qasNarrowDate(r.qasApproval.at)) : null;
   var bypassMsg = r.qasBypass ? (r.qasBypass.by + ' · ' + _qasNarrowDate(r.qasBypass.at) + ' — “' + (r.qasBypass.reason || '') + '”') : null;
 
-  return '<div style="margin-bottom:16px;display:flex;gap:8px;align-items:center"><button class="btn btn-outline btn-sm" onclick="qasBackToLanding();renderQasLanding()">← Back to QAS list</button><span style="flex:1"></span><button class="btn btn-outline btn-sm" onclick="openPrint(\'' + r.npd + '\',\'qas\')">🖨 Print QAS</button></div>' +
+  var qasFlag = r.qasFlag && r.qasFlag.question ? r.qasFlag : null;
+  var flagBtn = qasFlag
+    ? '<button class="btn btn-outline btn-sm" style="background:#FFE3B3;border-color:#F0D8A8;color:#8A4500" onclick="openQASFlagModal(\'' + r.npd + '\')" title="Note: &quot;' + (qasFlag.question||'').replace(/"/g,'&quot;').replace(/</g,'&lt;') + '&quot;">🚩 Edit flag</button>'
+    : '<button class="btn btn-outline btn-sm" style="border:1px solid #F5D5A0;color:#8A4500;background:#FFF6E5" onclick="openQASFlagModal(\'' + r.npd + '\')">🚩 Flag</button>';
+  return '<div style="margin-bottom:16px;display:flex;gap:8px;align-items:center"><button class="btn btn-outline btn-sm" onclick="qasBackToLanding();renderQasLanding()">← Back to QAS list</button><span style="flex:1"></span>' + flagBtn + '<button class="btn btn-outline btn-sm" onclick="openPrint(\'' + r.npd + '\',\'qas\')">🖨 Print QAS</button></div>' +
+    (qasFlag ? (
+      '<div style="background:#FFF6E5;border:1px solid #F0D8A8;border-radius:8px;padding:12px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:flex-start;gap:16px">' +
+        '<div style="flex:1">' +
+          '<div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:#8A4500;font-weight:700;margin-bottom:4px">🚩 Flagged</div>' +
+          '<div style="font-size:13px;color:var(--navy);line-height:1.5;white-space:pre-wrap">' + (qasFlag.question||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</div>' +
+          '<div style="font-size:11px;color:var(--g4);margin-top:6px">By ' + (qasFlag.askedBy||'').replace(/&/g,'&amp;').replace(/</g,'&lt;') +
+            (function(){ try { return ' on ' + new Date(qasFlag.askedAt).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}); } catch(e){ return ''; } })() + '</div>' +
+        '</div>' +
+        '<button class="btn btn-sm" style="background:#D4700A;color:white;border:none;flex-shrink:0" onclick="clearQASFlag(\'' + r.npd + '\')">Clear flag</button>' +
+      '</div>'
+    ) : '') +
     // Header
     '<div class="card" style="margin-bottom:16px;overflow:hidden">' +
       '<div style="background:var(--navy);padding:18px 22px;color:white;display:flex;justify-content:space-between;align-items:flex-start;gap:16px">' +
@@ -14594,6 +14669,44 @@ function qasBypass(npd) {
     auditEvent('qas.bypass', 'recipe', r.npd, r.name, { reason: reason });
     showSaveToast('QAS gate bypassed — proceed to set Approved');
   });
+}
+
+// Bulk-bypass for legacy recipes — approved before the QAS gate existed and
+// never had a visual spec started. Stamps each one with a uniform bypass entry
+// (admin/R&D only). Posts per-recipe so the server merge protects each one.
+function qasBulkBypassLegacy() {
+  var role = getCurrentUserRole();
+  if (role !== 'admin' && role !== 'npd') { showSaveToast('Only R&D / Admin can bulk-bypass', true); return; }
+  var candidates = Object.values(RECIPE_DB).filter(function(r){
+    if (!r || r.archived) return false;
+    if (r.status !== 'approved') return false;
+    if (r.qasBypass && r.qasBypass.by) return false;
+    if (r.qasStatus && r.qasStatus !== 'missing') return false;
+    return true;
+  });
+  if (!candidates.length) {
+    showSaveToast('No legacy candidates — every approved recipe already has a QAS entry or is bypassed', true);
+    return;
+  }
+  if (!confirm('Bulk-bypass ' + candidates.length + ' approved recipe' + (candidates.length===1?'':'s') + ' that have no QAS started?\n\nReason will be: "Approved before QAS gate was introduced". You can still complete the QAS later — bypass is not permanent.')) return;
+  var when = new Date().toISOString();
+  var by   = getCurrentUserName();
+  var reason = 'Approved before QAS gate was introduced (bulk bypass ' + (when.slice(0,10)) + ')';
+  var ok = 0, fail = 0;
+  showSaveToast('Bypassing ' + candidates.length + '…');
+  candidates.forEach(function(r) {
+    r.qasBypass = { by: by, at: when, reason: reason };
+    r.updatedAt = new Date().toISOString();
+    auditEvent('qas.bypass', 'recipe', r.npd, r.name, { reason: reason, bulk: true });
+    try {
+      saveRecipeToServer(r.npd);
+      ok++;
+    } catch (e) { fail++; }
+  });
+  setTimeout(function(){
+    if (typeof renderQasLanding === 'function') renderQasLanding();
+    showSaveToast('Bulk-bypassed ' + ok + ' recipe' + (ok===1?'':'s') + (fail ? ' (' + fail + ' failed)' : ''));
+  }, 600);
 }
 
 // Snapshot of r.sopFlowchart taken when the modal opens — used by cancelSOPFlowchart()
