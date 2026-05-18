@@ -14359,10 +14359,13 @@ function renderQasLanding() {
 
   // Sort: cleared states (Approved, Bypassed) first, then in-flight
   // (Pending → Rejected → Draft → Not started). Within each status, by name.
+  // NB: explicit `in` check — `weight[k] || 99` would treat weight 0 as falsy
+  // and send Approved to the bottom (regression hit 2026-05-18).
   var weight = {approved:0,bypassed:1,pending:2,rejected:3,draft:4,missing:5};
+  var _w = function(k){ return (k in weight) ? weight[k] : 99; };
   rows.sort(function(a, b){
     var sa = qasGetEffectiveStatus(a), sb = qasGetEffectiveStatus(b);
-    var d = (weight[sa] || 99) - (weight[sb] || 99);
+    var d = _w(sa) - _w(sb);
     return d !== 0 ? d : (a.name || '').localeCompare(b.name || '');
   });
 
