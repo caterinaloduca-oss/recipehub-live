@@ -3369,6 +3369,102 @@ app.get('/api/inspector/sweep', requireAuth, (req, res) => {
       }
     });
 
+    // ── X. Branch SOP with no steps / components ──
+    branchSOPs.forEach(s => {
+      if (!s || s.archived) return;
+      const steps = Array.isArray(s.steps) ? s.steps.length : 0;
+      const comps = Array.isArray(s.components) ? s.components.length : 0;
+      if (steps === 0 && comps === 0) {
+        push('bsop.empty', 'medium', 'branch_sop', s.id,
+          `${s.name || s.id}: Branch SOP has no steps or components — printing it now would yield a blank sheet.`,
+          'branch-sop/' + s.id);
+      }
+    });
+
+    // ── Y. Branch SOP linked to an archived build ──
+    const _buildById = {};
+    builds.forEach(b => { if (b && b.id) _buildById[b.id] = b; });
+    branchSOPs.forEach(s => {
+      if (!s || s.archived) return;
+      if (!s.buildRef) return;
+      const b = _buildById[s.buildRef];
+      if (b && b.archived) {
+        push('bsop.archived_build', 'medium', 'branch_sop', s.id,
+          `${s.name || s.id}: Branch SOP is active but its linked build "${b.name || s.buildRef}" is archived. Archive the SOP too or reactivate the build.`,
+          'branch-sop/' + s.id);
+      }
+    });
+
+    // ── Z. Production run completed but no yield captured ──
+    productionRuns.forEach(pr => {
+      if (!pr || pr.archived) return;
+      if (pr.status !== 'completed') return;
+      const yld = (pr.yield === null || pr.yield === undefined) ? '' : String(pr.yield).trim();
+      if (!yld) {
+        push('run.completed_no_yield', 'medium', 'production_run', pr.id,
+          `Run ${pr.id} (${pr.recipe || pr.npd || '—'}) is marked completed but yield is empty. The whole point of the run is to capture this — fill it in.`,
+          'recipes/' + (pr.npd || ''));
+      }
+    });
+
+    // ── AA. Recipe references a brand that doesn't exist in BRANDS ──
+    const _knownBrands = new Set();
+    (Array.isArray(data.brands) ? data.brands : []).forEach(b => {
+      if (b && b.name) _knownBrands.add(String(b.name).toLowerCase());
+    });
+    Object.entries(recipes).forEach(([npd, r]) => {
+      if (!r || r.archived) return;
+      const refs = [];
+      if (r.brand) refs.push(r.brand);
+      if (Array.isArray(r.brands)) r.brands.forEach(b => { if (b && refs.indexOf(b) === -1) refs.push(b); });
+      const orphans = refs.filter(b => b && !_knownBrands.has(String(b).toLowerCase()));
+      if (orphans.length) {
+        push('recipe.brand_missing', 'low', 'recipe', npd,
+          `${r.name || npd}: brand "${orphans.join(', ')}" is not in the BRANDS list. Recipe will fall out of brand filters.`,
+          'recipes/' + npd);
+      }
+    });
+
+    // ── AB. Recipe claims sopStatus='approved' but has no actual SOP content ──
+    // A green-tick SOP approval without sopSteps and without an attached
+    // Legacy DFC-MP PDF means the approval is hollow — the recipe will
+    // print/display nothing.
+    Object.entries(recipes).forEach(([npd, r]) => {
+      if (!r || r.archived) return;
+      if (r.sopStatus !== 'approved') return;
+      const hasSteps = Array.isArray(r.sopSteps) && r.sopSteps.length > 0;
+      const hasLegacy = Array.isArray(r.factorySopArchive) && r.factorySopArchive.length > 0;
+      if (!hasSteps && !hasLegacy) {
+        push('recipe.sop_claimed_empty', 'high', 'recipe', npd,
+          `${r.name || npd}: sopStatus='approved' but no sopSteps and no Legacy SOP PDF. The approval is hollow — there's no SOP to print.`,
+          'recipes/' + npd);
+      }
+    });
+
+    // ── AC. Duplicate Oracle codes in the master ingredient DB ──
+    // Many rows in ING_DATA share an Oracle code (col 3). Each duplicate
+    // is technically a hit, but listing one anomaly per code drowns the
+    // Inspector page — there are dozens. Roll up to a single summary
+    // anomaly with the worst-offender examples; the actual cleanup lives
+    // on the Ingredients page (Reconcile flow).
+    const _codeRows = new Map();
+    _ingData.forEach(row => {
+      if (!Array.isArray(row)) return;
+      const code = row[3];
+      if (!code) return;
+      if (!_codeRows.has(code)) _codeRows.set(code, []);
+      _codeRows.get(code).push(row[1] || '(no name)');
+    });
+    const _dupeEntries = [];
+    _codeRows.forEach((names, code) => { if (names.length >= 2) _dupeEntries.push({ code, names }); });
+    if (_dupeEntries.length) {
+      _dupeEntries.sort((a, b) => b.names.length - a.names.length);
+      const examples = _dupeEntries.slice(0, 5).map(e => e.code + ' (' + e.names.length + ' rows)').join(', ');
+      push('ingredient.dupe_code', 'low', 'ingredient_db', 'summary',
+        `${_dupeEntries.length} Oracle codes are reused across multiple rows in the ingredient DB. Worst offenders: ${examples}. Clean up via the Ingredients → Reconcile flow.`,
+        null);
+    }
+
     // ── Q. Approved recipe missing required downstream metadata ──
     // Approval should mean the recipe is ready for production. Missing
     // batchSize means downstream views (kitchen sheet, SOP, cost calc)
