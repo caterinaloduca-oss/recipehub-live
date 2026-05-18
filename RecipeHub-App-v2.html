@@ -11251,6 +11251,45 @@ function toggleBakerPct(npd) {
   }
 }
 
+// Rescale the displayed g column on the recipe detail ingredients table to a
+// user-chosen batch size. Read-only display — does not mutate r.ingredients.
+// Touches just the grams cells + the Total row + the column header so the
+// Baker's % toggle, %, and cost columns aren't disturbed.
+function rescaleIngredientView(npd, batchG) {
+  var r = (typeof RECIPE_DB !== 'undefined') ? RECIPE_DB[npd] : null;
+  if (!r) return;
+  var n = parseFloat(batchG);
+  if (!(n > 0)) return;
+  var totalPct = (r.ingredients || []).reduce(function(s,i){ return s + (parseFloat(i.pct) || 0); }, 0);
+  if (totalPct <= 0) return;
+  var table = document.getElementById('ing-table-' + npd);
+  if (!table) return;
+  var tbody = table.querySelector('tbody');
+  if (!tbody) return;
+  var rows = tbody.querySelectorAll('tr');
+  var ingRows = r.ingredients || [];
+  for (var i = 0; i < ingRows.length && i < rows.length; i++) {
+    var cell = rows[i].querySelectorAll('td')[1];
+    if (cell) {
+      var pct = parseFloat(ingRows[i].pct) || 0;
+      var g = (pct / totalPct) * n;
+      cell.textContent = g.toFixed(1) + ' g';
+    }
+  }
+  // Total row (last row, has the navy background)
+  var totalRow = rows[rows.length - 1];
+  if (totalRow && totalRow.id === 'ing-cost-total-' + npd) {
+    var totalCell = totalRow.querySelectorAll('td')[1];
+    if (totalCell) totalCell.textContent = n.toFixed(1) + ' g';
+  }
+  // Column header label — "g / 1 kg" → "g / 500 g" etc.
+  var hdr = document.getElementById('ing-g-header-' + npd);
+  if (hdr) {
+    var labelKg = (n === 1000) ? '1 kg' : (n >= 1000 ? (n/1000).toFixed(n % 1000 ? 2 : 0) + ' kg' : n + ' g');
+    hdr.textContent = 'g / ' + labelKg;
+  }
+}
+
 // ════════ COMPOSITE RECIPES (linked sub-recipes) ════════
 // A composite recipe has: recipeKind='composite', components=[{subNpd, stage, applyG, order}], mainMaterial={name,g,costPerKg}
 // Each sub-recipe is just a normal recipe with type='Semi-Finished'.
@@ -11796,7 +11835,9 @@ function viewRecipe(npd) {
         <div class="card-head">
           <span class="card-title">Ingredients</span>
           <div style="display:flex;align-items:center;gap:8px">
-            <span style="font-size:11px;color:var(--g3)">Per 1 kg</span>
+            <span style="font-size:11px;color:var(--g3)">Batch:</span>
+            <input type="number" id="ing-batch-${r.npd}" value="1000" min="1" step="100" style="width:70px;padding:3px 6px;font-size:11px;font-family:var(--font-m);text-align:right;border:1px solid var(--g2);border-radius:4px" oninput="rescaleIngredientView('${r.npd}', this.value)" title="Change the batch size to see ingredient grams scale" />
+            <span style="font-size:11px;color:var(--g3)">g</span>
             ${(r.type === 'Dough' || r.ingredients.some(function(i){ return /flour|dough/i.test(i.name); })) ? '<button class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 10px" onclick="toggleBakerPct(\''+r.npd+'\')" id="baker-btn-'+r.npd+'">Baker\'s %</button>' : ''}
             ${r.ingredients.length ? `<button class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 10px" onclick="copyRecipeIngredientsToClipboard('${r.npd}')" title="Copy ingredient list as code | pct | name lines for paste anywhere">📋 Copy</button>` : ''}
             <button class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 10px" onclick="exportRecipeCSV('${r.npd}')" title="Download this recipe's ingredients as CSV (Excel-ready)">📊 Export CSV</button>
@@ -11805,7 +11846,7 @@ function viewRecipe(npd) {
         </div>
         <div class="card-body" style="padding:0">
           <table class="data-table" id="ing-table-${r.npd}">
-            <thead><tr><th>Ingredient</th><th style="text-align:right">g / kg</th><th style="text-align:right">%</th><th style="text-align:right">Cost / kg</th></tr></thead>
+            <thead><tr><th>Ingredient</th><th style="text-align:right" id="ing-g-header-${r.npd}">g / 1 kg</th><th style="text-align:right">%</th><th style="text-align:right">Cost / kg</th></tr></thead>
             <tbody>
               ${r.ingredients.map((i, idx) => {
                 var _frac = i.pct / totalPct;
