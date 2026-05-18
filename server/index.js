@@ -3442,11 +3442,31 @@ app.get('/api/inspector/sweep', requireAuth, (req, res) => {
     });
 
     // ── AC. Duplicate Oracle codes in the master ingredient DB ──
-    // Many rows in ING_DATA share an Oracle code (col 3). Each duplicate
-    // is technically a hit, but listing one anomaly per code drowns the
-    // Inspector page — there are dozens. Roll up to a single summary
-    // anomaly with the worst-offender examples; the actual cleanup lives
-    // on the Ingredients page (Reconcile flow).
+    // Only flag dupes where the names are UNRELATED — i.e. share no
+    // 4+ letter token. Aliases like "Sugar" / "Sugar (AL-Osra)" sharing
+    // RMADT0023 are by design (multiple display names → one Oracle item)
+    // and shouldn't be flagged. Unrelated dupes like "Pan Dough Small"
+    // sharing SFCRF0003 with "Face Mask" are real ingestion errors.
+    function _toks(s) {
+      const out = new Set();
+      // 3+ chars so 'Egg' and 'Soy' (common ingredient roots) count as shared
+      // tokens. Without this, "Egg Frozen" vs "Pasteurised Whole Egg" looks
+      // unrelated and gets falsely flagged as a real dupe.
+      String(s || '').toLowerCase().split(/[^a-z0-9]+/).forEach(w => { if (w.length >= 3) out.add(w); });
+      return out;
+    }
+    function _share(a, b) {
+      // Two tokens count as shared if either is a substring of the other
+      // — so "egg"/"eggs", "soy"/"soybean", "frozen"/"frozenwhole" all
+      // match. Pure word-equality misses common plurals + compound forms.
+      for (const t of a) {
+        if (b.has(t)) return true;
+        for (const u of b) {
+          if (u.length >= 3 && t.length >= 3 && (t.indexOf(u) !== -1 || u.indexOf(t) !== -1)) return true;
+        }
+      }
+      return false;
+    }
     const _codeRows = new Map();
     _ingData.forEach(row => {
       if (!Array.isArray(row)) return;
@@ -3455,13 +3475,27 @@ app.get('/api/inspector/sweep', requireAuth, (req, res) => {
       if (!_codeRows.has(code)) _codeRows.set(code, []);
       _codeRows.get(code).push(row[1] || '(no name)');
     });
-    const _dupeEntries = [];
-    _codeRows.forEach((names, code) => { if (names.length >= 2) _dupeEntries.push({ code, names }); });
-    if (_dupeEntries.length) {
-      _dupeEntries.sort((a, b) => b.names.length - a.names.length);
-      const examples = _dupeEntries.slice(0, 5).map(e => e.code + ' (' + e.names.length + ' rows)').join(', ');
-      push('ingredient.dupe_code', 'low', 'ingredient_db', 'summary',
-        `${_dupeEntries.length} Oracle codes are reused across multiple rows in the ingredient DB. Worst offenders: ${examples}. Clean up via the Ingredients → Reconcile flow.`,
+    const _badDupes = [];
+    _codeRows.forEach((names, code) => {
+      if (names.length < 2) return;
+      const tokSets = names.map(_toks);
+      for (let i = 0; i < names.length; i++) {
+        for (let j = i + 1; j < names.length; j++) {
+          if (!_share(tokSets[i], tokSets[j])) {
+            _badDupes.push({ code, names });
+            return; // flag once per code
+          }
+        }
+      }
+    });
+    if (_badDupes.length) {
+      _badDupes.sort((a, b) => b.names.length - a.names.length);
+      const lines = _badDupes.slice(0, 8).map(e =>
+        '  • ' + e.code + ' → ' + e.names.map(n => '"' + n + '"').join(' / ')
+      ).join('\n');
+      const more = _badDupes.length > 8 ? `\n  …and ${_badDupes.length - 8} more` : '';
+      push('ingredient.dupe_code', 'medium', 'ingredient_db', 'summary',
+        `${_badDupes.length} Oracle code(s) reused on UNRELATED ingredient names (likely ingestion errors, not aliases):\n${lines}${more}`,
         null);
     }
 
