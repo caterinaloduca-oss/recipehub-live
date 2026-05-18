@@ -14357,8 +14357,10 @@ function renderQasLanding() {
     return true;
   });
 
-  // Sort: not-started first, then by status weight, then by name
-  var weight = {missing:0,draft:1,pending:2,rejected:3,bypassed:4,approved:5};
+  // Sort: action-needed first (Pending awaiting sign-off → Rejected needs rework →
+  // Draft in progress → Not started), then "done" states at the bottom. Within
+  // each status, sort by name.
+  var weight = {pending:0,rejected:1,draft:2,missing:3,bypassed:4,approved:5};
   rows.sort(function(a, b){
     var sa = qasGetEffectiveStatus(a), sb = qasGetEffectiveStatus(b);
     var d = (weight[sa] || 99) - (weight[sb] || 99);
