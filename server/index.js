@@ -3162,28 +3162,211 @@ app.get('/api/inspector/sweep', requireAuth, (req, res) => {
       });
     });
 
-    // ── P. Composite recipe with a missing or archived sub-recipe ──
-    // Composite recipes (recipeKind='composite') roll up cost from their
+    // ── P. Recipe component references a missing or archived sub-recipe ──
+    // Composite recipes — and some flat recipes too — roll up cost from
     // sub-recipes via c.subNpd. If a sub is deleted or archived, the cost
-    // silently drops to 0 for that component — a quiet way for the total
-    // cost to drift wrong without anyone noticing.
+    // silently drops to 0 for that component, drifting the total cost
+    // without anyone noticing. Check applies regardless of recipeKind
+    // because flat recipes can carry sub references too (e.g. 2026-241).
     Object.entries(recipes).forEach(([npd, r]) => {
       if (!r || r.archived) return;
-      if (r.recipeKind !== 'composite') return;
       const components = Array.isArray(r.components) ? r.components : [];
+      if (!components.length) return;
       components.forEach(c => {
         if (!c || !c.subNpd) return;
         const sub = recipes[c.subNpd];
         if (!sub) {
           push('composite.missing_subrecipe', 'high', 'recipe', npd,
-            `${r.name || npd}: composite component points at recipe ${c.subNpd} which no longer exists. Cost roll-up is incomplete.`,
+            `${r.name || npd}: component points at recipe ${c.subNpd} which no longer exists. Cost roll-up is incomplete.`,
             'recipes/' + npd);
         } else if (sub.archived) {
           push('composite.missing_subrecipe', 'medium', 'recipe', npd,
-            `${r.name || npd}: composite component references archived sub-recipe ${c.subNpd} (${sub.name}). Cost roll-up still works but the sub is out of circulation.`,
+            `${r.name || npd}: component references archived sub-recipe ${c.subNpd} (${sub.name}). Cost roll-up still works but the sub is out of circulation.`,
             'recipes/' + npd);
         }
       });
+    });
+
+    // ── Cost helpers (server-side mirrors of client logic) ──
+    const _ingData = Array.isArray(data.ingredients) ? data.ingredients : [];
+    const _kgUoms = new Set(['kg','kgs','weight','ltr','lit','litre','liter','litres','liters','l']);
+    function _priceByCode(code) {
+      if (!code) return null;
+      for (const row of _ingData) {
+        if (!Array.isArray(row) || row[3] !== code) continue;
+        const uom = String(row[11] || row[10] || '').toLowerCase().trim();
+        const n14 = parseFloat(row[14]);
+        const n13 = parseFloat(row[13]);
+        const num = (!isNaN(n14) && n14 > 0) ? n14 : ((!isNaN(n13) && n13 > 0) ? n13 : null);
+        if (num !== null && _kgUoms.has(uom)) return num;
+        return null;
+      }
+      return null;
+    }
+    function _priceByName(name) {
+      if (!name) return null;
+      const nm = String(name).toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (!nm) return null;
+      for (const row of _ingData) {
+        if (!Array.isArray(row)) continue;
+        const dn = String(row[1] || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (!dn) continue;
+        if (dn === nm || dn.includes(nm) || nm.includes(dn)) {
+          const n14 = parseFloat(row[14]); if (!isNaN(n14) && n14 > 0) return n14;
+          const n13 = parseFloat(row[13]); if (!isNaN(n13) && n13 > 0) return n13;
+          const n5 = parseFloat(String(row[5] || '').replace(/[^0-9.]/g, '')); if (!isNaN(n5) && n5 > 0) return n5;
+          return null;
+        }
+      }
+      return null;
+    }
+    function _recipeCostPerKg(rec) {
+      if (!rec || !Array.isArray(rec.ingredients)) return null;
+      const totalPct = rec.ingredients.reduce((s, i) => s + (parseFloat(i && i.pct) || 0), 0);
+      if (totalPct <= 0) return null;
+      let total = 0, matched = 0, costedPct = 0;
+      for (const i of rec.ingredients) {
+        const pct = parseFloat(i && i.pct) || 0;
+        if (pct <= 0) continue;
+        let price = (i && i.costPerKg != null) ? parseFloat(i.costPerKg) : null;
+        if (!(price > 0)) price = _priceByName(i && i.name);
+        if (price !== null && price > 0) {
+          total += (pct / totalPct) * price;
+          matched++;
+          costedPct += pct;
+        }
+      }
+      if (matched === 0) return null;
+      const f = costedPct / totalPct;
+      return f > 0 ? (total / f) : total;
+    }
+    function _buildTotalCost(b) {
+      if (!b || !Array.isArray(b.components)) return null;
+      let total = 0, anyCosted = false;
+      for (const c of b.components) {
+        if (!c) continue;
+        const manual = parseFloat(c.cost);
+        if (!isNaN(manual) && manual > 0) { total += manual; anyCosted = true; continue; }
+        const w = parseFloat(c.weight);
+        if (isNaN(w) || w <= 0) continue;
+        const weightStr = String(c.weight || '').toLowerCase();
+        const kg = (weightStr.indexOf('kg') > -1) ? w : (w / 1000);
+        let ckg = null;
+        if (c.ref && recipes[c.ref]) ckg = _recipeCostPerKg(recipes[c.ref]);
+        else if (c.erpCode) ckg = _priceByCode(c.erpCode);
+        if (ckg !== null && ckg > 0) { total += kg * ckg; anyCosted = true; }
+      }
+      return anyCosted ? total : null;
+    }
+
+    // ── R. Stored recipe.costKg has drifted from a fresh compute ──
+    // r.costKg is a snapshot that the client writes on save. If the
+    // underlying ingredient prices change in the DB, the stored figure
+    // goes stale and the Brands page / Cost Control views show wrong
+    // numbers. Flag when the diff is meaningful (>0.5 SAR/kg).
+    Object.entries(recipes).forEach(([npd, r]) => {
+      if (!r || r.archived) return;
+      const stored = parseFloat(r.costKg);
+      if (!(stored > 0)) return;
+      const live = _recipeCostPerKg(r);
+      if (live == null || !(live > 0)) return;
+      if (Math.abs(stored - live) >= 0.5) {
+        push('recipe.cost_stale', 'medium', 'recipe', npd,
+          `${r.name || npd}: stored cost SAR ${stored.toFixed(2)}/kg drifts from live compute SAR ${live.toFixed(2)}/kg. Re-save the recipe to refresh r.costKg.`,
+          'recipes/' + npd);
+      }
+    });
+
+    // ── S. Recipe ingredient with an Oracle code that's not in ING_DATA ──
+    // Most ingredients are name-resolved, but if a row carries an explicit
+    // itemCode that's no longer in the master ingredient DB the cost
+    // lookup will silently return nothing.
+    const _knownCodes = new Set();
+    _ingData.forEach(row => { if (Array.isArray(row) && row[3]) _knownCodes.add(row[3]); });
+    Object.entries(recipes).forEach(([npd, r]) => {
+      if (!r || r.archived) return;
+      const ings = Array.isArray(r.ingredients) ? r.ingredients : [];
+      const orphans = [];
+      ings.forEach(i => {
+        if (!i || !i.itemCode) return;
+        if (!_knownCodes.has(i.itemCode)) orphans.push(i.itemCode + ' (' + (i.name || '') + ')');
+      });
+      if (orphans.length) {
+        push('recipe.ingredient_orphan_code', 'medium', 'recipe', npd,
+          `${r.name || npd}: ingredient code(s) not in ING_DATA — ${orphans.slice(0,3).join('; ')}${orphans.length>3?'; …':''}`,
+          'recipes/' + npd);
+      }
+    });
+
+    // ── T. Ingredient names on the same recipe differ only by whitespace/case ──
+    // These look like distinct rows to the user and to the cost calc, but
+    // are almost certainly meant to be one item — they sum like duplicates
+    // and confuse the % total.
+    Object.entries(recipes).forEach(([npd, r]) => {
+      if (!r || r.archived) return;
+      const ings = Array.isArray(r.ingredients) ? r.ingredients : [];
+      const seen = new Map(); // normalised -> original
+      const dupes = [];
+      ings.forEach(i => {
+        if (!i || !i.name) return;
+        const norm = String(i.name).trim().toLowerCase().replace(/\s+/g, ' ');
+        if (!norm) return;
+        if (seen.has(norm) && seen.get(norm) !== i.name) {
+          dupes.push('"' + seen.get(norm) + '" vs "' + i.name + '"');
+        } else {
+          seen.set(norm, i.name);
+        }
+      });
+      if (dupes.length) {
+        push('recipe.ingredient_whitespace_dupe', 'medium', 'recipe', npd,
+          `${r.name || npd}: near-duplicate ingredient names — ${dupes.slice(0,3).join('; ')}${dupes.length>3?'; …':''}. Merge them to keep the % math honest.`,
+          'recipes/' + npd);
+      }
+    });
+
+    // ── U. Build with no components defined ──
+    builds.forEach(b => {
+      if (!b || b.archived) return;
+      const comps = Array.isArray(b.components) ? b.components.length : 0;
+      if (comps === 0) {
+        push('build.empty_components', 'medium', 'build', b.id,
+          `${b.name || b.id}: build has no components. Either fill it in or archive.`,
+          'builds/' + b.id);
+      }
+    });
+
+    // ── V. Build with negative margin (sale price < cost) ──
+    builds.forEach(b => {
+      if (!b || b.archived) return;
+      const price = parseFloat(b.sellingPrice);
+      if (!(price > 0)) return;
+      const cost = _buildTotalCost(b);
+      if (cost == null || !(cost > 0)) return;
+      if (cost > price) {
+        const fc = (cost / price) * 100;
+        push('build.negative_margin', 'medium', 'build', b.id,
+          `${b.name || b.id}: cost SAR ${cost.toFixed(2)} > selling price SAR ${price.toFixed(2)} (FC% ${fc.toFixed(1)}%). Pricing or cost is off.`,
+          'builds/' + b.id);
+      }
+    });
+
+    // ── W. Substitution request stuck open for too long ──
+    // Open SR ageing past 30 days is workflow rot — the request is
+    // either still waiting on someone's approval or got forgotten.
+    const _subs = Array.isArray(data.substitutionRequests) ? data.substitutionRequests : [];
+    const _now = Date.now();
+    _subs.forEach(s => {
+      if (!s || !s.id) return;
+      const st = String(s.status || '').toLowerCase();
+      if (st !== 'open' && st !== 'pending' && st !== '') return;
+      const createdMs = s.createdAt ? Date.parse(s.createdAt) : NaN;
+      if (isNaN(createdMs)) return;
+      const days = Math.round((_now - createdMs) / 86400000);
+      if (days >= 30) {
+        push('sub.stale_open', days >= 60 ? 'medium' : 'low', 'substitution', s.id,
+          `Substitution request ${s.id} (${s.currentName || '?'} → ${s.proposedName || '?'}) has been open for ${days} days. Push for a decision or close.`,
+          null);
+      }
     });
 
     // ── Q. Approved recipe missing required downstream metadata ──
