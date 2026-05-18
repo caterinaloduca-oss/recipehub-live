@@ -17193,7 +17193,7 @@ function editRecipe(npd) {
           return `
           <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px" class="er-ing-row">
             <input class="form-input" value="${ing.name}" style="flex:2;padding:6px 10px" placeholder="Ingredient name" data-field="name" />
-            <input class="form-input er-ing-pct" value="${ing.pct}" type="number" step="0.1" min="0" style="width:80px;padding:6px 10px;text-align:right" placeholder="%" data-field="pct" oninput="_erUpdatePctTotal()" />
+            <input class="form-input er-ing-pct" value="${ing.pct}" type="number" step="0.1" min="0" style="width:80px;padding:6px 10px;text-align:right" placeholder="%" data-field="pct" oninput="_erUpdatePctTotal();_erMaybeAutoBalance(this)" />
             <span class="er-unit-label" style="font-size:12px;color:var(--g3);width:16px">%</span>
             <input class="form-input er-ing-g" value="${grams}" type="number" step="0.1" min="0" style="width:80px;padding:6px 10px;text-align:right;display:none" placeholder="g" data-field="grams" />
             <span class="er-unit-label-g" style="font-size:12px;color:var(--g3);display:none;width:16px">g</span>
@@ -17205,6 +17205,7 @@ function editRecipe(npd) {
         <span style="text-transform:uppercase;letter-spacing:0.08em;font-size:10px;color:var(--g4);font-family:var(--font-b)">Total</span>
         <span id="er-pct-total" style="font-weight:600">0.0%</span>
         <span id="er-pct-total-hint" style="color:var(--g4);font-size:11px;flex:1"></span>
+        <label style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--g4);cursor:pointer;font-family:var(--font-b);text-transform:uppercase;letter-spacing:0.06em" title="When on, editing one ingredient auto-scales the others so the total stays at 100% (or 1 kg in grams mode)"><input type="checkbox" id="er-autobalance" checked style="margin:0;cursor:pointer" /> Auto-balance</label>
         <button id="er-pct-rebalance" type="button" onclick="_erRebalanceToTarget()" style="display:none;background:#8A4500;color:white;border:none;border-radius:4px;padding:3px 10px;font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font-b)" title="Pro-rata scale every ingredient so the total lands exactly at 100% (or 1 kg in grams mode)">↻ Recalc to 100%</button>
       </div>
       <div style="display:flex;gap:8px">
@@ -17336,9 +17337,9 @@ function addEditIngRow() {
   div.style.cssText = 'display:flex;gap:8px;align-items:center;margin-bottom:6px';
   div.innerHTML = `
     <input class="form-input" value="" style="flex:2;padding:6px 10px" placeholder="Ingredient name" data-field="name" />
-    <input class="form-input er-ing-pct" value="" type="number" step="0.1" min="0" style="width:80px;padding:6px 10px;text-align:right;${isPct?'':'display:none'}" placeholder="%" data-field="pct" oninput="_erUpdatePctTotal()" />
+    <input class="form-input er-ing-pct" value="" type="number" step="0.1" min="0" style="width:80px;padding:6px 10px;text-align:right;${isPct?'':'display:none'}" placeholder="%" data-field="pct" oninput="_erUpdatePctTotal();_erMaybeAutoBalance(this)" />
     <span class="er-unit-label" style="font-size:12px;color:var(--g3);width:16px;${isPct?'':'display:none'}">%</span>
-    <input class="form-input er-ing-g" value="" type="number" step="0.1" min="0" style="width:80px;padding:6px 10px;text-align:right;${isPct?'display:none':''}" placeholder="g" data-field="grams" oninput="_erUpdatePctTotal()" />
+    <input class="form-input er-ing-g" value="" type="number" step="0.1" min="0" style="width:80px;padding:6px 10px;text-align:right;${isPct?'display:none':''}" placeholder="g" data-field="grams" oninput="_erUpdatePctTotal();_erMaybeAutoBalance(this)" />
     <span class="er-unit-label-g" style="font-size:12px;color:var(--g3);${isPct?'display:none':''};width:16px">g</span>
     <button style="background:none;border:none;cursor:pointer;color:var(--red);font-size:16px" onclick="this.closest('.er-ing-row').remove();_erUpdatePctTotal()">✕</button>
   `;
@@ -17399,6 +17400,62 @@ function _erUpdatePctTotal() {
       rebalanceBtn.textContent = '↻ Recalc to ' + TARGETS[0].lbl;
     }
   }
+}
+
+// Auto-balance: when one row is edited and the 'Auto-balance' toggle is on,
+// keep the just-edited row's value as the user typed it and scale all OTHER
+// rows pro-rata so the total stays at the target. Debounced so it doesn't
+// fight the user mid-keystroke.
+var _erAutoBalanceTimer = null;
+function _erMaybeAutoBalance(triggerInput) {
+  var toggle = document.getElementById('er-autobalance');
+  if (!toggle || !toggle.checked) return;
+  if (_erAutoBalanceTimer) clearTimeout(_erAutoBalanceTimer);
+  _erAutoBalanceTimer = setTimeout(function(){
+    _erAutoBalanceFromInput(triggerInput);
+  }, 350);
+}
+
+function _erAutoBalanceFromInput(triggerInput) {
+  if (!triggerInput || document.activeElement !== triggerInput) return; // user moved on — skip
+  var rows = document.querySelectorAll('#er-ingredients .er-ing-row');
+  if (rows.length < 2) return;
+  var isPct = (typeof _erIngMode === 'undefined') || _erIngMode === 'pct';
+  var sel = isPct ? '.er-ing-pct' : '.er-ing-g';
+  var batchG = parseFloat(document.getElementById('er-batch-size') && document.getElementById('er-batch-size').value) || 1000;
+  var target = isPct ? 100 : batchG;
+  var decimals = isPct ? 3 : 1;
+  var triggerVal = parseFloat(triggerInput.value);
+  if (!(triggerVal >= 0)) return;
+  if (triggerVal > target) return; // user overshot — let them fix it
+  var others = [];
+  var otherSum = 0;
+  rows.forEach(function(row){
+    var inp = row.querySelector(sel);
+    if (!inp || inp === triggerInput) return;
+    var v = parseFloat(inp.value) || 0;
+    others.push({ inp: inp, v: v });
+    otherSum += v;
+  });
+  if (others.length === 0) return;
+  var remainder = target - triggerVal;
+  if (remainder < 0) return;
+  if (otherSum <= 0) {
+    // Distribute remainder evenly across others if they're all zero
+    var even = remainder / others.length;
+    others.forEach(function(x){ x.inp.value = even.toFixed(decimals); });
+  } else {
+    var scale = remainder / otherSum;
+    others.forEach(function(x){ x.inp.value = (x.v * scale).toFixed(decimals); });
+    // Absorb rounding residual onto the largest 'other' so the visible sum is exact.
+    var newSum = others.reduce(function(s, x){ return s + (parseFloat(x.inp.value) || 0); }, 0);
+    var diff = +(remainder - newSum).toFixed(decimals);
+    if (Math.abs(diff) >= Math.pow(10, -decimals)) {
+      var bigIdx = others.reduce(function(best, x, i){ return parseFloat(x.inp.value) > parseFloat(others[best].inp.value) ? i : best; }, 0);
+      others[bigIdx].inp.value = (parseFloat(others[bigIdx].inp.value) + diff).toFixed(decimals);
+    }
+  }
+  _erUpdatePctTotal();
 }
 
 // Pro-rata scale every ingredient row so the total lands exactly at the
