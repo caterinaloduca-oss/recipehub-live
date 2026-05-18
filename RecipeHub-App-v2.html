@@ -9917,14 +9917,18 @@ function toggleArchivedRecipes() {
   var btn = document.getElementById('recipe-archive-toggle');
   var count = Object.values(RECIPE_DB).filter(function(r){return r.archived}).length;
   if (btn) btn.textContent = (_showArchivedRecipes ? 'Hide Archived' : 'Show Archived') + (count ? ' (' + count + ')' : '');
-  // Direct buildRecipesTable() wasn't surfacing the archived rows on the toggle
-  // click — Cate had to navigate away and back for them to appear. Re-running
-  // the same code path nav('recipes') uses (explicit tbody wipe → buildRecipesTable)
-  // makes the toggle behave like the nav-back, which is confirmed to work.
-  var tbody = document.getElementById('recipes-tbody');
-  if (tbody) tbody.innerHTML = '';
-  buildRecipesTable();
-  filterRecipes();
+  // Use the same code path nav('recipes') uses — Cate confirmed that one works
+  // reliably. Direct buildRecipesTable() + filterRecipes() did not surface the
+  // archived rows on the same click for reasons I couldn't pin down even after
+  // careful tracing. nav('recipes') is a safer wrapper because it also handles
+  // sidebar permissions, _navHistory, showPage, etc. in one shot.
+  if (typeof nav === 'function') nav('recipes');
+  else {
+    var tbody = document.getElementById('recipes-tbody');
+    if (tbody) tbody.innerHTML = '';
+    buildRecipesTable();
+    filterRecipes();
+  }
 }
 function buildRecipesTable() {
   const tbody = document.getElementById('recipes-tbody');
