@@ -17182,7 +17182,7 @@ function editRecipe(npd) {
         <button class="btn btn-outline btn-sm" id="er-mode-g" style="padding:4px 12px;font-size:11px" onclick="setIngMode('grams')">Grams</button>
         <div id="er-batch-wrap" style="display:none;margin-left:auto;display:flex;align-items:center;gap:6px">
           <span style="font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:0.1em;color:var(--g4)">Batch:</span>
-          <input class="form-input" type="number" id="er-batch-size" value="${r.batchSize || 1000}" min="1" step="100" style="width:80px;padding:4px 8px;text-align:right;font-size:12px;font-family:var(--font-m)" onchange="recalcIngFromGrams();_erUpdatePctTotal()" />
+          <input class="form-input" type="number" id="er-batch-size" value="${(!r.batchSize || r.batchSize === 500) ? 1000 : r.batchSize}" min="1" step="100" style="width:80px;padding:4px 8px;text-align:right;font-size:12px;font-family:var(--font-m)" onchange="recalcIngFromGrams();_erUpdatePctTotal()" />
           <span style="font-size:11px;color:var(--g3)">g</span>
         </div>
       </div>
