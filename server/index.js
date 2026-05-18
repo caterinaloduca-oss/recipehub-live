@@ -3106,6 +3106,104 @@ app.get('/api/inspector/sweep', requireAuth, (req, res) => {
       }
     });
 
+    // ── M. Active build with a component whose cached recipe name is stale ──
+    // Sister check to run.stale_name. The rename cascade keeps c.item in sync
+    // with the live recipe.name for non-archived builds; if they drift, the
+    // cascade missed an entity or someone edited a component directly.
+    builds.forEach(b => {
+      if (!b || b.archived || !Array.isArray(b.components)) return;
+      b.components.forEach(c => {
+        if (!c || !c.ref || !c.item) return;
+        const sub = recipes[c.ref];
+        if (!sub || !sub.name) return;
+        if (String(c.item).trim() !== String(sub.name).trim()) {
+          push('build.stale_name', 'low', 'build', b.id,
+            `Build "${b.name || b.id}" has a component cached as "${c.item}" but recipe ${c.ref} is now called "${sub.name}". Save the recipe to re-trigger the rename cascade.`,
+            'builds/' + b.id);
+        }
+      });
+    });
+
+    // ── N. Overdue production runs ──
+    // A run that was scheduled for a past date but never moved to completed
+    // is workflow rot. Either it ran (mark completed), got delayed (push
+    // the date forward), or got abandoned (cancel it). Either way the
+    // current state is misleading.
+    const _today = new Date(); _today.setHours(0, 0, 0, 0);
+    productionRuns.forEach(pr => {
+      if (!pr || pr.archived) return;
+      if (pr.status !== 'pending' && pr.status !== 'scheduled') return;
+      if (!pr.date) return;
+      const d = new Date(pr.date);
+      if (isNaN(d.getTime())) return;
+      d.setHours(0, 0, 0, 0);
+      if (d < _today) {
+        const days = Math.round((_today - d) / 86400000);
+        push('run.overdue', days >= 14 ? 'medium' : 'low', 'production_run', pr.id,
+          `Run ${pr.id} (${pr.recipe || pr.npd || '—'}) was scheduled for ${pr.date} — ${days} day${days===1?'':'s'} ago — and is still ${pr.status}. Either complete it, reschedule, or cancel.`,
+          'recipes/' + (pr.npd || ''));
+      }
+    });
+
+    // ── O. Discontinued recipe referenced by a live build ──
+    // If a recipe is marked discontinued, it shouldn't be shipping in any
+    // active build. Either un-discontinue the recipe (it's actually still
+    // in use) or remove it from the build.
+    builds.forEach(b => {
+      if (!b || b.archived || !Array.isArray(b.components)) return;
+      b.components.forEach(c => {
+        if (!c || !c.ref) return;
+        const sub = recipes[c.ref];
+        if (sub && sub.discontinued) {
+          push('recipe.discontinued_in_active_build', 'medium', 'build', b.id,
+            `Build "${b.name || b.id}" still uses discontinued recipe ${c.ref} (${sub.name}). Either re-activate the recipe or swap the component.`,
+            'builds/' + b.id);
+        }
+      });
+    });
+
+    // ── P. Composite recipe with a missing or archived sub-recipe ──
+    // Composite recipes (recipeKind='composite') roll up cost from their
+    // sub-recipes via c.subNpd. If a sub is deleted or archived, the cost
+    // silently drops to 0 for that component — a quiet way for the total
+    // cost to drift wrong without anyone noticing.
+    Object.entries(recipes).forEach(([npd, r]) => {
+      if (!r || r.archived) return;
+      if (r.recipeKind !== 'composite') return;
+      const components = Array.isArray(r.components) ? r.components : [];
+      components.forEach(c => {
+        if (!c || !c.subNpd) return;
+        const sub = recipes[c.subNpd];
+        if (!sub) {
+          push('composite.missing_subrecipe', 'high', 'recipe', npd,
+            `${r.name || npd}: composite component points at recipe ${c.subNpd} which no longer exists. Cost roll-up is incomplete.`,
+            'recipes/' + npd);
+        } else if (sub.archived) {
+          push('composite.missing_subrecipe', 'medium', 'recipe', npd,
+            `${r.name || npd}: composite component references archived sub-recipe ${c.subNpd} (${sub.name}). Cost roll-up still works but the sub is out of circulation.`,
+            'recipes/' + npd);
+        }
+      });
+    });
+
+    // ── Q. Approved recipe missing required downstream metadata ──
+    // Approval should mean the recipe is ready for production. Missing
+    // batchSize, yield, or shelfLife means downstream views (kitchen sheet,
+    // SOP, cost calc) won't display correctly.
+    Object.entries(recipes).forEach(([npd, r]) => {
+      if (!r || r.archived) return;
+      if (r.status !== 'approved') return;
+      const missing = [];
+      if (!r.batchSize) missing.push('batchSize');
+      if (r.yield == null || r.yield === '') missing.push('yield');
+      if (!r.shelfLife) missing.push('shelfLife');
+      if (missing.length) {
+        push('recipe.approved_missing_fields', 'medium', 'recipe', npd,
+          `${r.name || npd}: approved but missing ${missing.join(', ')}. Downstream views (kitchen sheet, SOP, cost) won't render fully.`,
+          'recipes/' + npd);
+      }
+    });
+
     // Group by kind for the count summary
     const counts = anomalies.reduce((acc, a) => { acc[a.kind] = (acc[a.kind] || 0) + 1; return acc; }, {});
     res.json({
