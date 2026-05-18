@@ -17193,13 +17193,18 @@ function editRecipe(npd) {
           return `
           <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px" class="er-ing-row">
             <input class="form-input" value="${ing.name}" style="flex:2;padding:6px 10px" placeholder="Ingredient name" data-field="name" />
-            <input class="form-input er-ing-pct" value="${ing.pct}" type="number" step="0.1" min="0" style="width:80px;padding:6px 10px;text-align:right" placeholder="%" data-field="pct" />
+            <input class="form-input er-ing-pct" value="${ing.pct}" type="number" step="0.1" min="0" style="width:80px;padding:6px 10px;text-align:right" placeholder="%" data-field="pct" oninput="_erUpdatePctTotal()" />
             <span class="er-unit-label" style="font-size:12px;color:var(--g3);width:16px">%</span>
             <input class="form-input er-ing-g" value="${grams}" type="number" step="0.1" min="0" style="width:80px;padding:6px 10px;text-align:right;display:none" placeholder="g" data-field="grams" />
             <span class="er-unit-label-g" style="font-size:12px;color:var(--g3);display:none;width:16px">g</span>
-            <button style="background:none;border:none;cursor:pointer;color:var(--red);font-size:16px" onclick="this.closest('.er-ing-row').remove()">✕</button>
+            <button style="background:none;border:none;cursor:pointer;color:var(--red);font-size:16px" onclick="this.closest('.er-ing-row').remove();_erUpdatePctTotal()">✕</button>
           </div>`;
         }).join('')}
+      </div>
+      <div id="er-pct-total-wrap" style="margin-top:6px;padding:6px 10px;border-radius:6px;font-size:12px;display:flex;align-items:center;gap:8px;background:var(--g1);font-family:var(--font-m)">
+        <span style="text-transform:uppercase;letter-spacing:0.08em;font-size:10px;color:var(--g4);font-family:var(--font-b)">Total</span>
+        <span id="er-pct-total" style="font-weight:600">0.0%</span>
+        <span id="er-pct-total-hint" style="color:var(--g4);font-size:11px"></span>
       </div>
       <div style="display:flex;gap:8px">
         <button class="btn btn-ghost-sm" onclick="addEditIngRow()">+ Add Ingredient</button>
@@ -17263,6 +17268,8 @@ function editRecipe(npd) {
   document.querySelectorAll('#er-ingredients .er-ing-row input[data-field="name"]').forEach(function(inp) {
     ebsAutocomplete(inp);
   });
+  // Seed the live Total badge so it reflects the current sum on open.
+  if (typeof _erUpdatePctTotal === 'function') _erUpdatePctTotal();
   // Wire dirty tracking — used by closeModal to warn before discard, and by
   // createNewVersion / restoreVersion to refuse mid-edit.
   _markRecipeEditOpen(npd);
@@ -17287,6 +17294,7 @@ function setIngMode(mode) {
   document.querySelectorAll('.er-unit-label-g').forEach(el => el.style.display = isPct ? 'none' : '');
 
   if (!isPct) recalcGramsFromPct();
+  if (typeof _erUpdatePctTotal === 'function') _erUpdatePctTotal();
 }
 
 function recalcGramsFromPct() {
@@ -17327,16 +17335,59 @@ function addEditIngRow() {
   div.style.cssText = 'display:flex;gap:8px;align-items:center;margin-bottom:6px';
   div.innerHTML = `
     <input class="form-input" value="" style="flex:2;padding:6px 10px" placeholder="Ingredient name" data-field="name" />
-    <input class="form-input er-ing-pct" value="" type="number" step="0.1" min="0" style="width:80px;padding:6px 10px;text-align:right;${isPct?'':'display:none'}" placeholder="%" data-field="pct" />
+    <input class="form-input er-ing-pct" value="" type="number" step="0.1" min="0" style="width:80px;padding:6px 10px;text-align:right;${isPct?'':'display:none'}" placeholder="%" data-field="pct" oninput="_erUpdatePctTotal()" />
     <span class="er-unit-label" style="font-size:12px;color:var(--g3);width:16px;${isPct?'':'display:none'}">%</span>
-    <input class="form-input er-ing-g" value="" type="number" step="0.1" min="0" style="width:80px;padding:6px 10px;text-align:right;${isPct?'display:none':''}" placeholder="g" data-field="grams" />
+    <input class="form-input er-ing-g" value="" type="number" step="0.1" min="0" style="width:80px;padding:6px 10px;text-align:right;${isPct?'display:none':''}" placeholder="g" data-field="grams" oninput="_erUpdatePctTotal()" />
     <span class="er-unit-label-g" style="font-size:12px;color:var(--g3);${isPct?'display:none':''};width:16px">g</span>
-    <button style="background:none;border:none;cursor:pointer;color:var(--red);font-size:16px" onclick="this.closest('.er-ing-row').remove()">✕</button>
+    <button style="background:none;border:none;cursor:pointer;color:var(--red);font-size:16px" onclick="this.closest('.er-ing-row').remove();_erUpdatePctTotal()">✕</button>
   `;
   container.appendChild(div);
   const nameInput = div.querySelector('input[data-field="name"]');
   ebsAutocomplete(nameInput);
   nameInput.focus();
+  _erUpdatePctTotal();
+}
+
+// Read every ingredient row in the edit modal, sum its current values (in
+// whichever unit mode is active), and update the Total badge with a colour
+// + a hint when it's not at the target. Same valid totals as Columbo:
+// 100% / 1000g / 1.0. Anything else gets flagged.
+function _erUpdatePctTotal() {
+  var wrap = document.getElementById('er-pct-total-wrap');
+  var totalEl = document.getElementById('er-pct-total');
+  var hintEl = document.getElementById('er-pct-total-hint');
+  if (!wrap || !totalEl || !hintEl) return;
+  var rows = document.querySelectorAll('#er-ingredients .er-ing-row');
+  var isPct = (typeof _erIngMode === 'undefined') || _erIngMode === 'pct';
+  var sum = 0;
+  rows.forEach(function(row){
+    var inp = row.querySelector(isPct ? '.er-ing-pct' : '.er-ing-g');
+    sum += parseFloat(inp && inp.value) || 0;
+  });
+  var unit = isPct ? '%' : 'g';
+  totalEl.textContent = sum.toFixed(isPct ? 2 : 1) + unit;
+  // Match the three valid totals Columbo accepts.
+  var TARGETS = isPct ? [{t:100,tol:0.5,lbl:'100%'}] : [{t:1000,tol:5,lbl:'1 kg'}];
+  var ok = TARGETS.some(function(x){ return Math.abs(sum - x.t) <= x.tol; });
+  // Color + hint
+  if (sum === 0) {
+    wrap.style.background = 'var(--g1)';
+    totalEl.style.color = 'var(--g3)';
+    hintEl.textContent = '';
+  } else if (ok) {
+    wrap.style.background = '#E8F5E9';
+    totalEl.style.color = '#1E6B26';
+    hintEl.textContent = '✓ matches ' + TARGETS[0].lbl;
+    hintEl.style.color = '#1E6B26';
+  } else {
+    var diff = sum - TARGETS[0].t;
+    var pctOff = Math.abs(diff) / TARGETS[0].t * 100;
+    var bad = pctOff >= 1;
+    wrap.style.background = bad ? '#FDECEA' : '#FFF6E5';
+    totalEl.style.color  = bad ? '#B81A1A' : '#8A4500';
+    hintEl.textContent = (diff > 0 ? '+' : '') + diff.toFixed(2) + unit + ' vs ' + TARGETS[0].lbl;
+    hintEl.style.color  = bad ? '#B81A1A' : '#8A4500';
+  }
 }
 
 function addEditMethodRow() {
@@ -17842,6 +17893,30 @@ function addEditPkgRow() {
 function saveEditRecipe(npd) {
   const r = RECIPE_DB[npd];
   if (!r) return;
+
+  // Guard: warn (don't block) when ingredient % doesn't sum to a valid total.
+  // Same valid totals as Columbo: 100% / 1000g / 1.0. Skipped if user has no
+  // ingredient rows (still drafting structure).
+  try {
+    const _isPct = (typeof _erIngMode === 'undefined') || _erIngMode === 'pct';
+    const _rows = document.querySelectorAll('#er-ingredients .er-ing-row');
+    let _sum = 0;
+    _rows.forEach(function(row){
+      var inp = row.querySelector(_isPct ? '.er-ing-pct' : '.er-ing-g');
+      _sum += parseFloat(inp && inp.value) || 0;
+    });
+    if (_rows.length >= 2 && _sum > 0) {
+      const _target = _isPct ? 100 : 1000;
+      const _tol    = _isPct ? 0.5 : 5;
+      const _unit   = _isPct ? '%' : 'g';
+      if (Math.abs(_sum - _target) > _tol) {
+        const _diff = (_sum - _target).toFixed(_isPct ? 2 : 1);
+        if (!confirm('Ingredients sum to ' + _sum.toFixed(_isPct ? 2 : 1) + _unit +
+          ' — that\'s ' + (_diff > 0 ? '+' : '') + _diff + _unit +
+          ' off ' + _target + _unit + '.\n\nSave anyway?')) return;
+      }
+    }
+  } catch (e) {}
 
   r.name = document.getElementById('er-name').value || r.name;
   r.version = document.getElementById('er-version').value || r.version;
