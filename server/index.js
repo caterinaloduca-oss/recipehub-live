@@ -3444,13 +3444,25 @@ app.get('/api/inspector/sweep', requireAuth, (req, res) => {
           'recipes/' + npd);
       }
     });
-    // Also track Branch SOP step images so orphan detection sees them.
+    // Track every other URL that legitimately points into /docs/img/ so the
+    // orphan check doesn't false-flag them. This walks EVERY recipe (including
+    // archived — archived ones still have legit images on disk), every branch
+    // SOP, every library doc, plus the as-captured flowchart archive that
+    //17 recipes still reference.
+    Object.values(recipes).forEach(r => {
+      if (!r) return;
+      (Array.isArray(r.media) ? r.media : []).forEach(m => { if (m) _trackRef(m.url); });
+      (Array.isArray(r.sopSteps) ? r.sopSteps : []).forEach(s => { if (s) _trackRef(s.visualImg || s.img); });
+      (Array.isArray(r.factorySopArchive) ? r.factorySopArchive : []).forEach(a => { if (a) _trackRef(a.url || a.fileUrl); });
+      (Array.isArray(r.flowchart_archive) ? r.flowchart_archive : []).forEach(p => { if (p) _trackRef(p.url || p.image || p.src); });
+    });
     branchSOPs.forEach(s => {
       if (!s) return;
       (Array.isArray(s.steps) ? s.steps : []).forEach(st => {
         if (st && (st.img || st.url)) _trackRef(st.img || st.url);
       });
     });
+    (Array.isArray(data.libraryDocs) ? data.libraryDocs : []).forEach(d => { if (d) _trackRef(d.url); });
 
     // ── AF. Production runs pointing at recipes that no longer exist ──
     productionRuns.forEach(pr => {
