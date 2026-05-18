@@ -18211,19 +18211,44 @@ function saveEditRecipe(npd) {
 
   var _oldName = r.name;
   r.name = document.getElementById('er-name').value || r.name;
-  // Cascade rename to open production runs that reference this recipe by npd.
-  // Completed/cancelled runs stay frozen so historical reports preserve the
-  // name as it was at the time. Only update if the name actually changed.
-  if (r.name !== _oldName && Array.isArray(PRODUCTION_RUNS)) {
-    var _renamed = 0;
-    PRODUCTION_RUNS.forEach(function(pr){
-      if (pr && pr.npd === npd && pr.recipe !== r.name && pr.status !== 'completed' && pr.status !== 'cancelled') {
-        pr.recipe = r.name;
-        pr.updatedAt = new Date().toISOString();
-        _renamed++;
-      }
-    });
-    if (_renamed) console.log('Recipe renamed: synced ' + _renamed + ' open production run(s)');
+  // Cascade rename across denormalised caches. Completed / cancelled / archived
+  // entities are left frozen so historical reports stay intact. Active entities
+  // pick up the new name automatically. Each touched entity gets its own
+  // per-entity POST so the server merge protects each independently.
+  if (r.name !== _oldName) {
+    var _renamedRuns = 0;
+    if (Array.isArray(PRODUCTION_RUNS)) {
+      PRODUCTION_RUNS.forEach(function(pr){
+        if (pr && pr.npd === npd && pr.recipe !== r.name && pr.status !== 'completed' && pr.status !== 'cancelled') {
+          pr.recipe = r.name;
+          pr.updatedAt = new Date().toISOString();
+          _renamedRuns++;
+          if (typeof saveProductionRunToServer === 'function' && pr.id) {
+            try { saveProductionRunToServer(pr.id); } catch (e) {}
+          }
+        }
+      });
+    }
+    var _renamedBuilds = 0;
+    if (Array.isArray(BUILDS_DATA)) {
+      BUILDS_DATA.forEach(function(b){
+        if (!b || b.archived || !Array.isArray(b.components)) return;
+        var touched = false;
+        b.components.forEach(function(c){
+          if (c && c.ref === npd && c.item !== r.name) { c.item = r.name; touched = true; }
+        });
+        if (touched) {
+          b.updatedAt = new Date().toISOString();
+          _renamedBuilds++;
+          if (typeof saveBuildToServer === 'function' && b.id) {
+            try { saveBuildToServer(b.id); } catch (e) {}
+          }
+        }
+      });
+    }
+    if (_renamedRuns || _renamedBuilds) {
+      console.log('Recipe renamed: synced ' + _renamedRuns + ' run(s), ' + _renamedBuilds + ' build component(s)');
+    }
   }
   r.version = document.getElementById('er-version').value || r.version;
   var pickedBrands = Array.prototype.map.call(document.querySelectorAll('#er-brands-wrap .er-brand-cb:checked'), function(cb){ return cb.value; });
