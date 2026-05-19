@@ -13517,6 +13517,14 @@ function _buildPhotoLibrary() {
     if (!s || s.archived) return;
     (s.steps || []).forEach(function(st, i){ if (st && (st.img || st.url)) add(st.img || st.url, 'Branch SOP · ' + (s.name || s.id) + ' · step ' + (i+1), 'bsop-step'); });
   });
+  // Library docs — only image types (JPG / PNG / etc.) — Cate's 'photo dump'
+  (typeof LIBRARY_DOCS !== 'undefined' ? LIBRARY_DOCS : []).forEach(function(d){
+    if (!d || !d.url) return;
+    var t = String(d.type || d.url || '').toLowerCase();
+    var isImage = /\.(jpe?g|png|gif|webp|bmp)$/i.test(t) || ['jpg','jpeg','png','gif','webp','bmp'].indexOf(t) > -1;
+    if (!isImage) return;
+    add(d.url, 'Library · ' + (d.name || d.title || 'untitled'), 'library');
+  });
   // Dedupe by URL, keep first label
   var seen = {}; var out = [];
   photos.forEach(function(p){ if (!seen[p.url]) { seen[p.url] = 1; out.push(p); } });
