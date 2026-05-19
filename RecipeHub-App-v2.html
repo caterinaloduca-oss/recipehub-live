@@ -876,6 +876,9 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
     <span class="nav-icon">📚</span> Training
   </button>
   <button class="nav-item" data-page="library" onclick="nav('library')">
+    <span class="nav-icon">📁</span> Library
+  </button>
+  <button class="nav-item" data-page="pictures" onclick="nav('pictures')">
     <span class="nav-icon">🖼</span> Pictures Library
   </button>
 
@@ -1296,6 +1299,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
         <input type="file" id="qa-media-video-input" accept="video/mp4,video/quicktime,video/webm" multiple style="display:none" onchange="uploadQaMedia('video', this)" />
         <input type="file" id="qa-media-file-input" accept="application/pdf" multiple style="display:none" onchange="uploadQaMedia('file', this)" />
         <button class="btn btn-outline btn-sm" id="qa-media-add-photo" onclick="document.getElementById('qa-media-photo-input').click()">+ Photo</button>
+        <button class="btn btn-outline btn-sm" id="qa-media-add-library" onclick="pickQaMediaPhotoFromLibrary()" title="Pick from Pictures Library">🖼</button>
         <button class="btn btn-outline btn-sm" id="qa-media-add-video" onclick="document.getElementById('qa-media-video-input').click()">+ Video</button>
         <button class="btn btn-outline btn-sm" id="qa-media-add-file"  onclick="document.getElementById('qa-media-file-input').click()">+ PDF</button>
       </div>
@@ -3386,7 +3390,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
 
   <div class="card">
     <div class="card-head">
-      <span class="card-title">Pictures Library</span>
+      <span class="card-title">Library</span>
       <span style="font-size:11px;color:var(--g3)" id="lib-count"></span>
     </div>
     <div class="card-body" style="padding:0">
@@ -3406,6 +3410,53 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
         <thead><tr><th>Title</th><th>Category</th><th>Type</th><th>Size</th><th>Uploaded</th><th>By</th><th></th></tr></thead>
         <tbody id="lib-tbody"></tbody>
       </table>
+    </div>
+  </div>
+</div>
+
+<!-- PICTURES LIBRARY PAGE -->
+<div id="page-pictures" class="page-hidden">
+  <div class="filter-bar">
+    <div class="search-wrap">
+      <span class="search-icon">⌕</span>
+      <input class="search-input" placeholder="Search pictures by caption or tag…" id="pic-search" oninput="filterPictures()" />
+    </div>
+    <select class="filter-select" id="pic-filter-cat" onchange="filterPictures()">
+      <option>All Categories</option>
+      <option>Recipe</option>
+      <option>SOP</option>
+      <option>Branch SOP</option>
+      <option>Reference</option>
+      <option>Defect</option>
+      <option>Build</option>
+      <option>Library</option>
+      <option>Other</option>
+    </select>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <span class="card-title">Pictures Library</span>
+      <span style="font-size:11px;color:var(--g3)" id="pic-count"></span>
+    </div>
+    <div class="card-body">
+      <div id="pic-upload-zone" style="padding:16px;border:1px dashed var(--g3);border-radius:10px;margin-bottom:14px;background:var(--g0);display:none">
+        <div class="form-grid form-grid-3" style="margin-bottom:10px">
+          <div class="form-group"><label class="form-label">Caption</label><input class="form-input" id="pic-title" placeholder="e.g. Pinzatta Sandwich — top view reference" /></div>
+          <div class="form-group"><label class="form-label">Category</label><select class="form-select" id="pic-cat"><option>Recipe</option><option>SOP</option><option>Ingredient</option><option>Reference</option><option>Defect</option><option>Other</option></select></div>
+          <div class="form-group"><label class="form-label">Picture file <span style="color:var(--red)">*</span></label><input type="file" accept="image/*" id="pic-file" class="form-input" style="padding:6px" multiple /></div>
+        </div>
+        <div style="font-size:11px;color:var(--g4);margin-bottom:10px">You can drop multiple images — they upload one by one. Max 5 MB each.</div>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button class="btn btn-outline btn-sm" onclick="togglePicUpload()">Cancel</button>
+          <button class="btn btn-gold btn-sm" onclick="uploadPictures()" id="pic-upload-btn">Upload</button>
+        </div>
+      </div>
+      <div id="pic-empty" style="display:none;padding:60px 20px;text-align:center;color:var(--g3);font-size:13px">
+        <div style="font-size:42px;margin-bottom:10px">🖼</div>
+        <div>No pictures yet. Click <strong>+ Upload Picture</strong> above to drop your first one.</div>
+      </div>
+      <div id="pic-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px"></div>
     </div>
   </div>
 </div>
@@ -6786,7 +6837,7 @@ function _markSelfPostedSavedAt(serverSavedAt) {
 }
 
 // ── Per-item saves (reduced conflict surface) ──
-function saveRecipeToServer(npd) {
+function saveRecipeToServer(npd, opts) {
   var r = RECIPE_DB[npd];
   if (!r) return;
   if (!r.updatedAt) r.updatedAt = new Date().toISOString();
@@ -6801,11 +6852,15 @@ function saveRecipeToServer(npd) {
       var c = Object.assign({}, i); delete c.itemCode; return c;
     });
   }
+  var body = { recipe: _rToPost };
+  if (opts && Array.isArray(opts.removeMediaUrls) && opts.removeMediaUrls.length) {
+    body.removeMediaUrls = opts.removeMediaUrls;
+  }
   // Send just this recipe to server
   fetch(API_BASE + '/api/recipe/' + encodeURIComponent(npd), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + API_KEY },
-    body: JSON.stringify({ recipe: _rToPost }),
+    body: JSON.stringify(body),
   }).then(function(resp) {
     if (!resp.ok) throw new Error('Server ' + resp.status);
     return resp.json();
@@ -8086,7 +8141,8 @@ const PAGES = {
   'audit-log':    { title:'Audit Log',           actions:'' },
   inspector:      { title:'Inspector Columbo',  actions:'' },
   comms:          { title:'Communications',     actions:'' },
-  library:        { title:'Pictures Library',   actions:'<button class="btn btn-gold btn-sm" onclick="toggleLibUpload()">+ Upload Picture</button>' },
+  library:        { title:'Library',            actions:'<button class="btn btn-gold btn-sm" onclick="toggleLibUpload()">+ Upload Document</button>' },
+  pictures:       { title:'Pictures Library',   actions:'<button class="btn btn-gold btn-sm" onclick="togglePicUpload()">+ Upload Picture</button>' },
 };
 
 let _navHistory = [];
@@ -8244,7 +8300,7 @@ function applyRoleRestrictions() {
 
   // Strip action buttons from pages this role CANNOT edit
   stripPageActions('page-users');
-  var allPages = ['page-dashboard','page-recipes','page-recipe-detail','page-ingredients','page-qa','page-qas','page-sop','page-branch-sop','page-production','page-substitutions','page-builds','page-brands','page-builds-costing','page-cost-control','page-reports','page-comms','page-library','page-training','page-audit-log','page-inspector'];
+  var allPages = ['page-dashboard','page-recipes','page-recipe-detail','page-ingredients','page-qa','page-qas','page-sop','page-branch-sop','page-production','page-substitutions','page-builds','page-brands','page-builds-costing','page-cost-control','page-reports','page-comms','page-library','page-pictures','page-training','page-audit-log','page-inspector'];
   allPages.forEach(function(pid) {
     var pageId = pid.replace('page-','');
     if (allowed.indexOf(pageId) === -1) stripPageActions(pid);
@@ -8799,6 +8855,7 @@ function nav(id) {
     else if (id === 'qa') { populateQARecipeDropdown(); buildShelfLifeUI(); }
     else if (id === 'comms') { initCommsPage(); }
     else if (id === 'library') { renderLibrary(); }
+    else if (id === 'pictures') { renderPictures(); }
     else if (id === 'training') { _renderTrainingGrid(); }
     else if (id === 'inspector') {
       // Auto-run the sweep on page open so the user sees current state
@@ -11966,7 +12023,13 @@ function viewRecipe(npd) {
 
     <!-- Photos, Videos & PDFs -->
     <div class="card" style="margin-bottom:20px">
-      <div class="card-head"><span class="card-title">📷 Photos, Videos & PDFs</span><span style="font-size:11px;color:var(--g3)">${(r.media||[]).length} files</span></div>
+      <div class="card-head">
+        <span class="card-title">📷 Photos, Videos & PDFs</span>
+        <div style="display:flex;gap:6px;align-items:center">
+          <span style="font-size:11px;color:var(--g3)">${(r.media||[]).length} files</span>
+          ${_vrIsRDorQA ? `<button class="btn btn-outline btn-sm" onclick="pickRecipeMediaPhotoFromLibrary('${r.npd}')" title="Pick from Pictures Library">🖼</button>` : ''}
+        </div>
+      </div>
       <div class="card-body">
         ${_vrIsRDorQA ? `<div class="media-zone" onclick="document.getElementById('media-input-${r.npd}').click()" ondragover="_dropZoneOver(event)" ondragleave="_dropZoneLeave(event)" ondrop="_dropZoneDrop(event,'handleMediaUpload','${r.npd}')">
           <div class="media-zone-icon">📁</div>
@@ -13491,41 +13554,62 @@ function uploadDataUrlToServer(dataUrl, key, cb) {
 // shared use stays safe.
 function _buildPhotoLibrary() {
   var photos = [];
-  function add(url, label, source) {
+  function _isImageUrl(u) {
+    if (!u) return false;
+    var s = String(u).toLowerCase();
+    if (/\.(pdf|mp4|mov|webm|m4v|avi|doc|docx|xls|xlsx|csv|zip|rar)(\?|#|$)/.test(s)) return false;
+    return true;
+  }
+  function add(url, label, source, ctx) {
     if (!url || typeof url !== 'string') return;
-    photos.push({ url: url, label: label, source: source });
+    if (!_isImageUrl(url)) return;
+    photos.push({ url: url, label: label, source: source, ctx: ctx || null });
   }
   Object.entries(RECIPE_DB || {}).forEach(function(entry){
     var npd = entry[0]; var r = entry[1];
     if (!r || r.archived) return;
     var nm = r.name || npd;
-    (r.media || []).forEach(function(m){ if (m) add(m.url, 'Recipe · ' + nm + ' · media', 'recipe-media'); });
-    (r.sopSteps || []).forEach(function(s, i){ if (s) add(s.visualImg || s.img, 'SOP · ' + nm + ' · step ' + (i+1), 'sop-step'); });
+    (r.media || []).forEach(function(m, i){
+      if (!m) return;
+      if (m.isVideo || m.isPdf) return;
+      var t = String(m.type || '').toLowerCase();
+      if (t && t.indexOf('image/') !== 0) return;
+      add(m.url, 'Recipe · ' + nm + ' · media', 'recipe-media', { npd: npd, idx: i });
+    });
+    (r.sopSteps || []).forEach(function(s, i){ if (s) add(s.visualImg || s.img, 'SOP · ' + nm + ' · step ' + (i+1), 'sop-step', { npd: npd, idx: i }); });
     if (r.qas) {
-      (r.qas.referencePhotos || []).forEach(function(p, i){ if (p) add(p.url, 'QAS ref · ' + nm + ' #' + (i+1), 'qas-ref'); });
-      (r.qas.defectPhotos    || []).forEach(function(p, i){ if (p) add(p.url, 'QAS defect · ' + nm + ' #' + (i+1), 'qas-def'); });
+      (r.qas.referencePhotos || []).forEach(function(p, i){ if (p) add(p.url, 'QAS ref · ' + nm + ' #' + (i+1), 'qas-ref', { npd: npd, idx: i }); });
+      (r.qas.defectPhotos    || []).forEach(function(p, i){ if (p) add(p.url, 'QAS defect · ' + nm + ' #' + (i+1), 'qas-def', { npd: npd, idx: i }); });
+    }
+    if (Array.isArray(r.qaMedia)) {
+      r.qaMedia.forEach(function(m, i){
+        if (!m) return;
+        if (m.kind && m.kind !== 'photo') return;
+        var t = String(m.type || '').toLowerCase();
+        if (t && t.indexOf('image/') !== 0) return;
+        add(m.url, 'QA Lab · ' + nm + ' · media', 'qa-media', { npd: npd, idx: i });
+      });
     }
   });
   (typeof BUILDS_DATA !== 'undefined' ? BUILDS_DATA : []).forEach(function(b){
     if (!b || b.archived) return;
-    if (b.photo) add(b.photo, 'Build · ' + (b.name || b.id), 'build-photo');
+    if (b.photo) add(b.photo, 'Build · ' + (b.name || b.id), 'build-photo', { id: b.id });
     (b.components || []).forEach(function(c, i){
-      if (c && (c.photo || c.image)) add(c.photo || c.image, 'Build · ' + (b.name || b.id) + ' · component ' + (i+1), 'build-comp');
+      if (c && (c.photo || c.image)) add(c.photo || c.image, 'Build · ' + (b.name || b.id) + ' · component ' + (i+1), 'build-comp', { id: b.id, idx: i });
     });
   });
   (typeof BRANCH_SOPS !== 'undefined' ? BRANCH_SOPS : []).forEach(function(s){
     if (!s || s.archived) return;
-    (s.steps || []).forEach(function(st, i){ if (st && (st.img || st.url)) add(st.img || st.url, 'Branch SOP · ' + (s.name || s.id) + ' · step ' + (i+1), 'bsop-step'); });
+    (s.steps || []).forEach(function(st, i){ if (st && (st.img || st.url)) add(st.img || st.url, 'Branch SOP · ' + (s.name || s.id) + ' · step ' + (i+1), 'bsop-step', { id: s.id, idx: i }); });
   });
-  // Library docs — only image types (JPG / PNG / etc.) — Cate's 'photo dump'
-  (typeof LIBRARY_DOCS !== 'undefined' ? LIBRARY_DOCS : []).forEach(function(d){
+  (typeof LIBRARY_DOCS !== 'undefined' ? LIBRARY_DOCS : []).forEach(function(d, i){
     if (!d || !d.url) return;
-    var t = String(d.type || d.url || '').toLowerCase();
+    var t = String(d.fileType || d.type || d.url || '').toLowerCase();
     var isImage = /\.(jpe?g|png|gif|webp|bmp)$/i.test(t) || ['jpg','jpeg','png','gif','webp','bmp'].indexOf(t) > -1;
     if (!isImage) return;
-    add(d.url, 'Library · ' + (d.name || d.title || 'untitled'), 'library');
+    add(d.url, 'Library · ' + (d.title || d.fileName || 'untitled'), 'library', { id: d.id, idx: i });
   });
-  // Dedupe by URL, keep first label
+  // Dedupe by URL, keep first label + ctx
   var seen = {}; var out = [];
   photos.forEach(function(p){ if (!seen[p.url]) { seen[p.url] = 1; out.push(p); } });
   return out;
@@ -13626,7 +13710,35 @@ function pickSopStepPhotoFromLibrary(npd, stepIdx) {
     r.updatedAt = new Date().toISOString();
     saveRecipeToServer(npd);
     if (typeof viewFactorySOP === 'function' && _currentPage === 'sop') viewFactorySOP(npd);
+    if (typeof renderSOPStepsEditor === 'function') renderSOPStepsEditor(npd);
     showSaveToast('SOP step photo attached from library');
+  });
+}
+
+function pickRecipeMediaPhotoFromLibrary(npd) {
+  var r = RECIPE_DB[npd]; if (!r) return;
+  openPhotoPicker(function(url){
+    if (!Array.isArray(r.media)) r.media = [];
+    r.media.push({ name: 'From Pictures Library', url: url, isVideo: false, type: 'image/jpeg' });
+    r.updatedAt = new Date().toISOString();
+    saveRecipeToServer(npd);
+    if (typeof renderMediaGrid === 'function') renderMediaGrid(npd);
+    if (typeof viewRecipe === 'function' && _currentPage === 'recipe-detail') viewRecipe(npd);
+    showSaveToast('Photo attached from library');
+  });
+}
+
+function pickQaMediaPhotoFromLibrary() {
+  var npd = typeof _qaCurrentNPD !== 'undefined' ? _qaCurrentNPD : null;
+  var r = npd ? RECIPE_DB[npd] : null;
+  if (!r) { showSaveToast('Pick a recipe first', true); return; }
+  openPhotoPicker(function(url){
+    if (!Array.isArray(r.qaMedia)) r.qaMedia = [];
+    r.qaMedia.push({ name: 'From Pictures Library', url: url, kind: 'photo', type: 'image/jpeg', uploadedAt: new Date().toISOString() });
+    r.updatedAt = new Date().toISOString();
+    saveRecipeToServer(npd);
+    if (typeof renderQaMedia === 'function') renderQaMedia(); else if (typeof openShelfLife === 'function') openShelfLife(npd);
+    showSaveToast('Photo attached from library');
   });
 }
 
@@ -14716,8 +14828,8 @@ function _renderQasDetail(r) {
 
     // Reference + defect photos
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">' +
-      '<div class="card"' + (canEdit ? ' ondragover="_dropZoneOver(event)" ondragleave="_dropZoneLeave(event)" ondrop="_dropZoneDrop(event,\'uploadQasPhotos\',\'' + r.npd + '\',\'reference\')"' : '') + '><div class="card-head"><span class="card-title">Reference photos · correct product</span>' + (canEdit ? '<div style="display:flex;gap:6px"><button class="btn btn-outline btn-sm" onclick="document.getElementById(\'qas-photo-ref-' + r.npd + '\').click()">+ Upload</button><button class="btn btn-outline btn-sm" onclick="pickQasPhotoFromLibrary(\'' + r.npd + '\',\'reference\')" title="Attach an existing photo from elsewhere in RecipeHub">📋 Library</button><input type="file" id="qas-photo-ref-' + r.npd + '" accept="image/*" multiple style="display:none" onchange="uploadQasPhotos(\'' + r.npd + '\',\'reference\',this)" /></div>' : '') + '</div><div class="card-body">' + refPhotos + (canEdit ? '<div style="font-size:11px;color:var(--g3);margin-top:8px;text-align:center;font-style:italic">or drag &amp; drop images here</div>' : '') + '</div></div>' +
-      '<div class="card"' + (canEdit ? ' ondragover="_dropZoneOver(event)" ondragleave="_dropZoneLeave(event)" ondrop="_dropZoneDrop(event,\'uploadQasPhotos\',\'' + r.npd + '\',\'defect\')"' : '') + '><div class="card-head"><span class="card-title">Defect photos · what to reject</span>' + (canEdit ? '<div style="display:flex;gap:6px"><button class="btn btn-outline btn-sm" onclick="document.getElementById(\'qas-photo-def-' + r.npd + '\').click()">+ Upload</button><button class="btn btn-outline btn-sm" onclick="pickQasPhotoFromLibrary(\'' + r.npd + '\',\'defect\')" title="Attach an existing photo from elsewhere in RecipeHub">📋 Library</button><input type="file" id="qas-photo-def-' + r.npd + '" accept="image/*" multiple style="display:none" onchange="uploadQasPhotos(\'' + r.npd + '\',\'defect\',this)" /></div>' : '') + '</div><div class="card-body">' + defPhotos + (canEdit ? '<div style="font-size:11px;color:var(--g3);margin-top:8px;text-align:center;font-style:italic">or drag &amp; drop images here</div>' : '') + '</div></div>' +
+      '<div class="card"' + (canEdit ? ' ondragover="_dropZoneOver(event)" ondragleave="_dropZoneLeave(event)" ondrop="_dropZoneDrop(event,\'uploadQasPhotos\',\'' + r.npd + '\',\'reference\')"' : '') + '><div class="card-head"><span class="card-title">Reference photos · correct product</span>' + (canEdit ? '<div style="display:flex;gap:6px"><button class="btn btn-outline btn-sm" onclick="document.getElementById(\'qas-photo-ref-' + r.npd + '\').click()">+ Upload</button><button class="btn btn-outline btn-sm" onclick="pickQasPhotoFromLibrary(\'' + r.npd + '\',\'reference\')" title="Attach an existing photo from elsewhere in RecipeHub">🖼</button><input type="file" id="qas-photo-ref-' + r.npd + '" accept="image/*" multiple style="display:none" onchange="uploadQasPhotos(\'' + r.npd + '\',\'reference\',this)" /></div>' : '') + '</div><div class="card-body">' + refPhotos + (canEdit ? '<div style="font-size:11px;color:var(--g3);margin-top:8px;text-align:center;font-style:italic">or drag &amp; drop images here</div>' : '') + '</div></div>' +
+      '<div class="card"' + (canEdit ? ' ondragover="_dropZoneOver(event)" ondragleave="_dropZoneLeave(event)" ondrop="_dropZoneDrop(event,\'uploadQasPhotos\',\'' + r.npd + '\',\'defect\')"' : '') + '><div class="card-head"><span class="card-title">Defect photos · what to reject</span>' + (canEdit ? '<div style="display:flex;gap:6px"><button class="btn btn-outline btn-sm" onclick="document.getElementById(\'qas-photo-def-' + r.npd + '\').click()">+ Upload</button><button class="btn btn-outline btn-sm" onclick="pickQasPhotoFromLibrary(\'' + r.npd + '\',\'defect\')" title="Attach an existing photo from elsewhere in RecipeHub">🖼</button><input type="file" id="qas-photo-def-' + r.npd + '" accept="image/*" multiple style="display:none" onchange="uploadQasPhotos(\'' + r.npd + '\',\'defect\',this)" /></div>' : '') + '</div><div class="card-body">' + defPhotos + (canEdit ? '<div style="font-size:11px;color:var(--g3);margin-top:8px;text-align:center;font-style:italic">or drag &amp; drop images here</div>' : '') + '</div></div>' +
     '</div>' +
 
     // Sign-off
@@ -15469,6 +15581,7 @@ function renderEditableSOPStep(s, idx, npd) {
             <div style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.4);color:white;font-size:11px;font-weight:500;align-items:center;justify-content:center;pointer-events:none" class="vsop-upload-hint">${s.visualImg ? 'Change' : 'Upload'}</div>
             <input type="file" accept="image/*" style="display:none" onchange="uploadVisualSOPImg('${npd}',${idx},this)" />
           </label>
+          <button title="Pick from Pictures Library" type="button" onclick="event.stopPropagation();pickSopStepPhotoFromLibrary('${npd}',${idx});return false;" style="position:absolute;bottom:6px;right:6px;background:rgba(27,42,74,0.85);color:white;border:none;border-radius:4px;padding:3px 7px;font-size:11px;cursor:pointer;line-height:1;z-index:10">🖼</button>
           ${s.visualImg ? `<button title="Delete photo" type="button" onclick="deleteVisualSOPImg('${npd}',${idx});return false;" style="position:absolute;top:6px;right:6px;background:rgba(192,57,43,0.95);color:white;border:none;border-radius:50%;width:24px;height:24px;font-size:13px;cursor:pointer;line-height:1;padding:0;z-index:10;box-shadow:0 1px 3px rgba(0,0,0,0.3)">✕</button>` : ''}
         </div>
         <div style="flex:1;display:flex;flex-direction:column;gap:6px">
@@ -22157,7 +22270,7 @@ function viewBuild(id) {
               📷 ${b.photo ? 'Change' : 'Upload'} Photo
               <input type="file" accept="image/*" style="display:none" onchange="uploadBuildPhoto('${b.id}',this)" />
             </label>
-            <button class="btn btn-outline btn-sm" style="margin-left:6px" onclick="pickBuildPhotoFromLibrary('${b.id}')" title="Attach an existing photo from elsewhere in RecipeHub">📋 Library</button>
+            <button class="btn btn-outline btn-sm" style="margin-left:6px" onclick="pickBuildPhotoFromLibrary('${b.id}')" title="Attach an existing photo from elsewhere in RecipeHub">🖼</button>
             ${b.photo ? `<button class="btn btn-danger-sm" style="margin-left:6px" onclick="removeBuildPhoto('${b.id}')">Remove</button>` : ''}
             <div style="font-size:11px;color:var(--g3);margin-top:8px">Upload a photo of the finished product</div>
           </div>
@@ -25808,7 +25921,7 @@ function viewBranchSOP(id) {
                 <span>${step.img ? 'Change Photo' : 'Upload Photo'}</span>
                 <input type="file" accept="image/*" style="display:none" onchange="uploadBranchSOPPhoto('${sop.id}',${i},this)" />
               </label>
-              <button type="button" onclick="event.stopPropagation();pickBranchSOPPhotoFromLibrary('${sop.id}',${i})" title="Attach an existing photo from elsewhere in RecipeHub" style="position:absolute;bottom:8px;right:8px;background:rgba(27,42,74,0.85);color:white;border:none;border-radius:4px;padding:3px 8px;font-size:10px;cursor:pointer">📋 Library</button>
+              <button type="button" onclick="event.stopPropagation();pickBranchSOPPhotoFromLibrary('${sop.id}',${i})" title="Attach an existing photo from elsewhere in RecipeHub" style="position:absolute;bottom:8px;right:8px;background:rgba(27,42,74,0.85);color:white;border:none;border-radius:4px;padding:3px 8px;font-size:10px;cursor:pointer">🖼</button>
               ${step.img && step.img !== '[server]' && step.img !== 'null' ? `<button title="Delete photo" type="button" onclick="event.stopPropagation();event.preventDefault();deleteBranchSOPPhoto('${sop.id}',${i});return false;" style="position:absolute;top:4px;right:4px;background:rgba(192,57,43,0.95);color:white;border:none;border-radius:50%;width:24px;height:24px;font-size:13px;cursor:pointer;line-height:1;padding:0;z-index:10;box-shadow:0 1px 3px rgba(0,0,0,0.3)">✕</button>` : ''}
             </div>
             <div class="bsop-step-text" style="border-top:2px solid ${brandColor}">
@@ -27198,6 +27311,280 @@ function deleteLibDoc(idx) {
     _saveToServer(_buildDataBlob());
   });
   showSaveToast('Document deleted');
+}
+
+// ──────────── PICTURES LIBRARY (gallery) ────────────
+// Backed by the same LIBRARY_DOCS array, filtered to image file types only.
+// Uploads go through /api/img/upload (5MB cap, /docs/img/ storage).
+// A picture entry is just a LIBRARY_DOCS row with fileType in image set.
+var _PIC_IMAGE_TYPES = ['PNG','JPG','JPEG','GIF','WEBP','BMP'];
+function _isPictureDoc(d) {
+  if (!d) return false;
+  var t = String(d.fileType || '').toUpperCase();
+  if (_PIC_IMAGE_TYPES.indexOf(t) > -1) return true;
+  var u = String(d.url || '').toLowerCase();
+  return /\.(jpe?g|png|gif|webp|bmp)(\?|#|$)/.test(u);
+}
+
+function togglePicUpload() {
+  var zone = document.getElementById('pic-upload-zone');
+  if (!zone) return;
+  zone.style.display = zone.style.display === 'none' ? '' : 'none';
+}
+
+function uploadPictures() {
+  var titleEl = document.getElementById('pic-title');
+  var catEl   = document.getElementById('pic-cat');
+  var fileEl  = document.getElementById('pic-file');
+  var btn     = document.getElementById('pic-upload-btn');
+  if (!fileEl || !fileEl.files || !fileEl.files.length) { showSaveToast('Select at least one picture', true); return; }
+  var baseTitle = (titleEl && titleEl.value || '').trim();
+  var cat = (catEl && catEl.value) || 'Other';
+  var files = Array.from(fileEl.files);
+  var done = 0, failed = 0;
+  if (btn) { btn.disabled = true; btn.textContent = 'Uploading 0/' + files.length + '…'; }
+  files.forEach(function(file, idx){
+    if (file.size > 5 * 1024 * 1024) { failed++; checkDone(); return; }
+    var reader = new FileReader();
+    reader.onload = function(e){
+      fetch(API_BASE + '/api/img/upload', {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json', 'Authorization':'Bearer ' + API_KEY },
+        body: JSON.stringify({ dataUrl: e.target.result })
+      }).then(function(r){ return r.json(); }).then(function(data){
+        if (!data || !data.url) { failed++; checkDone(); return; }
+        var ext = (file.name.split('.').pop() || '').toUpperCase();
+        var doc = {
+          id: 'PIC-' + Date.now() + '-' + idx,
+          title: baseTitle ? (files.length > 1 ? baseTitle + ' (' + (idx+1) + ')' : baseTitle) : file.name.replace(/\.[^.]+$/, ''),
+          category: cat,
+          notes: '',
+          fileName: file.name,
+          fileType: ext || 'PNG',
+          fileSize: file.size,
+          uploadedAt: new Date().toISOString(),
+          uploadedBy: getCurrentUserName(),
+          url: data.url
+        };
+        LIBRARY_DOCS.unshift(doc);
+        done++;
+        if (btn) btn.textContent = 'Uploading ' + (done+failed) + '/' + files.length + '…';
+        checkDone();
+      }).catch(function(){ failed++; checkDone(); });
+    };
+    reader.onerror = function(){ failed++; checkDone(); };
+    reader.readAsDataURL(file);
+  });
+  function checkDone() {
+    if (done + failed < files.length) return;
+    if (btn) { btn.disabled = false; btn.textContent = 'Upload'; }
+    saveAllData();
+    renderPictures();
+    if (typeof renderLibrary === 'function') renderLibrary();
+    if (titleEl) titleEl.value = '';
+    if (fileEl) fileEl.value = '';
+    togglePicUpload();
+    if (failed && done) showSaveToast(done + ' uploaded, ' + failed + ' failed', true);
+    else if (failed) showSaveToast('All ' + failed + ' uploads failed', true);
+    else showSaveToast(done + ' picture' + (done === 1 ? '' : 's') + ' uploaded');
+    logActivity('library','🖼','Uploaded ' + done + ' picture' + (done === 1 ? '' : 's'), cat);
+  }
+}
+
+// Cate's mental model: Pictures Library = every picture stored anywhere
+// in the app (recipe media, SOP steps, QAS reference/defect, Build covers,
+// Branch SOP step images) PLUS any uploaded directly via this page.
+// Re-uses _buildPhotoLibrary() so the same walker feeds the picker + this page.
+function _picCategoryFromSource(src) {
+  if (!src) return 'Other';
+  if (src === 'recipe-media') return 'Recipe';
+  if (src === 'sop-step') return 'SOP';
+  if (src === 'qas-ref') return 'Reference';
+  if (src === 'qas-def') return 'Defect';
+  if (src === 'build-photo' || src === 'build-comp') return 'Build';
+  if (src === 'bsop-step') return 'Branch SOP';
+  if (src === 'library') return 'Library';
+  return 'Other';
+}
+function renderPictures() {
+  var grid = document.getElementById('pic-grid');
+  var empty = document.getElementById('pic-empty');
+  var countEl = document.getElementById('pic-count');
+  if (!grid) return;
+  var pics = (typeof _buildPhotoLibrary === 'function') ? _buildPhotoLibrary() : [];
+  pics.forEach(function(p){ p.category = _picCategoryFromSource(p.source); });
+  if (countEl) countEl.textContent = pics.length + ' picture' + (pics.length === 1 ? '' : 's');
+  if (!pics.length) {
+    grid.innerHTML = '';
+    if (empty) empty.style.display = '';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+  grid.innerHTML = pics.map(function(p, idx){
+    var hay = [p.label, p.category, p.source].filter(Boolean).join(' ').toLowerCase();
+    var sourcePill = '<span style="display:inline-block;padding:1px 7px;border-radius:999px;font-size:9px;font-weight:600;background:var(--g1);color:var(--navy);text-transform:uppercase;letter-spacing:0.04em">' + p.category + '</span>';
+    return '<div class="pic-tile" data-pic-idx="' + idx + '" data-search="' + hay.replace(/"/g,'&quot;') + '" data-cat="' + String(p.category||'').toLowerCase() + '" style="background:white;border-radius:10px;overflow:hidden;border:1px solid var(--g2);transition:all 0.15s;display:flex;flex-direction:column">' +
+             '<div style="aspect-ratio:1;background:var(--g1);cursor:zoom-in;overflow:hidden;position:relative" onclick="zoomImage(\'' + p.url.replace(/'/g, "\\'") + '\')">' +
+               '<img src="' + p.url + '" loading="lazy" alt="" style="width:100%;height:100%;object-fit:cover;display:block" onerror="this.parentNode.innerHTML=\'<div style=&quot;display:flex;align-items:center;justify-content:center;height:100%;color:var(--red);font-size:22px&quot;>⚠</div>\'" />' +
+               '<div style="position:absolute;top:6px;left:6px">' + sourcePill + '</div>' +
+             '</div>' +
+             '<div style="padding:8px 10px;flex:1;display:flex;flex-direction:column;gap:4px">' +
+               '<div style="font-size:11px;color:var(--navy);line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden" title="' + (p.label||'').replace(/"/g,'&quot;') + '">' + (p.label || 'Untitled') + '</div>' +
+               '<div style="display:flex;justify-content:space-between;align-items:center;font-size:10px;color:var(--g4);margin-top:auto;padding-top:6px;border-top:1px solid var(--g1)">' +
+                 '<button class="btn btn-outline btn-sm" style="padding:2px 8px;font-size:10px" onclick="event.stopPropagation();_copyPicUrl(\'' + p.url.replace(/'/g, "\\'") + '\')" title="Copy URL — paste it elsewhere">⧉ Copy</button>' +
+                 '<button class="btn btn-danger-sm" style="padding:2px 6px;font-size:10px" onclick="event.stopPropagation();deletePictureAt(' + idx + ')" title="Detach from its source">✕</button>' +
+               '</div>' +
+             '</div>' +
+           '</div>';
+  }).join('');
+  window._picLibCache = pics;
+  filterPictures();
+}
+
+function deletePictureAt(idx) {
+  var pics = window._picLibCache || [];
+  var p = pics[idx];
+  if (!p) return;
+  var src = p.source;
+  var ctx = p.ctx || {};
+  var srcLabelMap = {
+    'recipe-media': 'Recipe media',
+    'sop-step':     'Factory SOP step photo',
+    'qas-ref':      'QAS reference photo',
+    'qas-def':      'QAS defect photo',
+    'qa-media':     'QA Lab photo',
+    'build-photo':  'Build cover photo',
+    'build-comp':   'Build component photo',
+    'bsop-step':    'Branch SOP step photo',
+    'library':      'Library upload'
+  };
+  var msg = 'Detach this ' + (srcLabelMap[src] || 'picture') + '?\n\n' +
+            '"' + (p.label || '') + '"\n\n' +
+            'The picture URL will be removed from its source. The file stays on disk and can still be re-attached from the Pictures Library elsewhere.';
+  if (!confirm(msg)) return;
+
+  if (src === 'recipe-media') {
+    var r = RECIPE_DB[ctx.npd]; if (!r || !r.media || !r.media[ctx.idx]) return;
+    var killUrl = r.media[ctx.idx].url;
+    r.media.splice(ctx.idx, 1);
+    r.updatedAt = new Date().toISOString();
+    // r.media is union-merged server-side, so a plain save would resurrect.
+    // Pass the URL via removeMediaUrls so the server filters it after the merge.
+    saveRecipeToServer(ctx.npd, { removeMediaUrls: [killUrl] });
+  }
+  else if (src === 'sop-step') {
+    var r2 = RECIPE_DB[ctx.npd]; if (!r2 || !r2.sopSteps || !r2.sopSteps[ctx.idx]) return;
+    // null (not undefined) so the server merge respects the delete instead of
+    // back-filling from existing.visualImg. See feedback_union_merge_media_resurrects.
+    r2.sopSteps[ctx.idx].visualImg = null;
+    r2.sopSteps[ctx.idx].img = null;
+    r2.updatedAt = new Date().toISOString();
+    saveRecipeToServer(ctx.npd);
+  }
+  else if (src === 'qas-ref' || src === 'qas-def') {
+    var r3 = RECIPE_DB[ctx.npd]; if (!r3 || !r3.qas) return;
+    var arrKey = src === 'qas-ref' ? 'referencePhotos' : 'defectPhotos';
+    if (!Array.isArray(r3.qas[arrKey])) return;
+    r3.qas[arrKey].splice(ctx.idx, 1);
+    r3.updatedAt = new Date().toISOString();
+    saveRecipeToServer(ctx.npd);
+  }
+  else if (src === 'qa-media') {
+    var r4 = RECIPE_DB[ctx.npd]; if (!r4 || !Array.isArray(r4.qaMedia)) return;
+    r4.qaMedia.splice(ctx.idx, 1);
+    r4.updatedAt = new Date().toISOString();
+    saveRecipeToServer(ctx.npd);
+  }
+  else if (src === 'build-photo') {
+    var b = BUILDS_DATA.find(function(x){ return x.id === ctx.id; });
+    if (!b) return;
+    delete b.photo;
+    b.updatedAt = new Date().toISOString();
+    saveBuildToServer(ctx.id);
+  }
+  else if (src === 'build-comp') {
+    var b2 = BUILDS_DATA.find(function(x){ return x.id === ctx.id; });
+    if (!b2 || !b2.components || !b2.components[ctx.idx]) return;
+    delete b2.components[ctx.idx].photo;
+    delete b2.components[ctx.idx].image;
+    b2.updatedAt = new Date().toISOString();
+    saveBuildToServer(ctx.id);
+  }
+  else if (src === 'bsop-step') {
+    var sop = BRANCH_SOPS.find(function(s){ return s.id === ctx.id; });
+    if (!sop || !sop.steps || !sop.steps[ctx.idx]) return;
+    // null (not undefined) — server back-fills img when the key is undefined.
+    // See feedback_union_merge_media_resurrects.
+    sop.steps[ctx.idx].img = null;
+    sop.steps[ctx.idx].url = null;
+    sop.updatedAt = new Date().toISOString();
+    saveBranchSOPToServer(ctx.id);
+  }
+  else if (src === 'library') {
+    var docIdx = (LIBRARY_DOCS || []).findIndex(function(d){ return d && d.id === ctx.id; });
+    if (docIdx < 0) return;
+    var doc = LIBRARY_DOCS[docIdx];
+    LIBRARY_DOCS.splice(docIdx, 1);
+    fetch(API_BASE + '/api/library/' + encodeURIComponent(doc.id), {
+      method: 'DELETE',
+      headers: { 'Authorization':'Bearer ' + API_KEY }
+    }).then(function(r){ if (!r.ok) throw new Error('Server ' + r.status); return r.json(); })
+      .then(function(result){ _markSelfPostedSavedAt(result && result.savedAt); })
+      .catch(function(){ _saveToServer(_buildDataBlob()); });
+  }
+
+  renderPictures();
+  showSaveToast('Picture detached');
+  if (typeof logActivity === 'function') logActivity('library','✕','Detached ' + (srcLabelMap[src] || 'picture'), p.label || '');
+}
+
+function _copyPicUrl(url) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(url).then(function(){ showSaveToast('URL copied'); }).catch(function(){ showSaveToast('Copy failed', true); });
+  } else {
+    var ta = document.createElement('textarea');
+    ta.value = url; document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); showSaveToast('URL copied'); } catch(e){ showSaveToast('Copy failed', true); }
+    document.body.removeChild(ta);
+  }
+}
+
+function filterPictures() {
+  var qEl = document.getElementById('pic-search');
+  var cEl = document.getElementById('pic-filter-cat');
+  var q = qEl ? qEl.value.trim().toLowerCase() : '';
+  var tokens = q ? q.split(/\s+/).filter(Boolean) : [];
+  var cat = cEl ? cEl.value : 'All Categories';
+  var wantCat = (cat && cat !== 'All Categories') ? cat.toLowerCase() : '';
+  var tiles = document.querySelectorAll('#pic-grid .pic-tile');
+  tiles.forEach(function(t){
+    var hay = t.dataset.search || '';
+    var matchQ = !tokens.length || tokens.every(function(tk){ return hay.indexOf(tk) !== -1; });
+    var matchCat = !wantCat || t.dataset.cat === wantCat;
+    t.style.display = (matchQ && matchCat) ? '' : 'none';
+  });
+}
+
+function deletePicture(idx) {
+  var doc = LIBRARY_DOCS[idx];
+  if (!doc) return;
+  if (!confirm('Delete picture "' + (doc.title || doc.fileName) + '"?\n\nThis removes it from the gallery. Any recipe/SOP/Build still referencing this URL will show a broken image.')) return;
+  LIBRARY_DOCS.splice(idx, 1);
+  renderPictures();
+  if (typeof renderLibrary === 'function') renderLibrary();
+  fetch(API_BASE + '/api/library/' + encodeURIComponent(doc.id), {
+    method: 'DELETE',
+    headers: { 'Authorization':'Bearer ' + API_KEY }
+  }).then(function(r){
+    if (!r.ok) throw new Error('Server ' + r.status);
+    return r.json();
+  }).then(function(result){
+    _markSelfPostedSavedAt(result && result.savedAt);
+  }).catch(function(err){
+    console.warn('Per-library DELETE failed, falling back:', err && err.message);
+    _saveToServer(_buildDataBlob());
+  });
+  showSaveToast('Picture deleted');
 }
 
 function filterLibrary() {

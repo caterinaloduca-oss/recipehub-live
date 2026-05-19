@@ -859,10 +859,14 @@ function mergeRecipe(existing, incoming) {
     result.status = existing.status;
   }
 
-  // Preserve images that incoming doesn't have
+  // Preserve images that incoming doesn't carry.
+  // Distinguish *undefined* (stale tab forgot to send the key — restore) from
+  // *null* (explicit detach via Pictures Library — respect). Without the null
+  // sentinel, deleting a Factory SOP step photo from the library kept popping
+  // back. Fixed 2026-05-19.
   if (existing.sopSteps && result.sopSteps) {
     result.sopSteps.forEach((s, i) => {
-      if (existing.sopSteps[i] && existing.sopSteps[i].visualImg && !s.visualImg) {
+      if (existing.sopSteps[i] && existing.sopSteps[i].visualImg && s && s.visualImg === undefined) {
         s.visualImg = existing.sopSteps[i].visualImg;
       }
     });
@@ -959,11 +963,14 @@ function mergeBranchSOP(existing, incoming) {
     }
     result.updatedAt = eTime;
   } else {
-    // Incoming is newer — take it wholesale, but still back-fill missing step images
-    // from existing (protects against a payload that accidentally stripped one).
+    // Incoming is newer — take it wholesale, but back-fill missing step images
+    // only when the key was OMITTED (undefined). Explicit null = intentional
+    // detach via Pictures Library — respect it. Fixed 2026-05-19.
     if (existing.steps && result.steps) {
       result.steps.forEach((s, i) => {
-        if (existing.steps[i] && existing.steps[i].img && !s.img) s.img = existing.steps[i].img;
+        if (existing.steps[i] && existing.steps[i].img && s && s.img === undefined) {
+          s.img = existing.steps[i].img;
+        }
       });
     }
   }
@@ -997,6 +1004,21 @@ app.post('/api/recipe/:npd', requireAuth, (req, res) => {
     const data = state.data;
     if (!data.recipes) data.recipes = {};
     data.recipes[npd] = mergeRecipe(data.recipes[npd], incoming);
+    // Lift channel: explicit deletes from r.media survive the union-merge.
+    // r.media is union-merged by name (audit-style), so a plain splice +
+    // POST gets resurrected. Pictures Library uses this to detach a media
+    // item by URL. Safe because it's an explicit, named removal.
+    if (Array.isArray(req.body.removeMediaUrls) && req.body.removeMediaUrls.length) {
+      const kill = new Set(req.body.removeMediaUrls.filter(Boolean));
+      const recipe = data.recipes[npd];
+      if (recipe && Array.isArray(recipe.media)) {
+        const before = recipe.media.length;
+        recipe.media = recipe.media.filter(m => !m || !kill.has(m.url));
+        if (recipe.media.length !== before) {
+          console.log('[recipe.post] removed', before - recipe.media.length, 'media url(s) from', npd);
+        }
+      }
+    }
     data.savedAt = new Date().toISOString();
     const savedAt = db.setState(JSON.stringify(data), data.dataVersion || 0);
     res.json({ ok: true, savedAt, recipe: data.recipes[npd] });
