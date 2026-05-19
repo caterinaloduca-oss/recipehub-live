@@ -3449,29 +3449,71 @@ app.get('/api/inspector/sweep', requireAuth, (req, res) => {
     // archived — archived ones still have legit images on disk), every branch
     // SOP, every library doc, plus the as-captured flowchart archive that
     //17 recipes still reference.
+    // EXHAUSTIVE reference walk. Every URL/photo field on every entity type.
+    // Adding a missed field here = silently nuked data on the next orphan
+    // cleanup. The list below was rebuilt 2026-05-19 after a sweep deleted
+    // 7 QAS photos + 11 build cover photos because of incomplete coverage.
+    // Don't trust schema-as-I-remember-it: if a field MIGHT contain a
+    // /docs/img/ URL, track it.
     Object.values(recipes).forEach(r => {
       if (!r) return;
+      ['photo','image','thumbnail','thumb','coverImage'].forEach(k => _trackRef(r[k]));
       (Array.isArray(r.media) ? r.media : []).forEach(m => { if (m) _trackRef(m.url); });
-      (Array.isArray(r.sopSteps) ? r.sopSteps : []).forEach(s => { if (s) _trackRef(s.visualImg || s.img); });
-      (Array.isArray(r.factorySopArchive) ? r.factorySopArchive : []).forEach(a => { if (a) _trackRef(a.url || a.fileUrl); });
-      (Array.isArray(r.flowchart_archive) ? r.flowchart_archive : []).forEach(p => { if (p) _trackRef(p.url || p.image || p.src); });
-      // QAS reference + defect photos — added 2026-05-19 after the orphan-cleanup
-      // accidentally swept 7 of them away (the reference walk didn't know about
-      // r.qas.referencePhotos / r.qas.defectPhotos). Affected: 2026-241,
-      // 2026-256, 2026-260. Files are unrecoverable; the URLs got cleared and
-      // QA was asked to re-upload.
+      (Array.isArray(r.sopSteps) ? r.sopSteps : []).forEach(s => {
+        if (s) ['visualImg','img','photo','image','src'].forEach(k => _trackRef(s[k]));
+      });
+      (Array.isArray(r.factorySopArchive) ? r.factorySopArchive : []).forEach(a => {
+        if (a) ['url','fileUrl'].forEach(k => _trackRef(a[k]));
+      });
+      (Array.isArray(r.flowchart_archive) ? r.flowchart_archive : []).forEach(p => {
+        if (p) ['url','image','src'].forEach(k => _trackRef(p[k]));
+      });
       if (r.qas) {
         (Array.isArray(r.qas.referencePhotos) ? r.qas.referencePhotos : []).forEach(p => { if (p) _trackRef(p.url); });
         (Array.isArray(r.qas.defectPhotos)    ? r.qas.defectPhotos    : []).forEach(p => { if (p) _trackRef(p.url); });
       }
+      ['trialQA','prodQA','prod-trialQA'].forEach(stage => {
+        const st = r[stage];
+        if (st && Array.isArray(st.files)) st.files.forEach(f => { if (f) _trackRef(f.url); });
+      });
+    });
+    builds.forEach(b => {
+      if (!b) return;
+      ['photo','image','thumbnail','coverImage'].forEach(k => _trackRef(b[k]));
+      (Array.isArray(b.components) ? b.components : []).forEach(c => {
+        if (c) ['photo','image','url','thumbnail'].forEach(k => _trackRef(c[k]));
+      });
     });
     branchSOPs.forEach(s => {
       if (!s) return;
+      ['photo','image','cover'].forEach(k => _trackRef(s[k]));
       (Array.isArray(s.steps) ? s.steps : []).forEach(st => {
-        if (st && (st.img || st.url)) _trackRef(st.img || st.url);
+        if (st) ['img','url','photo','image','src'].forEach(k => _trackRef(st[k]));
+      });
+      (Array.isArray(s.components) ? s.components : []).forEach(c => {
+        if (c) ['photo','image','url'].forEach(k => _trackRef(c[k]));
       });
     });
     (Array.isArray(data.libraryDocs) ? data.libraryDocs : []).forEach(d => { if (d) _trackRef(d.url); });
+    (Array.isArray(data.commsLog) ? data.commsLog : []).forEach(m => {
+      if (!m) return;
+      ['attachmentUrl','imageUrl','url'].forEach(k => _trackRef(m[k]));
+      // also parse free-form body for /docs/img/ urls
+      const body = String(m.body || '');
+      const hits = body.match(/\/docs\/img\/[^\s"'<>)]+/g) || [];
+      hits.forEach(u => _trackRef(u));
+    });
+    (Array.isArray(data.substitutionRequests) ? data.substitutionRequests : []).forEach(sr => {
+      if (!sr) return;
+      ['url','photoUrl','imageUrl'].forEach(k => _trackRef(sr[k]));
+      (Array.isArray(sr.comments) ? sr.comments : []).forEach(c => { if (c) _trackRef(c.imageUrl); });
+    });
+    (Array.isArray(data.users) ? data.users : []).forEach(u => {
+      if (u) ['photo','avatar'].forEach(k => _trackRef(u[k]));
+    });
+    (Array.isArray(data.brands) ? data.brands : []).forEach(b => {
+      if (b) ['logo','image','photo'].forEach(k => _trackRef(b[k]));
+    });
 
     // ── AF. Production runs pointing at recipes that no longer exist ──
     productionRuns.forEach(pr => {
