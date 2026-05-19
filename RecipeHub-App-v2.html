@@ -13482,6 +13482,146 @@ function uploadDataUrlToServer(dataUrl, key, cb) {
 //   file: File object
 //   opts: { aspect: 1, outSize: 600, quality: 0.7 }
 //   cb(croppedDataUrl) — confirm only; cancel does NOT call cb
+// ───────── Photo library picker ─────────
+// Walks every place the app stores a photo URL (recipe media / SOP steps /
+// QAS reference + defect / Build cover + components / Branch SOP step
+// images) and lets the user pick one to attach somewhere else. Calls
+// targetCb(url) when the user confirms. The picked URL is shared, not
+// duplicated — the orphan-file walker now tracks every reference so
+// shared use stays safe.
+function _buildPhotoLibrary() {
+  var photos = [];
+  function add(url, label, source) {
+    if (!url || typeof url !== 'string') return;
+    photos.push({ url: url, label: label, source: source });
+  }
+  Object.entries(RECIPE_DB || {}).forEach(function(entry){
+    var npd = entry[0]; var r = entry[1];
+    if (!r || r.archived) return;
+    var nm = r.name || npd;
+    (r.media || []).forEach(function(m){ if (m) add(m.url, 'Recipe · ' + nm + ' · media', 'recipe-media'); });
+    (r.sopSteps || []).forEach(function(s, i){ if (s) add(s.visualImg || s.img, 'SOP · ' + nm + ' · step ' + (i+1), 'sop-step'); });
+    if (r.qas) {
+      (r.qas.referencePhotos || []).forEach(function(p, i){ if (p) add(p.url, 'QAS ref · ' + nm + ' #' + (i+1), 'qas-ref'); });
+      (r.qas.defectPhotos    || []).forEach(function(p, i){ if (p) add(p.url, 'QAS defect · ' + nm + ' #' + (i+1), 'qas-def'); });
+    }
+  });
+  (typeof BUILDS_DATA !== 'undefined' ? BUILDS_DATA : []).forEach(function(b){
+    if (!b || b.archived) return;
+    if (b.photo) add(b.photo, 'Build · ' + (b.name || b.id), 'build-photo');
+    (b.components || []).forEach(function(c, i){
+      if (c && (c.photo || c.image)) add(c.photo || c.image, 'Build · ' + (b.name || b.id) + ' · component ' + (i+1), 'build-comp');
+    });
+  });
+  (typeof BRANCH_SOPS !== 'undefined' ? BRANCH_SOPS : []).forEach(function(s){
+    if (!s || s.archived) return;
+    (s.steps || []).forEach(function(st, i){ if (st && (st.img || st.url)) add(st.img || st.url, 'Branch SOP · ' + (s.name || s.id) + ' · step ' + (i+1), 'bsop-step'); });
+  });
+  // Dedupe by URL, keep first label
+  var seen = {}; var out = [];
+  photos.forEach(function(p){ if (!seen[p.url]) { seen[p.url] = 1; out.push(p); } });
+  return out;
+}
+
+var _photoPickerCb = null;
+function openPhotoPicker(cb, opts) {
+  opts = opts || {};
+  _photoPickerCb = cb;
+  var photos = _buildPhotoLibrary();
+  // Optional source filter (e.g. just QAS photos)
+  if (opts.sources && opts.sources.length) {
+    photos = photos.filter(function(p){ return opts.sources.indexOf(p.source) > -1; });
+  }
+  var gridHtml = photos.length
+    ? photos.map(function(p, i){
+        return '<div data-url="' + p.url.replace(/"/g,'&quot;') + '" data-label="' + (p.label||'').replace(/"/g,'&quot;') + '" onclick="_photoPickerSelect(this)" class="phlib-tile" style="border:2px solid transparent;border-radius:6px;overflow:hidden;cursor:pointer;background:white;transition:all 0.12s">' +
+                 '<div style="aspect-ratio:1;background:var(--g1);overflow:hidden"><img src="' + p.url + '" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block" /></div>' +
+                 '<div style="padding:4px 6px;font-size:10px;color:var(--g4);line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + (p.label||'').replace(/"/g,'&quot;') + '">' + (p.label || '') + '</div>' +
+               '</div>';
+      }).join('')
+    : '<div style="grid-column:1/-1;padding:40px;text-align:center;color:var(--g3)">No photos in the library yet.</div>';
+  openModal(
+    '<div class="card-head" style="background:var(--navy);border-radius:16px 16px 0 0">' +
+      '<span class="card-title" style="color:white">Pick a photo from the library</span>' +
+      '<button class="btn btn-sm" style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:none" onclick="_photoPickerCancel()">✕</button>' +
+    '</div>' +
+    '<div class="card-body" style="padding:14px">' +
+      '<input class="form-input" id="phlib-search" placeholder="Filter by recipe / build / SOP name…" oninput="_photoPickerFilter()" style="margin-bottom:10px" />' +
+      '<div style="font-size:11px;color:var(--g4);margin-bottom:8px">' + photos.length + ' photo' + (photos.length === 1 ? '' : 's') + ' available · click one to attach it here</div>' +
+      '<div id="phlib-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;max-height:65vh;overflow-y:auto">' +
+        gridHtml +
+      '</div>' +
+    '</div>',
+    '720px'
+  );
+}
+function _photoPickerSelect(el) {
+  var url = el.getAttribute('data-url');
+  if (!url) return;
+  document.querySelectorAll('.phlib-tile').forEach(function(t){ t.style.borderColor = 'transparent'; });
+  el.style.borderColor = 'var(--gold)';
+  if (_photoPickerCb) { try { _photoPickerCb(url); } catch(e){} }
+  setTimeout(closeModal, 150);
+}
+function _photoPickerCancel() { _photoPickerCb = null; closeModal(); }
+function _photoPickerFilter() {
+  var q = (document.getElementById('phlib-search').value || '').toLowerCase();
+  document.querySelectorAll('#phlib-grid .phlib-tile').forEach(function(t){
+    var lbl = (t.getAttribute('data-label') || '').toLowerCase();
+    t.style.display = (!q || lbl.indexOf(q) > -1) ? '' : 'none';
+  });
+}
+
+// Per-target wrappers — each one applies the picked URL to the right place.
+function pickQasPhotoFromLibrary(npd, kind) {
+  var r = RECIPE_DB[npd]; if (!r) return;
+  _qasInitDefaults(r);
+  var key = kind === 'reference' ? 'referencePhotos' : 'defectPhotos';
+  openPhotoPicker(function(url){
+    r.qas[key].push({ url: url, caption: '' });
+    r.updatedAt = new Date().toISOString();
+    saveRecipeToServer(npd);
+    if (typeof viewRecipe === 'function' && _currentPage === 'recipe-detail') viewRecipe(npd);
+    if (typeof openQasDetail === 'function' && _currentPage === 'qas') openQasDetail(npd);
+    showSaveToast('Photo attached from library');
+  });
+}
+
+function pickBuildPhotoFromLibrary(id) {
+  var b = BUILDS_DATA.find(function(x){ return x.id === id; });
+  if (!b) return;
+  openPhotoPicker(function(url){
+    b.photo = url;
+    b.updatedAt = new Date().toISOString();
+    saveBuildToServer(id);
+    if (typeof viewBuild === 'function') viewBuild(id);
+    showSaveToast('Build photo attached from library');
+  });
+}
+
+function pickBranchSOPPhotoFromLibrary(sopId, stepIdx) {
+  var sop = BRANCH_SOPS.find(function(s){ return s.id === sopId; });
+  if (!sop || !sop.steps || !sop.steps[stepIdx]) return;
+  openPhotoPicker(function(url){
+    sop.steps[stepIdx].img = url;
+    sop.updatedAt = new Date().toISOString();
+    saveBranchSOPToServer(sopId);
+    if (typeof viewBranchSOP === 'function') viewBranchSOP(sopId);
+    showSaveToast('Step photo attached from library');
+  });
+}
+
+function pickSopStepPhotoFromLibrary(npd, stepIdx) {
+  var r = RECIPE_DB[npd]; if (!r || !r.sopSteps || !r.sopSteps[stepIdx]) return;
+  openPhotoPicker(function(url){
+    r.sopSteps[stepIdx].visualImg = url;
+    r.updatedAt = new Date().toISOString();
+    saveRecipeToServer(npd);
+    if (typeof viewFactorySOP === 'function' && _currentPage === 'sop') viewFactorySOP(npd);
+    showSaveToast('SOP step photo attached from library');
+  });
+}
+
 function openImageCropModal(file, opts, cb) {
   opts = opts || {};
   var aspect = opts.aspect || 1;
@@ -14568,8 +14708,8 @@ function _renderQasDetail(r) {
 
     // Reference + defect photos
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">' +
-      '<div class="card"' + (canEdit ? ' ondragover="_dropZoneOver(event)" ondragleave="_dropZoneLeave(event)" ondrop="_dropZoneDrop(event,\'uploadQasPhotos\',\'' + r.npd + '\',\'reference\')"' : '') + '><div class="card-head"><span class="card-title">Reference photos · correct product</span>' + (canEdit ? '<button class="btn btn-outline btn-sm" onclick="document.getElementById(\'qas-photo-ref-' + r.npd + '\').click()">+ Upload</button><input type="file" id="qas-photo-ref-' + r.npd + '" accept="image/*" multiple style="display:none" onchange="uploadQasPhotos(\'' + r.npd + '\',\'reference\',this)" />' : '') + '</div><div class="card-body">' + refPhotos + (canEdit ? '<div style="font-size:11px;color:var(--g3);margin-top:8px;text-align:center;font-style:italic">or drag &amp; drop images here</div>' : '') + '</div></div>' +
-      '<div class="card"' + (canEdit ? ' ondragover="_dropZoneOver(event)" ondragleave="_dropZoneLeave(event)" ondrop="_dropZoneDrop(event,\'uploadQasPhotos\',\'' + r.npd + '\',\'defect\')"' : '') + '><div class="card-head"><span class="card-title">Defect photos · what to reject</span>' + (canEdit ? '<button class="btn btn-outline btn-sm" onclick="document.getElementById(\'qas-photo-def-' + r.npd + '\').click()">+ Upload</button><input type="file" id="qas-photo-def-' + r.npd + '" accept="image/*" multiple style="display:none" onchange="uploadQasPhotos(\'' + r.npd + '\',\'defect\',this)" />' : '') + '</div><div class="card-body">' + defPhotos + (canEdit ? '<div style="font-size:11px;color:var(--g3);margin-top:8px;text-align:center;font-style:italic">or drag &amp; drop images here</div>' : '') + '</div></div>' +
+      '<div class="card"' + (canEdit ? ' ondragover="_dropZoneOver(event)" ondragleave="_dropZoneLeave(event)" ondrop="_dropZoneDrop(event,\'uploadQasPhotos\',\'' + r.npd + '\',\'reference\')"' : '') + '><div class="card-head"><span class="card-title">Reference photos · correct product</span>' + (canEdit ? '<div style="display:flex;gap:6px"><button class="btn btn-outline btn-sm" onclick="document.getElementById(\'qas-photo-ref-' + r.npd + '\').click()">+ Upload</button><button class="btn btn-outline btn-sm" onclick="pickQasPhotoFromLibrary(\'' + r.npd + '\',\'reference\')" title="Attach an existing photo from elsewhere in RecipeHub">📋 Library</button><input type="file" id="qas-photo-ref-' + r.npd + '" accept="image/*" multiple style="display:none" onchange="uploadQasPhotos(\'' + r.npd + '\',\'reference\',this)" /></div>' : '') + '</div><div class="card-body">' + refPhotos + (canEdit ? '<div style="font-size:11px;color:var(--g3);margin-top:8px;text-align:center;font-style:italic">or drag &amp; drop images here</div>' : '') + '</div></div>' +
+      '<div class="card"' + (canEdit ? ' ondragover="_dropZoneOver(event)" ondragleave="_dropZoneLeave(event)" ondrop="_dropZoneDrop(event,\'uploadQasPhotos\',\'' + r.npd + '\',\'defect\')"' : '') + '><div class="card-head"><span class="card-title">Defect photos · what to reject</span>' + (canEdit ? '<div style="display:flex;gap:6px"><button class="btn btn-outline btn-sm" onclick="document.getElementById(\'qas-photo-def-' + r.npd + '\').click()">+ Upload</button><button class="btn btn-outline btn-sm" onclick="pickQasPhotoFromLibrary(\'' + r.npd + '\',\'defect\')" title="Attach an existing photo from elsewhere in RecipeHub">📋 Library</button><input type="file" id="qas-photo-def-' + r.npd + '" accept="image/*" multiple style="display:none" onchange="uploadQasPhotos(\'' + r.npd + '\',\'defect\',this)" /></div>' : '') + '</div><div class="card-body">' + defPhotos + (canEdit ? '<div style="font-size:11px;color:var(--g3);margin-top:8px;text-align:center;font-style:italic">or drag &amp; drop images here</div>' : '') + '</div></div>' +
     '</div>' +
 
     // Sign-off
@@ -22009,6 +22149,7 @@ function viewBuild(id) {
               📷 ${b.photo ? 'Change' : 'Upload'} Photo
               <input type="file" accept="image/*" style="display:none" onchange="uploadBuildPhoto('${b.id}',this)" />
             </label>
+            <button class="btn btn-outline btn-sm" style="margin-left:6px" onclick="pickBuildPhotoFromLibrary('${b.id}')" title="Attach an existing photo from elsewhere in RecipeHub">📋 Library</button>
             ${b.photo ? `<button class="btn btn-danger-sm" style="margin-left:6px" onclick="removeBuildPhoto('${b.id}')">Remove</button>` : ''}
             <div style="font-size:11px;color:var(--g3);margin-top:8px">Upload a photo of the finished product</div>
           </div>
@@ -25648,6 +25789,7 @@ function viewBranchSOP(id) {
                 <span>${step.img ? 'Change Photo' : 'Upload Photo'}</span>
                 <input type="file" accept="image/*" style="display:none" onchange="uploadBranchSOPPhoto('${sop.id}',${i},this)" />
               </label>
+              <button type="button" onclick="event.stopPropagation();pickBranchSOPPhotoFromLibrary('${sop.id}',${i})" title="Attach an existing photo from elsewhere in RecipeHub" style="position:absolute;bottom:8px;right:8px;background:rgba(27,42,74,0.85);color:white;border:none;border-radius:4px;padding:3px 8px;font-size:10px;cursor:pointer">📋 Library</button>
               ${step.img && step.img !== '[server]' && step.img !== 'null' ? `<button title="Delete photo" type="button" onclick="event.stopPropagation();event.preventDefault();deleteBranchSOPPhoto('${sop.id}',${i});return false;" style="position:absolute;top:4px;right:4px;background:rgba(192,57,43,0.95);color:white;border:none;border-radius:50%;width:24px;height:24px;font-size:13px;cursor:pointer;line-height:1;padding:0;z-index:10;box-shadow:0 1px 3px rgba(0,0,0,0.3)">✕</button>` : ''}
             </div>
             <div class="bsop-step-text" style="border-top:2px solid ${brandColor}">
