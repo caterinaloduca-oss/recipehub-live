@@ -3455,6 +3455,15 @@ app.get('/api/inspector/sweep', requireAuth, (req, res) => {
       (Array.isArray(r.sopSteps) ? r.sopSteps : []).forEach(s => { if (s) _trackRef(s.visualImg || s.img); });
       (Array.isArray(r.factorySopArchive) ? r.factorySopArchive : []).forEach(a => { if (a) _trackRef(a.url || a.fileUrl); });
       (Array.isArray(r.flowchart_archive) ? r.flowchart_archive : []).forEach(p => { if (p) _trackRef(p.url || p.image || p.src); });
+      // QAS reference + defect photos — added 2026-05-19 after the orphan-cleanup
+      // accidentally swept 7 of them away (the reference walk didn't know about
+      // r.qas.referencePhotos / r.qas.defectPhotos). Affected: 2026-241,
+      // 2026-256, 2026-260. Files are unrecoverable; the URLs got cleared and
+      // QA was asked to re-upload.
+      if (r.qas) {
+        (Array.isArray(r.qas.referencePhotos) ? r.qas.referencePhotos : []).forEach(p => { if (p) _trackRef(p.url); });
+        (Array.isArray(r.qas.defectPhotos)    ? r.qas.defectPhotos    : []).forEach(p => { if (p) _trackRef(p.url); });
+      }
     });
     branchSOPs.forEach(s => {
       if (!s) return;
