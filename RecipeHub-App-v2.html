@@ -25469,10 +25469,14 @@ function buildBranchSOPTable() {
     tr.onclick = function(){ viewBranchSOP(sop.id); };
     tr.dataset.brand = String(sop.brand || '').toLowerCase();
     tr.dataset.status = sop.archived ? 'archived' : (sop.status || 'draft');
+    tr.dataset.flag = (sop.flag && sop.flag.question) ? '1' : '0';
     tr.dataset.search = [sop.name, sop.id, sop.brand, (sop.version || '')]
       .join(' ').toLowerCase();
+    var _bsopFlagPin = (sop.flag && sop.flag.question)
+      ? ' <span style="font-size:13px;margin-left:4px;cursor:help" title="Flagged: ' + (sop.flag.question||'').replace(/"/g,'&quot;').replace(/</g,'&lt;') + '">🚩</span>'
+      : '';
     tr.innerHTML = `
-      <td><strong>${sop.name}</strong>${buildDiscontinued ? ' <span style="font-size:10px;color:var(--red);font-weight:500">DISCONTINUED</span>' : ''}${sop.archived ? ' <span style="font-size:10px;color:var(--g3);font-weight:500">ARCHIVED</span>' : ''}</td>
+      <td><strong>${sop.name}</strong>${_bsopFlagPin}${buildDiscontinued ? ' <span style="font-size:10px;color:var(--red);font-weight:500">DISCONTINUED</span>' : ''}${sop.archived ? ' <span style="font-size:10px;color:var(--g3);font-weight:500">ARCHIVED</span>' : ''}</td>
       <td style="font-family:var(--font-m);font-size:12px;color:var(--g3)">${sop.id}</td>
       <td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${BSOP_BRAND_COLORS[sop.brand]||'#1B2A4A'};margin-right:6px;vertical-align:middle"></span>${sop.brand}</td>
       <td style="font-size:12px;color:var(--g4)">${sop.version}</td>
@@ -25748,6 +25752,13 @@ function viewBranchSOP(id) {
       <button class="btn btn-outline btn-sm" style="color:var(--red)" onclick="downloadBranchSOPPDF('${sop.id}')" title="Download the SOP as a PDF — file lands in Downloads. First click loads the PDF library (~360KB); subsequent clicks instant.">📄 Download PDF</button>
     </div>
     ${(function(){ var lb = sop.buildRef ? BUILDS_DATA.find(function(x){return x.id===sop.buildRef}) : null; return lb && getBuildLaunch(lb)==='inactive' ? '<div style="background:var(--red);color:white;padding:10px 20px;border-radius:var(--r-lg) var(--r-lg) 0 0;font-size:12px;font-weight:600;display:flex;align-items:center;gap:8px"><span style="font-size:16px">⚠</span> This product has been discontinued — the linked build ('+sop.buildRef+') is no longer active</div>' : ''; })()}
+    ${(sop.flag && sop.flag.question) ? `<div style="background:#FFF6E5;border:1px solid #F0D8A8;border-radius:var(--r-md);padding:12px 20px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:flex-start;gap:16px">
+      <div style="flex:1">
+        <div style="font-size:10px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:#A35400;margin-bottom:4px">🚩 SOP Flagged</div>
+        <div style="font-size:13px;color:var(--navy);line-height:1.5;white-space:pre-wrap">${(sop.flag.question||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+        <div style="font-size:11px;color:var(--g4);margin-top:4px">Flagged by ${esc(sop.flag.askedBy || 'R&D')}${sop.flag.askedAt ? ' on ' + esc(sop.flag.askedAt.slice(0,10)) : ''}</div>
+      </div>
+    </div>` : ''}
     <div style="background:white;border-radius:${(function(){ var lb = sop.buildRef ? BUILDS_DATA.find(function(x){return x.id===sop.buildRef}) : null; return lb && getBuildLaunch(lb)==='inactive' ? '0 0 var(--r-lg) var(--r-lg)' : 'var(--r-lg)'; })()};overflow:hidden;box-shadow:var(--sh-md);margin-bottom:20px">
       <!-- Header banner -->
       <div style="background:${brandColor};padding:20px 28px;display:flex;align-items:center;gap:20px">
