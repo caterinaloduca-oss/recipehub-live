@@ -1551,8 +1551,8 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
       </div>
       <select class="filter-select" id="bsop-filter-brand" onchange="filterBranchSOPs()"><option>All Brands</option></select>
       <select class="filter-select" id="bsop-filter-status" onchange="filterBranchSOPs()"><option>All Statuses</option><option>Draft</option><option>In Review</option><option>Approved</option></select>
-      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--g4);cursor:pointer;margin-left:auto">
-        <input type="checkbox" id="bsop-show-archived" onchange="buildBranchSOPTable()" /> Show Archived
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--g4);cursor:pointer;margin-left:auto" title="Includes SOPs whose linked Build is set to Inactive">
+        <input type="checkbox" id="bsop-show-archived" onchange="buildBranchSOPTable()" /> Show Archived / Discontinued
       </label>
     </div>
     <div id="bsop-filter-chips" style="display:none;flex-wrap:wrap;gap:6px;align-items:center;margin:-6px 0 12px 0;font-size:12px"></div>
@@ -25721,12 +25721,16 @@ function buildBranchSOPTable() {
   const statusMap = {approved:'badge-approved',review:'badge-review',draft:'badge-draft',archived:'badge-draft'};
   const statusLabel = {approved:'Approved',review:'In Review',draft:'Draft',archived:'Archived'};
   var archivedCount = 0;
+  var discontinuedCount = 0;
   var visibleCount = 0;
   BRANCH_SOPS.forEach(sop => {
-    if (sop.archived) { archivedCount++; if (!showArchived) return; }
-    visibleCount++;
     var linkedBuild = sop.buildRef ? BUILDS_DATA.find(function(x){return x.id===sop.buildRef}) : null;
     var buildDiscontinued = linkedBuild && getBuildLaunch(linkedBuild) === 'inactive';
+    if (sop.archived) archivedCount++;
+    if (buildDiscontinued && !sop.archived) discontinuedCount++;
+    // Hide archived AND discontinued unless "Show Archived" is on
+    if ((sop.archived || buildDiscontinued) && !showArchived) return;
+    visibleCount++;
     const tr = document.createElement('tr');
     tr.style.cursor = 'pointer';
     if (buildDiscontinued || sop.archived) tr.style.opacity = '0.5';
@@ -25764,7 +25768,12 @@ function buildBranchSOPTable() {
   const countEl = document.getElementById('bsop-count-label');
   if (countEl) countEl.textContent = visibleCount + ' SOPs';
   const archivedLabel = document.getElementById('bsop-archived-label');
-  if (archivedLabel) archivedLabel.textContent = archivedCount ? '(' + archivedCount + ' archived)' : '';
+  if (archivedLabel) {
+    var bits = [];
+    if (archivedCount) bits.push(archivedCount + ' archived');
+    if (discontinuedCount) bits.push(discontinuedCount + ' discontinued');
+    archivedLabel.textContent = bits.length ? '(' + bits.join(' · ') + ')' : '';
+  }
   // Restore persisted filter selections (search + brand + status + showArchived).
   if (typeof _loadBsopFilters === 'function') _loadBsopFilters();
   // Reapply active search/brand filter after rebuild — otherwise the dropdown shows e.g. "Maestro" but Mad rows appear.
