@@ -11979,6 +11979,8 @@ function viewRecipe(npd) {
       </div>
     </div>
 
+    ${_renderProcessAidsCard(r)}
+
     <!-- Food Cost -->
     ${(function(){
       var _diag = _calcIngCostDiag(r);
@@ -15576,6 +15578,92 @@ function _removeLinkedSop(parentNpd, refNpd) {
   showSaveToast('SOP unlinked');
   logActivity('sop','🔗','Unlinked SOP: '+refNpd+' ← '+parentNpd, parentNpd);
   if (typeof exportToSOP === 'function') exportToSOP(parentNpd);
+}
+
+// ─── Process Aids (dusting, rework, releaser, brine, etc.) ────────────────
+// Tracked separately from ingredients — consumed during production but not
+// part of the formulation. Cost rolls into total but excluded from %, composite
+// roll-up, allergens, and yield.
+function _renderProcessAidsCard(r) {
+  var aids = Array.isArray(r.processAids) ? r.processAids : [];
+  var canEdit = false;
+  try { var role = (typeof getCurrentUserRole === 'function') ? getCurrentUserRole() : 'viewer';
+        canEdit = ['admin','npd'].indexOf(role) !== -1; } catch(_){}
+  var totalCost = aids.reduce(function(s,a){ return s + (parseFloat(a.costPerBatch)||0); }, 0);
+  return `
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-head">
+        <span class="card-title">⚙️ Process Aids</span>
+        <span style="font-size:11px;color:var(--g3);margin-right:auto;margin-left:10px">Dusting, rework, releaser, brine — consumed in production, not in formulation</span>
+        ${canEdit ? `<button class="btn btn-outline btn-sm" onclick="addProcessAid('${r.npd}')">+ Add Process Aid</button>` : ''}
+      </div>
+      <div class="card-body" style="padding:0">
+        ${aids.length ? `
+        <table class="data-table">
+          <thead><tr><th>Name</th><th>ERP Code</th><th style="text-align:right">Qty / Batch</th><th>Unit</th><th style="text-align:right">Cost / Batch (SAR)</th><th>Note</th>${canEdit ? '<th></th>' : ''}</tr></thead>
+          <tbody>
+            ${aids.map(function(a,idx){
+              var nameAttr = canEdit ? `contenteditable="true" onblur="editProcessAid('${r.npd}',${idx},'name',this.textContent.trim())"` : '';
+              var erpAttr  = canEdit ? `contenteditable="true" onblur="editProcessAid('${r.npd}',${idx},'erpCode',this.textContent.trim())"` : '';
+              var qtyAttr  = canEdit ? `contenteditable="true" onblur="editProcessAid('${r.npd}',${idx},'qty',this.textContent.trim())"` : '';
+              var unitAttr = canEdit ? `contenteditable="true" onblur="editProcessAid('${r.npd}',${idx},'unit',this.textContent.trim())"` : '';
+              var costAttr = canEdit ? `contenteditable="true" onblur="editProcessAid('${r.npd}',${idx},'costPerBatch',this.textContent.trim())"` : '';
+              var noteAttr = canEdit ? `contenteditable="true" onblur="editProcessAid('${r.npd}',${idx},'note',this.textContent.trim())"` : '';
+              return `<tr>
+                <td><strong ${nameAttr}>${esc(a.name||'')}</strong></td>
+                <td style="font-family:var(--font-m);font-size:11px;color:var(--g4)" ${erpAttr}>${esc(a.erpCode||'')}</td>
+                <td style="text-align:right;font-family:var(--font-m);font-size:12px" ${qtyAttr}>${esc(a.qty!=null?String(a.qty):'')}</td>
+                <td style="font-size:12px;color:var(--g4)" ${unitAttr}>${esc(a.unit||'')}</td>
+                <td style="text-align:right;font-family:var(--font-m);font-size:12px;color:var(--sage)" ${costAttr}>${esc(a.costPerBatch!=null?String(a.costPerBatch):'')}</td>
+                <td style="font-size:12px;color:var(--g4)" ${noteAttr}>${esc(a.note||'')}</td>
+                ${canEdit ? `<td><button class="btn btn-danger-sm" onclick="removeProcessAid('${r.npd}',${idx})" title="Remove">✕</button></td>` : ''}
+              </tr>`;
+            }).join('')}
+            <tr style="background:var(--g1)"><td colspan="4" style="text-align:right;font-weight:500;color:var(--g4)">Process aids subtotal</td><td style="text-align:right;font-family:var(--font-m);font-weight:600;color:var(--sage)">SAR ${totalCost.toFixed(2)}</td><td colspan="${canEdit ? 2 : 1}"></td></tr>
+          </tbody>
+        </table>
+        ` : `<div style="padding:20px;text-align:center;color:var(--g3);font-size:13px;font-style:italic">No process aids tracked. ${canEdit ? 'Click <strong>+ Add Process Aid</strong> for items like dusting flour, rework dough, releaser, brine.' : ''}</div>`}
+      </div>
+    </div>
+  `;
+}
+
+function addProcessAid(npd) {
+  var r = RECIPE_DB[npd]; if (!r) return;
+  if (!Array.isArray(r.processAids)) r.processAids = [];
+  r.processAids.push({ name:'', erpCode:'', qty:null, unit:'g', costPerBatch:null, note:'' });
+  r.updatedAt = new Date().toISOString();
+  saveRecipeToServer(npd);
+  showSaveToast('Process aid added');
+  logActivity('recipe','⚙️','Added a process aid to '+r.name, npd);
+  viewRecipe(npd);
+}
+
+function editProcessAid(npd, idx, field, value) {
+  var r = RECIPE_DB[npd]; if (!r || !Array.isArray(r.processAids) || !r.processAids[idx]) return;
+  var aid = r.processAids[idx];
+  var old = aid[field];
+  if (field === 'qty' || field === 'costPerBatch') {
+    var n = parseFloat(value);
+    aid[field] = isNaN(n) ? null : n;
+  } else {
+    aid[field] = value;
+  }
+  if (String(old) === String(aid[field])) return;
+  r.updatedAt = new Date().toISOString();
+  saveRecipeToServer(npd);
+}
+
+function removeProcessAid(npd, idx) {
+  var r = RECIPE_DB[npd]; if (!r || !Array.isArray(r.processAids) || !r.processAids[idx]) return;
+  var nm = r.processAids[idx].name || '(unnamed)';
+  if (!confirm('Remove process aid "' + nm + '"?')) return;
+  r.processAids.splice(idx, 1);
+  r.updatedAt = new Date().toISOString();
+  saveRecipeToServer(npd);
+  showSaveToast('Process aid removed');
+  logActivity('recipe','⚙️','Removed a process aid from '+r.name, npd);
+  viewRecipe(npd);
 }
 
 function exportToSOP(npd) {
