@@ -25847,6 +25847,26 @@ function _bsopBulkSetStatus(status) {
   logActivity('sop', '📋', 'Bulk set ' + n + ' Branch SOP' + (n===1?'':'s') + ' to ' + label, '');
 }
 
+// Toggle the linked Build's launchStatus from inside a Branch SOP detail.
+// Warns about cascading effect on other SOPs that share the same Build.
+function _bsopSetLinkedBuildLaunch(sopId, value) {
+  var sop = BRANCH_SOPS.find(function(s){ return s.id === sopId; });
+  if (!sop || !sop.buildRef) return;
+  var b = BUILDS_DATA.find(function(x){ return x.id === sop.buildRef; });
+  if (!b) { showSaveToast('Linked Build not found', true); return; }
+  var current = getBuildLaunch(b);
+  if (current === value) return;
+  // How many other SOPs share this Build?
+  var others = BRANCH_SOPS.filter(function(s){ return s.id !== sopId && s.buildRef === b.id; }).length;
+  var label = ({active:'Active','in-progress':'In Progress',inactive:'Inactive'})[value] || value;
+  var msg = 'Set linked Build "' + b.name + '" (' + b.id + ') to ' + label + '?';
+  if (others) msg += '\n\nThis also affects ' + others + ' other Branch SOP' + (others===1?'':'s') + ' linked to the same Build.';
+  if (!confirm(msg)) return;
+  setBuildLaunch(b.id, value);
+  // Re-render the SOP detail to refresh the discontinued banner + button states.
+  if (typeof viewBranchSOP === 'function') viewBranchSOP(sopId);
+}
+
 function archiveBranchSOP(id) {
   var sop = BRANCH_SOPS.find(function(s) { return s.id === id; });
   if (!sop) return;
@@ -26091,6 +26111,19 @@ function viewBranchSOP(id) {
       <button class="btn btn-gold btn-sm" onclick="editBranchSOP('${sop.id}')">✏️ Edit Steps</button>
       <button class="btn btn-outline btn-sm" onclick="printBranchSOP('${sop.id}')">🖨️ Print</button>
       <button class="btn btn-outline btn-sm" style="color:var(--red)" onclick="downloadBranchSOPPDF('${sop.id}')" title="Download the SOP as a PDF — file lands in Downloads. First click loads the PDF library (~360KB); subsequent clicks instant.">📄 Download PDF</button>
+      <button class="btn btn-outline btn-sm" style="font-size:11px" onclick="archiveBranchSOP('${sop.id}')">${sop.archived ? '↺ Unarchive' : '📦 Archive'}</button>
+      ${(function(){
+        var lb = sop.buildRef ? BUILDS_DATA.find(function(x){return x.id===sop.buildRef}) : null;
+        if (!lb) {
+          return `<button class="btn btn-outline btn-sm" style="font-size:11px;opacity:0.4;cursor:not-allowed" title="No linked Build" disabled>⊘ Set Inactive</button>`;
+        }
+        var launch = getBuildLaunch(lb);
+        if (launch === 'inactive') {
+          return `<button class="btn btn-outline btn-sm" style="font-size:11px" onclick="_bsopSetLinkedBuildLaunch('${sop.id}','active')" title="Linked Build is currently Inactive. Click to set Active.">✓ Set Linked Build Active</button>`;
+        }
+        return `<button class="btn btn-outline btn-sm" style="font-size:11px;color:var(--red)" onclick="_bsopSetLinkedBuildLaunch('${sop.id}','inactive')" title="Sets the linked Build (${lb.id}) to Inactive. This also affects any OTHER SOPs linked to the same Build.">⊘ Set Inactive</button>`;
+      })()}
+      <button class="btn btn-danger-sm" onclick="deleteBranchSOP('${sop.id}')">🗑 Delete</button>
     </div>
     ${(function(){ var lb = sop.buildRef ? BUILDS_DATA.find(function(x){return x.id===sop.buildRef}) : null; return lb && getBuildLaunch(lb)==='inactive' ? '<div style="background:var(--red);color:white;padding:10px 20px;border-radius:var(--r-lg) var(--r-lg) 0 0;font-size:12px;font-weight:600;display:flex;align-items:center;gap:8px"><span style="font-size:16px">⚠</span> This product has been discontinued — the linked build ('+sop.buildRef+') is no longer active</div>' : ''; })()}
     ${(sop.flag && sop.flag.question) ? `<div style="background:#FFF6E5;border:1px solid #F0D8A8;border-radius:var(--r-md);padding:12px 20px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:flex-start;gap:16px">
