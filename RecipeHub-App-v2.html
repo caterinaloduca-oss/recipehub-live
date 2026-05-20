@@ -15609,8 +15609,17 @@ function _renderProcessAidsCard(r) {
               var unitAttr = canEdit ? `contenteditable="true" onblur="editProcessAid('${r.npd}',${idx},'unit',this.textContent.trim())"` : '';
               var costAttr = canEdit ? `contenteditable="true" onblur="editProcessAid('${r.npd}',${idx},'costPerBatch',this.textContent.trim())"` : '';
               var noteAttr = canEdit ? `contenteditable="true" onblur="editProcessAid('${r.npd}',${idx},'note',this.textContent.trim())"` : '';
+              // Source pill: ingredient (🌿) / recipe (🥣 click → open) / custom (✏️)
+              var sourcePill = '';
+              if (a.sourceType === 'recipe' && a.sourceRef) {
+                sourcePill = `<span title="Linked recipe — click to open" onclick="event.stopPropagation();viewRecipe('${(a.sourceRef||'').replace(/'/g,"\\'")}')" style="cursor:pointer;display:inline-block;margin-left:6px;padding:1px 6px;border-radius:4px;background:#FBF3E0;color:var(--gold);font-family:var(--font-m);font-size:10px;font-weight:600;vertical-align:middle">🥣 ${esc(a.sourceRef)}</span>`;
+              } else if (a.sourceType === 'ingredient' && a.erpCode) {
+                sourcePill = `<span title="Linked ingredient (Oracle EBS)" style="display:inline-block;margin-left:6px;padding:1px 6px;border-radius:4px;background:#E7F0E8;color:var(--sage);font-family:var(--font-m);font-size:10px;font-weight:600;vertical-align:middle">🌿</span>`;
+              } else if (a.sourceType === 'custom') {
+                sourcePill = `<span title="Custom row (no link)" style="display:inline-block;margin-left:6px;padding:1px 6px;border-radius:4px;background:var(--g1);color:var(--g4);font-size:10px;font-weight:600;vertical-align:middle">✏️</span>`;
+              }
               return `<tr>
-                <td><strong ${nameAttr}>${esc(a.name||'')}</strong></td>
+                <td><strong ${nameAttr}>${esc(a.name||'')}</strong>${sourcePill}</td>
                 <td style="font-family:var(--font-m);font-size:11px;color:var(--g4)" ${erpAttr}>${esc(a.erpCode||'')}</td>
                 <td style="text-align:right;font-family:var(--font-m);font-size:12px" ${qtyAttr}>${esc(a.qty!=null?String(a.qty):'')}</td>
                 <td style="font-size:12px;color:var(--g4)" ${unitAttr}>${esc(a.unit||'')}</td>
@@ -15629,14 +15638,125 @@ function _renderProcessAidsCard(r) {
 }
 
 function addProcessAid(npd) {
+  // Open the source picker. Picker calls _addProcessAidFromSource() once a row is chosen.
+  _openProcessAidPicker(npd);
+}
+
+// Append a process aid row with a chosen source (or blank custom). Used by the picker.
+function _addProcessAidFromSource(npd, sourceType, payload) {
   var r = RECIPE_DB[npd]; if (!r) return;
   if (!Array.isArray(r.processAids)) r.processAids = [];
-  r.processAids.push({ name:'', erpCode:'', qty:null, unit:'g', costPerBatch:null, note:'' });
+  var entry = { name:'', erpCode:'', qty:null, unit:'g', costPerBatch:null, note:'',
+                sourceType: sourceType || 'custom', sourceRef: '' };
+  if (sourceType === 'ingredient' && payload) {
+    entry.name    = payload.name || '';
+    entry.erpCode = payload.erpCode || '';
+    entry.sourceRef = payload.erpCode || '';
+  } else if (sourceType === 'recipe' && payload) {
+    entry.name    = payload.name || '';
+    entry.erpCode = ''; // recipes don't have an ERP code — sourceRef is the NPD
+    entry.sourceRef = payload.npd || '';
+  }
+  r.processAids.push(entry);
   r.updatedAt = new Date().toISOString();
   saveRecipeToServer(npd);
+  closeModal();
   showSaveToast('Process aid added');
-  logActivity('recipe','⚙️','Added a process aid to '+r.name, npd);
+  logActivity('recipe','⚙️','Added process aid "'+(entry.name||'(unnamed)')+'" to '+r.name, npd);
   viewRecipe(npd);
+}
+
+// Picker modal: choose Ingredient / Recipe / Custom source for the new process aid.
+function _openProcessAidPicker(npd) {
+  var r = RECIPE_DB[npd]; if (!r) return;
+  window._paProcessParent = npd;
+  openModal(
+    '<div class="card-head" style="background:var(--navy);border-radius:16px 16px 0 0">' +
+      '<span class="card-title" style="color:white">⚙️ Add Process Aid</span>' +
+      '<button class="btn btn-sm" style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:none" onclick="closeModal()">✕</button>' +
+    '</div>' +
+    '<div class="card-body" style="padding:20px">' +
+      '<div style="font-size:12px;color:var(--g4);margin-bottom:10px">Pick from Ingredients DB, link to another Recipe, or add a custom row.</div>' +
+      '<div id="pa-tabs" style="display:flex;gap:0;border-bottom:1px solid var(--g2);margin-bottom:12px">' +
+        '<button class="btn btn-sm" id="pa-tab-ing" onclick="_paSwitchTab(\'ing\')" style="border-radius:8px 8px 0 0;border:1px solid var(--g2);border-bottom:none;background:var(--navy);color:white">🌿 Ingredient</button>' +
+        '<button class="btn btn-sm" id="pa-tab-rec" onclick="_paSwitchTab(\'rec\')" style="border-radius:8px 8px 0 0;border:1px solid var(--g2);border-bottom:none;background:white;color:var(--g4)">🥣 Recipe</button>' +
+        '<button class="btn btn-sm" id="pa-tab-cust" onclick="_paSwitchTab(\'cust\')" style="border-radius:8px 8px 0 0;border:1px solid var(--g2);border-bottom:none;background:white;color:var(--g4)">✏️ Custom</button>' +
+      '</div>' +
+      '<input id="pa-search" class="form-input" placeholder="Search by name / ERP / NPD…" oninput="_paRenderRows(this.value)" style="margin-bottom:12px" />' +
+      '<div id="pa-rows" style="max-height:55vh;overflow:auto"></div>' +
+    '</div>'
+  );
+  window._paActiveTab = 'ing';
+  _paRenderRows('');
+  var inp = document.getElementById('pa-search'); if (inp) inp.focus();
+}
+
+function _paSwitchTab(tab) {
+  window._paActiveTab = tab;
+  ['ing','rec','cust'].forEach(function(t){
+    var el = document.getElementById('pa-tab-'+t);
+    if (!el) return;
+    var on = (t === tab);
+    el.style.background = on ? 'var(--navy)' : 'white';
+    el.style.color = on ? 'white' : 'var(--g4)';
+  });
+  var inp = document.getElementById('pa-search');
+  if (inp) inp.placeholder = tab === 'cust' ? '(Custom — type the name and click Add)' : 'Search by name / ERP / NPD…';
+  _paRenderRows(inp ? inp.value : '');
+}
+
+function _paRenderRows(filter) {
+  var rows = document.getElementById('pa-rows'); if (!rows) return;
+  var npd = window._paProcessParent;
+  var tab = window._paActiveTab || 'ing';
+  var q = (filter||'').trim().toLowerCase();
+  if (tab === 'cust') {
+    var custName = filter || '';
+    rows.innerHTML = '<div style="padding:20px;text-align:center;color:var(--g4);font-size:13px">' +
+      '<div style="font-size:32px;margin-bottom:8px">✏️</div>' +
+      'Custom process aid <strong>"' + esc(custName || '(unnamed)') + '"</strong><br>' +
+      '<button class="btn btn-gold btn-sm" style="margin-top:14px" onclick="_addProcessAidFromSource(\''+npd+'\',\'custom\',{name:document.getElementById(\'pa-search\').value.trim()})">+ Add Custom Row</button>' +
+      '</div>';
+    return;
+  }
+  if (tab === 'ing') {
+    var candidates = (typeof ING_DATA !== 'undefined' ? ING_DATA : []).filter(function(row){
+      if (!row || !row[1]) return false;
+      if (!q) return true;
+      var nm = (row[1]||'').toLowerCase();
+      var ec = (row[3]||'').toLowerCase();
+      return nm.indexOf(q) !== -1 || ec.indexOf(q) !== -1;
+    }).slice(0,200);
+    if (!candidates.length) { rows.innerHTML = '<div style="padding:20px;text-align:center;color:var(--g3);font-size:13px">No matching ingredients.</div>'; return; }
+    rows.innerHTML = '<table class="data-table" style="width:100%"><thead><tr><th>Name</th><th>ERP Code</th><th>Cost/kg</th><th></th></tr></thead><tbody>' +
+      candidates.map(function(row){
+        var nm = (row[1]||'').replace(/"/g,'&quot;').replace(/'/g,"\\'");
+        var ec = (row[3]||'').replace(/"/g,'&quot;').replace(/'/g,"\\'");
+        var cp = row[5] != null ? row[5] : '';
+        return '<tr><td><strong>'+esc(row[1]||'')+'</strong></td>' +
+               '<td style="font-family:var(--font-m);font-size:11px;color:var(--g4)">'+esc(row[3]||'')+'</td>' +
+               '<td style="font-family:var(--font-m);font-size:11px">'+esc(String(cp))+'</td>' +
+               '<td><button class="btn btn-gold btn-sm" onclick="_addProcessAidFromSource(\''+npd+'\',\'ingredient\',{name:\''+nm+'\',erpCode:\''+ec+'\'})">+ Pick</button></td></tr>';
+      }).join('') + '</tbody></table>';
+    return;
+  }
+  // Recipe tab
+  var rs = Object.values(RECIPE_DB).filter(function(c){
+    if (!c || !c.npd) return false;
+    if (!q) return true;
+    return (c.name||'').toLowerCase().indexOf(q) !== -1 ||
+           (c.npd||'').toLowerCase().indexOf(q) !== -1 ||
+           (c.brand||'').toLowerCase().indexOf(q) !== -1;
+  }).sort(function(a,b){ return (a.name||'').localeCompare(b.name||''); }).slice(0,200);
+  if (!rs.length) { rows.innerHTML = '<div style="padding:20px;text-align:center;color:var(--g3);font-size:13px">No matching recipes.</div>'; return; }
+  rows.innerHTML = '<table class="data-table" style="width:100%"><thead><tr><th>Name</th><th>NPD</th><th>Brand</th><th></th></tr></thead><tbody>' +
+    rs.map(function(c){
+      var nm = (c.name||'').replace(/"/g,'&quot;').replace(/'/g,"\\'");
+      return '<tr><td><strong>'+esc(c.name||'')+'</strong></td>' +
+             '<td style="font-family:var(--font-m);font-size:11px;color:var(--g4)">'+esc(c.npd)+'</td>' +
+             '<td style="font-size:12px">'+esc(c.brand||'')+'</td>' +
+             '<td><button class="btn btn-gold btn-sm" onclick="_addProcessAidFromSource(\''+npd+'\',\'recipe\',{name:\''+nm+'\',npd:\''+c.npd+'\'})">+ Pick</button></td></tr>';
+    }).join('') + '</tbody></table>';
 }
 
 function editProcessAid(npd, idx, field, value) {
