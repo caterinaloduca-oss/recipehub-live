@@ -21969,8 +21969,12 @@ function buildBuildsTable() {
     var _nameTag = _launch === 'inactive'
       ? ' <span style="font-size:10px;color:var(--red);font-weight:500">INACTIVE</span>'
       : (_launch === 'in-progress' ? ' <span style="font-size:10px;color:#B8820A;font-weight:500">IN PROGRESS</span>' : '');
+    var _buildFlagPin = (b.flag && b.flag.question)
+      ? ' <span style="font-size:13px;margin-left:4px;cursor:help" title="Flagged: ' + (b.flag.question||'').replace(/"/g,'&quot;').replace(/</g,'&lt;') + '">🚩</span>'
+      : '';
+    tr.dataset.flag = (b.flag && b.flag.question) ? '1' : '0';
     tr.innerHTML = `
-      <td><strong>${b.name}</strong>${_nameTag}${b.archived ? ' <span style="font-size:10px;color:var(--g3);font-weight:500">ARCHIVED</span>' : ''}${(b.tags&&b.tags.length)?'<div style="margin-top:3px">'+renderTagBadges(b.tags)+'</div>':''}</td>
+      <td><strong>${b.name}</strong>${_buildFlagPin}${_nameTag}${b.archived ? ' <span style="font-size:10px;color:var(--g3);font-weight:500">ARCHIVED</span>' : ''}${(b.tags&&b.tags.length)?'<div style="margin-top:3px">'+renderTagBadges(b.tags)+'</div>':''}</td>
       <td style="font-family:var(--font-m);font-size:12px;color:var(--g3)">${b.id}</td>
       <td>${b.brand}</td>
       <td><span class="cat-tag">${b.type || 'Other'}</span></td>
@@ -22195,6 +22199,13 @@ function viewBuild(id) {
           + '</div>';
       })()}
     </div>
+    ${(b.flag && b.flag.question) ? `<div style="background:#FFF6E5;border:1px solid #F0D8A8;border-radius:var(--r-md);padding:12px 20px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:flex-start;gap:16px">
+      <div style="flex:1">
+        <div style="font-size:10px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:#A35400;margin-bottom:4px">🚩 Build Flagged</div>
+        <div style="font-size:13px;color:var(--navy);line-height:1.5;white-space:pre-wrap">${(b.flag.question||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+        <div style="font-size:11px;color:var(--g4);margin-top:4px">Flagged by ${esc(b.flag.askedBy || 'R&D')}${b.flag.askedAt ? ' on ' + esc(b.flag.askedAt.slice(0,10)) : ''}</div>
+      </div>
+    </div>` : ''}
     <div class="card" style="overflow:hidden;margin-bottom:20px">
       <div style="background:var(--navy);padding:24px 28px;display:flex;justify-content:space-between;align-items:flex-start">
         <div>
