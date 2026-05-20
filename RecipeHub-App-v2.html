@@ -15422,6 +15422,60 @@ function deleteStandardBlock(i) {
   openStandardBlocksLibrary();
 }
 
+// For composite recipes, return list of sub-recipes that have an SOP — for the
+// "Related SOPs" panel on the Factory SOP page.
+function _getLinkedSopRefs(r) {
+  if (!r) return [];
+  var refs = [];
+  // Auto-derive from composite components.
+  if (r.recipeKind === 'composite' && Array.isArray(r.components)) {
+    r.components.forEach(function(c) {
+      if (!c || !c.subNpd) return;
+      var sub = RECIPE_DB[c.subNpd];
+      if (!sub) return;
+      var hasSteps  = Array.isArray(sub.sopSteps) && sub.sopSteps.length > 0;
+      var hasLegacy = Array.isArray(sub.factorySopArchive) && sub.factorySopArchive.length > 0;
+      if (!hasSteps && !hasLegacy) return;
+      refs.push({ npd: c.subNpd, name: sub.name || c.subNpd, hasSteps: hasSteps, hasLegacy: hasLegacy, source: 'component' });
+    });
+  }
+  // Manually added refs (future-proofing — picker not built yet, but field is reserved).
+  if (Array.isArray(r.linkedSopRefs)) {
+    r.linkedSopRefs.forEach(function(refNpd) {
+      if (refs.some(function(x){ return x.npd === refNpd; })) return; // already auto-derived
+      var sub = RECIPE_DB[refNpd];
+      if (!sub) return;
+      var hasSteps  = Array.isArray(sub.sopSteps) && sub.sopSteps.length > 0;
+      var hasLegacy = Array.isArray(sub.factorySopArchive) && sub.factorySopArchive.length > 0;
+      refs.push({ npd: refNpd, name: sub.name || refNpd, hasSteps: hasSteps, hasLegacy: hasLegacy, source: 'manual' });
+    });
+  }
+  return refs;
+}
+
+function _renderRelatedSopsPanel(r) {
+  var refs = _getLinkedSopRefs(r);
+  if (!refs.length) return '';
+  return `
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-head">
+        <span class="card-title">🔗 Related SOPs</span>
+        <span style="font-size:11px;color:var(--g3)">${r.recipeKind === 'composite' ? 'Sub-recipes used in this composite' : 'Linked SOPs'}</span>
+      </div>
+      <div class="card-body" style="padding:16px 24px;display:flex;flex-wrap:wrap;gap:8px">
+        ${refs.map(function(l){
+          return `<button class="btn btn-outline btn-sm" onclick="exportToSOP('${l.npd}')" title="Open ${esc(l.name)} SOP" style="display:inline-flex;align-items:center;gap:6px;text-align:left">
+            <span style="font-size:14px">📋</span>
+            <span style="font-family:var(--font-m);font-size:11px;color:var(--g4)">${l.npd}</span>
+            <span style="font-size:12px;font-weight:500">${esc(l.name)}</span>
+            ${l.hasLegacy ? '<span style="font-size:10px;color:var(--amber)" title="Has Legacy SOP attached">📄</span>' : ''}
+          </button>`;
+        }).join('')}
+      </div>
+    </div>
+  `;
+}
+
 function exportToSOP(npd) {
   // Viewing the SOP detail is open to everyone with page access; editing
   // controls inside the detail (Edit Steps, Generate SOP, sign-offs, etc.)
@@ -15538,6 +15592,8 @@ function exportToSOP(npd) {
         <span style="font-size:13px;font-weight:500">${renderBrandChips(r, 'font-size:11px;padding:3px 10px')}</span>
       </div>
     </div>
+
+    ${_renderRelatedSopsPanel(r)}
 
     ${renderPPEStrip()}
     ${renderHazardsStrip(r)}
