@@ -22178,6 +22178,8 @@ function viewBuild(id) {
       <button class="btn btn-outline btn-sm" onclick="editBuildTags('${b.id}')">🏷️ Tags</button>
       <button class="btn btn-outline btn-sm" onclick="printBuild('${b.id}')">🖨️ Print</button>
       <button class="btn btn-outline btn-sm" onclick="downloadBuildPDF('${b.id}')" style="color:var(--red)">📄 PDF</button>
+      <button class="btn btn-outline btn-sm" style="font-size:11px" onclick="archiveBuild('${b.id}');viewBuild('${b.id}')">${b.archived ? '↺ Unarchive' : '📦 Archive'}</button>
+      <button class="btn btn-danger-sm" onclick="deleteBuild('${b.id}')">🗑 Delete</button>
       ${(function(){
         var _existingSOP = BRANCH_SOPS.find(function(s){ return s.buildRef === b.id; });
         return _existingSOP
