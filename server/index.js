@@ -820,7 +820,7 @@ function mergeRecipe(existing, incoming) {
   // These are user/system metadata, not formulation data — implicit-clear via
   // omission is almost always wrong (stale tab posts that don't know about the
   // flag would silently clear it).
-  ['flag','sopFlag','qaFlag','qasFlag','sopApproval','sopStatus','sopVersion','factorySopArchived','importFlags','source','importedAt','fgItemCode','fgDescription','recipeId','tags',
+  ['flag','sopFlag','qaFlag','qasFlag','sopApproval','sopStatus','sopVersion','factorySopArchived','importFlags','source','importedAt','fgItemCode','fgDescription','recipeId','tags','linkedSopRefs',
    // Lifecycle flags — same shape as on mergeBuild. Without these, archiving a
    // recipe and then navigating away (which can trigger a bulk save from a
    // stale tab missing the flag) silently un-archives it on the server. Cate

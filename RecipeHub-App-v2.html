@@ -15455,25 +15455,127 @@ function _getLinkedSopRefs(r) {
 
 function _renderRelatedSopsPanel(r) {
   var refs = _getLinkedSopRefs(r);
-  if (!refs.length) return '';
+  var hint = r.recipeKind === 'composite'
+    ? 'Sub-recipes auto-linked + any manually added'
+    : 'Manually link SOPs from other recipes';
   return `
     <div class="card" style="margin-bottom:20px">
       <div class="card-head">
         <span class="card-title">🔗 Related SOPs</span>
-        <span style="font-size:11px;color:var(--g3)">${r.recipeKind === 'composite' ? 'Sub-recipes used in this composite' : 'Linked SOPs'}</span>
+        <span style="font-size:11px;color:var(--g3);margin-right:auto;margin-left:10px">${hint}</span>
+        <button class="btn btn-outline btn-sm" onclick="_openLinkSopPicker('${r.npd}')">+ Link SOP</button>
       </div>
       <div class="card-body" style="padding:16px 24px;display:flex;flex-wrap:wrap;gap:8px">
-        ${refs.map(function(l){
-          return `<button class="btn btn-outline btn-sm" onclick="exportToSOP('${l.npd}')" title="Open ${esc(l.name)} SOP" style="display:inline-flex;align-items:center;gap:6px;text-align:left">
-            <span style="font-size:14px">📋</span>
-            <span style="font-family:var(--font-m);font-size:11px;color:var(--g4)">${l.npd}</span>
-            <span style="font-size:12px;font-weight:500">${esc(l.name)}</span>
-            ${l.hasLegacy ? '<span style="font-size:10px;color:var(--amber)" title="Has Legacy SOP attached">📄</span>' : ''}
-          </button>`;
-        }).join('')}
+        ${refs.length ? refs.map(function(l){
+          var removable = l.source === 'manual';
+          return `<div style="display:inline-flex;align-items:center;gap:0">
+            <button class="btn btn-outline btn-sm" onclick="exportToSOP('${l.npd}')" title="Open ${esc(l.name)} SOP" style="display:inline-flex;align-items:center;gap:6px;text-align:left;${removable?'border-top-right-radius:0;border-bottom-right-radius:0;border-right:none':''}">
+              <span style="font-size:14px">📋</span>
+              <span style="font-family:var(--font-m);font-size:11px;color:var(--g4)">${l.npd}</span>
+              <span style="font-size:12px;font-weight:500">${esc(l.name)}</span>
+              ${l.hasLegacy ? '<span style="font-size:10px;color:var(--amber)" title="Has Legacy SOP attached">📄</span>' : ''}
+              ${l.source === 'component' ? '<span style="font-size:9px;color:var(--g3);background:var(--g1);padding:1px 5px;border-radius:8px;font-weight:500">sub-recipe</span>' : ''}
+            </button>
+            ${removable ? `<button class="btn btn-outline btn-sm" onclick="_removeLinkedSop('${r.npd}','${l.npd}')" title="Remove this manual link" style="border-top-left-radius:0;border-bottom-left-radius:0;padding:4px 8px;color:var(--red)">✕</button>` : ''}
+          </div>`;
+        }).join('') : '<div style="color:var(--g4);font-size:12px;font-style:italic;padding:6px 0">No related SOPs linked yet. Click <strong>+ Link SOP</strong> above to attach one.</div>'}
       </div>
     </div>
   `;
+}
+
+// ─── Manual SOP-link picker ────────────────────────────────────────────────
+function _openLinkSopPicker(npd) {
+  var r = RECIPE_DB[npd];
+  if (!r) return;
+  var existing = new Set(_getLinkedSopRefs(r).map(function(x){ return x.npd; }));
+  existing.add(npd); // can't link to self
+  var candidates = Object.values(RECIPE_DB).filter(function(c){
+    if (!c || !c.npd || existing.has(c.npd)) return false;
+    var hasSteps  = Array.isArray(c.sopSteps) && c.sopSteps.length > 0;
+    var hasLegacy = Array.isArray(c.factorySopArchive) && c.factorySopArchive.length > 0;
+    return hasSteps || hasLegacy;
+  }).sort(function(a,b){
+    return (a.brand||'').localeCompare(b.brand||'') ||
+           (a.name||'').localeCompare(b.name||'');
+  });
+  // Stash on window so the inline search handler can re-render without closure tricks.
+  window._linkSopParent = npd;
+  window._linkSopCandidates = candidates;
+  openModal(
+    '<div class="card-head" style="background:var(--navy);border-radius:16px 16px 0 0">' +
+      '<span class="card-title" style="color:white">🔗 Link a Related SOP</span>' +
+      '<button class="btn btn-sm" style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:none" onclick="closeModal()">✕</button>' +
+    '</div>' +
+    '<div class="card-body" style="padding:20px">' +
+      '<div style="font-size:12px;color:var(--g4);margin-bottom:10px">Attach an SOP from another recipe to <strong>' + esc(r.name || npd) + '</strong>. Only recipes with their own SOP or a Legacy SOP appear.</div>' +
+      '<input id="link-sop-search" class="form-input" placeholder="Search by name / NPD / brand…" oninput="_linkSopRenderRows(this.value)" style="margin-bottom:12px" />' +
+      '<div id="link-sop-rows" style="max-height:60vh;overflow:auto"></div>' +
+    '</div>'
+  );
+  _linkSopRenderRows('');
+  var inp = document.getElementById('link-sop-search');
+  if (inp) inp.focus();
+}
+
+function _linkSopRenderRows(filter) {
+  var rows = document.getElementById('link-sop-rows');
+  if (!rows) return;
+  var parent = window._linkSopParent;
+  var candidates = window._linkSopCandidates || [];
+  var q = (filter||'').trim().toLowerCase();
+  var filtered = !q ? candidates : candidates.filter(function(c){
+    return (c.name||'').toLowerCase().indexOf(q) !== -1 ||
+           (c.npd||'').toLowerCase().indexOf(q) !== -1 ||
+           (c.brand||'').toLowerCase().indexOf(q) !== -1;
+  });
+  if (!filtered.length) {
+    rows.innerHTML = '<div style="padding:20px;text-align:center;color:var(--g3);font-size:13px">No matching recipes with an SOP.</div>';
+    return;
+  }
+  rows.innerHTML = '<table class="data-table" style="width:100%">' +
+    '<thead><tr><th>Name</th><th>NPD</th><th>Brand</th><th style="text-align:center">SOP</th><th></th></tr></thead><tbody>' +
+    filtered.slice(0,200).map(function(c){
+      var hasSteps  = Array.isArray(c.sopSteps) && c.sopSteps.length > 0;
+      var hasLegacy = Array.isArray(c.factorySopArchive) && c.factorySopArchive.length > 0;
+      var marks = [];
+      if (hasSteps)  marks.push('<span title="Has authored SOP steps">📋</span>');
+      if (hasLegacy) marks.push('<span title="Has Legacy SOP PDF">📄</span>');
+      return '<tr><td><strong>'+esc(c.name||'')+'</strong></td>' +
+             '<td style="font-family:var(--font-m);font-size:11px;color:var(--g4)">'+esc(c.npd)+'</td>' +
+             '<td style="font-size:12px">'+esc(c.brand||'')+'</td>' +
+             '<td style="text-align:center;font-size:14px">'+marks.join(' ')+'</td>' +
+             '<td><button class="btn btn-gold btn-sm" onclick="_addLinkedSop(\''+parent+'\',\''+c.npd+'\')">+ Link</button></td></tr>';
+    }).join('') +
+    (filtered.length>200 ? '<tr><td colspan="5" style="text-align:center;font-size:11px;color:var(--g3);padding:10px">Showing first 200 of '+filtered.length+'. Use search to narrow.</td></tr>' : '') +
+    '</tbody></table>';
+}
+
+function _addLinkedSop(parentNpd, refNpd) {
+  var r = RECIPE_DB[parentNpd];
+  if (!r) return;
+  if (!Array.isArray(r.linkedSopRefs)) r.linkedSopRefs = [];
+  if (r.linkedSopRefs.indexOf(refNpd) !== -1) { closeModal(); showSaveToast('Already linked'); return; }
+  r.linkedSopRefs.push(refNpd);
+  r.updatedAt = new Date().toISOString();
+  saveRecipeToServer(parentNpd);
+  closeModal();
+  showSaveToast('SOP linked');
+  logActivity('sop','🔗','Linked SOP: '+refNpd+' → '+parentNpd, parentNpd);
+  // Re-render the SOP page to show the new chip
+  if (typeof exportToSOP === 'function') exportToSOP(parentNpd);
+}
+
+function _removeLinkedSop(parentNpd, refNpd) {
+  var r = RECIPE_DB[parentNpd];
+  if (!r || !Array.isArray(r.linkedSopRefs)) return;
+  if (!confirm('Remove this linked SOP?')) return;
+  r.linkedSopRefs = r.linkedSopRefs.filter(function(x){ return x !== refNpd; });
+  r.updatedAt = new Date().toISOString();
+  saveRecipeToServer(parentNpd);
+  showSaveToast('SOP unlinked');
+  logActivity('sop','🔗','Unlinked SOP: '+refNpd+' ← '+parentNpd, parentNpd);
+  if (typeof exportToSOP === 'function') exportToSOP(parentNpd);
 }
 
 function exportToSOP(npd) {
