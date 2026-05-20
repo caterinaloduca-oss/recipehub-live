@@ -3530,6 +3530,47 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
 #tour-overlay .tour-btn-skip { color:#5A5650; border-color:transparent; }
 #tour-overlay .tour-btn:hover { filter:brightness(1.06); }
 </style>
+
+<!-- PRINT PREVIEW LAB — dev tool to compare print modes side-by-side -->
+<div id="page-print-test" class="page-hidden">
+  <div style="background:var(--navy);color:white;padding:14px 20px;border-radius:12px;margin-bottom:14px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+    <div style="font-family:var(--font-d);font-size:18px;font-weight:700">🖨 Print Preview Lab</div>
+    <div style="font-size:11px;color:rgba(255,255,255,0.7)">Iterate on print rendering without going through the print overlay each time. Composite-only modes only show extra previews when the recipe has resolvable sub-recipes.</div>
+  </div>
+
+  <div class="filter-bar" style="flex-wrap:wrap">
+    <div class="search-wrap" style="flex:1;min-width:220px">
+      <span class="search-icon">⌕</span>
+      <input class="search-input" placeholder="Type to filter recipes…" id="ptest-search" oninput="_ptestPopulate(this.value)" />
+    </div>
+    <select class="filter-select" id="ptest-recipe" onchange="_ptestRefresh()" style="min-width:280px"></select>
+    <button class="btn btn-outline btn-sm" onclick="_ptestRefresh()">↻ Re-render</button>
+  </div>
+
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-head"><span class="card-title">Modes to preview</span></div>
+    <div class="card-body" style="padding:12px 16px;display:flex;flex-wrap:wrap;gap:14px;font-size:12px">
+      <label><input type="checkbox" id="ptest-mode-kitchen"      onchange="_ptestRefresh()" checked> 🍳 Kitchen</label>
+      <label><input type="checkbox" id="ptest-mode-factory"      onchange="_ptestRefresh()" checked> 🏭 Factory</label>
+      <label><input type="checkbox" id="ptest-mode-factory-text" onchange="_ptestRefresh()"> 📝 Factory (text)</label>
+      <label><input type="checkbox" id="ptest-mode-batch"        onchange="_ptestRefresh()"> ⚖️ Batch ticket</label>
+      <label><input type="checkbox" id="ptest-mode-cover"        onchange="_ptestRefresh()"> 🗂 Cover</label>
+      <label><input type="checkbox" id="ptest-mode-annexure"     onchange="_ptestRefresh()"> 📑 Annexure</label>
+      <label><input type="checkbox" id="ptest-mode-sop-only"     onchange="_ptestRefresh()"> 📋 SOP only</label>
+      <label><input type="checkbox" id="ptest-mode-full"         onchange="_ptestRefresh()"> 📘 Full</label>
+      <label><input type="checkbox" id="ptest-mode-flowchart"    onchange="_ptestRefresh()"> 🔀 Flowchart</label>
+      <label><input type="checkbox" id="ptest-mode-qas"          onchange="_ptestRefresh()"> 👁 QAS</label>
+      <span style="border-left:1px solid var(--g2);padding-left:14px;margin-left:0;font-weight:600">Composite bundles:</span>
+      <label><input type="checkbox" id="ptest-mode-kitchen-with-subs"  onchange="_ptestRefresh()" checked> 🧩 Kitchen + subs</label>
+      <label><input type="checkbox" id="ptest-mode-factory-with-subs"  onchange="_ptestRefresh()" checked> 🧩 Factory + subs</label>
+      <label><input type="checkbox" id="ptest-mode-subs-only-kitchen"  onchange="_ptestRefresh()"> 🔢 Subs only (K)</label>
+      <label><input type="checkbox" id="ptest-mode-subs-only-factory"  onchange="_ptestRefresh()"> 🔢 Subs only (F)</label>
+    </div>
+  </div>
+
+  <div id="ptest-canvas" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(540px, 1fr));gap:18px;align-items:start"></div>
+</div>
+
 <div id="page-training" class="page-hidden">
   <!-- Hero -->
   <div style="background:linear-gradient(135deg,var(--navy) 0%,#1f3559 100%);color:white;border-radius:20px;padding:30px 34px;margin-bottom:22px;position:relative;overflow:hidden">
@@ -8336,7 +8377,7 @@ function applyRoleRestrictions() {
 
   // Strip action buttons from pages this role CANNOT edit
   stripPageActions('page-users');
-  var allPages = ['page-dashboard','page-recipes','page-recipe-detail','page-ingredients','page-qa','page-qas','page-sop','page-branch-sop','page-production','page-substitutions','page-builds','page-brands','page-builds-costing','page-cost-control','page-reports','page-comms','page-library','page-pictures','page-training','page-audit-log','page-inspector'];
+  var allPages = ['page-dashboard','page-recipes','page-recipe-detail','page-ingredients','page-qa','page-qas','page-sop','page-branch-sop','page-production','page-substitutions','page-builds','page-brands','page-builds-costing','page-cost-control','page-reports','page-comms','page-library','page-pictures','page-training','page-audit-log','page-inspector','page-print-test'];
   allPages.forEach(function(pid) {
     var pageId = pid.replace('page-','');
     if (allowed.indexOf(pageId) === -1) stripPageActions(pid);
@@ -8877,6 +8918,7 @@ function nav(id) {
     else if (id === 'ingredients') { buildIngTable(); filterIngredients(); }
     else if (id === 'users') { var ut = document.getElementById('users-tbody'); if (ut) { ut.innerHTML = ''; buildUsersTable(); } var pt = document.getElementById('pending-tbody'); if (pt) { pt.innerHTML = ''; buildPendingTable(); } }
     else if (id === 'builds') { closeBuildDetail(); buildBuildsTable(); }
+    else if (id === 'print-test') { if (typeof _ptestPopulate === 'function') _ptestPopulate(''); }
     else if (id === 'qas') { qasBackToLanding(); renderQasLanding(); }
     else if (id === 'production') { buildProductionTable(); }
     else if (id === 'substitutions') { var d = document.getElementById('sub-request-detail'); if (d) d.style.display = 'none'; var f = document.getElementById('sub-request-form'); if (f) f.style.display = 'none'; buildSubRequestList(); updateSubBadge(); var btn = document.getElementById('sub-new-btn-inline'); if (btn) btn.style.display = (typeof _subCanCreate==='function' && _subCanCreate()) ? '' : 'none'; }
@@ -10465,6 +10507,115 @@ function openPrint(npd, mode) {
   document.getElementById('print-overlay').classList.add('active');
   document.body.classList.add('print-active');
   document.body.style.overflow = 'hidden';
+}
+
+// ─── Print Preview Lab (page-print-test) ───────────────────────────────────
+// Dev tool to render print modes side-by-side for any recipe without going
+// through the print overlay each time. Composite-only modes are hidden when
+// the current recipe has no resolvable sub-recipes.
+function _ptestPopulate(filter) {
+  var sel = document.getElementById('ptest-recipe');
+  if (!sel) return;
+  var currentVal = sel.value;
+  var f = (filter || '').trim().toLowerCase();
+  var recipes = Object.values(RECIPE_DB).filter(function(r){
+    if (!r || !r.npd) return false;
+    if (!f) return true;
+    return (r.name||'').toLowerCase().indexOf(f) !== -1 ||
+           (r.npd||'').toLowerCase().indexOf(f) !== -1 ||
+           (r.brand||'').toLowerCase().indexOf(f) !== -1;
+  }).sort(function(a,b){
+    // Composites first (most relevant for testing), then alpha.
+    var ac = a.recipeKind === 'composite' ? 0 : 1;
+    var bc = b.recipeKind === 'composite' ? 0 : 1;
+    if (ac !== bc) return ac - bc;
+    return (a.name||'').localeCompare(b.name||'');
+  });
+  sel.innerHTML = recipes.slice(0, 300).map(function(r){
+    var lbl = (r.recipeKind === 'composite' ? '🧩 ' : '') + (r.name||'') + '  ('+r.npd+')';
+    return '<option value="'+esc(r.npd)+'">'+esc(lbl)+'</option>';
+  }).join('');
+  if (currentVal && recipes.some(function(r){return r.npd === currentVal;})) sel.value = currentVal;
+  _ptestRefresh();
+}
+
+function _ptestRenderMode(r, mode) {
+  var defaultBatch = 1;
+  var factoryBatch = 100;
+  function withSubs(renderFn, includeMain) {
+    var sections = [];
+    function wrap(rec, label) {
+      return '<section class="multi-print-section" data-npd="' + (rec.npd||'') + '">' +
+               '<div class="multi-print-header">' +
+                 '<div class="multi-print-label">' + label + '</div>' +
+                 '<div class="multi-print-title">' + esc(rec.name||'') + '</div>' +
+                 '<div class="multi-print-sub">' + esc(rec.npd||'') + ' · ' + esc(rec.brand||'') + (rec.recipeKind === 'composite' ? ' · COMPOSITE' : '') + '</div>' +
+               '</div>' + renderFn(rec) + '</section>';
+    }
+    if (includeMain) sections.push(wrap(r, 'Main composite'));
+    if (Array.isArray(r.components)) {
+      var n = 0;
+      r.components.forEach(function(c){
+        if (!c || !c.subNpd) return;
+        var sub = RECIPE_DB[c.subNpd]; if (!sub) return;
+        n++; sections.push(wrap(sub, 'Sub-recipe ' + n + (c.pct ? ' (' + c.pct + '%)' : '')));
+      });
+    }
+    return '<div class="multi-print">' + sections.join('') + '</div>';
+  }
+  switch (mode) {
+    case 'kitchen':              return renderKitchen(r, defaultBatch);
+    case 'sop-only':             return renderSOPOnly(r);
+    case 'factory-text':         return renderFactory(r, factoryBatch, true);
+    case 'full':                 return renderFactoryFull(r, factoryBatch, false);
+    case 'flowchart':            return renderFlowchartOnly(r);
+    case 'batch':                return renderBatchTicketOnly(r, factoryBatch);
+    case 'qas':                  return renderQasPrint(r);
+    case 'cover':                return renderCoverSignoff(r);
+    case 'annexure':             return renderAnnexureOnly(r);
+    case 'kitchen-with-subs':    return withSubs(function(x){return renderKitchen(x, defaultBatch);}, true);
+    case 'factory-with-subs':    return withSubs(function(x){return renderFactory(x, factoryBatch, false);}, true);
+    case 'subs-only-kitchen':    return withSubs(function(x){return renderKitchen(x, defaultBatch);}, false);
+    case 'subs-only-factory':    return withSubs(function(x){return renderFactory(x, factoryBatch, false);}, false);
+    case 'factory':
+    default:                     return renderFactory(r, factoryBatch, false);
+  }
+}
+
+function _ptestRefresh() {
+  var sel = document.getElementById('ptest-recipe');
+  if (!sel) return;
+  var npd = sel.value;
+  if (!npd) return;
+  var r = RECIPE_DB[npd];
+  if (!r) return;
+  var canvas = document.getElementById('ptest-canvas');
+  if (!canvas) return;
+  var MODES = [
+    'kitchen','factory','factory-text','batch','cover','annexure','sop-only','full','flowchart','qas',
+    'kitchen-with-subs','factory-with-subs','subs-only-kitchen','subs-only-factory'
+  ];
+  var hasSubs = r.recipeKind === 'composite' &&
+                Array.isArray(r.components) &&
+                r.components.some(function(c){ return c && c.subNpd && RECIPE_DB[c.subNpd]; });
+  var html = '';
+  MODES.forEach(function(mode){
+    var cb = document.getElementById('ptest-mode-' + mode);
+    if (!cb || !cb.checked) return;
+    var isComp = /(-with-subs|^subs-only-)/.test(mode);
+    if (isComp && !hasSubs) return;
+    var content = '';
+    try { content = _ptestRenderMode(r, mode); }
+    catch (e) { content = '<div style="padding:16px;color:var(--red);font-size:12px">render failed: ' + esc(e.message || String(e)) + '</div>'; }
+    html += '<div style="border:1px solid var(--g2);border-radius:8px;overflow:hidden;background:white">' +
+              '<div style="background:var(--navy);color:white;padding:8px 12px;display:flex;justify-content:space-between;align-items:center">' +
+                '<span style="font-weight:600;font-size:12px">' + esc(mode) + '</span>' +
+                '<span style="font-size:10px;opacity:0.7;font-family:var(--font-m)">' + esc(r.npd) + '</span>' +
+              '</div>' +
+              '<div class="print-preview-tile" style="padding:14px;font-size:9pt;max-height:70vh;overflow:auto;background:#fafafa">' + content + '</div>' +
+            '</div>';
+  });
+  canvas.innerHTML = html || '<div style="grid-column:1/-1;padding:30px;text-align:center;color:var(--g3);font-size:13px">Select at least one mode above. Composite-only modes hidden when the recipe has no sub-recipes.</div>';
 }
 
 // Lookup EBS code for an ingredient name (fuzzy). Returns '' if no match.
