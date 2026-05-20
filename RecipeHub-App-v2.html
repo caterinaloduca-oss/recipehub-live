@@ -10393,20 +10393,50 @@ function openPrint(npd, mode) {
   var landscapeModes = ['batch','factory','factory-text','sop-only','kitchen','kitchen-with-subs','factory-with-subs','subs-only-kitchen','subs-only-factory'];
   var landscape = landscapeModes.indexOf(mode) > -1;
   // Helper for composite-aware multi-recipe prints: composite first, then each
-  // sub-recipe with a page break before it. Used by kitchen-with-subs /
-  // factory-with-subs / subs-only-kitchen / subs-only-factory.
+  // sub-recipe with a page break before it. Each recipe wrapped in a section so
+  // CSS can scope-hide interactive controls (batch input, etc.) and apply
+  // reliable page breaks. ID collisions in the underlying renders are masked by
+  // hiding their batch bars in this multi-print context.
   function _composeWithSubs(renderFn, includeMain) {
-    var parts = [];
-    if (includeMain) parts.push(renderFn(r));
+    var sections = [];
+    function wrap(rec, label) {
+      return '<section class="multi-print-section" data-npd="' + (rec.npd||'') + '">' +
+               '<div class="multi-print-header">' +
+                 '<div class="multi-print-label">' + (label||'') + '</div>' +
+                 '<div class="multi-print-title">' + esc(rec.name||'') + '</div>' +
+                 '<div class="multi-print-sub">' + esc(rec.npd||'') + ' · ' + esc(rec.brand||'') + (rec.recipeKind === 'composite' ? ' · COMPOSITE' : '') + '</div>' +
+               '</div>' +
+               renderFn(rec) +
+             '</section>';
+    }
+    if (includeMain) sections.push(wrap(r, 'Main composite'));
     if (Array.isArray(r.components)) {
+      var subN = 0;
       r.components.forEach(function(c){
         if (!c || !c.subNpd) return;
         var sub = RECIPE_DB[c.subNpd];
         if (!sub) return;
-        parts.push('<div style="page-break-before:always;break-before:page"></div>' + renderFn(sub));
+        subN++;
+        sections.push(wrap(sub, 'Sub-recipe ' + subN + (c.pct ? ' (' + c.pct + '%)' : '')));
       });
     }
-    return parts.join('');
+    // Inject scoped CSS once
+    var styleId = 'multi-print-style';
+    if (!document.getElementById(styleId)) {
+      var s = document.createElement('style');
+      s.id = styleId;
+      s.textContent = [
+        '.multi-print-section + .multi-print-section { page-break-before: always; break-before: page; }',
+        '.multi-print-section .ps-batch-size-bar { display: none !important; }',
+        '.multi-print-header { background: #1a1a1a; color: white; padding: 6px 12px; margin-bottom: 8px; display: flex; align-items: baseline; gap: 14px; border-radius: 4px; }',
+        '.multi-print-label { font-size: 8pt; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.7; }',
+        '.multi-print-title { font-size: 14pt; font-weight: 700; flex: 1; }',
+        '.multi-print-sub { font-size: 8pt; opacity: 0.6; font-family: var(--font-m); }',
+        '@media print { .multi-print-header { background: #1a1a1a !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; } }',
+      ].join('\n');
+      document.head.appendChild(s);
+    }
+    return '<div class="multi-print">' + sections.join('') + '</div>';
   }
 
   switch (mode) {
