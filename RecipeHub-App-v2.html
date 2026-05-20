@@ -3544,6 +3544,14 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
       <input class="search-input" placeholder="Type to filter recipes…" id="ptest-search" oninput="_ptestPopulate(this.value)" />
     </div>
     <select class="filter-select" id="ptest-recipe" onchange="_ptestRefresh()" style="min-width:280px"></select>
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--g4)">Kitchen batch
+      <input type="number" id="ptest-kitchen-batch" value="1" min="0.1" step="0.5" style="width:70px;padding:3px 6px;font-family:var(--font-m);font-size:12px" oninput="_ptestRefresh()" />
+      <span>kg</span>
+    </label>
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--g4)">Factory batch
+      <input type="number" id="ptest-factory-batch" value="100" min="1" step="10" style="width:80px;padding:3px 6px;font-family:var(--font-m);font-size:12px" oninput="_ptestRefresh()" />
+      <span>kg</span>
+    </label>
     <button class="btn btn-outline btn-sm" onclick="_ptestRefresh()">↻ Re-render</button>
   </div>
 
@@ -10541,8 +10549,11 @@ function _ptestPopulate(filter) {
 }
 
 function _ptestRenderMode(r, mode) {
-  var defaultBatch = 1;
-  var factoryBatch = 100;
+  // Lab-level batch inputs drive every tile uniformly.
+  var kEl = document.getElementById('ptest-kitchen-batch');
+  var fEl = document.getElementById('ptest-factory-batch');
+  var defaultBatch = (kEl && parseFloat(kEl.value)) || 1;
+  var factoryBatch = (fEl && parseFloat(fEl.value)) || 100;
   function withSubs(renderFn, includeMain) {
     var sections = [];
     function wrap(rec, label) {
@@ -10617,6 +10628,16 @@ function _ptestRefresh() {
             '</div>';
   });
   canvas.innerHTML = html || '<div style="grid-column:1/-1;padding:30px;text-align:center;color:var(--g3);font-size:13px">Select at least one mode above. Composite-only modes hidden when the recipe has no sub-recipes.</div>';
+  // Hide the per-tile batch inputs in the Lab — duplicate IDs across tiles
+  // make them functionally broken (rescale only finds the first one). The
+  // actual print modes work fine on the recipe page where there's only one.
+  var labStyleId = 'ptest-tile-style';
+  if (!document.getElementById(labStyleId)) {
+    var s = document.createElement('style');
+    s.id = labStyleId;
+    s.textContent = '.print-preview-tile .ps-batch-size-bar { display: none !important; }';
+    document.head.appendChild(s);
+  }
 }
 
 // Lookup EBS code for an ingredient name (fuzzy). Returns '' if no match.
