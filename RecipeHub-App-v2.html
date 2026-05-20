@@ -8257,8 +8257,8 @@ function showPage(id) {
 var _HASH_ROUTABLE = new Set([
   'dashboard','recipes','ingredients','qa','qas','sop','branch-sop',
   'production','substitutions','builds','brands','builds-costing',
-  'cost-control','reports','comms','library','training','audit-log',
-  'users','workflow','inspector'
+  'cost-control','reports','comms','library','pictures','training','audit-log',
+  'users','workflow','inspector','print-test'
 ]);
 
 function _syncHashWithPage(id) {
@@ -8735,6 +8735,7 @@ function canAccessPage(pageId) {
   if (pageId === 'users') return role === 'admin' && !_previewAccess;
   if (pageId === 'audit-log') return role === 'admin' && !_previewAccess;
   if (pageId === 'inspector') return role === 'admin' && !_previewAccess;
+  if (pageId === 'print-test') return role === 'admin' && !_previewAccess; // internal dev tool
   // Per-user access toggles can hide pages even from admins (so preview works).
   if (pageId === 'builds'      && !currentUserHasAccess('builds'))      return false;
   if (pageId === 'branch-sop'  && !currentUserHasAccess('branchSop'))   return false;
