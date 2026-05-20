@@ -10457,7 +10457,7 @@ function openPrint(npd, mode) {
       return asFactory ? renderFactory(r, factoryBatch, false) : renderKitchen(r, defaultBatch);
     }
     var masterBatchKg = asFactory ? factoryBatch : defaultBatch;
-    var portionG = r.portionSize || 0;
+    var portionG = (typeof compositePortionTotalG === 'function' ? compositePortionTotalG(r) : 0) || r.portionSize || 0;
     var portions = portionG ? (masterBatchKg * 1000) / portionG : 0;
     var modeKey = asFactory ? 'factory-master' : 'kitchen-master';
     var sections = [];
@@ -10638,7 +10638,7 @@ function _ptestRenderMode(r, mode) {
   function masterCascade(asFactory) {
     if (!isCompositeRecipe(r)) return asFactory ? renderFactory(r, factoryBatch, false) : renderKitchen(r, defaultBatch);
     var masterBatchKg = asFactory ? factoryBatch : defaultBatch;
-    var portionG = r.portionSize || 0;
+    var portionG = (typeof compositePortionTotalG === 'function' ? compositePortionTotalG(r) : 0) || r.portionSize || 0;
     var portions = portionG ? (masterBatchKg * 1000) / portionG : 0;
     var sections = [];
     sections.push('<section class="multi-print-section" data-role="master">' +
