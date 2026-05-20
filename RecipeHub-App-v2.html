@@ -3569,10 +3569,12 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
       <label><input type="checkbox" id="ptest-mode-flowchart"    onchange="_ptestRefresh()"> 🔀 Flowchart</label>
       <label><input type="checkbox" id="ptest-mode-qas"          onchange="_ptestRefresh()"> 👁 QAS</label>
       <span style="border-left:1px solid var(--g2);padding-left:14px;margin-left:0;font-weight:600">Composite bundles:</span>
-      <label><input type="checkbox" id="ptest-mode-kitchen-with-subs"  onchange="_ptestRefresh()" checked> 🧩 Kitchen + subs</label>
-      <label><input type="checkbox" id="ptest-mode-factory-with-subs"  onchange="_ptestRefresh()" checked> 🧩 Factory + subs</label>
-      <label><input type="checkbox" id="ptest-mode-subs-only-kitchen"  onchange="_ptestRefresh()"> 🔢 Subs only (K)</label>
-      <label><input type="checkbox" id="ptest-mode-subs-only-factory"  onchange="_ptestRefresh()"> 🔢 Subs only (F)</label>
+      <label><input type="checkbox" id="ptest-mode-kitchen-master"     onchange="_ptestRefresh()" checked> 🧩 Kitchen master + subs (cascade)</label>
+      <label><input type="checkbox" id="ptest-mode-factory-master"     onchange="_ptestRefresh()" checked> 🧩 Factory master + subs (cascade)</label>
+      <label><input type="checkbox" id="ptest-mode-subs-only-kitchen"  onchange="_ptestRefresh()"> 🔢 Subs only (kitchen)</label>
+      <label><input type="checkbox" id="ptest-mode-subs-only-factory"  onchange="_ptestRefresh()"> 🔢 Subs only (factory)</label>
+      <label><input type="checkbox" id="ptest-mode-kitchen-with-subs"  onchange="_ptestRefresh()"> 🧩 Kitchen + subs (independent — legacy)</label>
+      <label><input type="checkbox" id="ptest-mode-factory-with-subs"  onchange="_ptestRefresh()"> 🧩 Factory + subs (independent — legacy)</label>
     </div>
   </div>
 
@@ -10441,8 +10443,62 @@ function openPrint(npd, mode) {
   const defaultBatch = 1;
   const factoryBatch = 100;
   // Orientation per mode — most are portrait, batch/SOP-with-2-col-grid are landscape
-  var landscapeModes = ['batch','factory','factory-text','sop-only','kitchen','kitchen-with-subs','factory-with-subs','subs-only-kitchen','subs-only-factory'];
+  var landscapeModes = ['batch','factory','factory-text','sop-only','kitchen','kitchen-with-subs','factory-with-subs','subs-only-kitchen','subs-only-factory','kitchen-master','factory-master'];
   var landscape = landscapeModes.indexOf(mode) > -1;
+  // Composite master-cascade renderer. Master batch at top drives sub batches
+  // via _compositeKitchenRows math (portions × applyG per sub). Used by the
+  // kitchen-master / factory-master print modes — one editable master batch,
+  // all sub sections render at derived batches (sub batch inputs still work
+  // independently thanks to NPD-scoped IDs but the master cascade is the
+  // primary flow).
+  function _renderMasterCascade(asFactory) {
+    if (!isCompositeRecipe(r)) {
+      // Flat recipe: fall back to a single render (no subs to cascade to).
+      return asFactory ? renderFactory(r, factoryBatch, false) : renderKitchen(r, defaultBatch);
+    }
+    var masterBatchKg = asFactory ? factoryBatch : defaultBatch;
+    var portionG = r.portionSize || 0;
+    var portions = portionG ? (masterBatchKg * 1000) / portionG : 0;
+    var modeKey = asFactory ? 'factory-master' : 'kitchen-master';
+    var sections = [];
+    // Master section
+    sections.push(
+      '<section class="multi-print-section" data-npd="' + (r.npd||'') + '" data-role="master">' +
+        '<div class="multi-print-header">' +
+          '<div class="multi-print-label">Master composite — driving all sub batches</div>' +
+          '<div class="multi-print-title">' + esc(r.name||'') + '</div>' +
+          '<div class="multi-print-sub">' + esc(r.npd||'') + ' · ' + esc(r.brand||'') + (portionG ? ' · portion ' + portionG + 'g · ≈ ' + portions.toFixed(1) + ' portions' : ' · no portion size set') + '</div>' +
+        '</div>' +
+        (asFactory ? renderFactory(r, masterBatchKg, false) : renderKitchen(r, masterBatchKg)) +
+      '</section>'
+    );
+    if (Array.isArray(r.components)) {
+      var subN = 0;
+      r.components.forEach(function(c){
+        if (!c || !c.subNpd) return;
+        var sub = RECIPE_DB[c.subNpd]; if (!sub) return;
+        subN++;
+        // Cascade math: each sub batch = portions × c.applyG / 1000
+        var subBatchKg = (portions && c.applyG) ? (c.applyG * portions) / 1000 : (asFactory ? factoryBatch : defaultBatch);
+        if (subBatchKg <= 0) subBatchKg = 0.001;
+        var labelBits = ['Sub-recipe ' + subN];
+        if (c.applyG) labelBits.push(c.applyG + ' g/portion');
+        labelBits.push('derived ' + subBatchKg.toFixed(3) + ' kg');
+        sections.push(
+          '<section class="multi-print-section" data-npd="' + (sub.npd||'') + '" data-role="derived-sub">' +
+            '<div class="multi-print-header">' +
+              '<div class="multi-print-label">' + esc(labelBits.join(' · ')) + '</div>' +
+              '<div class="multi-print-title">' + esc(sub.name||'') + '</div>' +
+              '<div class="multi-print-sub">' + esc(sub.npd||'') + ' · cascaded from master</div>' +
+            '</div>' +
+            (asFactory ? renderFactory(sub, subBatchKg, false) : renderKitchen(sub, subBatchKg)) +
+          '</section>'
+        );
+      });
+    }
+    return '<div class="multi-print" data-mode="' + modeKey + '">' + sections.join('') + '</div>';
+  }
+
   // Helper for composite-aware multi-recipe prints: composite first, then each
   // sub-recipe with a page break before it. Each recipe wrapped in a section so
   // CSS can scope-hide interactive controls (batch input, etc.) and apply
@@ -10506,6 +10562,9 @@ function openPrint(npd, mode) {
     case 'factory-with-subs':  sheet.innerHTML = _composeWithSubs(function(x){return renderFactory(x, factoryBatch, false);}, true);  break;
     case 'subs-only-kitchen':  sheet.innerHTML = _composeWithSubs(function(x){return renderKitchen(x, defaultBatch);},  false); break;
     case 'subs-only-factory':  sheet.innerHTML = _composeWithSubs(function(x){return renderFactory(x, factoryBatch, false);}, false); break;
+    // ── Master cascade: one master batch drives every sub via component applyG ──
+    case 'kitchen-master':     sheet.innerHTML = _renderMasterCascade(false); break;
+    case 'factory-master':     sheet.innerHTML = _renderMasterCascade(true); break;
     default:             sheet.innerHTML = renderFactory(r, factoryBatch, false);
   }
   sheet.classList.toggle('landscape', landscape);
@@ -10575,6 +10634,37 @@ function _ptestRenderMode(r, mode) {
     }
     return '<div class="multi-print">' + sections.join('') + '</div>';
   }
+  // Master cascade for the Lab: composite at master batch + subs derived via applyG×portions.
+  function masterCascade(asFactory) {
+    if (!isCompositeRecipe(r)) return asFactory ? renderFactory(r, factoryBatch, false) : renderKitchen(r, defaultBatch);
+    var masterBatchKg = asFactory ? factoryBatch : defaultBatch;
+    var portionG = r.portionSize || 0;
+    var portions = portionG ? (masterBatchKg * 1000) / portionG : 0;
+    var sections = [];
+    sections.push('<section class="multi-print-section" data-role="master">' +
+      '<div class="multi-print-header"><div class="multi-print-label">Master composite — driving all sub batches</div>' +
+      '<div class="multi-print-title">' + esc(r.name||'') + '</div>' +
+      '<div class="multi-print-sub">' + esc(r.npd||'') + (portionG ? ' · portion ' + portionG + 'g · ≈ ' + portions.toFixed(1) + ' portions' : ' · no portion size set') + '</div></div>' +
+      (asFactory ? renderFactory(r, masterBatchKg, false) : renderKitchen(r, masterBatchKg)) + '</section>');
+    if (Array.isArray(r.components)) {
+      var n = 0;
+      r.components.forEach(function(c){
+        if (!c || !c.subNpd) return;
+        var sub = RECIPE_DB[c.subNpd]; if (!sub) return; n++;
+        var subBatchKg = (portions && c.applyG) ? (c.applyG * portions) / 1000 : (asFactory ? factoryBatch : defaultBatch);
+        if (subBatchKg <= 0) subBatchKg = 0.001;
+        var bits = ['Sub-recipe ' + n];
+        if (c.applyG) bits.push(c.applyG + ' g/portion');
+        bits.push('derived ' + subBatchKg.toFixed(3) + ' kg');
+        sections.push('<section class="multi-print-section" data-role="derived-sub">' +
+          '<div class="multi-print-header"><div class="multi-print-label">' + esc(bits.join(' · ')) + '</div>' +
+          '<div class="multi-print-title">' + esc(sub.name||'') + '</div>' +
+          '<div class="multi-print-sub">' + esc(sub.npd||'') + ' · cascaded from master</div></div>' +
+          (asFactory ? renderFactory(sub, subBatchKg, false) : renderKitchen(sub, subBatchKg)) + '</section>');
+      });
+    }
+    return '<div class="multi-print">' + sections.join('') + '</div>';
+  }
   switch (mode) {
     case 'kitchen':              return renderKitchen(r, defaultBatch);
     case 'sop-only':             return renderSOPOnly(r);
@@ -10589,6 +10679,8 @@ function _ptestRenderMode(r, mode) {
     case 'factory-with-subs':    return withSubs(function(x){return renderFactory(x, factoryBatch, false);}, true);
     case 'subs-only-kitchen':    return withSubs(function(x){return renderKitchen(x, defaultBatch);}, false);
     case 'subs-only-factory':    return withSubs(function(x){return renderFactory(x, factoryBatch, false);}, false);
+    case 'kitchen-master':       return masterCascade(false);
+    case 'factory-master':       return masterCascade(true);
     case 'factory':
     default:                     return renderFactory(r, factoryBatch, false);
   }
@@ -10605,6 +10697,7 @@ function _ptestRefresh() {
   if (!canvas) return;
   var MODES = [
     'kitchen','factory','factory-text','batch','cover','annexure','sop-only','full','flowchart','qas',
+    'kitchen-master','factory-master',
     'kitchen-with-subs','factory-with-subs','subs-only-kitchen','subs-only-factory'
   ];
   var hasSubs = r.recipeKind === 'composite' &&
@@ -10614,7 +10707,7 @@ function _ptestRefresh() {
   MODES.forEach(function(mode){
     var cb = document.getElementById('ptest-mode-' + mode);
     if (!cb || !cb.checked) return;
-    var isComp = /(-with-subs|^subs-only-)/.test(mode);
+    var isComp = /(-with-subs|^subs-only-|-master$)/.test(mode);
     if (isComp && !hasSubs) return;
     var content = '';
     try { content = _ptestRenderMode(r, mode); }
@@ -12101,15 +12194,18 @@ function viewRecipe(npd) {
           <div class="print-dd" id="dd-detail-${r.npd}">
             <button class="btn btn-sm" style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:none" onclick="event.stopPropagation();toggleDD('dd-detail-${r.npd}')">Print ▾</button>
             <div class="print-dd-menu">
-              <button class="print-dd-item" onclick="openPrint('${r.npd}','kitchen')"><span class="dd-icon">🍳</span> Kitchen Version</button>
-              <button class="print-dd-item" onclick="openPrint('${r.npd}','factory')"><span class="dd-icon">🏭</span> Factory Version</button>
+              <div style="padding:4px 14px;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--g3);font-weight:600">Full recipe</div>
+              <button class="print-dd-item" onclick="openPrint('${r.npd}','kitchen')"><span class="dd-icon">🍳</span> Kitchen</button>
+              <button class="print-dd-item" onclick="openPrint('${r.npd}','factory')"><span class="dd-icon">🏭</span> Factory</button>
               ${isCompositeRecipe(r) && Array.isArray(r.components) && r.components.some(function(c){return c && c.subNpd && RECIPE_DB[c.subNpd];}) ? `
               <div class="print-dd-divider"></div>
-              <div style="padding:4px 14px;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--g3);font-weight:600">Composite + sub-recipes</div>
-              <button class="print-dd-item" onclick="openPrint('${r.npd}','kitchen-with-subs')"><span class="dd-icon">🧩</span> Kitchen: composite + all subs</button>
-              <button class="print-dd-item" onclick="openPrint('${r.npd}','factory-with-subs')"><span class="dd-icon">🧩</span> Factory: composite + all subs</button>
-              <button class="print-dd-item" onclick="openPrint('${r.npd}','subs-only-kitchen')"><span class="dd-icon">🔢</span> Sub-recipes only (kitchen)</button>
-              <button class="print-dd-item" onclick="openPrint('${r.npd}','subs-only-factory')"><span class="dd-icon">🔢</span> Sub-recipes only (factory)</button>
+              <div style="padding:4px 14px;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--g3);font-weight:600">Recipe + subs (master — cascades)</div>
+              <button class="print-dd-item" onclick="openPrint('${r.npd}','kitchen-master')"><span class="dd-icon">🧩</span> Kitchen master + subs</button>
+              <button class="print-dd-item" onclick="openPrint('${r.npd}','factory-master')"><span class="dd-icon">🧩</span> Factory master + subs</button>
+              <div class="print-dd-divider"></div>
+              <div style="padding:4px 14px;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--g3);font-weight:600">Sub-recipes (each independent)</div>
+              <button class="print-dd-item" onclick="openPrint('${r.npd}','subs-only-kitchen')"><span class="dd-icon">🔢</span> Kitchen — subs only</button>
+              <button class="print-dd-item" onclick="openPrint('${r.npd}','subs-only-factory')"><span class="dd-icon">🔢</span> Factory — subs only</button>
               ` : ''}
             </div>
           </div>
@@ -16107,9 +16203,9 @@ function exportToSOP(npd) {
                 <button class="print-dd-item" onclick="event.stopPropagation();openPrint('${r.npd}','annexure')"><span class="dd-icon">📑</span> Annexure list</button>
                 ${isCompositeRecipe(r) && Array.isArray(r.components) && r.components.some(function(c){return c && c.subNpd && RECIPE_DB[c.subNpd];}) ? `
                 <div class="print-dd-divider"></div>
-                <div style="padding:4px 14px;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--g3);font-weight:600">Composite + sub-recipes</div>
-                <button class="print-dd-item" onclick="event.stopPropagation();openPrint('${r.npd}','factory-with-subs')"><span class="dd-icon">🧩</span> SOP: composite + all subs</button>
-                <button class="print-dd-item" onclick="event.stopPropagation();openPrint('${r.npd}','subs-only-factory')"><span class="dd-icon">🔢</span> Sub-recipe SOPs only</button>
+                <div style="padding:4px 14px;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--g3);font-weight:600">Recipe + subs (master — cascades)</div>
+                <button class="print-dd-item" onclick="event.stopPropagation();openPrint('${r.npd}','factory-master')"><span class="dd-icon">🧩</span> SOP master + subs</button>
+                <button class="print-dd-item" onclick="event.stopPropagation();openPrint('${r.npd}','subs-only-factory')"><span class="dd-icon">🔢</span> Sub-recipes (each independent)</button>
                 ` : ''}
               </div>
             </div>
