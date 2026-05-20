@@ -1019,6 +1019,20 @@ app.post('/api/recipe/:npd', requireAuth, (req, res) => {
         }
       }
     }
+    // Lift channel: explicit deletes from r.factorySopArchive survive the
+    // union-merge (which keys by dfcCode). Used to remove mislabeled or wrongly-
+    // attached legacy SOPs. Safe because removal is by explicit dfcCode.
+    if (Array.isArray(req.body.removeFactorySopArchive) && req.body.removeFactorySopArchive.length) {
+      const kill = new Set(req.body.removeFactorySopArchive.filter(Boolean));
+      const recipe = data.recipes[npd];
+      if (recipe && Array.isArray(recipe.factorySopArchive)) {
+        const before = recipe.factorySopArchive.length;
+        recipe.factorySopArchive = recipe.factorySopArchive.filter(a => !a || !kill.has(a.dfcCode));
+        if (recipe.factorySopArchive.length !== before) {
+          console.log('[recipe.post] removed', before - recipe.factorySopArchive.length, 'factorySopArchive dfcCode(s) from', npd);
+        }
+      }
+    }
     data.savedAt = new Date().toISOString();
     const savedAt = db.setState(JSON.stringify(data), data.dataVersion || 0);
     res.json({ ok: true, savedAt, recipe: data.recipes[npd] });
