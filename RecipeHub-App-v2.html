@@ -10390,8 +10390,25 @@ function openPrint(npd, mode) {
   const defaultBatch = 1;
   const factoryBatch = 100;
   // Orientation per mode — most are portrait, batch/SOP-with-2-col-grid are landscape
-  var landscapeModes = ['batch','factory','factory-text','sop-only','kitchen'];
+  var landscapeModes = ['batch','factory','factory-text','sop-only','kitchen','kitchen-with-subs','factory-with-subs','subs-only-kitchen','subs-only-factory'];
   var landscape = landscapeModes.indexOf(mode) > -1;
+  // Helper for composite-aware multi-recipe prints: composite first, then each
+  // sub-recipe with a page break before it. Used by kitchen-with-subs /
+  // factory-with-subs / subs-only-kitchen / subs-only-factory.
+  function _composeWithSubs(renderFn, includeMain) {
+    var parts = [];
+    if (includeMain) parts.push(renderFn(r));
+    if (Array.isArray(r.components)) {
+      r.components.forEach(function(c){
+        if (!c || !c.subNpd) return;
+        var sub = RECIPE_DB[c.subNpd];
+        if (!sub) return;
+        parts.push('<div style="page-break-before:always;break-before:page"></div>' + renderFn(sub));
+      });
+    }
+    return parts.join('');
+  }
+
   switch (mode) {
     case 'kitchen':      sheet.innerHTML = renderKitchen(r, defaultBatch); break;
     case 'sop-only':     sheet.innerHTML = renderSOPOnly(r); break;
@@ -10403,6 +10420,11 @@ function openPrint(npd, mode) {
     case 'qas':          sheet.innerHTML = renderQasPrint(r); break;
     case 'cover':        sheet.innerHTML = renderCoverSignoff(r); break;
     case 'annexure':     sheet.innerHTML = renderAnnexureOnly(r); break;
+    // ── Composite-aware bundles: assembled + each sub-recipe with page breaks ──
+    case 'kitchen-with-subs':  sheet.innerHTML = _composeWithSubs(function(x){return renderKitchen(x, defaultBatch);},  true);  break;
+    case 'factory-with-subs':  sheet.innerHTML = _composeWithSubs(function(x){return renderFactory(x, factoryBatch, false);}, true);  break;
+    case 'subs-only-kitchen':  sheet.innerHTML = _composeWithSubs(function(x){return renderKitchen(x, defaultBatch);},  false); break;
+    case 'subs-only-factory':  sheet.innerHTML = _composeWithSubs(function(x){return renderFactory(x, factoryBatch, false);}, false); break;
     default:             sheet.innerHTML = renderFactory(r, factoryBatch, false);
   }
   sheet.classList.toggle('landscape', landscape);
@@ -11882,8 +11904,15 @@ function viewRecipe(npd) {
             <button class="btn btn-sm" style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:none" onclick="event.stopPropagation();toggleDD('dd-detail-${r.npd}')">Print ▾</button>
             <div class="print-dd-menu">
               <button class="print-dd-item" onclick="openPrint('${r.npd}','kitchen')"><span class="dd-icon">🍳</span> Kitchen Version</button>
-              <div class="print-dd-divider"></div>
               <button class="print-dd-item" onclick="openPrint('${r.npd}','factory')"><span class="dd-icon">🏭</span> Factory Version</button>
+              ${isCompositeRecipe(r) && Array.isArray(r.components) && r.components.some(function(c){return c && c.subNpd && RECIPE_DB[c.subNpd];}) ? `
+              <div class="print-dd-divider"></div>
+              <div style="padding:4px 14px;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--g3);font-weight:600">Composite + sub-recipes</div>
+              <button class="print-dd-item" onclick="openPrint('${r.npd}','kitchen-with-subs')"><span class="dd-icon">🧩</span> Kitchen: composite + all subs</button>
+              <button class="print-dd-item" onclick="openPrint('${r.npd}','factory-with-subs')"><span class="dd-icon">🧩</span> Factory: composite + all subs</button>
+              <button class="print-dd-item" onclick="openPrint('${r.npd}','subs-only-kitchen')"><span class="dd-icon">🔢</span> Sub-recipes only (kitchen)</button>
+              <button class="print-dd-item" onclick="openPrint('${r.npd}','subs-only-factory')"><span class="dd-icon">🔢</span> Sub-recipes only (factory)</button>
+              ` : ''}
             </div>
           </div>
         </div>
@@ -15878,6 +15907,12 @@ function exportToSOP(npd) {
                 <button class="print-dd-item" onclick="event.stopPropagation();openPrint('${r.npd}','batch')"><span class="dd-icon">⚖️</span> Batch ticket only</button>
                 <button class="print-dd-item" onclick="event.stopPropagation();openPrint('${r.npd}','cover')"><span class="dd-icon">🗂️</span> Cover &amp; sign-off</button>
                 <button class="print-dd-item" onclick="event.stopPropagation();openPrint('${r.npd}','annexure')"><span class="dd-icon">📑</span> Annexure list</button>
+                ${isCompositeRecipe(r) && Array.isArray(r.components) && r.components.some(function(c){return c && c.subNpd && RECIPE_DB[c.subNpd];}) ? `
+                <div class="print-dd-divider"></div>
+                <div style="padding:4px 14px;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--g3);font-weight:600">Composite + sub-recipes</div>
+                <button class="print-dd-item" onclick="event.stopPropagation();openPrint('${r.npd}','factory-with-subs')"><span class="dd-icon">🧩</span> SOP: composite + all subs</button>
+                <button class="print-dd-item" onclick="event.stopPropagation();openPrint('${r.npd}','subs-only-factory')"><span class="dd-icon">🔢</span> Sub-recipe SOPs only</button>
+                ` : ''}
               </div>
             </div>
             <button class="btn btn-sm" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15)" onclick="viewRecipe('${r.npd}')">← Recipe</button>
