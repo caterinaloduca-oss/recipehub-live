@@ -1008,6 +1008,16 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
       <div class="stat-value" style="color:var(--g3)" id="dash-sop-archived">—</div>
       <div class="stat-sub" id="dash-sop-archived-sub">Click to view</div>
     </div>
+    <div class="stat-card" style="cursor:pointer" onclick="nav('builds')">
+      <div class="stat-label">Builds</div>
+      <div class="stat-value" style="color:var(--navy)" id="dash-builds">—</div>
+      <div class="stat-sub" id="dash-builds-sub">Click to view</div>
+    </div>
+    <div class="stat-card" style="cursor:pointer" onclick="nav('branch-sop')">
+      <div class="stat-label">Branch SOPs</div>
+      <div class="stat-value" style="color:var(--navy)" id="dash-bsop">—</div>
+      <div class="stat-sub" id="dash-bsop-sub">Click to view</div>
+    </div>
   </div>
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
@@ -21576,6 +21586,38 @@ function updateDashboardStats() {
     el('dash-sop-archived-sub').textContent = archLegacy
       ? (archLegacy + ' with Legacy SOP')
       : (sopArchived.length ? 'Click to view' : 'None');
+  }
+
+  // ── Builds ──
+  var bAll    = BUILDS_DATA || [];
+  var bLive   = bAll.filter(function(b){ return !b.archived; });
+  var bArch   = bAll.length - bLive.length;
+  var bApprov = bLive.filter(function(b){ return b.status === 'approved'; }).length;
+  var bDraft  = bLive.filter(function(b){ return b.status === 'draft'; }).length;
+  if (el('dash-builds')) el('dash-builds').textContent = bLive.length;
+  if (el('dash-builds-sub')) {
+    var bits = [];
+    if (bApprov) bits.push(bApprov + ' approved');
+    if (bDraft)  bits.push(bDraft + ' draft');
+    if (bArch)   bits.push(bArch + ' archived');
+    el('dash-builds-sub').textContent = bits.join(' · ') || 'Click to view';
+  }
+
+  // ── Branch SOPs ──
+  var sAll    = BRANCH_SOPS || [];
+  var sLive   = sAll.filter(function(s){ return !s.archived; });
+  var sArch   = sAll.length - sLive.length;
+  var sApprov = sLive.filter(function(s){ return s.status === 'approved'; }).length;
+  var sDraft  = sLive.filter(function(s){ return s.status === 'draft'; }).length;
+  var sFlag   = sLive.filter(function(s){ return s.flag && s.flag.question; }).length;
+  if (el('dash-bsop')) el('dash-bsop').textContent = sLive.length;
+  if (el('dash-bsop-sub')) {
+    var sbits = [];
+    if (sApprov) sbits.push(sApprov + ' approved');
+    if (sDraft)  sbits.push(sDraft + ' draft');
+    if (sFlag)   sbits.push(sFlag + ' flagged');
+    if (sArch)   sbits.push(sArch + ' archived');
+    el('dash-bsop-sub').textContent = sbits.join(' · ') || 'Click to view';
   }
 
   if (el('dash-ingredients')) el('dash-ingredients').textContent = ING_DATA.length;
