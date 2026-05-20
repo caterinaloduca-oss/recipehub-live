@@ -1547,6 +1547,19 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
     </div>
     <div id="bsop-filter-chips" style="display:none;flex-wrap:wrap;gap:6px;align-items:center;margin:-6px 0 12px 0;font-size:12px"></div>
 
+    <!-- Bulk action bar — appears when 1+ Branch SOP rows selected -->
+    <div id="bsop-bulk-bar" style="display:none;background:var(--navy);color:white;padding:10px 16px;border-radius:8px;margin-bottom:10px;align-items:center;gap:12px;font-size:13px">
+      <span id="bsop-bulk-count" style="font-weight:600">0 selected</span>
+      <div style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-sm" style="background:#E89A8E;color:var(--navy);border:none;font-size:11px" onclick="_bsopBulkSetStatus('draft')">📝 Draft</button>
+        <button class="btn btn-sm" style="background:#F5C26B;color:var(--navy);border:none;font-size:11px" onclick="_bsopBulkSetStatus('review')">⏳ In Review</button>
+        <button class="btn btn-sm" style="background:#A6D588;color:var(--navy);border:none;font-size:11px" onclick="_bsopBulkSetStatus('approved')">✓ Approved</button>
+        <button class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:white;border:none;font-size:11px" onclick="_bsopBulkArchive(true)">📦 Archive</button>
+        <button class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:white;border:none;font-size:11px" onclick="_bsopBulkArchive(false)">↺ Unarchive</button>
+        <button class="btn btn-sm" style="background:rgba(255,255,255,0.06);color:white;border:1px solid rgba(255,255,255,0.3);font-size:11px" onclick="_bsopBulkClear()">✕ Clear</button>
+      </div>
+    </div>
+
     <div class="card">
       <div class="card-head">
         <span class="card-title">Branch SOPs</span>
@@ -1555,7 +1568,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
       </div>
       <div class="card-body" style="padding:0">
         <table class="data-table">
-          <thead><tr><th>Product Name</th><th>SOP Code</th><th>Brand</th><th>Version</th><th>Steps</th><th>Status</th><th></th></tr></thead>
+          <thead><tr><th style="width:30px;text-align:center"><input type="checkbox" id="bsop-select-all" onchange="_bsopBulkToggleAll(this)" title="Select all visible"></th><th>Product Name</th><th>SOP Code</th><th>Brand</th><th>Version</th><th>Steps</th><th>Status</th><th></th></tr></thead>
           <tbody id="bsop-tbody"></tbody>
         </table>
       </div>
@@ -1839,6 +1852,19 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
   </div>
   <div id="build-filter-chips" style="display:none;flex-wrap:wrap;gap:6px;align-items:center;margin:-6px 0 12px 0;font-size:12px"></div>
 
+  <!-- Bulk action bar — appears when 1+ rows selected -->
+  <div id="builds-bulk-bar" style="display:none;background:var(--navy);color:white;padding:10px 16px;border-radius:8px;margin-bottom:10px;align-items:center;gap:12px;font-size:13px">
+    <span id="builds-bulk-count" style="font-weight:600">0 selected</span>
+    <div style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
+      <button class="btn btn-sm" style="background:#F5C26B;color:var(--navy);border:none;font-size:11px" onclick="_bulkSetLaunch('in-progress')">⏳ In Progress</button>
+      <button class="btn btn-sm" style="background:#A6D588;color:var(--navy);border:none;font-size:11px" onclick="_bulkSetLaunch('active')">✓ Active</button>
+      <button class="btn btn-sm" style="background:#E89A8E;color:var(--navy);border:none;font-size:11px" onclick="_bulkSetLaunch('inactive')">⊘ Inactive</button>
+      <button class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:white;border:none;font-size:11px" onclick="_bulkArchive(true)">📦 Archive</button>
+      <button class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:white;border:none;font-size:11px" onclick="_bulkArchive(false)">↺ Unarchive</button>
+      <button class="btn btn-sm" style="background:rgba(255,255,255,0.06);color:white;border:1px solid rgba(255,255,255,0.3);font-size:11px" onclick="_bulkClear()">✕ Clear</button>
+    </div>
+  </div>
+
   <div class="card">
     <div class="card-head">
       <span class="card-title">All Product Builds</span>
@@ -1847,7 +1873,7 @@ body.print-active .sidebar, body.print-active .main { visibility:hidden !importa
     </div>
     <div class="card-body" style="padding:0">
       <table class="data-table">
-        <thead><tr><th>Build Name</th><th>Code</th><th>Brand</th><th>Type</th><th>Size</th><th>Components</th><th>Build Cost</th><th>Status</th><th>Stage</th><th></th></tr></thead>
+        <thead><tr><th style="width:30px;text-align:center"><input type="checkbox" id="builds-select-all" onchange="_bulkToggleAll(this)" title="Select all visible"></th><th>Build Name</th><th>Code</th><th>Brand</th><th>Type</th><th>Size</th><th>Components</th><th>Build Cost</th><th>Status</th><th>Stage</th><th></th></tr></thead>
         <tbody id="builds-tbody"></tbody>
       </table>
     </div>
@@ -21974,6 +22000,7 @@ function buildBuildsTable() {
       : '';
     tr.dataset.flag = (b.flag && b.flag.question) ? '1' : '0';
     tr.innerHTML = `
+      <td style="width:30px;text-align:center" onclick="event.stopPropagation()"><input type="checkbox" class="bulk-select" data-build-id="${b.id}" onchange="_bulkUpdateBar()"></td>
       <td><strong>${b.name}</strong>${_buildFlagPin}${_nameTag}${b.archived ? ' <span style="font-size:10px;color:var(--g3);font-weight:500">ARCHIVED</span>' : ''}${(b.tags&&b.tags.length)?'<div style="margin-top:3px">'+renderTagBadges(b.tags)+'</div>':''}</td>
       <td style="font-family:var(--font-m);font-size:12px;color:var(--g3)">${b.id}</td>
       <td>${b.brand}</td>
@@ -21995,7 +22022,7 @@ function buildBuildsTable() {
     tbody.appendChild(tr);
   });
   if (!visibleCount) {
-    tbody.innerHTML = '<tr><td colspan="10" style="padding:40px;text-align:center;color:var(--g3);font-size:13px">No product builds yet. Click <strong>+ New Build</strong> to create one.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="11" style="padding:40px;text-align:center;color:var(--g3);font-size:13px">No product builds yet. Click <strong>+ New Build</strong> to create one.</td></tr>';
   }
   // Update stats (exclude archived from counts)
   const el = id => document.getElementById(id);
@@ -22023,10 +22050,79 @@ function archiveBuild(id) {
   var b = BUILDS_DATA.find(function(x) { return x.id === id; });
   if (!b) return;
   b.archived = !b.archived;
+  b.updatedAt = new Date().toISOString();
   buildBuildsTable();
   saveBuildToServer(id);
   showSaveToast(b.name + (b.archived ? ' archived' : ' restored'));
   logActivity('recipe', '🍕', (b.archived ? 'Archived' : 'Unarchived') + ' build: ' + b.name, b.id);
+}
+
+// ─── Bulk selection ──────────────────────────────────────────────────────
+function _bulkSelectedIds() {
+  return Array.from(document.querySelectorAll('#builds-tbody .bulk-select:checked'))
+    .map(function(el){ return el.dataset.buildId; });
+}
+function _bulkUpdateBar() {
+  var ids = _bulkSelectedIds();
+  var bar = document.getElementById('builds-bulk-bar');
+  if (!bar) return;
+  if (!ids.length) { bar.style.display = 'none'; return; }
+  bar.style.display = 'flex';
+  var lbl = document.getElementById('builds-bulk-count');
+  if (lbl) lbl.textContent = ids.length + ' selected';
+}
+function _bulkToggleAll(el) {
+  // Only toggle visible (not display:none filtered) rows
+  Array.from(document.querySelectorAll('#builds-tbody tr')).forEach(function(tr){
+    if (tr.style.display === 'none') return;
+    var cb = tr.querySelector('.bulk-select');
+    if (cb) cb.checked = el.checked;
+  });
+  _bulkUpdateBar();
+}
+function _bulkClear() {
+  Array.from(document.querySelectorAll('#builds-tbody .bulk-select')).forEach(function(cb){ cb.checked = false; });
+  var sa = document.getElementById('builds-select-all'); if (sa) sa.checked = false;
+  _bulkUpdateBar();
+}
+function _bulkArchive(archive) {
+  var ids = _bulkSelectedIds();
+  if (!ids.length) return;
+  if (!confirm((archive ? 'Archive' : 'Unarchive') + ' ' + ids.length + ' Build' + (ids.length===1?'':'s') + '?')) return;
+  var n = 0, now = new Date().toISOString();
+  ids.forEach(function(id){
+    var b = BUILDS_DATA.find(function(x){ return x.id === id; });
+    if (b && b.archived !== archive) {
+      b.archived = archive;
+      b.updatedAt = now;
+      saveBuildToServer(id);
+      n++;
+    }
+  });
+  _bulkClear();
+  buildBuildsTable();
+  showSaveToast(n + ' Build' + (n===1?'':'s') + ' ' + (archive ? 'archived' : 'unarchived'));
+  logActivity('recipe', '🍕', (archive ? 'Bulk archived ' : 'Bulk unarchived ') + n + ' Build' + (n===1?'':'s'), '');
+}
+function _bulkSetLaunch(status) {
+  var ids = _bulkSelectedIds();
+  if (!ids.length) return;
+  var label = ({active:'Active', 'in-progress':'In Progress', inactive:'Inactive'})[status] || status;
+  if (!confirm('Set ' + ids.length + ' Build' + (ids.length===1?'':'s') + ' to ' + label + '?')) return;
+  var n = 0, now = new Date().toISOString();
+  ids.forEach(function(id){
+    var b = BUILDS_DATA.find(function(x){ return x.id === id; });
+    if (b && b.launchStatus !== status) {
+      b.launchStatus = status;
+      b.updatedAt = now;
+      saveBuildToServer(id);
+      n++;
+    }
+  });
+  _bulkClear();
+  buildBuildsTable();
+  showSaveToast(n + ' Build' + (n===1?'':'s') + ' → ' + label);
+  logActivity('recipe', '🍕', 'Bulk set ' + n + ' Build' + (n===1?'':'s') + ' to ' + label, '');
 }
 
 function filterBuilds() {
@@ -25602,6 +25698,7 @@ function buildBranchSOPTable() {
       ? ' <span style="font-size:13px;margin-left:4px;cursor:help" title="Flagged: ' + (sop.flag.question||'').replace(/"/g,'&quot;').replace(/</g,'&lt;') + '">🚩</span>'
       : '';
     tr.innerHTML = `
+      <td style="width:30px;text-align:center" onclick="event.stopPropagation()"><input type="checkbox" class="bsop-bulk-select" data-sop-id="${sop.id}" onchange="_bsopBulkUpdateBar()"></td>
       <td><strong>${sop.name}</strong>${_bsopFlagPin}${buildDiscontinued ? ' <span style="font-size:10px;color:var(--red);font-weight:500">DISCONTINUED</span>' : ''}${sop.archived ? ' <span style="font-size:10px;color:var(--g3);font-weight:500">ARCHIVED</span>' : ''}</td>
       <td style="font-family:var(--font-m);font-size:12px;color:var(--g3)">${sop.id}</td>
       <td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${BSOP_BRAND_COLORS[sop.brand]||'#1B2A4A'};margin-right:6px;vertical-align:middle"></span>${sop.brand}</td>
@@ -25620,7 +25717,7 @@ function buildBranchSOPTable() {
     tbody.appendChild(tr);
   });
   if (!visibleCount) {
-    tbody.innerHTML = '<tr><td colspan="7" style="padding:40px;text-align:center;color:var(--g3);font-size:13px">No branch SOPs yet. Create one from a Product Build — open the build and use <strong>Generate Branch SOP</strong>.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" style="padding:40px;text-align:center;color:var(--g3);font-size:13px">No branch SOPs yet. Create one from a Product Build — open the build and use <strong>Generate Branch SOP</strong>.</td></tr>';
   }
   const countEl = document.getElementById('bsop-count-label');
   if (countEl) countEl.textContent = visibleCount + ' SOPs';
@@ -25630,6 +25727,73 @@ function buildBranchSOPTable() {
   if (typeof _loadBsopFilters === 'function') _loadBsopFilters();
   // Reapply active search/brand filter after rebuild — otherwise the dropdown shows e.g. "Maestro" but Mad rows appear.
   if (typeof filterBranchSOPs === 'function') filterBranchSOPs();
+}
+
+// ─── BSOP bulk selection ──────────────────────────────────────────────────
+function _bsopBulkSelectedIds() {
+  return Array.from(document.querySelectorAll('#bsop-tbody .bsop-bulk-select:checked'))
+    .map(function(el){ return el.dataset.sopId; });
+}
+function _bsopBulkUpdateBar() {
+  var ids = _bsopBulkSelectedIds();
+  var bar = document.getElementById('bsop-bulk-bar');
+  if (!bar) return;
+  if (!ids.length) { bar.style.display = 'none'; return; }
+  bar.style.display = 'flex';
+  var lbl = document.getElementById('bsop-bulk-count');
+  if (lbl) lbl.textContent = ids.length + ' selected';
+}
+function _bsopBulkToggleAll(el) {
+  Array.from(document.querySelectorAll('#bsop-tbody tr')).forEach(function(tr){
+    if (tr.style.display === 'none') return;
+    var cb = tr.querySelector('.bsop-bulk-select');
+    if (cb) cb.checked = el.checked;
+  });
+  _bsopBulkUpdateBar();
+}
+function _bsopBulkClear() {
+  Array.from(document.querySelectorAll('#bsop-tbody .bsop-bulk-select')).forEach(function(cb){ cb.checked = false; });
+  var sa = document.getElementById('bsop-select-all'); if (sa) sa.checked = false;
+  _bsopBulkUpdateBar();
+}
+function _bsopBulkArchive(archive) {
+  var ids = _bsopBulkSelectedIds();
+  if (!ids.length) return;
+  if (!confirm((archive ? 'Archive' : 'Unarchive') + ' ' + ids.length + ' Branch SOP' + (ids.length===1?'':'s') + '?')) return;
+  var n = 0, now = new Date().toISOString();
+  ids.forEach(function(id){
+    var sop = BRANCH_SOPS.find(function(s){ return s.id === id; });
+    if (sop && sop.archived !== archive) {
+      sop.archived = archive;
+      sop.updatedAt = now;
+      saveBranchSOPToServer(id);
+      n++;
+    }
+  });
+  _bsopBulkClear();
+  buildBranchSOPTable();
+  showSaveToast(n + ' Branch SOP' + (n===1?'':'s') + ' ' + (archive ? 'archived' : 'unarchived'));
+  logActivity('sop', '📋', (archive ? 'Bulk archived ' : 'Bulk unarchived ') + n + ' Branch SOP' + (n===1?'':'s'), '');
+}
+function _bsopBulkSetStatus(status) {
+  var ids = _bsopBulkSelectedIds();
+  if (!ids.length) return;
+  var label = ({draft:'Draft', review:'In Review', approved:'Approved'})[status] || status;
+  if (!confirm('Set ' + ids.length + ' Branch SOP' + (ids.length===1?'':'s') + ' to ' + label + '?')) return;
+  var n = 0, now = new Date().toISOString();
+  ids.forEach(function(id){
+    var sop = BRANCH_SOPS.find(function(s){ return s.id === id; });
+    if (sop && sop.status !== status) {
+      sop.status = status;
+      sop.updatedAt = now;
+      saveBranchSOPToServer(id);
+      n++;
+    }
+  });
+  _bsopBulkClear();
+  buildBranchSOPTable();
+  showSaveToast(n + ' Branch SOP' + (n===1?'':'s') + ' → ' + label);
+  logActivity('sop', '📋', 'Bulk set ' + n + ' Branch SOP' + (n===1?'':'s') + ' to ' + label, '');
 }
 
 function archiveBranchSOP(id) {
